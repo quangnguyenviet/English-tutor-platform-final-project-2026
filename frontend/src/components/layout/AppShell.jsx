@@ -25,6 +25,7 @@ import {
   LineChart,
   FolderOpen,
   Lock,
+  Banknote,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { AiAssistantProvider, useAiAssistant } from "../../context/AiAssistantContext";
@@ -54,13 +55,12 @@ export default function AppShell() {
 }
 
 function AppShellInner() {
-  const { session, logout } = useAuth();
+  const { session, logout, matchRequestList, paymentProofList } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { studentId } = useParams();
   const { open: chatOpen } = useAiAssistant();
   const [mobileOpen, setMobileOpen] = useState(false);
-  
   let studentMatching = null;
   try {
     studentMatching = useStudentMatching();
@@ -76,14 +76,28 @@ function AppShellInner() {
   // Build dynamic nav items
   let items = [];
   if (isAdmin) {
+    const pendingMatchCount = matchRequestList?.filter((r) => r.status === "pending").length || 0;
+    const pendingPaymentCount = paymentProofList?.filter((p) => p.status === "pending").length || 0;
+
     items = [
-      { to: "/admin",           label: "Tổng quan",         icon: LayoutDashboard, end: true },
-      { to: "/admin/tutors",    label: "Quản lý gia sư",    icon: UserCog },
-      { to: "/admin/students",  label: "Quản lý học sinh",  icon: Users },
+      { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
+      {
+        to: "/admin/match-requests",
+        label: "Yêu cầu ghép lớp",
+        icon: ClipboardList,
+        badge: () => (pendingMatchCount > 0 ? pendingMatchCount : null),
+      },
+      {
+        to: "/admin/payments",
+        label: "Duyệt thanh toán",
+        icon: Banknote,
+        badge: () => (pendingPaymentCount > 0 ? pendingPaymentCount : null),
+      },
+      { to: "/admin/tutors", label: "Quản lý gia sư", icon: UserCog },
+      { to: "/admin/students", label: "Quản lý học sinh", icon: Users },
       { to: "/admin/analytics", label: "Báo cáo & Phân tích", icon: BarChart2 },
-      { to: "/admin/materials", label: "Kho tài liệu mẫu",   icon: BookOpenCheck },
-      { to: "/admin/logs",      label: "Nhật ký hoạt động",  icon: Activity },
-      { to: "/admin/settings",  label: "Cài đặt",            icon: Settings },
+      { to: "/admin/logs", label: "Nhật ký hoạt động", icon: Activity },
+      { to: "/admin/settings", label: "Cài đặt", icon: Settings },
     ];
   } else if (isTutor) {
     items = [

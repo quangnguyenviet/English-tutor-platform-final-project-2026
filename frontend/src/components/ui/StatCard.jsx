@@ -3,6 +3,8 @@ import clsx from "clsx";
 
 const toneText = {
   blue: "text-blue-600 dark:text-blue-400",
+  indigo: "text-indigo-600 dark:text-indigo-400",
+  sky: "text-sky-600 dark:text-sky-400",
   emerald: "text-emerald-600 dark:text-emerald-400",
   amber: "text-amber-600 dark:text-amber-400",
   rose: "text-rose-600 dark:text-rose-400",
