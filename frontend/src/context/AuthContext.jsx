@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { tutors, tutor, students } from "../data/mockData";
+import { tutors, tutor, students, matchRequests, paymentProofs } from "../data/mockData";
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = "gsa_session";
@@ -15,9 +15,12 @@ export function AuthProvider({ children }) {
     }
   });
 
-  // State quản lý danh sách gia sư — dùng cho module admin
+  // State quản lý danh sách gia sư & học sinh — dùng cho module admin
   const [tutorList, setTutorList] = useState(() => [...tutors]);
   const [studentList, setStudentList] = useState(() => [...students]);
+  // State quản lý match requests & thanh toán QR proof
+  const [matchRequestList, setMatchRequestList] = useState(() => [...matchRequests]);
+  const [paymentProofList, setPaymentProofList] = useState(() => [...paymentProofs]);
 
   useEffect(() => {
     if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
@@ -79,6 +82,62 @@ export function AuthProvider({ children }) {
     setStudentList((prev) => prev.filter((s) => s.id !== id));
   }
 
+  // Admin Match Request helpers (FR-16)
+  function updateMatchRequest(id, patch) {
+    setMatchRequestList((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
+
+  function createMatchOffer(requestId, tutorId, tutorName, fee) {
+    setMatchRequestList((prev) =>
+      prev.map((r) =>
+        r.id === requestId
+          ? {
+              ...r,
+              status: "offered",
+              matchedTutorId: tutorId,
+              matchedTutorName: tutorName,
+              offeredAt: new Date().toISOString(),
+              matchOfferFee: fee,
+            }
+          : r
+      )
+    );
+  }
+
+  // Admin Payment / QR Proof helpers (FR-23)
+  function approvePaymentProof(paymentId) {
+    setPaymentProofList((prev) =>
+      prev.map((p) =>
+        p.id === paymentId
+          ? {
+              ...p,
+              status: "approved",
+              parentContactLocked: false,
+              reviewedAt: new Date().toISOString(),
+              reviewedBy: session?.name || "Quản trị viên",
+              rejectReason: null,
+            }
+          : p
+      )
+    );
+  }
+
+  function rejectPaymentProof(paymentId, reason) {
+    setPaymentProofList((prev) =>
+      prev.map((p) =>
+        p.id === paymentId
+          ? {
+              ...p,
+              status: "rejected",
+              reviewedAt: new Date().toISOString(),
+              reviewedBy: session?.name || "Quản trị viên",
+              rejectReason: reason || "Thông tin chuyển khoản không trùng khớp hoặc ảnh mờ.",
+            }
+          : p
+      )
+    );
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -97,6 +156,14 @@ export function AuthProvider({ children }) {
         addStudent,
         updateStudent,
         removeStudent,
+        matchRequestList,
+        setMatchRequestList,
+        updateMatchRequest,
+        createMatchOffer,
+        paymentProofList,
+        setPaymentProofList,
+        approvePaymentProof,
+        rejectPaymentProof,
       }}
     >
       {children}
