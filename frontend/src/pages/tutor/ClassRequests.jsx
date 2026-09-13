@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   BookOpen,
   Calendar,
@@ -14,7 +14,6 @@ import {
   Phone,
   MessageSquare,
   Clock,
-  Sparkles,
   QrCode,
   ShieldCheck,
   CheckCircle2,
@@ -127,7 +126,6 @@ function InfoRow({ icon: Icon, label, value, highlight }) {
 }
 
 export default function ClassRequests() {
-  const navigate = useNavigate();
   const [requests, setRequests] = useState(initialRequests);
   const [selectedId, setSelectedId] = useState(
     initialRequests.find((r) => r.status === "pending_offer")?.id ?? initialRequests[0]?.id
@@ -598,38 +596,6 @@ export default function ClassRequests() {
                       <Button variant="primary" onClick={() => setShowQrModal(true)}>
                         <QrCode size={16} /> Thanh Toán VietQR Ngay
                       </Button>
-                    </div>
-                  </div>
-
-                  {/* Shortcuts đến các công cụ Gia sư AI */}
-                  <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/50 space-y-3">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Lối Tắt Công Cụ Dạy Học Cho Lớp Này</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <button
-                        onClick={() => navigate("/tutor/students/s1/path")}
-                        className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900 transition"
-                      >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                          <BookOpen size={18} />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-800 dark:text-slate-100">Quản Lý Khung Chương Trình</p>
-                          <p className="text-[11px] text-slate-400">Tạo lộ trình Dual-Mode bằng AI</p>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={() => navigate("/tutor/exercise-generator")}
-                        className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm hover:border-blue-400 dark:border-slate-800 dark:bg-slate-900 transition"
-                      >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                          <Sparkles size={18} />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-800 dark:text-slate-100">Soạn Bài Tập AI Assistant</p>
-                          <p className="text-[11px] text-slate-400">Tự động sinh bài tập trong 5s</p>
-                        </div>
-                      </button>
                     </div>
                   </div>
                 </div>
