@@ -2,7 +2,7 @@
 title: Ứng dụng AI hỗ trợ vận hành và giảng dạy cho mô hình gia sư tiếng Anh 1-1
 status: final
 created: 2026-08-31
-updated: 2026-09-04
+updated: 2026-09-13
 ---
 # PRD: Ứng dụng AI hỗ trợ vận hành và giảng dạy cho mô hình gia sư tiếng Anh 1-1
 
@@ -19,7 +19,7 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
 - **Gia sư**: nhận lớp, soạn chương trình, giao bài tập cá nhân hóa — tất cả trên di động, trong vài phút.
 - **Học sinh**: làm bài, được chấm tức thì, và tự hiểu lý do sai qua lời giải thích AI.
 - **Phụ huynh**: đăng ký học thử nhanh, xem tiến bộ con bằng biểu đồ.
-- **Admin**: ghép lớp, duyệt phí, và quản lý vận hành trung tâm tập trung tại một nơi.
+- **Admin**: ghép lớp, duyệt phí nhận lớp (sau 1 tháng dạy), và quản lý vận hành trung tâm tập trung tại một nơi.
 
 ## 2. Target User
 
@@ -35,7 +35,8 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
   * *Functional*: Muốn làm bài tập về nhà thuận tiện trên thiết bị cá nhân. Muốn ngay lập tức biết kết quả bài làm và hiểu rõ lý do vì sao mình làm đúng/sai ở từng câu để tự củng cố kiến thức mà không phải chờ đến buổi học tiếp theo.
   * *Emotional*: Cảm thấy việc làm bài tập nhẹ nhàng, không bị nản hay áp lực vì luôn có hướng dẫn/giải thích rõ ràng ngay khi gặp câu khó hoặc làm sai.
 * **Quản trị viên (Admin - Người vận hành)**:
-  * *Functional*: Muốn tiếp nhận và xử lý nhanh chóng các yêu cầu học thử từ phụ huynh, ghép nối gia sư phù hợp với nhu cầu của từng học sinh. Muốn kiểm soát và đối soát các khoản phí vận hành/nhận lớp minh bạch, chính xác trước khi cung cấp thông tin kết nối lớp học.
+  * *Functional*: Muốn tiếp nhận và xử lý nhanh chóng các yêu cầu học thử từ phụ huynh, ghép nối gia sư phù hợp với nhu cầu của từng học sinh. Muốn kiểm soát và đối soát các khoản phí nhận lớp minh bạch, chính xác sau khi gia sư hoàn thành 1 tháng dạy chính thức.
+  * *Emotional*: Cảm thấy quy trình vận hành trung tâm diễn ra trơn tru, chuyên nghiệp, giảm thiểu sai sót thủ công và đảm bảo sự hài lòng cho cả gia sư lẫn phụ huynh.
   * *Emotional*: Cảm thấy quy trình vận hành trung tâm diễn ra trơn tru, chuyên nghiệp, giảm thiểu sai sót thủ công và đảm bảo sự hài lòng cho cả gia sư lẫn phụ huynh.
 
 ### 2.2 Non-Users (v1)
@@ -58,20 +59,21 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
     3. Chị Lan xem hồ sơ cô Mai (95% Match).
   * **Climax**: Chị Lan bấm nút **"Đăng ký học thử"** (gửi yêu cầu tới Admin mà không cần điền lại thông tin rườm rà).
   * **Resolution**: Hệ thống tạo một bản ghi Match Request ở trạng thái `PENDING`. Chị Lan nhập SĐT để nhận SMS xác nhận. Thông báo mới lập tức hiển thị trên Admin Dashboard.
-* **UJ-2. Minh (Gia sư) nhận lớp, lập Khung chương trình, nộp phí QR proof và giao bài tập qua Tutor Assistant Dual-Mode**
+* **UJ-2. Minh (Gia sư) nhận lớp, lập Khung chương trình, giao bài tập qua Tutor Assistant Dual-Mode và nộp phí QR proof sau 1 tháng dạy**
 
   * **Persona + Context**: Minh, sinh viên năm 3 chuyên ngành Tiếng Anh, đi dạy thêm bằng điện thoại di động.
   * **Entry State**: Đã đăng nhập tài khoản Gia sư trên di động.
   * **Path**:
-    1. Minh nhận thông báo chấp nhận nhận lớp Nam (10 tuổi). Minh bấm "Chấp nhận" ➔ Giao diện hiển thị thông tin nộp phí nhận lớp kèm mã VietQR chuyển khoản động.
-    2. Minh chuyển khoản qua ngân hàng, chụp màn hình biên lai và tải ảnh minh chứng lên Cổng Gia sư để gửi Admin duyệt.
+    1. Minh nhận thông báo đề xuất nhận lớp Nam (10 tuổi). Minh bấm "Chấp nhận" ➔ Hệ thống tự động **Mở khóa (Unlock) SĐT & Địa chỉ của Phụ huynh** (chị Lan) để Minh chủ động liên hệ chốt lịch học thử.
+    2. Minh liên hệ chị Lan, chốt ngày giờ học thử thành công, sau buổi học thử nhập **Lịch dạy cố định hàng tuần** và bấm chọn **"Kích hoạt lớp học chính thức"** (`ACTIVE`).
     3. Minh khởi tạo **Khung chương trình học tinh gọn (Curriculum Management)** cho lớp Nam bằng **Dual-Mode AI Curriculum Generation**: Minh có thể chọn Option A (nhập mô tả lớp *"Tiếng Anh 10 tuổi - Nhút nhát"* ➔ AI tự động sinh nháp khung 2 cấp trong hệ thống) hoặc Option B (Tải Prompt Mẫu dán vào ChatGPT ngoài ➔ Import JSON/Text kết quả vào hệ thống với 0 Token Cost), sau đó tinh chỉnh thêm Chủ đề 1 *"Family & Hobbies"* ➔ Bài 1 *"Present Simple & Daily Routines"*.
     4. Sau buổi dạy đầu tiên thuộc Bài 1, Minh chuẩn bị bài tập cho Nam bằng **Tutor Assistant Dual-Mode**:
        * *Option A (Direct AI Generation)*: Minh nhập/chat ghi chú nội dung bài dạy kèm yêu cầu bằng giọng văn tự nhiên: *"Tạo 5 câu trắc nghiệm ôn tập Thì hiện tại đơn và Từ vựng chủ đề Thói quen cho học sinh 10 tuổi"* ➔ Nhấn "Sinh bài tập AI".
-       * *Option B (Import Structured File)*: Nếu muốn tiết kiệm token (0 Token Cost), Minh bấm "Tải Prompt Mẫu", dán vào ChatGPT/Claude ở ngoài ➔ Upload file JSON kết quả lên hệ thống để parse tự động.
-    5. AI (`gpt-4o-mini` / `Gemini Flash`) tự động sinh bộ bài tập 5 câu (trắc nghiệm, điền từ, sửa lỗi) kèm Đáp án đúng và Lời giải thích chi tiết cho từng câu.
-  * **Climax**: Minh kiểm tra nội dung và bấm nút **"Giao bài"** (chuyển bài tức thì sang Cổng Học sinh).
-  * **Resolution**: Bài tập chuyển thẳng sang Cổng Học sinh của Nam. Minh hoàn thành việc giao bài trong chưa đầy 2 phút.
+       * *Option B (Import Structured File)*: Nếu muốn tiết kiệm token (0 Token Cost), Minh bấm "Tải Prompt Mẫu", dán vào ChatGPT/Claude ở ngoài ➔ Upload file JSON kết quả vào hệ thống để parse tự động.
+    5. AI (`gpt-4o-mini` / `Gemini Flash`) tự động sinh bộ bài tập 5 câu (trắc nghiệm, điền từ, sửa lỗi) kèm Đáp án đúng và Lời giải thích chi tiết cho từng câu. Minh kiểm tra và bấm nút **"Giao bài"**.
+    6. **Nộp phí nhận lớp sau 1 tháng dạy**: Khi lớp học chính thức tròn 1 tháng (30 ngày), hệ thống gửi thông báo yêu cầu nộp phí nhận lớp kèm mã VietQR chuyển khoản động. Minh chuyển khoản qua ngân hàng, chụp màn hình biên lai và tải ảnh minh chứng (QR proof) lên Cổng Gia sư để gửi Admin duyệt.
+  * **Climax**: Bài tập chuyển thẳng sang Cổng Học sinh của Nam trong chưa đầy 2 phút, và yêu cầu nộp phí nhận lớp được hoàn tất sau 1 tháng dạy.
+  * **Resolution**: Minh giảng dạy trơn tru, nộp phí nhận lớp đúng hạn sau 1 tháng dạy chính thức và Admin phê duyệt phí thành công.
 * **UJ-3. Nam (Học sinh) hoàn thành bài tập online và tự học qua Lời giải thích AI**
 
   * **Persona + Context**: Nam, 10 tuổi, được gia sư giao bài tập về nhà sau buổi học để củng cố kiến thức.
@@ -81,21 +83,21 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
     2. Đến câu số 4 (phát âm đuôi /t/ và /d/), Nam chọn nhầm đáp án.
   * **Climax**: Nam nhấn nút "Nộp bài".
   * **Resolution**: Hệ thống **tự động chấm điểm** (đạt 4/5 câu đúng). Ngay lập tức, màn hình hiển thị kết quả chi tiết từng câu kèm **Lời giải thích chi tiết do AI sinh sẵn** (ví dụ: *"Từ 'cat' kết thúc bằng âm bật hơi nhẹ ở đầu lưỡi /t/, trong khi 'dog' kết thúc bằng âm /d/..."*). Nam đọc lời giải thích và hiểu ngay lý do sai.
-* **UJ-4. Anh Bình (Admin) tư vấn Phụ huynh, tạo Match Offer và phê duyệt phí nhận lớp để mở khóa thông tin liên hệ cho Gia sư**
+* **UJ-4. Anh Bình (Admin) tư vấn Phụ huynh, tạo Match Offer và phê duyệt phí nhận lớp sau 1 tháng dạy cho Gia sư**
 
   * **Persona + Context**: Anh Bình, quản trị viên vận hành trung tâm gia sư.
   * **Entry State**: Đã đăng nhập Admin Dashboard.
   * **Path**:
     1. Anh Bình xem màn hình **Match Request Management**, thấy yêu cầu đăng ký học thử của chị Lan cho học sinh Nam với cô Mai (95% Match).
-    2. Anh Bình gọi điện/nhắn tin cho chị Lan để chốt lịch học thử và báo giá ➔ Bấm **"Tạo Match Offer"** gửi tới Cổng Gia sư của cô Mai.
-    3. Cô Mai nhận thông báo Offer (chưa thấy SĐT/Địa chỉ chị Lan), bấm "Chấp nhận" ➔ Giao diện hiển thị thông tin nộp phí nhận lớp kèm mã VietQR chuyển khoản động. Cô Mai chuyển khoản và upload ảnh biên lai (QR proof).
-    4. Màn hình Admin hiển thị thông báo phê duyệt phí kèm ảnh biên lai của cô Mai.
-    5. Anh Bình kiểm tra ảnh chuyển khoản và bấm "Phê duyệt phí" ➔ Trạng thái phí chuyển `PAID`, hệ thống tự động **Mở khóa (Unlock) SĐT & Địa chỉ của chị Lan trên Cổng Gia sư của cô Mai**.
-    6. Cô Mai gọi điện cho chị Lan chốt ngày/giờ học thử ➔ Cập nhật **Lịch học thử** lên Cổng Gia sư (gửi thông báo nhắc lịch cho các bên).
-    7. Sau khi hoàn thành buổi học thử, Cô Mai bấm chọn **"Hoàn thành buổi học thử"**.
-    8. Cô Mai nhập **Lịch dạy cố định hàng tuần** (Thứ 3 & Thứ 5 từ 19:00 - 21:00) và chọn **"Kích hoạt lớp học chính thức"**.
-  * **Climax**: Trạng thái liên kết lớp chuyển sang `ACTIVE`.
-  * **Resolution**: Hệ thống tự động sinh Lịch dạy Calendar trên ứng dụng của Cô Mai và Học sinh Nam, mở tính năng Quản lý Khung chương trình và Giao bài tập.
+    2. Anh Bình gọi điện/nhắn tin cho chị Lan để chốt lịch học thử và báo giá ➔ Bấm **"Tạo Match Offer"** gửi tới Cổng Gia sư của cô Mai (kèm thông tin số tiền phí nhận lớp dự kiến thu sau 1 tháng dạy).
+    3. Cô Mai nhận thông báo Offer, bấm "Chấp nhận" ➔ Hệ thống tự động **Mở khóa (Unlock) SĐT & Địa chỉ của chị Lan trên Cổng Gia sư của cô Mai**.
+    4. Cô Mai gọi điện cho chị Lan chốt ngày/giờ học thử ➔ Cập nhật **Lịch học thử** lên Cổng Gia sư (gửi thông báo nhắc lịch cho các bên).
+    5. Sau khi hoàn thành buổi học thử, Cô Mai bấm chọn **"Hoàn thành buổi học thử"**.
+    6. Cô Mai nhập **Lịch dạy cố định hàng tuần** (Thứ 3 & Thứ 5 từ 19:00 - 21:00) và chọn **"Kích hoạt lớp học chính thức"** (Trạng thái liên kết lớp chuyển sang `ACTIVE`).
+    7. Sau 1 tháng dạy chính thức (30 ngày từ ngày kích hoạt lớp), hệ thống tự động sinh Yêu cầu nộp phí nhận lớp tới Cổng Gia sư của cô Mai. Cô Mai chuyển khoản và upload ảnh biên lai (QR proof).
+    8. Màn hình Admin hiển thị thông báo phê duyệt phí kèm ảnh biên lai của cô Mai. Anh Bình kiểm tra ảnh chuyển khoản khớp số tiền và bấm **"Phê duyệt phí"** ➔ Trạng thái phí chuyển `PAID`.
+  * **Climax**: Lớp học vận hành ổn định và khoản phí nhận lớp được đối soát phê duyệt thành công sau 1 tháng.
+  * **Resolution**: Hệ thống tự động sinh Lịch dạy Calendar trên ứng dụng của Cô Mai và Học sinh Nam, theo dõi tiến độ lớp học và ghi nhận phí nhận lớp đã thanh toán `PAID`.
 
 ---
 
@@ -178,7 +180,8 @@ Gia sư khởi tạo và quản lý khung chương trình học tinh gọn 2 c�
 Gia sư xem danh sách lớp được đề xuất và thực hiện Chấp nhận hoặc Từ chối.
 
 * **Consequences (testable):**
-  * Khi gia sư bấm "Chấp nhận", trạng thái lớp chuyển sang `ACTIVE` và tự động tạo liên kết **Enrollment**.
+  * Khi gia sư bấm "Chấp nhận", hệ thống tự động **mở khóa (Unlock) hiển thị SĐT & Địa chỉ Phụ huynh** trên Cổng Gia sư để Gia sư chủ động gọi điện liên hệ xếp lịch học thử.
+  * Phí nhận lớp được tính toán và ghi nhận ở trạng thái chờ nộp sau khi lớp dạy tròn 1 tháng chính thức.
 
 #### FR-8: Tự động soạn bài tập bằng AI Dual-Mode (Tutor Assistant)
 
@@ -298,7 +301,7 @@ Admin Dashboard hiển thị danh sách các đăng ký học thử từ Phụ h
 * **Consequences (testable):**
   * Hệ thống tự động tính Học phí tháng theo Bảng giá của Gia sư chọn đúng khối lớp: `Học phí tháng = (Học phí/buổi do Gia sư đặt cho khối lớp đó) x (Số buổi/tuần) x 4`.
   * Hệ thống tự động tính `Phí nhận lớp = Học phí tháng x Tỷ lệ phí %` (mặc định 30%).
-  * Admin gọi điện xác nhận nhu cầu & báo giá cho Phụ huynh ➔ Bấm **"Tạo Match Offer"** để gửi đề xuất nhận lớp (kèm số tiền phí và mã VietQR) tới Cổng Gia sư.
+  * Admin gọi điện xác nhận nhu cầu & báo giá cho Phụ huynh ➔ Bấm **"Tạo Match Offer"** để gửi đề xuất nhận lớp (kèm thông tin số tiền phí nhận lớp dự kiến thu sau 1 tháng dạy) tới Cổng Gia sư.
 
 #### FR-19: Phân quyền bảo mật Backend dựa trên Enrollment
 
@@ -311,14 +314,14 @@ Spring Boot kiểm soát phân quyền Row-level security dựa trên bảng `En
 
 Hệ thống ghi log chi tiết các thao tác quan trọng: `Gia sư duyệt giao bài`, `Admin tạo Match Offer`, `Admin duyệt phí`.
 
-#### FR-23: Quản lý nộp phí QR proof và Mở khóa thông tin liên hệ Phụ huynh (Unlock Contact Info)
+#### FR-23: Quản lý nộp phí QR proof và Phê duyệt phí nhận lớp sau 1 tháng dạy
 
-Hệ thống quản lý việc nộp phí nhận lớp của Gia sư và mở khóa thông tin liên lạc.
+Hệ thống quản lý việc phát sinh yêu cầu nộp phí nhận lớp sau khi Gia sư dạy chính thức tròn 1 tháng (30 ngày) và xử lý đối soát phê duyệt phí qua ảnh biên lai chuyển khoản (QR proof).
 
 * **Consequences (testable):**
-  * Gia sư chấp nhận Offer và upload ảnh minh chứng chuyển khoản (QR proof). Lúc này thông tin SĐT & Địa chỉ Phụ huynh vẫn bị Ẩn (`masked`).
-  * Admin kiểm tra ảnh biên lai khớp số tiền và bấm "Phê duyệt phí".
-  * Trạng thái phí chuyển sang `PAID` ➔ Backend tự động **Mở khóa (Unlock) hiển thị SĐT & Địa chỉ Phụ huynh** trên Cổng Gia sư để Gia sư gọi điện chốt lịch học thử.
+  * **Kích hoạt Yêu cầu nộp phí sau 1 tháng dạy**: Khi lớp học chính thức (`ACTIVE`) hoạt động đủ 30 ngày kể từ ngày kích hoạt, hệ thống gửi thông báo yêu cầu Gia sư nộp phí nhận lớp kèm mã VietQR chuyển khoản động.
+  * **Nộp và Phê duyệt phí**: Gia sư thực hiện chuyển khoản và upload ảnh minh chứng chuyển khoản (QR proof). Admin kiểm tra ảnh biên lai khớp số tiền và bấm "Phê duyệt phí" ➔ Trạng thái phí chuyển sang `PAID`.
+  * **Mở khóa thông tin liên hệ độc lập với việc thu phí**: Thông tin SĐT & Địa chỉ Phụ huynh đã được mở khóa ngay khi Gia sư bấm "Chấp nhận" Match Offer (FR-6), không bị giữ khóa chờ thu phí.
 
 #### FR-24: Báo cáo vận hành Admin
 

@@ -1,33 +1,23 @@
 @import "tailwindcss";
 
-/* Map Tailwind's `dark:` variant to our [data-theme="dark"] instead of .dark class */
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+/* Map Tailwind's `dark:` variant to our [data-theme="dark"] and .dark classes */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
 
-@theme {
-  --font-sans: "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-}
+:root, [data-theme="light"] {
+  /* Light Theme Tokens */
+  --background: #F7F9FC;
+  --foreground: #0B1220;
+  --card: #FFFFFF;
+  --card-foreground: #0B1220;
+  --muted: #EEF2F8;
+  --muted-foreground: #5A6B85;
+  --border: #DCE3EE;
+  --primary: #3B82F6;
+  --primary-foreground: #F8FAFC;
+  --accent: #0EA5E9;
+  --ring: #3B82F6;
+  --radius: 0.75rem;
 
-html {
-  color-scheme: light dark;
-}
-
-/* ===== Theme: Dark (Speedtest) ===== */
-[data-theme="dark"] {
-  --accent-50: #e6f7ff;
-  --accent-100: #b3ecff;
-  --accent-200: #80e0ff;
-  --accent-300: #4dd4ff;
-  --accent-400: #1ac8ff;
-  --accent-500: #00bfff;
-  --accent-600: #0099e6;
-  --accent-700: #0077b3;
-  --accent-800: #005580;
-  --accent-900: #00334d;
-  --accent-950: #001a2e;
-}
-
-/* ===== Theme: Light (Trắng) ===== */
-[data-theme="light"] {
   --accent-50: #eff6ff;
   --accent-100: #dbeafe;
   --accent-200: #bfdbfe;
@@ -41,37 +31,100 @@ html {
   --accent-950: #172554;
 }
 
+[data-theme="dark"], .dark {
+  /* Dark Theme Tokens */
+  --background: #0B1220;
+  --foreground: #E5EAF2;
+  --card: #111C31;
+  --card-foreground: #E5EAF2;
+  --muted: #1A2740;
+  --muted-foreground: #93A1B8;
+  --border: #22304C;
+  --primary: #3B82F6;
+  --primary-foreground: #F8FAFC;
+  --accent: #00BFFF;
+  --ring: #3B82F6;
+  --radius: 0.75rem;
+
+  --accent-50: #e6f7ff;
+  --accent-100: #b3ecff;
+  --accent-200: #80e0ff;
+  --accent-300: #4dd4ff;
+  --accent-400: #1ac8ff;
+  --accent-500: #00bfff;
+  --accent-600: #0099e6;
+  --accent-700: #0077b3;
+  --accent-800: #005580;
+  --accent-900: #00334d;
+  --accent-950: #001a2e;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-ring: var(--ring);
+  --radius-xl: var(--radius);
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Geist Mono', monospace;
+}
+
+html {
+  color-scheme: light dark;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
+  background-color: var(--background);
+  color: var(--foreground);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
 }
 
-/* Dark theme body */
 [data-theme="dark"] body {
   background: linear-gradient(135deg, #0a0a2e 0%, #1a1a4e 50%, #0d1b3e 100%);
   background-attachment: fixed;
   color: #ffffff;
 }
 
-/* Light theme body */
 [data-theme="light"] body {
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--background);
+  color: var(--foreground);
 }
 
 * {
   box-sizing: border-box;
+  border-color: var(--border);
 }
 
+/* Custom scrollbar styling */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-/* Dark scrollbar */
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 [data-theme="dark"]::-webkit-scrollbar-thumb {
   background: rgba(0, 191, 255, 0.3);
   border-radius: 9999px;
@@ -83,20 +136,6 @@ body {
 
 [data-theme="dark"]::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.05);
-}
-
-/* Light scrollbar */
-[data-theme="light"]::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 9999px;
-}
-
-[data-theme="light"]::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-[data-theme="light"]::-webkit-scrollbar-track {
-  background: #f1f5f9;
 }
 
 /* ===== Accent utility classes (theme-aware) ===== */
@@ -138,26 +177,17 @@ body {
 }
 
 /* Dark-theme accent variants */
-[data-theme="dark"] .accent-bg-dark {
-  background-color: var(--accent-950);
-}
-
-[data-theme="dark"] .accent-text-dark {
-  color: var(--accent-300);
-}
-
-[data-theme="dark"] .accent-border-dark {
-  border-color: var(--accent-800);
-}
-
+[data-theme="dark"] .accent-bg-dark,
 .dark .accent-bg-dark {
   background-color: var(--accent-950);
 }
 
+[data-theme="dark"] .accent-text-dark,
 .dark .accent-text-dark {
   color: var(--accent-300);
 }
 
+[data-theme="dark"] .accent-border-dark,
 .dark .accent-border-dark {
   border-color: var(--accent-800);
 }
