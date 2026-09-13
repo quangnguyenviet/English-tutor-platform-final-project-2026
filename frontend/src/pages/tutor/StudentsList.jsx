@@ -6,7 +6,6 @@ import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
 import Avatar from "../../components/ui/Avatar";
 import ProgressBar from "../../components/ui/ProgressBar";
-import Badge from "../../components/ui/Badge";
 
 export default function StudentsList() {
   const [query, setQuery] = useState("");
@@ -19,7 +18,10 @@ export default function StudentsList() {
 
   return (
     <div>
-      <PageHeader title="Học sinh & lộ trình" description="Danh sách học sinh được gán cho bạn." />
+      <PageHeader
+        title="Học sinh của tôi"
+        description="Quản lý danh sách học sinh và theo dõi tiến độ giảng dạy."
+      />
 
       <div className="mb-4 relative max-w-sm">
         <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -41,9 +43,6 @@ export default function StudentsList() {
                   <p className="truncate font-medium text-slate-900 dark:text-slate-50">{s.name}</p>
                   <p className="truncate text-xs text-slate-500 dark:text-slate-400">{s.schedule}</p>
                 </div>
-              </div>
-              <div className="mb-3 flex flex-wrap gap-1.5">
-                <Badge tone="blue">{s.level}</Badge>
               </div>
               <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">{s.goal}</p>
               <div className="mb-1 flex justify-between text-xs text-slate-400">
