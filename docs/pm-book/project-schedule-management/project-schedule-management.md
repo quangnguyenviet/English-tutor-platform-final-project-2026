@@ -1,11 +1,11 @@
 ---
 title: Quản lý lịch trình — Ứng dụng AI hỗ trợ vận hành & giảng dạy gia sư tiếng Anh 1-1
-version: 1.1
+version: 1.3
 status: Đã xác nhận ngày khởi công 07/09/2026
 ngày lập: 2026-09-06
-ngày cập nhật: 2026-09-06
+ngày cập nhật: 2026-09-15
 người biên soạn: Nhóm dự án (3 thành viên)
-căn cứ: docs/ke-hoach-trien-khai.md (v1.1) + PRD v.final (2026-09-04)
+căn cứ: docs/ke-hoach-trien-khai.md (v1.3) + PRD v.final (2026-09-04)
 thời lượng: 2,5 tháng (≈10 tuần)
 baseline: 07/09/2026 → 17/11/2026
 ngày khởi công đã xác nhận: 07/09/2026
@@ -44,7 +44,7 @@ Tài liệu bao phủ toàn bộ **10 tuần triển khai + giai đoạn bàn gi
 | Ký hiệu | Tài liệu                                         | Vị trí (repository)                                                        |
 | --------- | -------------------------------------------------- | ---------------------------------------------------------------------------- |
 | PRD       | PRD v.final                                        | `_bmad-output/planning-artifacts/prds/prd-final_project-2026-08-31/prd.md` |
-| KHKD      | Kế hoạch triển khai đề tài v1.1 (2026-09-04) | `docs/ke-hoach-trien-khai.md`                                              |
+| KHKD      | Kế hoạch triển khai đề tài v1.3 (2026-09-15) | `docs/ke-hoach-trien-khai.md`                                              |
 
 > ⚠️ Trong tài liệu này, số WBS (1.x → 8.x) và số FR (FR-1 → FR-30) dùng lại nguyên văn từ KHKD/PRD để tránh phát sinh định nghĩa mới.
 
@@ -86,30 +86,28 @@ gantt
     dateFormat  YYYY-MM-DD
     axisFormat  %d/%m
 
-    section Khởi tạo & Nền tảng
-    Tuần 1 — Khởi tạo (WBS 1.1–1.5, 6.1)                   :w1, 2026-09-07, 7d
-    Tuần 2 — Nền tảng / Auth & Layout (WBS 1.6, 2.1, 6.2)  :w2, 2026-09-14, 7d
-    M1 — Kiến trúc & Nền tảng sẵn sàng                     :milestone, m1, 2026-09-20, 0d
+    section Nền tảng & Vận hành cơ bản
+    Tuần 1 — Khởi tạo (WBS 1.1–1.5, 6.1)                                  :w1, 2026-09-07, 7d
+    Tuần 2 — Nền tảng / Auth, Layout & Use Case/State (WBS 1.6, 1.7, 1.9, 2.1) :w2, 2026-09-14, 7d
+    M1 — Kiến trúc & Nền tảng sẵn sàng                                    :milestone, m1, 2026-09-20, 0d
+    Tuần 3 — Parent Portal & Sequence/Activity (WBS 1.8, 1.10, 2.2, 2.3)  :w3, 2026-09-21, 7d
+    Tuần 4 — Admin Dashboard: Vận hành ghép lớp & duyệt phí (WBS 5.1–5.3) :w4, 2026-09-28, 7d
+    M2 — Luồng Ghép lớp Phụ huynh - Admin hoàn chỉnh                      :milestone, m2, 2026-10-04, 0d
+    Tuần 5 — Tutor: Vận hành cơ bản (WBS 3.1, 3.4)                        :w5, 2026-10-05, 7d
+    Tuần 6 — Student & Homework cơ bản (WBS 3.3 non-AI, 4.1, 4.2)         :w6, 2026-10-12, 7d
+    M3 — Vận hành Gia sư & Học sinh cơ bản (Không AI)                    :milestone, m3, 2026-10-18, 0d
 
-    section Phụ huynh & Gia sư
-    Tuần 3 — Parent Portal (WBS 2.2, 2.3, 6.2)             :w3, 2026-09-21, 7d
-    Tuần 4 — Tutor: Curriculum (WBS 3.1, 3.2, 3.4, 6.4)    :w4, 2026-09-28, 7d
-    M2 — Parent Portal + Curriculum AI                      :milestone, m2, 2026-10-04, 0d
-    Tuần 5 — Tutor: Assistant AI (WBS 3.3, 6.3, 6.4)       :w5, 2026-10-05, 7d
-    Tuần 6 — Tutor: Vận hành (WBS 3.4, 6.5)                :w6, 2026-10-12, 7d
-    M3 — Tutor Assistant & Vận hành Gia sư                  :milestone, m3, 2026-10-18, 0d
+    section Tích hợp AI Service
+    Tuần 7 — Tutor: AI Curriculum Agent (WBS 3.2, 6.2, 6.4)               :w7, 2026-10-19, 7d
+    Tuần 8 — Tutor Assistant AI & Student AI (WBS 3.3 AI, 6.3, 6.4, 6.5)  :w8, 2026-10-26, 7d
+    M4 — AI Service & Assistant AI hoàn chỉnh                             :milestone, m4, 2026-11-01, 0d
 
-    section Học sinh & Admin
-    Tuần 7 — Student Portal (WBS 4.1, 4.2)                 :w7, 2026-10-19, 7d
-    Tuần 8 — Admin Dashboard (WBS 5.1–5.3, 6.3)            :w8, 2026-10-26, 7d
-    M4 — Student Portal + Admin Dashboard                   :milestone, m4, 2026-11-01, 0d
-
-    section Tích hợp & Bàn giao
-    Tuần 9 — Tích hợp toàn hệ thống (WBS 7.1, 7.2)         :w9, 2026-11-02, 7d
-    M5 — Tích hợp toàn hệ thống                             :milestone, m5, 2026-11-08, 0d
-    Tuần 10 — Kiểm thử & Triển khai (WBS 7.2, 7.3, 8.1, 8.2) :w10, 2026-11-09, 7d
-    Bàn giao & Demo (WBS 8.3)                               :w10b, 2026-11-16, 2d
-    M6 — Bàn giao đề tài                                    :milestone, m6, 2026-11-17, 0d
+    section Tích hợp toàn hệ thống & Bàn giao
+    Tuần 9 — Tích hợp toàn hệ thống & Tối ưu AI (WBS 7.1, 7.2, 6.3)        :w9, 2026-11-02, 7d
+    M5 — Tích hợp toàn hệ thống                                           :milestone, m5, 2026-11-08, 0d
+    Tuần 10 — Kiểm thử & Triển khai (WBS 7.2, 7.3, 8.1, 8.2)                :w10, 2026-11-09, 7d
+    Bàn giao & Demo (WBS 8.3)                                             :w10b, 2026-11-16, 2d
+    M6 — Bàn giao đề tài                                                  :milestone, m6, 2026-11-17, 0d
 ```
 
 > 📌 Ngày trong biểu đồ là **baseline chính thức** theo ngày khởi công 07/09/2026 đã xác nhận.
@@ -120,14 +118,14 @@ gantt
 | Tuần | Khoảng ngày (dự kiến) | Giai đoạn              | Module chính           | Mốc kiểm soát     |
 | ----- | ------------------------- | ------------------------ | ----------------------- | -------------------- |
 | T1    | 07/09 – 13/09/2026       | Khởi tạo               | Hạ tầng & Thiết kế  | —                   |
-| T2    | 14/09 – 20/09/2026       | Nền tảng               | Auth & Layout chung     | **M1** (20/09) |
-| T3    | 21/09 – 27/09/2026       | Module                   | Phụ huynh              | —                   |
-| T4    | 28/09 – 04/10/2026       | Module                   | Gia sư — Curriculum   | **M2** (04/10) |
-| T5    | 05/10 – 11/10/2026       | Module                   | Gia sư — Assistant AI | —                   |
-| T6    | 12/10 – 18/10/2026       | Module                   | Gia sư — Vận hành   | **M3** (18/10) |
-| T7    | 19/10 – 25/10/2026       | Module                   | Học sinh               | —                   |
-| T8    | 26/10 – 01/11/2026       | Module                   | Admin                   | **M4** (01/11) |
-| T9    | 02/11 – 08/11/2026       | Tích hợp               | Toàn hệ thống        | **M5** (08/11) |
+| T2    | 14/09 – 20/09/2026       | Nền tảng               | Auth, Layout & Use Case/State | **M1** (20/09) |
+| T3    | 21/09 – 27/09/2026       | Module                   | Phụ huynh & Sequence/Activity | —                   |
+| T4    | 28/09 – 04/10/2026       | Module                   | Admin — Vận hành ghép lớp & duyệt phí | **M2** (04/10) |
+| T5    | 05/10 – 11/10/2026       | Module                   | Gia sư — Vận hành cơ bản | —                   |
+| T6    | 12/10 – 18/10/2026       | Module                   | Học sinh — Giao/làm bài cơ bản (Không AI) | **M3** (18/10) |
+| T7    | 19/10 – 25/10/2026       | AI Service               | Gia sư — AI Curriculum Agent | —                   |
+| T8    | 26/10 – 01/11/2026       | AI Service               | Tutor Assistant AI & Moderation | **M4** (01/11) |
+| T9    | 02/11 – 08/11/2026       | Tích hợp               | Toàn hệ thống & Tối ưu AI | **M5** (08/11) |
 | T10   | 09/11 – 15/11/2026       | Kiểm thử & Triển khai | Toàn hệ thống        | —                   |
 | T10.5 | 16/11 – 17/11/2026       | Bàn giao                | Demo & bàn giao        | **M6** (17/11) |
 
@@ -154,8 +152,9 @@ gantt
 | Mã WBS | Công việc                                                                      | Đầu ra chính                               | Tiêu chí hoàn thành                                                                 |
 | ------- | -------------------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------- |
 | 1.6     | Dựng layout chung, routing & component thư viện dùng chung cho 4 cổng       | Design system, layout & component dùng chung | 4 cổng dùng chung layout/component; không trùng lặp code UI cơ bản               |
+| 1.7     | Viết tài liệu đặc tả Use Case chi tiết cho các actors (Parent, Tutor, Student, Admin) | Tài liệu đặc tả Use Case                   | Tài liệu đặc tả Use Case hoàn thành, mô tả rõ các luồng chính/phụ/ngoại lệ          |
+| 1.9     | Thiết kế sơ đồ trạng thái (State Machine Diagram) cho các đối tượng trung tâm  | Tập sơ đồ State Machine Diagram (UML)         | Sơ đồ trạng thái hoàn chỉnh cho Enrollment, Match Request, Homework, Payment QR        |
 | 2.1     | Auth JWT + RBAC theo`Enrollment`                                               | API Auth, middleware phân quyền             | Đăng nhập/đăng ký được; kiểm tra quyền theo vai trò Enrollment thành công |
-| 6.2     | Xây prompt template Curriculum Agent (khung chương trình 2 cấp — Option A) | Prompt template Curriculum                    | Prompt sinh được khung 2 cấp mẫu có chất lượng chấp nhận được             |
 
 ### ✔️ M1 — Kiến trúc & Nền tảng sẵn sàng (cuối tuần 2, 20/09/2026)
 
@@ -165,73 +164,76 @@ gantt
 
 | Mã WBS | Công việc                                                                                           | Đầu ra chính                                      | Tiêu chí hoàn thành                                                                     |
 | ------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| 2.2     | Module Parent/Match Request (FR-1→FR-4) — Form tìm gia sư, matching score, đăng ký học thử | API tìm gia sư, matching score, đăng ký học thử | Luồng tìm gia sư → danh sách gia sư + matching score → tạo Match Request hoạt động |
+| 1.8     | Thiết kế sơ đồ tuần tự (Sequence Diagram) cho các thủ tục/chức năng quan trọng                     | Tập sơ đồ Sequence Diagram (UML)                     | Sơ đồ tuần tự hoàn chỉnh cho Ghép lớp, Duyệt phí, AI sinh/giao bài, Auto-grading             |
+| 1.10    | Thiết kế sơ đồ hoạt động (Activity Diagram) cho các nghiệp vụ phức tạp                             | Tập sơ đồ Activity Diagram (UML)                     | Sơ đồ hoạt động hoàn chỉnh cho luồng Dual-Mode AI/Import, Luồng ghép lớp, Đổi lịch/báo nghỉ  |
+| 2.2     | Module Parent/Match Request (FR-1→FR-4) — Form tìm gia sư, matching score cơ bản, đăng ký học thử | API tìm gia sư, matching score, đăng ký học thử | Luồng tìm gia sư → danh sách gia sư + matching score → tạo Match Request hoạt động |
 | 2.3     | Module Parent tra cứu FAQ & thông tin trung tâm (FR-4)                                             | API + giao diện FAQ & thông tin                    | Trang FAQ hiển thị dữ liệu thật từ BE                                                 |
-| 6.2     | Hoàn thiện Curriculum Agent Option A theo feedback gia sư                                          | Curriculum Agent ổn định                          | Sinh khung 2 cấp (goal → set bài) đúng cấu trúc, chất lượng tốt                  |
 
-## Tuần 4 — Tutor: Curriculum (28/09 – 04/10/2026) — **M2**
+## Tuần 4 — Admin Dashboard: Vận hành ghép lớp & duyệt phí (28/09 – 04/10/2026) — **M2**
 
 | Mã WBS | Công việc                                                                                    | Đầu ra chính                            | Tiêu chí hoàn thành                                                         |
 | ------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------- |
-| 3.1     | Enrollment, Match Offer acceptance, QR proof payment                                           | API CRUD tương ứng                      | Gia sư nhận/từ chối Match Offer; nộp ảnh QR proof thành công            |
-| 3.2     | Curriculum Management Dual-Mode (FR-30): AI sinh khung 2 cấp + Import JSON từ ChatGPT ngoài | API CRUD curriculum, tích hợp AI Service | Cả 2 option (AI sinh / Import) tạo được curriculum; lưu/sửa hoạt động |
-| 3.4     | Cấu hình lịch học thử & chốt lịch cố định (FR-29)                                    | API + UI lịch dạy cơ bản               | Gia sư thiết lập lịch; hệ thống chốt lịch theo tuần                    |
-| 6.4     | Parser chế độ Import (Option B — JSON/Text từ Web AI ngoài) — phần**Curriculum** | Module parse & validate                    | Import file JSON/Text → curriculum hợp lệ hoặc báo lỗi rõ ràng          |
+| 5.1     | Match Request Management, tạo Match Offer, tính phí tự động (FR-16)                            | Giao diện & API hoàn chỉnh | Admin xem request → tạo offer → tính phí tự động theo Rate Card |
+| 5.2     | Duyệt phí QR proof, mở khóa liên hệ Phụ huynh (FR-23)                                         | Giao diện & API hoàn chỉnh | Admin duyệt/từ chối proof; mở khóa liên hệ khi hợp lệ          |
+| 5.3     | RBAC Audit log, báo cáo vận hành cơ bản (FR-19, FR-20, FR-24)                                  | Giao diện & API hoàn chỉnh | Audit log ghi đủ hành động; báo cáo vận hành xuất được     |
 
-### ✔️ M2 — Parent Portal + Curriculum AI hoàn chỉnh (cuối tuần 4, 04/10/2026)
+### ✔️ M2 — Luồng Ghép lớp & Vận hành Phụ huynh - Admin hoàn chỉnh (cuối tuần 4, 04/10/2026)
 
-**Tiêu chí:** UJ-1 chạy end-to-end; Parent Portal (FR-1→FR-4) hoàn thiện; Curriculum Dual-Mode hoạt động (cả 2 option).
+**Tiêu chí:** UJ-1 & UJ-4 phiên bản vận hành cơ bản chạy end-to-end (tìm gia sư → gửi request → admin ghép offer → duyệt phí QR proof).
 
-## Tuần 5 — Tutor: Assistant AI (05/10 – 11/10/2026) — Benchmark AI tuần này
+## Tuần 5 — Tutor: Vận hành cơ bản (05/10 – 11/10/2026)
 
 | Mã WBS | Công việc                                                                 | Đầu ra chính                               | Tiêu chí hoàn thành                                                     |
 | ------- | --------------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------- |
-| 3.3     | UI Tutor Assistant — API FR-8, FR-9 (sinh bài, duyệt & giao bài)        | UI Tutor Assistant; API sinh bài/duyệt/giao | Gia sư sinh bài từ curriculum; duyệt & giao tới học sinh thành công |
-| 6.3     | Agent Tutor Assistant: sinh câu hỏi + đáp án + giải thích (Option A) | Endpoint`/homework/generate`                | Sinh được bài trắc nghiệm/điền từ kèm đáp án + giải thích    |
-| 6.4     | Parser Import Option B — phần**bài tập**                          | Module parse & validate                       | Import file bài tập → bài tập hợp lệ                                 |
-| —      | **Benchmark độ trễ AI** (xem rủi ro R2)                           | Số liệu benchmark                           | Ghi nhận thời gian sinh từng loại bài; so với NFR ≤ 5s               |
+| 3.1     | Enrollment, Match Offer acceptance, QR proof payment                         | API CRUD tương ứng                            | Gia sư nhận/từ chối Match Offer; nộp ảnh QR proof thành công            |
+| 3.4     | Rate Card, Private Notes, Lịch dạy, Đổi lịch/Báo nghỉ, Upload tài liệu S3 (FR-21, FR-25→FR-29) | API tương ứng + UI                         | Lịch dạy, đổi lịch, upload tài liệu S3 hoạt động                            |
+| 3.2     | Quản lý Khung chương trình thủ công (Non-AI Curriculum Management)           | API + UI Khung chương trình cơ bản            | Gia sư tạo & chỉnh sửa khung chương trình thủ công                          |
 
-## Tuần 6 — Tutor: Vận hành (12/10 – 18/10/2026) — **M3**
+## Tuần 6 — Student & Tutor Homework cơ bản (12/10 – 18/10/2026) — **M3**
 
 | Mã WBS | Công việc                                                                                              | Đầu ra chính         | Tiêu chí hoàn thành                                             |
 | ------- | -------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------- |
-| 3.4     | Rate Card, Private Notes, Lịch dạy, Đổi lịch/Báo nghỉ, Upload tài liệu/S3 (FR-21, FR-25→FR-29) | API tương ứng + UI   | Phần còn lại của FR-21, FR-25→FR-29 hoạt động end-to-end    |
-| 6.5     | Content Moderation filter + Privacy (ẩn danh hoá input)                                                | Middleware kiểm duyệt | Nội dung nhạy cảm bị chặn; input gửi AI được ẩn danh hoá |
+| 3.3     | Giao bài tập thủ công (Non-AI Homework Assignment)                                                     | UI & API Giao bài tập   | Gia sư soạn và giao bài tập thủ công cho học sinh                   |
+| 4.1     | Làm bài trực tuyến, Auto-grading chấm điểm tự động (FR-11→FR-13)                                      | Giao diện & API làm bài | Học sinh làm bài trực tuyến; hệ thống tự động chấm điểm             |
+| 4.2     | Báo cáo tiến bộ (FR-15) — Chỉ số Chăm chỉ + Biểu đồ Năng lực; Xem tài liệu/video theo bài học (FR-22) | Giao diện & API báo cáo | Biểu đồ năng lực hiển thị từ dữ liệu thật; xem được tài liệu/video  |
 
-### ✔️ M3 — Tutor Assistant & Vận hành Gia sư hoàn chỉnh (cuối tuần 6, 18/10/2026)
+### ✔️ M3 — Vận hành Gia sư & Học sinh cơ bản hoàn chỉnh (Không AI) (cuối tuần 6, 18/10/2026)
 
-**Tiêu chí:** UJ-2 chạy end-to-end (nhận lớp → khung chương trình → nộp phí → giao bài AI).
+**Tiêu chí:** Toàn bộ 4 cổng (Parent - Admin - Tutor - Student) chạy end-to-end luồng vận hành cơ bản chưa tích hợp AI Service.
 
-## Tuần 7 — Student Portal (19/10 – 25/10/2026)
+## Tuần 7 — Tutor: AI Curriculum Agent (19/10 – 25/10/2026)
 
 | Mã WBS | Công việc                                                                                                             | Đầu ra chính               | Tiêu chí hoàn thành                                                                                            |
 | ------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| 4.1     | Làm bài trực tuyến, Auto-grading, AI Explanation (FR-11→FR-13)                                                     | Giao diện & API hoàn chỉnh | Học sinh làm bài; chấm điểm tự động; xem giải thích AI (2 chế độ per-question / submit-all)          |
-| 4.2     | Báo cáo tiến bộ (FR-15) — Chỉ số Chăm chỉ + Biểu đồ Năng lực; Xem tài liệu/video theo bài học (FR-22) | Giao diện & API hoàn chỉnh | Biểu đồ năng lực + chỉ số chăm chỉ hiển thị từ dữ liệu thật; học sinh mở được tài liệu/video |
+| 6.2     | Agent sinh Khung chương trình 2 cấp (Option A — Python + LangGraph)                                                 | Endpoint `/curriculum/generate` | AI Agent sinh được khung chương trình 2 cấp đúng cấu trúc JSON |
+| 6.4     | Parser chế độ Import (Option B — JSON/Text từ Web AI ngoài) — phần Curriculum                                         | Module parse & validate       | Import file JSON/Text → curriculum hợp lệ |
+| 3.2     | Tích hợp UI Curriculum Dual-Mode (AI Generate + Import JSON)                                                          | UI Curriculum Dual-Mode       | Gia sư chọn Option A (AI) hoặc Option B (Import) để tạo curriculum |
 
-## Tuần 8 — Admin Dashboard (26/10 – 01/11/2026) — **M4**
+## Tuần 8 — Tutor Assistant AI & Student AI (26/10 – 01/11/2026) — **M4**
 
 | Mã WBS | Công việc                                                               | Đầu ra chính               | Tiêu chí hoàn thành                                                 |
 | ------- | ------------------------------------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------- |
-| 5.1     | Match Request Management, tạo Match Offer, tính phí tự động (FR-16) | Giao diện & API hoàn chỉnh | Admin xem request → tạo offer → tính phí tự động theo Rate Card |
-| 5.2     | Duyệt phí QR proof, mở khóa liên hệ Phụ huynh (FR-23)              | Giao diện & API hoàn chỉnh | Admin duyệt/từ chối proof; mở khóa liên hệ khi hợp lệ          |
-| 5.3     | RBAC Audit log, báo cáo vận hành (FR-19, FR-20, FR-24)                | Giao diện & API hoàn chỉnh | Audit log ghi đủ hành động; báo cáo vận hành xuất được     |
-| 6.3     | Tối ưu độ trễ AI Service theo kết quả benchmark tuần 5            | AI Service tối ưu           | Độ trễ AI cải thiện gần NFR ≤ 5s                                 |
+| 6.3     | Agent Tutor Assistant: sinh câu hỏi + đáp án + giải thích chi tiết (Option A) | Endpoint `/homework/generate` | Sinh bài trắc nghiệm/điền từ kèm đáp án + giải thích |
+| 6.4     | Parser Import Option B — phần bài tập                                     | Module parse & validate       | Import file bài tập ngoài → bài tập hợp lệ |
+| 3.3     | UI Tutor Assistant (AI Generation / Import File)                          | UI Tutor Assistant hoàn chỉnh | Gia sư sinh bài từ AI hoặc import → duyệt & giao bài |
+| 6.5     | Content Moderation filter + Privacy (ẩn danh hoá input)                   | Middleware kiểm duyệt         | Nội dung nhạy cảm bị chặn; input gửi AI được ẩn danh hoá |
+| 4.1     | Tích hợp xem lời giải thích AI (AI Explanation) trong Student Portal     | UI Student với AI Explanation | Học sinh xem được lời giải thích AI từng câu hoặc sau submit |
 
-### ✔️ M4 — Student Portal + Admin Dashboard hoàn chỉnh (cuối tuần 8, 01/11/2026)
+### ✔️ M4 — AI Service & Assistant AI hoàn chỉnh (cuối tuần 8, 01/11/2026)
 
-**Tiêu chí:** UJ-3, UJ-4 chạy end-to-end; chấm điểm + giải thích hoạt động.
+**Tiêu chí:** Tích hợp hoàn tất các tính năng AI (Curriculum Agent, Tutor Assistant Agent, Import Parser, Moderation & AI Explanation).
 
-## Tuần 9 — Tích hợp toàn hệ thống (02/11 – 08/11/2026) — **M5**
+## Tuần 9 — Tích hợp toàn hệ thống & Tối ưu AI (02/11 – 08/11/2026) — **M5**
 
 | Mã WBS | Công việc                                                             | Đầu ra chính                | Tiêu chí hoàn thành                                      |
 | ------- | ----------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------ |
 | 7.1     | Tích hợp end-to-end theo từng UJ (UJ-1→UJ-4)                        | 4 luồng UJ chạy thông suốt | 4 luồng chạy xuyên FE–BE–AI với dữ liệu thật        |
 | 7.2     | Unit test + Integration test (ưu tiên RBAC, tính phí, chấm điểm) | Test suite                     | Test suite chạy xanh trên CI; phủ các luồng quan trọng |
+| 6.3     | Benchmark & tối ưu độ trễ AI Service                                  | AI Service tối ưu              | Độ trễ AI sinh bài tập/chương trình đạt NFR ≤ 5s |
 
 ### ✔️ M5 — Tích hợp toàn hệ thống (cuối tuần 9, 08/11/2026)
 
-**Tiêu chí:** Toàn bộ 4 cổng liên thông qua dữ liệu thật; RBAC kiểm chứng.
+**Tiêu chí:** Toàn bộ 4 cổng liên thông qua dữ liệu thật kèm AI Service; RBAC kiểm chứng; AI benchmark <5s.
 
 ## Tuần 10 — Kiểm thử & Triển khai (09/11 – 15/11/2026)
 
@@ -260,10 +262,16 @@ gantt
 | Mốc         | Thời điểm (baseline)      | Nội dung                                         | Tiêu chí hoàn thành                                                                                          | Hành động tại cổng kiểm soát                     |
 | ------------ | ---------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | **M1** | Cuối tuần 2 — 20/09/2026  | Kiến trúc & Nền tảng sẵn sàng               | Auth hoạt động; repo/CI-CD/Docker chạy được; prototype ReactJS được duyệt                             | Duyệt prototype; quyết định đi tiếp Tuần 3       |
-| **M2** | Cuối tuần 4 — 04/10/2026  | Parent Portal + Curriculum AI hoàn chỉnh        | UJ-1 chạy end-to-end; Parent Portal (FR-1→FR-4) hoàn thiện; Curriculum Dual-Mode hoạt động (cả 2 option) | Demo UJ-1; chốt chất lượng Curriculum Agent         |
-| **M3** | Cuối tuần 6 — 18/10/2026  | Tutor Assistant & Vận hành Gia sư hoàn chỉnh | UJ-2 chạy end-to-end                                                                                            | Demo UJ-2; đánh giá kết quả benchmark AI (tuần 5) |
-| **M4** | Cuối tuần 8 — 01/11/2026  | Student Portal + Admin Dashboard hoàn chỉnh     | UJ-3, UJ-4 chạy end-to-end; chấm điểm + giải thích hoạt động                                            | Demo UJ-3, UJ-4; rà soát audit log & tính phí       |
-| **M5** | Cuối tuần 9 — 08/11/2026  | Tích hợp toàn hệ thống                       | Toàn bộ 4 cổng liên thông qua dữ liệu thật; RBAC kiểm chứng                                            | Diễn tập luồng dữ liệu xuyên 4 cổng              |
+| **M2** | Cuối tuần 4 — 04/10/2026  | Luồng Ghép lớp & Vận hành Phụ huynh - Admin hoàn chỉnh | Parent Portal & Admin Dashboard vận hành thông suốt (tìm gia sư, tạo Match Offer, tính & duyệt phí QR) | Demo UJ-1 & UJ-4 phiên bản vận hành cơ bản |
+| **M3** | Cuối tuần 6 — 18/10/2026  | Vận hành Gia sư & Học sinh cơ bản hoàn chỉnh (Không AI) | UJ-1, UJ-2, UJ-3, UJ-4 chạy end-to-end phiên bản vận hành cơ bản (nhận lớp, giao bài thủ công, làm bài, auto-grading) | Demo luồng 4 cổng vận hành hoàn chỉnh không AI |
+| **M4** | Cuối tuần 8 — 01/11/2026  | AI Service & Assistant AI hoàn chỉnh            | Tích hợp hoàn tất AI Curriculum Agent, Tutor Assistant Agent, Import Parser, Moderation & AI Explanation | Demo UJ-2 & UJ-3 có tích hợp AI Service |
+| **M5** | Cuối tuần 9 — 08/11/2026  | Tích hợp toàn hệ thống                       | Toàn bộ 4 cổng liên thông qua dữ liệu thật kèm AI Service, RBAC kiểm chứng, benchmark AI <5s                     | Diễn tập luồng dữ liệu xuyên 4 cổng              |
+| **M6** | Cuối tuần 10 — 17/11/2026 | Bàn giao đề tài                               | Deploy staging thành công; tài liệu đầy đủ; sẵn sàng demo                                              | Buổi demo/báo cáo với giảng viên hướng dẫn     |
+
+> ⚙️ **Trạng thái cổng kiểm soát:** mỗi mốc đánh giá ở 1 trong 3 trạng thái:
+> 🟢 **Pass** — đủ tiêu chí, tiếp tục đúng kế hoạch;
+> 🟡 **Pass có điều kiện** — thiếu 1–2 tiêu chí phụ, có kế hoạch bù cụ thể trong tuần kế tiếp;
+> 🔴 **Fail** — không đạt tiêu chí mốc → **bắt buộc** chạy quy trình Section 12 trước khi sang tuần mới.
 | **M6** | Cuối tuần 10 — 17/11/2026 | Bàn giao đề tài                               | Deploy staging thành công; tài liệu đầy đủ; sẵn sàng demo                                              | Buổi demo/báo cáo với giảng viên hướng dẫn     |
 
 > ⚙️ **Trạng thái cổng kiểm soát:** mỗi mốc đánh giá ở 1 trong 3 trạng thái:
@@ -428,6 +436,8 @@ Một đầu việc (WBS) chỉ được tính là **hoàn thành** khi **đủ 
 
 | Version | Ngày      | Người       | Nội dung thay đổi                                                                                                                                                                                                                |
 | ------- | ---------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.3     | 2026-09-15 | Nhóm dự án | **Cập nhật WBS & lịch trình theo KHKD v1.3**: Ưu tiên hoàn thiện luồng vận hành cơ bản 4 cổng không AI từ Tuần 2 đến Tuần 6; đẩy việc tích hợp AI Service (Curriculum Agent, Tutor Assistant Agent, Import Parser, Moderation) sang Tuần 7 và Tuần 8; giữ nguyên Tuần 1. |
+| 1.2     | 2026-09-15 | Nhóm dự án | **Cập nhật WBS & lịch trình theo KHKD v1.2**: bổ sung các đầu việc đặc tả Use Case (WBS 1.7), sơ đồ State Machine (WBS 1.9) vào Tuần 2 và sơ đồ Sequence (WBS 1.8), sơ đồ Activity (WBS 1.10) vào Tuần 3; giữ nguyên Tuần 1. |
 | 1.1     | 2026-09-06 | Nhóm dự án | **Xác nhận ngày khởi công chính thức 07/09/2026** (Thứ 2); chuyển baseline từ "giả định" sang "chính thức"; không thay đổi ngày tháng cụ thể của các tuần/mốc (vì vốn đã tính theo 07/09/2026) |
 | 1.0     | 2026-09-06 | Nhóm dự án | Baseline cơ bản: dựng tài liệu quản lý lịch trình từ KHKD v1.1 (10 tuần, mốc M1–M6); ngày tháng tính theo mốc khởi công dự kiến 07/09/2026                                                                     |
 
