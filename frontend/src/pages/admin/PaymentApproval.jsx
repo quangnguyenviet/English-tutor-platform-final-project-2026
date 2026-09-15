@@ -2,38 +2,35 @@ import { useState } from "react";
 import {
   Banknote,
   CheckCircle,
-  XCircle,
   Clock,
   Search,
-  ExternalLink,
   Eye,
   Lock,
   Unlock,
   ShieldCheck,
   Building2,
   Calendar,
-  User,
-  Phone,
-  MessageCircle,
   FileCheck,
   AlertTriangle,
   X,
-  ArrowUpRight,
   Receipt,
-  FileText,
+  RefreshCw,
+  FileX,
+  Send,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
-import Avatar from "../../components/ui/Avatar";
 import StatCard from "../../components/ui/StatCard";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 
 const statusMeta = {
   pending: { label: "Chờ duyệt", tone: "amber" },
+  no_proof: { label: "Chưa nộp minh chứng", tone: "slate" },
   approved: { label: "Đã duyệt", tone: "emerald" },
-  rejected: { label: "Từ chối", tone: "rose" },
+  resubmit_requested: { label: "Yêu cầu gửi lại", tone: "amber" },
 };
 
 const fmtVND = (n) => (n ? Number(n).toLocaleString("vi-VN") + "₫" : "0₫");
@@ -49,23 +46,37 @@ function formatTs(ts) {
 }
 
 export function PaymentApproval() {
-  const { paymentProofList, approvePaymentProof, rejectPaymentProof } = useAuth();
+  const { paymentProofList, approvePaymentProof, requestResubmitProof } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
   // Modal / Review State
   const [viewingPayment, setViewingPayment] = useState(null);
-  const [rejectModalPayment, setRejectModalPayment] = useState(null);
-  const [rejectReason, setRejectReason] = useState("");
+  const [resubmitModalPayment, setResubmitModalPayment] = useState(null);
+  const [resubmitReason, setResubmitReason] = useState("");
   const [toastMessage, setToastMessage] = useState(null);
+
+  // ConfirmModal state
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+    confirmLabel: "Đồng ý",
+    confirmTone: "emerald",
+    onConfirm: null,
+  });
 
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Filter payments
+  const closeConfirmModal = () => {
+    setConfirmModal((prev) => ({ ...prev, open: false, onConfirm: null }));
+  };
+
+  // Filter payments — removed "rejected" status
   const filtered = paymentProofList.filter((p) => {
     const matchSearch =
       p.tutorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -77,34 +88,46 @@ export function PaymentApproval() {
     return matchSearch && matchStatus;
   });
 
-  // Calculate stats
-  const pendingItems = paymentProofList.filter((p) => p.status === "pending");
+  // Calculate stats — no more rejected
+  const pendingItems = paymentProofList.filter((p) => p.status === "pending" || p.status === "resubmit_requested");
+  const noProofItems = paymentProofList.filter((p) => p.status === "no_proof");
   const approvedItems = paymentProofList.filter((p) => p.status === "approved");
   const pendingAmount = pendingItems.reduce((s, p) => s + (p.amount || 0), 0);
   const approvedAmount = approvedItems.reduce((s, p) => s + (p.amount || 0), 0);
 
+  // Approve with ConfirmModal
   const handleApprove = (payment) => {
-    approvePaymentProof(payment.id);
-    showToast(
-      `Đã duyệt thanh toán ${fmtVND(payment.amount)} cho Gia sư ${payment.tutorName}. Đã mở khóa liên hệ Phụ huynh!`
-    );
-    if (viewingPayment?.id === payment.id) {
-      setViewingPayment(null);
-    }
+    setConfirmModal({
+      open: true,
+      title: "Xác nhận duyệt minh chứng",
+      message: `Bạn chắc chắn muốn duyệt minh chứng thanh toán ${fmtVND(payment.amount)} của gia sư ${payment.tutorName}? Thông tin liên hệ phụ huynh sẽ được mở khóa.`,
+      confirmLabel: "Duyệt & Mở khóa",
+      confirmTone: "emerald",
+      onConfirm: () => {
+        approvePaymentProof(payment.id);
+        showToast(
+          `Đã duyệt thanh toán ${fmtVND(payment.amount)} cho Gia sư ${payment.tutorName}. Đã mở khóa liên hệ Phụ huynh!`
+        );
+        if (viewingPayment?.id === payment.id) {
+          setViewingPayment(null);
+        }
+        closeConfirmModal();
+      },
+    });
   };
 
-  const handleOpenReject = (payment) => {
-    setRejectModalPayment(payment);
-    setRejectReason("Ảnh biên lai mờ hoặc thông tin chuyển khoản không khớp.");
+  const handleOpenResubmit = (payment) => {
+    setResubmitModalPayment(payment);
+    setResubmitReason("Ảnh biên lai mờ hoặc thông tin chuyển khoản không khớp.");
   };
 
-  const handleConfirmReject = () => {
-    if (!rejectModalPayment) return;
-    rejectPaymentProof(rejectModalPayment.id, rejectReason);
-    showToast(`Đã từ chối thanh toán của Gia sư ${rejectModalPayment.tutorName}.`);
-    setRejectModalPayment(null);
-    setRejectReason("");
-    if (viewingPayment?.id === rejectModalPayment.id) {
+  const handleConfirmResubmit = () => {
+    if (!resubmitModalPayment) return;
+    requestResubmitProof(resubmitModalPayment.id, resubmitReason);
+    showToast(`Đã gửi yêu cầu nộp lại minh chứng tới Gia sư ${resubmitModalPayment.tutorName}.`);
+    setResubmitModalPayment(null);
+    setResubmitReason("");
+    if (viewingPayment?.id === resubmitModalPayment.id) {
       setViewingPayment(null);
     }
   };
@@ -118,6 +141,18 @@ export function PaymentApproval() {
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* ConfirmModal */}
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmLabel={confirmModal.confirmLabel}
+        confirmTone={confirmModal.confirmTone}
+        icon={ShieldCheck}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={closeConfirmModal}
+      />
 
       {/* Header */}
       <PageHeader
@@ -161,7 +196,7 @@ export function PaymentApproval() {
         />
       </div>
 
-      {/* Filters Toolbar */}
+      {/* Filters Toolbar — removed "Đã từ chối" tab */}
       <Card padded={false} className="p-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           {/* Status Tabs */}
@@ -169,8 +204,8 @@ export function PaymentApproval() {
             {[
               { key: "all", label: "Tất cả" },
               { key: "pending", label: "Chờ duyệt", count: pendingItems.length },
+              { key: "no_proof", label: "Chưa nộp MC", count: noProofItems.length },
               { key: "approved", label: "Đã duyệt", count: approvedItems.length },
-              { key: "rejected", label: "Đã từ chối" },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -243,24 +278,39 @@ export function PaymentApproval() {
                       <Badge tone={meta.tone}>{meta.label}</Badge>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
-                      <span className="flex items-center gap-1 font-mono">
-                        Mã GD: <strong className="text-slate-700 dark:text-slate-200">{item.transactionCode}</strong>
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Building2 size={13} className="text-slate-400" />
-                        {item.bankName}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar size={13} className="text-slate-400" />
-                        {formatTs(item.submittedAt)}
-                      </span>
-                    </div>
+                    {/* Show transaction details only if proof exists */}
+                    {item.status !== "no_proof" ? (
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                        <span className="flex items-center gap-1 font-mono">
+                          Mã GD: <strong className="text-slate-700 dark:text-slate-200">{item.transactionCode}</strong>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Building2 size={13} className="text-slate-400" />
+                          {item.bankName}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar size={13} className="text-slate-400" />
+                          {formatTs(item.submittedAt)}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 italic">
+                        Gia sư chưa nộp minh chứng thanh toán
+                      </p>
+                    )}
 
                     {item.note && (
                       <p className="text-xs italic text-slate-600 dark:text-slate-300 line-clamp-1">
                         &ldquo;{item.note}&rdquo;
                       </p>
+                    )}
+
+                    {/* Resubmit reason if applicable */}
+                    {item.status === "resubmit_requested" && item.resubmitReason && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+                        <span className="font-semibold">Lý do yêu cầu gửi lại: </span>
+                        {item.resubmitReason}
+                      </div>
                     )}
 
                     {/* Contact Unlock Status */}
@@ -288,46 +338,35 @@ export function PaymentApproval() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {/* View Proof Button */}
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setViewingPayment(item)}
-                      title="Xem ảnh chứng từ chuyển khoản"
-                    >
-                      <Eye size={14} /> Minh chứng
-                    </Button>
+                    {/* View Proof Button — only if proof exists, styled prominently */}
+                    {item.status !== "no_proof" ? (
+                      <Button
+                        size="sm"
+                        onClick={() => setViewingPayment(item)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm font-medium"
+                        title="Xem ảnh chứng từ chuyển khoản"
+                      >
+                        <Eye size={14} /> Minh chứng
+                      </Button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs text-slate-500 italic px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 dark:text-slate-400">
+                        Chưa nộp minh chứng
+                      </span>
+                    )}
 
-                    {item.status === "pending" && (
-                      <>
-                        <Button
-                          size="sm"
-                          onClick={() => handleApprove(item)}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                        >
-                          <CheckCircle size={14} /> Duyệt & Mở khóa
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => handleOpenReject(item)}
-                          className="text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                        >
-                          <XCircle size={14} /> Từ chối
-                        </Button>
-                      </>
+                    {(item.status === "pending" || item.status === "resubmit_requested") && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleOpenResubmit(item)}
+                        className="text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                      >
+                        <RefreshCw size={14} /> Gửi lại MC
+                      </Button>
                     )}
                   </div>
                 </div>
               </div>
-
-              {/* Show Rejection Reason if Rejected */}
-              {item.status === "rejected" && item.rejectReason && (
-                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50/70 p-2.5 text-xs text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
-                  <span className="font-semibold">Lý do từ chối: </span>
-                  {item.rejectReason}
-                </div>
-              )}
             </div>
           );
         })}
@@ -432,21 +471,21 @@ export function PaymentApproval() {
               )}
             </div>
 
-            {/* Modal Footer */}
+            {/* Modal Footer — replaced "Từ chối" with "Yêu cầu gửi lại minh chứng" */}
             <div className="flex items-center justify-between border-t border-slate-200 p-4 dark:border-slate-800">
               <Button variant="secondary" size="sm" onClick={() => setViewingPayment(null)}>
                 Đóng
               </Button>
 
-              {viewingPayment.status === "pending" && (
+              {(viewingPayment.status === "pending" || viewingPayment.status === "resubmit_requested") && (
                 <div className="flex items-center gap-2">
                   <Button
                     size="sm"
                     variant="secondary"
-                    onClick={() => handleOpenReject(viewingPayment)}
-                    className="text-rose-600 hover:bg-rose-50"
+                    onClick={() => handleOpenResubmit(viewingPayment)}
+                    className="text-amber-600 hover:bg-amber-50"
                   >
-                    <XCircle size={14} /> Từ chối
+                    <RefreshCw size={14} /> Yêu cầu gửi lại MC
                   </Button>
                   <Button
                     size="sm"
@@ -462,17 +501,17 @@ export function PaymentApproval() {
         </div>
       )}
 
-      {/* Modal: Reject Payment Reason */}
-      {rejectModalPayment && (
+      {/* Modal: Request Resubmit Proof (replaces old Reject modal) */}
+      {resubmitModalPayment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
           <div className="fade-slide-in relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                <AlertTriangle size={16} className="text-rose-500" />
-                Từ chối minh chứng nộp phí
+                <RefreshCw size={16} className="text-amber-500" />
+                Yêu cầu gửi lại minh chứng
               </h3>
               <button
-                onClick={() => setRejectModalPayment(null)}
+                onClick={() => setResubmitModalPayment(null)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
               >
                 <X size={16} />
@@ -481,35 +520,35 @@ export function PaymentApproval() {
 
             <div className="p-4 space-y-3">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Gia sư: <strong>{rejectModalPayment.tutorName}</strong> &bull; Số tiền:{" "}
-                <strong>{fmtVND(rejectModalPayment.amount)}</strong>
+                Gia sư: <strong>{resubmitModalPayment.tutorName}</strong> &bull; Số tiền:{" "}
+                <strong>{fmtVND(resubmitModalPayment.amount)}</strong>
               </p>
 
               <div>
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Lý do từ chối (Gửi thông báo tới gia sư):
+                  Lý do yêu cầu nộp lại minh chứng (Gửi thông báo tới gia sư):
                 </label>
                 <textarea
                   rows={3}
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:border-slate-800 dark:bg-slate-900"
+                  value={resubmitReason}
+                  onChange={(e) => setResubmitReason(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100 dark:border-slate-800 dark:bg-slate-900"
                   placeholder="Nhập lý do cụ thể..."
                 />
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800">
-              <Button variant="secondary" size="sm" onClick={() => setRejectModalPayment(null)}>
+              <Button variant="secondary" size="sm" onClick={() => setResubmitModalPayment(null)}>
                 Hủy
               </Button>
               <Button
                 size="sm"
-                onClick={handleConfirmReject}
-                disabled={!rejectReason.trim()}
-                className="bg-rose-600 hover:bg-rose-700 text-white"
+                onClick={handleConfirmResubmit}
+                disabled={!resubmitReason.trim()}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
               >
-                Xác nhận từ chối
+                <Send size={14} /> Gửi yêu cầu
               </Button>
             </div>
           </div>

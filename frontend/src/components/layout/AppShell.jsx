@@ -26,6 +26,7 @@ import {
   FolderOpen,
   Lock,
   Banknote,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { AiAssistantProvider, useAiAssistant } from "../../context/AiAssistantContext";
@@ -55,7 +56,7 @@ export default function AppShell() {
 }
 
 function AppShellInner() {
-  const { session, logout, matchRequestList, paymentProofList } = useAuth();
+  const { session, logout, matchRequestList, paymentProofList, notificationList } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { studentId } = useParams();
@@ -78,6 +79,7 @@ function AppShellInner() {
   if (isAdmin) {
     const pendingMatchCount = matchRequestList?.filter((r) => r.status === "pending").length || 0;
     const pendingPaymentCount = paymentProofList?.filter((p) => p.status === "pending").length || 0;
+    const unreadNotifCount = notificationList?.filter((n) => !n.read).length || 0;
 
     items = [
       { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
@@ -96,6 +98,12 @@ function AppShellInner() {
       { to: "/admin/tutors", label: "Quản lý gia sư", icon: UserCog },
       { to: "/admin/students", label: "Quản lý học sinh", icon: Users },
       { to: "/admin/analytics", label: "Báo cáo & Phân tích", icon: BarChart2 },
+      {
+        to: "/admin/notifications",
+        label: "Thông báo",
+        icon: Bell,
+        badge: () => (unreadNotifCount > 0 ? unreadNotifCount : null),
+      },
       { to: "/admin/logs", label: "Nhật ký hoạt động", icon: Activity },
       { to: "/admin/settings", label: "Cài đặt", icon: Settings },
     ];

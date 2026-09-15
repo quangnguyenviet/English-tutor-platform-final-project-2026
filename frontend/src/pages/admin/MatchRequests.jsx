@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   ClipboardList,
   Search,
-  Filter,
   UserCheck,
   Clock,
   CheckCircle2,
@@ -14,14 +13,12 @@ import {
   MapPin,
   Phone,
   MessageCircle,
-  GraduationCap,
   ArrowRight,
-  ChevronRight,
   AlertCircle,
-  DollarSign,
   X,
-  Star,
   Zap,
+  Trash2,
+  Timer,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/ui/PageHeader";
@@ -30,10 +27,11 @@ import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import Avatar from "../../components/ui/Avatar";
 import StatCard from "../../components/ui/StatCard";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 
 const statusMeta = {
   pending: { label: "Chờ xử lý", tone: "amber" },
-  offered: { label: "Đã gửi Match Offer", tone: "blue" },
+  offered: { label: "Đã gửi đề nghị", tone: "blue" },
   matched: { label: "Đã ghép thành công", tone: "emerald" },
   cancelled: { label: "Đã hủy", tone: "slate" },
 };
@@ -59,12 +57,27 @@ function formatTs(ts) {
   );
 }
 
+function getDaysRemaining(cancelledAt) {
+  if (!cancelledAt) return null;
+  const cancelDate = new Date(cancelledAt);
+  const deleteDate = new Date(cancelDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const diffMs = deleteDate - now;
+  if (diffMs <= 0) return 0;
+  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+}
+
 export function MatchRequests() {
-  const { matchRequestList, createMatchOffer, updateMatchRequest, tutorList } = useAuth();
+  const {
+    matchRequestList,
+    createMatchOffer,
+    updateMatchRequest,
+    cancelMatchOffer,
+    tutorList,
+  } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [modeFilter, setModeFilter] = useState("all");
 
   // Modal State for Creating Match Offer
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -73,6 +86,19 @@ export function MatchRequests() {
   const [adminNote, setAdminNote] = useState("");
   const [toastMessage, setToastMessage] = useState(null);
 
+  // ConfirmModal states
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+    confirmLabel: "Đồng ý",
+    confirmTone: "blue",
+    onConfirm: null,
+  });
+
+  // Success popup after match offer confirmation
+  const [successPopup, setSuccessPopup] = useState(null);
+
   const activeTutors = tutorList.filter((t) => t.status === "active");
 
   const showToast = (msg) => {
@@ -80,7 +106,11 @@ export function MatchRequests() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Filtered requests
+  const closeConfirmModal = () => {
+    setConfirmModal((prev) => ({ ...prev, open: false, onConfirm: null }));
+  };
+
+  // Filtered requests (removed modeFilter)
   const filtered = matchRequestList.filter((r) => {
     const matchSearch =
       r.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -89,9 +119,8 @@ export function MatchRequests() {
       (r.location && r.location.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const matchStatus = statusFilter === "all" || r.status === statusFilter;
-    const matchMode = modeFilter === "all" || r.learningMode === modeFilter;
 
-    return matchSearch && matchStatus && matchMode;
+    return matchSearch && matchStatus;
   });
 
   // Calculate stats
@@ -121,29 +150,75 @@ export function MatchRequests() {
     setAdminNote("");
   };
 
-  // Submit Match Offer
+  // Submit Match Offer — with intermediate confirmation step
   const handleConfirmOffer = () => {
     if (!selectedRequest || !selectedTutorId) return;
 
     const chosenTutor = tutorList.find((t) => t.id === selectedTutorId);
     if (!chosenTutor) return;
 
-    // Tính phí tự động: (Số buổi/tuần * 4 tuần) * Đơn giá/buổi * Tỷ lệ phí
-    const monthlySessions = (selectedRequest.sessionsPerWeek || 3) * 4;
-    const totalTuition = monthlySessions * (selectedRequest.budgetPerSession || 250000);
-    const calculatedFee = Math.round(totalTuition * customFeeRate);
+    const isChangingTutor = selectedRequest.status === "offered" && selectedRequest.matchedTutorName;
+    const previousTutorName = selectedRequest.matchedTutorName;
 
-    createMatchOffer(selectedRequest.id, chosenTutor.id, chosenTutor.name, calculatedFee);
+    setConfirmModal({
+      open: true,
+      title: isChangingTutor ? "Xác nhận thay đổi gia sư" : "Xác nhận ghép lớp",
+      message: isChangingTutor
+        ? `Bạn chắc chắn xác nhận thay đổi gia sư ${previousTutorName} thành gia sư ${chosenTutor.name} chứ?`
+        : `Bạn chắc chắn xác nhận match học sinh ${selectedRequest.studentName} với gia sư ${chosenTutor.name} chứ?`,
+      confirmLabel: "Đồng ý",
+      confirmTone: "blue",
+      onConfirm: () => {
+        // Tính phí tự động: (Số buổi/tuần * 4 tuần) * Đơn giá/buổi * Tỷ lệ phí
+        const monthlySessions = (selectedRequest.sessionsPerWeek || 3) * 4;
+        const totalTuition = monthlySessions * (selectedRequest.budgetPerSession || 250000);
+        const calculatedFee = Math.round(totalTuition * customFeeRate);
 
-    showToast(`Đã tạo và gửi Match Offer cho Gia sư ${chosenTutor.name} thành công!`);
-    handleCloseModal();
+        createMatchOffer(selectedRequest.id, chosenTutor.id, chosenTutor.name, calculatedFee);
+
+        closeConfirmModal();
+        handleCloseModal();
+
+        // Show success popup
+        setSuccessPopup(
+          isChangingTutor
+            ? `Hệ thống đã gửi thông báo hủy đề nghị tới gia sư ${previousTutorName} và lời đề nghị tới gia sư ${chosenTutor.name}.`
+            : `Hệ thống sẽ gửi đề nghị tới gia sư ${chosenTutor.name}.`
+        );
+      },
+    });
   };
 
+  // Cancel request with ConfirmModal
   const handleCancelRequest = (reqId, studentName) => {
-    if (window.confirm(`Bạn có chắc chắn muốn hủy yêu cầu ghép lớp của học sinh ${studentName}?`)) {
-      updateMatchRequest(reqId, { status: "cancelled" });
-      showToast(`Đã chuyển yêu cầu của ${studentName} sang trạng thái Hủy.`);
-    }
+    setConfirmModal({
+      open: true,
+      title: "Hủy yêu cầu ghép lớp",
+      message: `Bạn chắc chắn muốn hủy yêu cầu ghép lớp của học sinh ${studentName}?`,
+      confirmLabel: "Đồng ý hủy",
+      confirmTone: "rose",
+      onConfirm: () => {
+        updateMatchRequest(reqId, { status: "cancelled", cancelledAt: new Date().toISOString() });
+        showToast(`Đã chuyển yêu cầu của ${studentName} sang trạng thái Hủy.`);
+        closeConfirmModal();
+      },
+    });
+  };
+
+  // Cancel offer with ConfirmModal (new — for "offered" status)
+  const handleCancelOffer = (req) => {
+    setConfirmModal({
+      open: true,
+      title: "Hủy đề nghị ghép lớp",
+      message: `Bạn chắc chắn muốn hủy đề nghị đã gửi tới gia sư ${req.matchedTutorName}? Thông tin thanh toán liên quan cũng sẽ bị xóa.`,
+      confirmLabel: "Đồng ý hủy",
+      confirmTone: "rose",
+      onConfirm: () => {
+        cancelMatchOffer(req.id);
+        showToast(`Đã hủy đề nghị tới gia sư ${req.matchedTutorName}. Dữ liệu thanh toán liên quan đã được xóa.`);
+        closeConfirmModal();
+      },
+    });
   };
 
   return (
@@ -155,6 +230,30 @@ export function MatchRequests() {
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* Success Popup Modal */}
+      <ConfirmModal
+        open={!!successPopup}
+        title="Thao tác thành công"
+        message={successPopup || ""}
+        confirmLabel="Đã hiểu"
+        cancelLabel=""
+        confirmTone="emerald"
+        icon={CheckCircle2}
+        onConfirm={() => setSuccessPopup(null)}
+        onCancel={() => setSuccessPopup(null)}
+      />
+
+      {/* ConfirmModal for all actions */}
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmLabel={confirmModal.confirmLabel}
+        confirmTone={confirmModal.confirmTone}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={closeConfirmModal}
+      />
 
       {/* Page Header */}
       <PageHeader
@@ -180,7 +279,7 @@ export function MatchRequests() {
         />
         <StatCard
           icon={Send}
-          label="Đang gửi Match Offer"
+          label="Đang gửi đề nghị"
           value={offeredCount}
           hint="Chờ gia sư phản hồi"
           tone="blue"
@@ -194,7 +293,7 @@ export function MatchRequests() {
         />
       </div>
 
-      {/* Filters & Search Toolbar */}
+      {/* Filters & Search Toolbar — removed mode filter */}
       <Card padded={false} className="p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           {/* Status Tabs */}
@@ -231,7 +330,7 @@ export function MatchRequests() {
             ))}
           </div>
 
-          {/* Search & Mode Filters */}
+          {/* Search — removed mode filter dropdown */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative min-w-[240px] flex-1 sm:w-64">
               <Search
@@ -245,16 +344,6 @@ export function MatchRequests() {
                 className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:focus:ring-blue-950"
               />
             </div>
-
-            <select
-              value={modeFilter}
-              onChange={(e) => setModeFilter(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900"
-            >
-              <option value="all">Tất cả hình thức</option>
-              <option value="online">Học Online</option>
-              <option value="offline">Học Tại nhà (Offline)</option>
-            </select>
           </div>
         </div>
       </Card>
@@ -265,6 +354,7 @@ export function MatchRequests() {
           const meta = statusMeta[req.status] || { label: req.status, tone: "neutral" };
           const monthlyEstimate = (req.sessionsPerWeek || 3) * 4 * (req.budgetPerSession || 250000);
           const platformFeeEstimate = req.matchOfferFee || Math.round(monthlyEstimate * (req.platformFeeRate || 0.15));
+          const daysRemaining = req.status === "cancelled" ? getDaysRemaining(req.cancelledAt) : null;
 
           return (
             <div
@@ -294,7 +384,7 @@ export function MatchRequests() {
                     {req.targetGoal}
                   </p>
 
-                  {/* Schedule & Location Details */}
+                  {/* Schedule & Location Details — removed learningModeLabel */}
                   <div className="grid grid-cols-1 gap-2 text-xs text-slate-600 dark:text-slate-400 sm:grid-cols-2">
                     <div className="flex items-center gap-2">
                       <Calendar size={14} className="text-blue-500 shrink-0" />
@@ -302,7 +392,7 @@ export function MatchRequests() {
                     </div>
                     <div className="flex items-center gap-2">
                       <MapPin size={14} className="text-emerald-500 shrink-0" />
-                      <span>{req.location} ({req.learningModeLabel})</span>
+                      <span>{req.location}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Phone size={14} className="text-slate-400 shrink-0" />
@@ -336,6 +426,18 @@ export function MatchRequests() {
                           </span>
                         )}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Countdown for cancelled items */}
+                  {req.status === "cancelled" && daysRemaining !== null && (
+                    <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400">
+                      <Timer size={14} className="text-slate-400 shrink-0" />
+                      <span>
+                        {daysRemaining > 0
+                          ? `Tự động xóa sau ${daysRemaining} ngày`
+                          : "Sẽ được xóa trong đợt dọn dẹp tiếp theo"}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -381,14 +483,22 @@ export function MatchRequests() {
                     )}
 
                     {req.status === "offered" && (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => handleOpenOfferModal(req)}
-                        className="w-full justify-center text-blue-600 hover:text-blue-700"
-                      >
-                        <UserCheck size={14} /> Thay đổi gia sư
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleOpenOfferModal(req)}
+                          className="w-full justify-center text-blue-600 hover:text-blue-700"
+                        >
+                          <UserCheck size={14} /> Thay đổi gia sư
+                        </Button>
+                        <button
+                          onClick={() => handleCancelOffer(req)}
+                          className="text-center text-[11px] text-slate-400 hover:text-rose-500 transition"
+                        >
+                          Hủy đề nghị
+                        </button>
+                      </>
                     )}
 
                     {req.status === "pending" && (
