@@ -13,6 +13,7 @@ import MatchRequests from "./pages/admin/MatchRequests";
 import PaymentApproval from "./pages/admin/PaymentApproval";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminLogs from "./pages/admin/AdminLogs";
+import AdminNotifications from "./pages/admin/AdminNotifications";
 import TutorDashboard from "./pages/tutor/TutorDashboard";
 import StudentsList from "./pages/tutor/StudentsList";
 import StudentDetail from "./pages/tutor/StudentDetail";
@@ -87,6 +88,7 @@ export default function App() {
             <Route path="match-requests" element={<MatchRequests />} />
             <Route path="payments" element={<PaymentApproval />} />
             <Route path="analytics" element={<AdminAnalytics />} />
+            <Route path="notifications" element={<AdminNotifications />} />
             <Route path="logs" element={<AdminLogs />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

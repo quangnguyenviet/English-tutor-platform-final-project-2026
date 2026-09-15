@@ -5,6 +5,80 @@ const AuthContext = createContext(null);
 const STORAGE_KEY = "gsa_session";
 const ADMIN_ACCOUNT = { name: "Quản trị hệ thống", initials: "QT", email: "admin@englishpath.vn" };
 
+// Mock notification data for admin
+const initialNotifications = [
+  {
+    id: "notif-1",
+    type: "payment",
+    title: "Gia sư Nguyễn Lan Anh đã nộp minh chứng thanh toán",
+    message: "Gia sư đã chuyển khoản phí kết nối 450.000₫ qua VietinBank. Vui lòng kiểm tra và duyệt.",
+    from: "Nguyễn Lan Anh",
+    fromRole: "tutor",
+    read: false,
+    createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(), // 15 phút trước
+  },
+  {
+    id: "notif-2",
+    type: "match",
+    title: "Yêu cầu ghép lớp mới từ phụ huynh Trần Văn Minh",
+    message: "Phụ huynh đăng ký lớp cho con – Nguyễn Minh Khôi, lớp 8, mục tiêu IELTS 5.5.",
+    from: "Trần Văn Minh",
+    fromRole: "parent",
+    read: false,
+    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // 45 phút trước
+  },
+  {
+    id: "notif-3",
+    type: "tutor_registration",
+    title: "Gia sư mới đăng ký hồ sơ: Phạm Thị Hương",
+    message: "Gia sư chuyên IELTS Speaking & Writing, 3 năm kinh nghiệm. Hồ sơ đang chờ duyệt.",
+    from: "Phạm Thị Hương",
+    fromRole: "tutor",
+    read: false,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 giờ trước
+  },
+  {
+    id: "notif-4",
+    type: "system",
+    title: "Gia sư Trần Đức Huy đã chấp nhận lời đề nghị nhận lớp",
+    message: "Gia sư đồng ý nhận lớp học sinh Lê Hoàng Nam (B1). Đang chờ thanh toán phí kết nối.",
+    from: "Hệ thống",
+    fromRole: "system",
+    read: true,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 giờ trước
+  },
+  {
+    id: "notif-5",
+    type: "tutor_registration",
+    title: "Gia sư Lê Minh Tuấn đăng ký hồ sơ mới",
+    message: "Gia sư chuyên Giao tiếp cơ bản và Phát âm chuẩn. Hồ sơ chờ duyệt.",
+    from: "Lê Minh Tuấn",
+    fromRole: "tutor",
+    read: true,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 ngày trước
+  },
+  {
+    id: "notif-6",
+    type: "payment",
+    title: "Gia sư Vũ Thị Mai yêu cầu gửi lại minh chứng",
+    message: "Gia sư đã nộp lại ảnh biên lai chuyển khoản sau khi bị yêu cầu gửi lại lần trước.",
+    from: "Vũ Thị Mai",
+    fromRole: "tutor",
+    read: true,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), // 2 ngày trước
+  },
+  {
+    id: "notif-7",
+    type: "match",
+    title: "Phụ huynh Nguyễn Hải Yến hủy yêu cầu ghép lớp",
+    message: "Phụ huynh đã liên hệ hủy yêu cầu ghép lớp cho con Nguyễn Minh Anh do thay đổi kế hoạch.",
+    from: "Nguyễn Hải Yến",
+    fromRole: "parent",
+    read: true,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(), // 3 ngày trước
+  },
+];
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(() => {
     try {
@@ -21,6 +95,8 @@ export function AuthProvider({ children }) {
   // State quản lý match requests & thanh toán QR proof
   const [matchRequestList, setMatchRequestList] = useState(() => [...matchRequests]);
   const [paymentProofList, setPaymentProofList] = useState(() => [...paymentProofs]);
+  // Notification state for admin
+  const [notificationList, setNotificationList] = useState(() => [...initialNotifications]);
 
   useEffect(() => {
     if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
@@ -104,8 +180,27 @@ export function AuthProvider({ children }) {
     );
   }
 
+  // Cancel a match offer — sets request to "cancelled" with timestamp AND removes linked payment proof
+  function cancelMatchOffer(requestId) {
+    const request = matchRequestList.find((r) => r.id === requestId);
+    setMatchRequestList((prev) =>
+      prev.map((r) =>
+        r.id === requestId
+          ? { ...r, status: "cancelled", cancelledAt: new Date().toISOString() }
+          : r
+      )
+    );
+    // Remove linked payment proof if exists
+    if (request?.matchedTutorId) {
+      setPaymentProofList((prev) =>
+        prev.filter((p) => !(p.matchRequestId === requestId))
+      );
+    }
+  }
+
   // Admin Payment / QR Proof helpers (FR-23)
   function approvePaymentProof(paymentId) {
+    const payment = paymentProofList.find((p) => p.id === paymentId);
     setPaymentProofList((prev) =>
       prev.map((p) =>
         p.id === paymentId
@@ -120,22 +215,65 @@ export function AuthProvider({ children }) {
           : p
       )
     );
+    // Auto-update linked match request to "matched"
+    if (payment?.matchRequestId) {
+      setMatchRequestList((prev) =>
+        prev.map((r) =>
+          r.id === payment.matchRequestId
+            ? { ...r, status: "matched", matchedAt: new Date().toISOString() }
+            : r
+        )
+      );
+    }
+    // Auto-update linked student approval status
+    setStudentList((prev) =>
+      prev.map((s) => {
+        const isTarget =
+          (payment?.studentId && s.id === payment.studentId) ||
+          (payment?.studentName && s.name.toLowerCase() === payment.studentName.toLowerCase());
+        if (isTarget) {
+          return {
+            ...s,
+            approvalStatus: s.approvalStatus === "account_created" ? "account_created" : "approved",
+            assignedTutorId: payment?.tutorId || s.assignedTutorId,
+          };
+        }
+        return s;
+      })
+    );
   }
 
-  function rejectPaymentProof(paymentId, reason) {
+  // Request resubmit proof (replaces reject) — keeps item in "pending-like" state
+  function requestResubmitProof(paymentId, reason) {
     setPaymentProofList((prev) =>
       prev.map((p) =>
         p.id === paymentId
           ? {
               ...p,
-              status: "rejected",
+              status: "resubmit_requested",
               reviewedAt: new Date().toISOString(),
               reviewedBy: session?.name || "Quản trị viên",
-              rejectReason: reason || "Thông tin chuyển khoản không trùng khớp hoặc ảnh mờ.",
+              resubmitReason: reason || "Ảnh biên lai mờ hoặc thông tin chuyển khoản không khớp.",
             }
           : p
       )
     );
+  }
+
+  // Legacy reject - kept for backward compatibility but redirects to resubmit
+  function rejectPaymentProof(paymentId, reason) {
+    requestResubmitProof(paymentId, reason);
+  }
+
+  // Notification helpers
+  function markNotificationRead(id) {
+    setNotificationList((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+  }
+
+  function markAllNotificationsRead() {
+    setNotificationList((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 
   return (
@@ -160,10 +298,16 @@ export function AuthProvider({ children }) {
         setMatchRequestList,
         updateMatchRequest,
         createMatchOffer,
+        cancelMatchOffer,
         paymentProofList,
         setPaymentProofList,
         approvePaymentProof,
         rejectPaymentProof,
+        requestResubmitProof,
+        notificationList,
+        setNotificationList,
+        markNotificationRead,
+        markAllNotificationsRead,
       }}
     >
       {children}

@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { Banknote, TrendingUp, AlertCircle, GraduationCap, Users, Calendar, CheckCircle2 } from "lucide-react";
+import { Banknote, TrendingUp, AlertCircle, GraduationCap, Users, Calendar, CheckCircle2, UserPlus, Target } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { revenueData, studentFees, students } from "../../data/mockData";
 import PageHeader from "../../components/ui/PageHeader";
@@ -28,10 +28,19 @@ const exerciseActivity = [
   { month: "T3/2026", created: 25, completed: 21 },
 ];
 
+// Mock data for growth chart
+const growthData = [
+  { month: "T11/2025", newTutors: 2, newStudents: 5 },
+  { month: "T12/2025", newTutors: 3, newStudents: 7 },
+  { month: "T1/2026", newTutors: 4, newStudents: 8 },
+  { month: "T2/2026", newTutors: 3, newStudents: 10 },
+  { month: "T3/2026", newTutors: 5, newStudents: 12 },
+];
+
 const skillKeys = ["Nghe", "Nói", "Đọc", "Viết", "Từ vựng", "Ngữ pháp"];
 
 export function AdminAnalytics() {
-  const { tutorList, studentList } = useAuth();
+  const { tutorList, studentList, matchRequestList } = useAuth();
 
   const current = revenueData[revenueData.length - 1];
   const prev = revenueData[revenueData.length - 2];
@@ -40,6 +49,29 @@ export function AdminAnalytics() {
   const totalCreated = exerciseActivity.reduce((s, r) => s + r.created, 0);
   const totalCompleted = exerciseActivity.reduce((s, r) => s + r.completed, 0);
   const completionRate = Math.round((totalCompleted / totalCreated) * 100);
+
+  // New metrics
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
+  const newTutorsThisMonth = tutorList.filter((t) => {
+    if (!t.joinedDate) return false;
+    const d = new Date(t.joinedDate);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  }).length;
+
+  const newStudentsThisMonth = studentList.filter((s) => {
+    if (!s.joinedDate) return false;
+    const d = new Date(s.joinedDate);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  }).length;
+
+  const matchRequests = matchRequestList || [];
+  const totalMatchRequests = matchRequests.length;
+  const matchedCount = matchRequests.filter((r) => r.status === "matched").length;
+  const matchSuccessRate = totalMatchRequests > 0
+    ? Math.round((matchedCount / totalMatchRequests) * 100)
+    : 0;
 
   // Average skill score across each student's last progressHistory entry
   const skillChartData = skillKeys.map((k) => {
@@ -93,6 +125,31 @@ export function AdminAnalytics() {
         />
       </div>
 
+      {/* New: Growth & Matching Stat Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StatCard
+          icon={UserPlus}
+          label="Gia sư mới tháng này"
+          value={newTutorsThisMonth}
+          hint={`Tổng cộng: ${tutorList.length} gia sư`}
+          tone="emerald"
+        />
+        <StatCard
+          icon={Users}
+          label="Học sinh mới tháng này"
+          value={newStudentsThisMonth}
+          hint={`Tổng cộng: ${studentList.length} học sinh`}
+          tone="blue"
+        />
+        <StatCard
+          icon={Target}
+          label="Tỉ lệ ghép lớp thành công"
+          value={`${matchSuccessRate}%`}
+          hint={`${matchedCount}/${totalMatchRequests} yêu cầu`}
+          tone="emerald"
+        />
+      </div>
+
       {/* Revenue Chart + Skill Chart (Asymmetric 2 + 1 split) */}
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2" padded={false}>
@@ -140,9 +197,32 @@ export function AdminAnalytics() {
         </Card>
       </div>
 
-      {/* Exercise Activity + Summary Metrics (Asymmetric 3 + 2 split) */}
-      <div className="grid gap-6 lg:grid-cols-5">
-        <Card className="lg:col-span-3" padded={false}>
+      {/* New: Growth Trend Chart + Exercise Activity */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Growth trend chart */}
+        <Card padded={false}>
+          <div className="border-b border-slate-200 p-5 dark:border-slate-800">
+            <h2 className="font-semibold text-slate-900 dark:text-slate-50">
+              Xu hướng tăng trưởng theo tháng
+            </h2>
+          </div>
+          <div className="p-5">
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={growthData} barGap={4}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="newTutors" name="Gia sư mới" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="newStudents" name="Học sinh mới" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        {/* Exercise activity chart */}
+        <Card padded={false}>
           <div className="border-b border-slate-200 p-5 dark:border-slate-800">
             <h2 className="font-semibold text-slate-900 dark:text-slate-50">
               Hoạt động bài tập & Tỷ lệ nộp bài theo tháng
@@ -163,47 +243,40 @@ export function AdminAnalytics() {
             </ResponsiveContainer>
           </div>
         </Card>
-
-        <Card className="lg:col-span-2" padded={false}>
-          <div className="border-b border-slate-200 p-5 dark:border-slate-800">
-            <h2 className="font-semibold text-slate-900 dark:text-slate-50">
-              Chỉ số hiệu quả học tập
-            </h2>
-          </div>
-          <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-            <div className="flex justify-between p-3.5">
-              <span className="text-slate-600 dark:text-slate-400">Tổng số bài tập đã tạo:</span>
-              <span className="font-semibold font-mono text-slate-900 dark:text-white">
-                {totalCreated} bài
-              </span>
-            </div>
-            <div className="flex justify-between p-3.5">
-              <span className="text-slate-600 dark:text-slate-400">Học sinh hoàn thành:</span>
-              <span className="font-semibold font-mono text-slate-900 dark:text-white">
-                {totalCompleted} bài
-              </span>
-            </div>
-            <div className="flex justify-between p-3.5">
-              <span className="text-slate-600 dark:text-slate-400">Tỷ lệ hoàn thành trung bình:</span>
-              <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                {completionRate}%
-              </span>
-            </div>
-            <div className="flex justify-between p-3.5">
-              <span className="text-slate-600 dark:text-slate-400">Gia sư đang dạy hoạt động:</span>
-              <span className="font-semibold font-mono text-slate-900 dark:text-white">
-                {tutorList.filter((t) => t.status === "active").length} gia sư
-              </span>
-            </div>
-            <div className="flex justify-between p-3.5">
-              <span className="text-slate-600 dark:text-slate-400">Tháng nhiều bài tập nhất:</span>
-              <span className="font-semibold text-slate-800 dark:text-slate-200">
-                Tháng 3/2026 (25 bài)
-              </span>
-            </div>
-          </div>
-        </Card>
       </div>
+
+      {/* Summary Metrics */}
+      <Card padded={false}>
+        <div className="border-b border-slate-200 p-5 dark:border-slate-800">
+          <h2 className="font-semibold text-slate-900 dark:text-slate-50">
+            Chỉ số hiệu quả học tập
+          </h2>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-5 divide-x divide-slate-100 dark:divide-slate-800 text-xs">
+          <div className="p-3.5 text-center">
+            <p className="text-slate-500 dark:text-slate-400">Tổng bài tập đã tạo</p>
+            <p className="mt-1 text-lg font-bold font-mono text-slate-900 dark:text-white">{totalCreated}</p>
+          </div>
+          <div className="p-3.5 text-center">
+            <p className="text-slate-500 dark:text-slate-400">Học sinh hoàn thành</p>
+            <p className="mt-1 text-lg font-bold font-mono text-slate-900 dark:text-white">{totalCompleted}</p>
+          </div>
+          <div className="p-3.5 text-center">
+            <p className="text-slate-500 dark:text-slate-400">Tỷ lệ hoàn thành</p>
+            <p className="mt-1 text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">{completionRate}%</p>
+          </div>
+          <div className="p-3.5 text-center">
+            <p className="text-slate-500 dark:text-slate-400">Gia sư đang dạy</p>
+            <p className="mt-1 text-lg font-bold font-mono text-slate-900 dark:text-white">
+              {tutorList.filter((t) => t.status === "active").length}
+            </p>
+          </div>
+          <div className="p-3.5 text-center">
+            <p className="text-slate-500 dark:text-slate-400">Tháng nhiều bài nhất</p>
+            <p className="mt-1 text-lg font-bold text-slate-900 dark:text-white">T3/2026</p>
+          </div>
+        </div>
+      </Card>
 
       {/* Student Fees Breakdown + Top Progressive Students */}
       <div className="grid gap-6 lg:grid-cols-2">
