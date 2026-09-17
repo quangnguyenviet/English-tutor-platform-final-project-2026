@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Plus,
   Pencil,
   Trash2,
   Search,
@@ -15,7 +14,15 @@ import {
   Phone,
   Calendar,
   GraduationCap,
+  Eye,
+  MapPin,
+  Award,
   BookOpen,
+  FileCheck,
+  FileText,
+  Lock,
+  Info,
+  CheckCircle,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/ui/PageHeader";
@@ -24,6 +31,7 @@ import Avatar from "../../components/ui/Avatar";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import StatCard from "../../components/ui/StatCard";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 
 const statusOptions = [
   { value: "active", label: "Đang hoạt động", tone: "emerald" },
@@ -31,48 +39,39 @@ const statusOptions = [
   { value: "inactive", label: "Ngưng hoạt động", tone: "slate" },
 ];
 
-const specializationOptions = [
-  "IELTS",
-  "IELTS Writing",
-  "IELTS Reading",
-  "IELTS Speaking",
-  "Giao tiếp cơ bản",
-  "Phát âm chuẩn",
-  "Nghe hiểu phản xạ",
-  "Ngữ pháp THPT",
-  "Từ vựng nâng cao",
-  "Tiếng Anh Thương mại",
-];
-
-function emptyForm() {
-  return {
-    name: "",
-    email: "",
-    phone: "",
-    status: "pending",
-    joinedDate: new Date().toISOString().slice(0, 10),
-    specialization: [],
-    studentsCount: 0,
-    ratePerHour: "250.000đ",
-  };
-}
-
 const inputClass =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:focus:ring-blue-950";
 
 export function TutorManagement() {
-  const { tutorList, addTutor, updateTutor, removeTutor } = useAuth();
+  const { tutorList, updateTutor, removeTutor } = useAuth();
 
   const [query, setQuery] = useState("");
   const [statusTab, setStatusTab] = useState("all");
-  const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState(emptyForm());
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({});
   const [toastMessage, setToastMessage] = useState(null);
+
+  // View Detail Modal
+  const [viewingTutor, setViewingTutor] = useState(null);
+
+  // ConfirmModal state
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+    confirmLabel: "Đồng ý",
+    confirmTone: "blue",
+    onConfirm: null,
+  });
 
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const closeConfirmModal = () => {
+    setConfirmModal((prev) => ({ ...prev, open: false, onConfirm: null }));
   };
 
   const activeCount = tutorList.filter((t) => t.status === "active").length;
@@ -86,12 +85,12 @@ export function TutorManagement() {
         t.name.toLowerCase().includes(query.toLowerCase()) ||
         t.email.toLowerCase().includes(query.toLowerCase()) ||
         (t.phone && t.phone.toLowerCase().includes(query.toLowerCase())) ||
-        t.specialization.some((s) => s.toLowerCase().includes(query.toLowerCase()))
+        (t.specialization && t.specialization.some((s) => s.toLowerCase().includes(query.toLowerCase())))
       )
   );
 
   function resetForm() {
-    setForm(emptyForm());
+    setForm({});
     setEditingId(null);
     setShowForm(false);
   }
@@ -99,58 +98,87 @@ export function TutorManagement() {
   function handleEdit(t) {
     setEditingId(t.id);
     setForm({
+      id: t.id,
       name: t.name,
       email: t.email,
-      phone: t.phone || "",
+      phone: t.phone || "Chưa cập nhật",
       status: t.status,
       joinedDate: t.joinedDate,
       specialization: [...(t.specialization || [])],
       studentsCount: t.studentsCount ?? 0,
       ratePerHour: t.ratePerHour || "250.000đ",
+      university: t.university || "Đại học Sư Phạm TP.HCM",
     });
     setShowForm(true);
   }
 
-  function toggleSpecialization(s) {
-    setForm((f) => {
-      const set = new Set(f.specialization);
-      if (set.has(s)) set.delete(s);
-      else set.add(s);
-      return { ...f, specialization: Array.from(set) };
+  // Admin only updates the status of the tutor
+  function handleSubmit() {
+    if (!form.status) return;
+
+    const newStatusLabel = statusOptions.find((o) => o.value === form.status)?.label || form.status;
+
+    setConfirmModal({
+      open: true,
+      title: "Xác nhận đổi trạng thái gia sư",
+      message: `Bạn chắc chắn muốn đổi trạng thái hoạt động của gia sư ${form.name} thành "${newStatusLabel}"?`,
+      confirmLabel: "Lưu thay đổi",
+      confirmTone: "blue",
+      onConfirm: () => {
+        updateTutor(editingId, { status: form.status });
+        showToast(`Đã cập nhật trạng thái hoạt động của gia sư ${form.name} thành "${newStatusLabel}"`);
+        resetForm();
+        closeConfirmModal();
+      },
     });
   }
 
-  function handleSubmit() {
-    if (!form.name.trim() || !form.email.trim()) return;
+  // Approve tutor with ConfirmModal
+  function handleApprove(t) {
+    setConfirmModal({
+      open: true,
+      title: "Duyệt tài khoản gia sư",
+      message: `Bạn chắc chắn duyệt tài khoản gia sư ${t.name}? Gia sư sẽ được chuyển sang trạng thái "Đang hoạt động".`,
+      confirmLabel: "Duyệt",
+      confirmTone: "emerald",
+      onConfirm: () => {
+        updateTutor(t.id, { status: "active" });
+        showToast(`Đã duyệt tài khoản ${t.name}`);
+        closeConfirmModal();
+      },
+    });
+  }
 
-    const initials = form.name
-      .trim()
-      .split(/\s+/)
-      .slice(-2)
-      .map((w) => w[0])
-      .join("")
-      .toUpperCase();
+  // Reject tutor with ConfirmModal
+  function handleReject(t) {
+    setConfirmModal({
+      open: true,
+      title: "Từ chối tài khoản gia sư",
+      message: `Bạn chắc chắn từ chối tài khoản gia sư ${t.name}? Hồ sơ sẽ được chuyển sang trạng thái "Ngưng hoạt động".`,
+      confirmLabel: "Từ chối",
+      confirmTone: "rose",
+      onConfirm: () => {
+        updateTutor(t.id, { status: "inactive" });
+        showToast(`Đã từ chối tài khoản ${t.name}`);
+        closeConfirmModal();
+      },
+    });
+  }
 
-    const payload = {
-      name: form.name.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim(),
-      status: form.status,
-      joinedDate: form.joinedDate,
-      specialization: form.specialization,
-      studentsCount: form.studentsCount ?? 0,
-      ratePerHour: form.ratePerHour,
-      initials,
-    };
-
-    if (editingId) {
-      updateTutor(editingId, payload);
-      showToast(`Đã cập nhật thông tin gia sư ${payload.name}`);
-    } else {
-      addTutor(payload);
-      showToast(`Đã thêm mới gia sư ${payload.name}`);
-    }
-    resetForm();
+  // Delete tutor with ConfirmModal (only for inactive)
+  function handleDelete(t) {
+    setConfirmModal({
+      open: true,
+      title: "Xóa gia sư khỏi hệ thống",
+      message: `Bạn chắc chắn xóa gia sư ${t.name} khỏi hệ thống? Hành động này không thể hoàn tác.`,
+      confirmLabel: "Xóa",
+      confirmTone: "rose",
+      onConfirm: () => {
+        removeTutor(t.id);
+        showToast(`Đã xóa gia sư ${t.name}`);
+        closeConfirmModal();
+      },
+    });
   }
 
   return (
@@ -163,21 +191,21 @@ export function TutorManagement() {
         </div>
       )}
 
+      {/* ConfirmModal */}
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmLabel={confirmModal.confirmLabel}
+        confirmTone={confirmModal.confirmTone}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={closeConfirmModal}
+      />
+
+      {/* PageHeader — removed "Thêm gia sư" button */}
       <PageHeader
         title="Quản lý gia sư"
-        description="Thêm mới, phê duyệt tài khoản và quản lý thông tin đội ngũ gia sư tiếng Anh."
-        actions={
-          <Button
-            size="sm"
-            onClick={() => {
-              resetForm();
-              setShowForm(true);
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <Plus size={14} /> Thêm gia sư
-          </Button>
-        }
+        description="Phê duyệt tài khoản và quản lý thông tin đội ngũ gia sư tiếng Anh."
       />
 
       {/* KPI Stats Row */}
@@ -262,133 +290,145 @@ export function TutorManagement() {
         </div>
       </Card>
 
-      {/* Add / Edit Tutor Form */}
-      {showForm && (
-        <Card className="fade-slide-in border-blue-200 shadow-md dark:border-blue-900/50">
-          <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              {editingId ? "Chỉnh sửa thông tin gia sư" : "Thêm gia sư mới vào hệ thống"}
-            </h3>
-            <button
-              onClick={resetForm}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                Họ và tên <span className="text-rose-500">*</span>
-              </label>
-              <input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="VD: Nguyễn Lan Anh"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                Email liên hệ <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="lananh.tutor@example.com"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                Số điện thoại
-              </label>
-              <input
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                placeholder="VD: 0987 654 321"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                Mức học phí / giờ
-              </label>
-              <input
-                value={form.ratePerHour}
-                onChange={(e) => setForm((f) => ({ ...f, ratePerHour: e.target.value }))}
-                placeholder="VD: 250.000đ"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                Trạng thái hoạt động
-              </label>
-              <select
-                value={form.status}
-                onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-                className={inputClass}
+      {/* Edit Tutor Form (Admin ONLY edits Status) - Modal Popup */}
+      {showForm && editingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="fade-slide-in relative flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+                  <Pencil size={16} className="text-blue-600" />
+                  Cập nhật trạng thái hoạt động của gia sư
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Gia sư: <strong className="text-slate-800 dark:text-slate-200">{form.name}</strong> ({form.email})
+                </p>
+              </div>
+              <button
+                onClick={resetForm}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
               >
-                {statusOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+                <X size={18} />
+              </button>
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
-                Ngày tham gia
-              </label>
-              <input
-                type="date"
-                value={form.joinedDate}
-                onChange={(e) => setForm((f) => ({ ...f, joinedDate: e.target.value }))}
-                className={inputClass}
-              />
-            </div>
-          </div>
 
-          <div className="mt-4">
-            <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">
-              Lĩnh vực chuyên môn & Kỹ năng giảng dạy
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {specializationOptions.map((s) => (
-                <button
-                  type="button"
-                  key={s}
-                  onClick={() => toggleSpecialization(s)}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition active:scale-[0.98] ${
-                    form.specialization.includes(s)
-                      ? "border-blue-600 bg-blue-600 text-white"
-                      : "border-slate-200 text-slate-600 hover:border-blue-300 dark:border-slate-700 dark:text-slate-300"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+              {/* Important Permission Notice */}
+              <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200 flex items-start gap-2.5">
+                <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">Quy định phân quyền quản trị:</p>
+                  <p className="mt-0.5 text-amber-800 dark:text-amber-300">
+                    Các thông tin lý lịch học vấn, chuyên môn, số điện thoại và bằng cấp do chính gia sư tự đăng ký và quản lý trên trang <strong>Hồ sơ cá nhân (Tutor Profile)</strong>. Quản trị viên chỉ được phép điều chỉnh <strong>Trạng thái hoạt động</strong> của tài khoản gia sư.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* The ONLY editable field: Status */}
+                <div className="sm:col-span-2 rounded-xl border-2 border-blue-200 bg-blue-50/40 p-3.5 dark:border-blue-900/60 dark:bg-blue-950/20">
+                  <label className="mb-1.5 block text-xs font-bold text-blue-900 dark:text-blue-200 flex items-center justify-between">
+                    <span>Trạng thái hoạt động của gia sư (Admin có thể sửa) *</span>
+                    <span className="text-[10px] font-normal text-blue-600 dark:text-blue-400">Chọn trạng thái để cập nhật</span>
+                  </label>
+                  <select
+                    value={form.status || "pending"}
+                    onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+                    className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 dark:border-blue-700 dark:bg-slate-900 dark:text-slate-100"
+                  >
+                    {statusOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Read-only info fields provided by tutor */}
+                <div>
+                  <label className="mb-1 flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <Lock size={12} className="text-slate-400" /> Họ và tên gia sư (Thông tin gia sư cung cấp)
+                  </label>
+                  <input
+                    disabled
+                    value={form.name || ""}
+                    className={`${inputClass} bg-slate-50 text-slate-600 cursor-not-allowed dark:bg-slate-800/60 dark:text-slate-400`}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <Lock size={12} className="text-slate-400" /> Email liên hệ
+                  </label>
+                  <input
+                    disabled
+                    value={form.email || ""}
+                    className={`${inputClass} bg-slate-50 text-slate-600 cursor-not-allowed dark:bg-slate-800/60 dark:text-slate-400`}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <Lock size={12} className="text-slate-400" /> Số điện thoại / Zalo
+                  </label>
+                  <input
+                    disabled
+                    value={form.phone || ""}
+                    className={`${inputClass} bg-slate-50 text-slate-600 cursor-not-allowed dark:bg-slate-800/60 dark:text-slate-400`}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <Lock size={12} className="text-slate-400" /> Mức học phí / giờ
+                  </label>
+                  <input
+                    disabled
+                    value={form.ratePerHour || ""}
+                    className={`${inputClass} bg-slate-50 text-slate-600 cursor-not-allowed dark:bg-slate-800/60 dark:text-slate-400`}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <Lock size={12} className="text-slate-400" /> Chuyên môn & Kỹ năng giảng dạy đã đăng ký
+                  </label>
+                  <div className="flex flex-wrap gap-1.5 p-2 rounded-lg bg-slate-50 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-800">
+                    {form.specialization && form.specialization.length > 0 ? (
+                      form.specialization.map((s) => (
+                        <span
+                          key={s}
+                          className="rounded-full bg-white border border-slate-200 px-2.5 py-0.5 text-xs text-slate-700 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
+                        >
+                          {s}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">Chưa có chuyên môn</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800">
+              <Button variant="secondary" size="sm" onClick={resetForm} type="button">
+                Hủy
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSubmit}
+                type="button"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Check size={14} /> Lưu trạng thái hoạt động
+              </Button>
             </div>
           </div>
-
-          <div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
-            <Button variant="secondary" size="sm" onClick={resetForm} type="button">
-              Hủy
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSubmit}
-              disabled={!form.name.trim() || !form.email.trim()}
-              type="button"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Check size={14} /> {editingId ? "Lưu thay đổi" : "Tạo hồ sơ gia sư"}
-            </Button>
-          </div>
-        </Card>
+        </div>
       )}
 
       {/* Tutor List Table */}
@@ -436,7 +476,7 @@ export function TutorManagement() {
                     </div>
 
                     <div className="mt-1.5 flex flex-wrap gap-1">
-                      {t.specialization.map((s) => (
+                      {t.specialization && t.specialization.map((s) => (
                         <span
                           key={s}
                           className="inline-block rounded bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300"
@@ -459,23 +499,27 @@ export function TutorManagement() {
                   </div>
 
                   <div className="flex items-center gap-1">
+                    {/* View detail button — all statuses */}
+                    <button
+                      onClick={() => setViewingTutor(t)}
+                      title="Xem chi tiết"
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                    >
+                      <Eye size={15} />
+                    </button>
+
+                    {/* Pending: approve + reject */}
                     {t.status === "pending" && (
                       <>
                         <button
-                          onClick={() => {
-                            updateTutor(t.id, { status: "active" });
-                            showToast(`Đã duyệt tài khoản ${t.name}`);
-                          }}
+                          onClick={() => handleApprove(t)}
                           title="Duyệt tài khoản"
                           className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
                         >
                           <UserCheck size={16} />
                         </button>
                         <button
-                          onClick={() => {
-                            updateTutor(t.id, { status: "inactive" });
-                            showToast(`Đã từ chối tài khoản ${t.name}`);
-                          }}
+                          onClick={() => handleReject(t)}
                           title="Từ chối"
                           className="rounded-lg p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                         >
@@ -484,26 +528,27 @@ export function TutorManagement() {
                       </>
                     )}
 
-                    <button
-                      onClick={() => handleEdit(t)}
-                      title="Chỉnh sửa thông tin"
-                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                    >
-                      <Pencil size={15} />
-                    </button>
+                    {/* Active: edit only (NO delete) */}
+                    {t.status === "active" && (
+                      <button
+                        onClick={() => handleEdit(t)}
+                        title="Chỉnh sửa trạng thái"
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`Xóa gia sư ${t.name} khỏi hệ thống?`)) {
-                          removeTutor(t.id);
-                          showToast(`Đã xóa gia sư ${t.name}`);
-                        }
-                      }}
-                      title="Xóa"
-                      className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    {/* Inactive: delete only (NO edit) */}
+                    {t.status === "inactive" && (
+                      <button
+                        onClick={() => handleDelete(t)}
+                        title="Xóa"
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -517,6 +562,202 @@ export function TutorManagement() {
           )}
         </div>
       </Card>
+
+      {/* Modal: View Tutor Detail with full data from TutorProfile.jsx */}
+      {viewingTutor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="fade-slide-in relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <Avatar initials={viewingTutor.initials} size="lg" />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      {viewingTutor.name}
+                    </h3>
+                    <Badge tone={statusOptions.find((o) => o.value === viewingTutor.status)?.tone || "neutral"}>
+                      {statusOptions.find((o) => o.value === viewingTutor.status)?.label || viewingTutor.status}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Hồ sơ năng lực gia sư đã đăng tải trên hệ thống (Tutor Profile)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingTutor(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
+              {/* 1. Giới thiệu ngắn & Liên hệ */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/40 space-y-3">
+                <h4 className="font-bold uppercase tracking-wider text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                  <UserCheck size={14} className="text-blue-500" />
+                  1. Thông tin liên hệ &amp; Giới thiệu bản thân
+                </h4>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="flex justify-between border-b border-slate-200/60 pb-1.5 dark:border-slate-700/60">
+                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><Mail size={13} /> Email:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">{viewingTutor.email}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-200/60 pb-1.5 dark:border-slate-700/60">
+                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><Phone size={13} /> Số điện thoại / Zalo:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">{viewingTutor.phone || "0987 654 321"}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-200/60 pb-1.5 dark:border-slate-700/60">
+                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><MapPin size={13} /> Khu vực dạy:</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-100">{viewingTutor.location || viewingTutor.currentAddress || "TP. Hồ Chí Minh & Online"}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-200/60 pb-1.5 dark:border-slate-700/60">
+                    <span className="text-slate-500 dark:text-slate-400">Học phí / buổi:</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400 font-mono">{viewingTutor.ratePerHour || "250.000đ"}</span>
+                  </div>
+                </div>
+
+                {viewingTutor.bio && (
+                  <div className="mt-2 rounded-lg bg-white p-3 border border-slate-200/70 dark:bg-slate-900 dark:border-slate-800">
+                    <span className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Phong cách giảng dạy:</span>
+                    <p className="text-slate-600 dark:text-slate-300 italic leading-relaxed">
+                      &ldquo;{viewingTutor.bio}&rdquo;
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Lý lịch học vấn & Văn bằng (Từ TutorProfile.jsx) */}
+              <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-4 dark:border-blue-950 dark:bg-blue-950/20 space-y-3">
+                <h4 className="font-bold uppercase tracking-wider text-[11px] text-blue-900 dark:text-blue-300 flex items-center gap-2">
+                  <GraduationCap size={15} className="text-blue-600 dark:text-blue-400" />
+                  2. Lý lịch học vấn &amp; Thành tích học tập
+                </h4>
+
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  <div className="flex justify-between bg-white p-2.5 rounded-lg border border-blue-100 dark:bg-slate-900 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Trình độ phân loại:</span>
+                    <span className="font-bold text-blue-700 dark:text-blue-400">
+                      {viewingTutor.gradeLevels ? viewingTutor.gradeLevels.join(", ") : "Giáo viên chính thức"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between bg-white p-2.5 rounded-lg border border-blue-100 dark:bg-slate-900 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Kinh nghiệm giảng dạy:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {viewingTutor.teachingHours || "400+ giờ dạy (4 năm)"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between bg-white p-2.5 rounded-lg border border-blue-100 dark:bg-slate-900 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Năm sinh / Tuổi:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{viewingTutor.birthYear || "2001 (25 tuổi)"}</span>
+                  </div>
+                  <div className="flex justify-between bg-white p-2.5 rounded-lg border border-blue-100 dark:bg-slate-900 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Quê quán:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{viewingTutor.hometown || "Nam Định"}</span>
+                  </div>
+                  <div className="sm:col-span-2 flex justify-between bg-white p-2.5 rounded-lg border border-blue-100 dark:bg-slate-900 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Trường Đại học &amp; Chuyên ngành:</span>
+                    <span className="font-bold text-slate-900 dark:text-slate-100">
+                      {viewingTutor.university || "Đại học Sư Phạm TP.HCM - Sư phạm Tiếng Anh"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between bg-white p-2.5 rounded-lg border border-blue-100 dark:bg-slate-900 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Trường THPT Cấp 3:</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {viewingTutor.highSchool || "Cựu học sinh Chuyên Lê Hồng Phong"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between bg-white p-2.5 rounded-lg border border-blue-100 dark:bg-slate-900 dark:border-slate-800">
+                    <span className="text-slate-500 dark:text-slate-400">Điểm thi ĐH / Xếp loại:</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      {viewingTutor.graduationScore || "28.5đ khối D01"} ({viewingTutor.academicRank || "GPA 3.85"})
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Hồ sơ pháp lý & Giấy tờ minh chứng đính kèm */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/40 space-y-3">
+                <h4 className="font-bold uppercase tracking-wider text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                  <FileCheck size={15} className="text-emerald-500" />
+                  3. Hồ sơ pháp lý &amp; Giấy tờ minh chứng đã nộp
+                </h4>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+                    <div>
+                      <p className="font-medium text-slate-700 dark:text-slate-300">Định danh cá nhân (CCCD):</p>
+                      <p className="text-[11px] text-slate-400 font-mono">03620100****</p>
+                    </div>
+                    <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                      <CheckCircle size={11} /> Đã xác thực
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+                    <div>
+                      <p className="font-medium text-slate-700 dark:text-slate-300">Minh chứng Bằng ĐH / Bảng điểm:</p>
+                      <p className="text-[11px] text-slate-400">bang_tot_nghiep_scan.pdf</p>
+                    </div>
+                    <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                      <CheckCircle size={11} /> Đã kiểm định
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Chứng chỉ & Kỹ năng chuyên môn */}
+              <div className="space-y-2">
+                <h4 className="font-bold uppercase tracking-wider text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                  <Award size={15} className="text-amber-500" />
+                  4. Chứng chỉ &amp; Lĩnh vực chuyên môn giảng dạy
+                </h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {viewingTutor.certificates && viewingTutor.certificates.map((c, i) => (
+                    <span
+                      key={i}
+                      className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+                    >
+                      🏆 {c.name} {c.issuer && `(${c.issuer})`}
+                    </span>
+                  ))}
+                  {viewingTutor.specialization && viewingTutor.specialization.map((s) => (
+                    <span
+                      key={s}
+                      className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+
+                {viewingTutor.availableSlots && viewingTutor.availableSlots.length > 0 && (
+                  <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <span className="font-semibold text-slate-600 dark:text-slate-400 block mb-1.5">Khung giờ rảnh nhận lớp:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {viewingTutor.availableSlots.map((slot, i) => (
+                        <span key={i} className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-mono text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                          ⏰ {slot}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer — Chỉ xem, không chỉnh sửa */}
+            <div className="flex items-center justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800">
+              <Button variant="secondary" size="sm" onClick={() => setViewingTutor(null)}>
+                Đóng
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

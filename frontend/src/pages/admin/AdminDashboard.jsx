@@ -25,6 +25,7 @@ import {
   ChevronRight,
   Unlock,
   Lock,
+  Bell,
 } from "lucide-react";
 import {
   BarChart,
@@ -82,6 +83,7 @@ export function AdminDashboard() {
     matchRequestList,
     paymentProofList,
     approvePaymentProof,
+    notificationList = [],
   } = useAuth();
 
   const [timeframe, setTimeframe] = useState("month");
@@ -463,13 +465,6 @@ export function AdminDashboard() {
                           Xem minh chứng
                         </Button>
                       </Link>
-                      <Button
-                        size="sm"
-                        onClick={() => handleApprovePaymentQuick(p)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                      >
-                        <CheckCircle size={14} /> Duyệt & Mở khóa
-                      </Button>
                     </div>
                   </div>
                 ))
@@ -479,16 +474,16 @@ export function AdminDashboard() {
         </Card>
       )}
 
-      {/* Quick Actions Shortcuts (6 Asymmetric Navigation Cards) */}
+      {/* Quick Actions Shortcuts (7 Navigation Cards including Thông báo) */}
       <div>
         <div className="mb-3.5 flex items-center justify-between">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
             <Sparkles size={15} className="text-blue-500" /> Thao tác nhanh & Điều hướng nghiệp vụ
           </h2>
-          <span className="text-[11px] font-medium text-slate-400">6 chức năng quản trị</span>
+          <span className="text-[11px] font-medium text-slate-400">7 chức năng quản trị</span>
         </div>
 
-        <div className="grid gap-3.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid gap-3.5 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
           {/* Action 1: Yêu cầu Ghép lớp (FR-16) */}
           <Link
             to="/admin/match-requests"
@@ -568,12 +563,33 @@ export function AdminDashboard() {
                 Quản lý Học sinh
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                {studentList.length} học viên đang theo học
+                {studentList.length} học viên theo học
               </p>
             </div>
           </Link>
 
-          {/* Action 5: Báo cáo & Phân tích (FR-24) */}
+          {/* Action 5: Thông báo & Tin nhắn */}
+          <Link
+            to="/admin/notifications"
+            className="group relative flex flex-col justify-between rounded-xl bg-white p-4 border border-slate-200 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-md dark:bg-slate-900 dark:border-slate-800 dark:hover:border-amber-700"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm group-hover:scale-105 transition-transform">
+                <Bell size={20} />
+              </div>
+              <ArrowUpRight size={15} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-all" />
+            </div>
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                Thông báo
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                {notificationList.filter((n) => !n.read).length} tin mới cần xem
+              </p>
+            </div>
+          </Link>
+
+          {/* Action 6: Báo cáo & Tài chính (FR-24) */}
           <Link
             to="/admin/analytics"
             className="group relative flex flex-col justify-between rounded-xl bg-white p-4 border border-slate-200 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-400 hover:shadow-md dark:bg-slate-900 dark:border-slate-800 dark:hover:border-sky-700"
@@ -594,7 +610,7 @@ export function AdminDashboard() {
             </div>
           </Link>
 
-          {/* Action 6: Nhật ký Audit (FR-19, FR-20) */}
+          {/* Action 7: Nhật ký Audit (FR-19, FR-20) */}
           <Link
             to="/admin/logs"
             className="group relative flex flex-col justify-between rounded-xl bg-white p-4 border border-slate-200 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-md dark:bg-slate-900 dark:border-slate-800 dark:hover:border-slate-600"
@@ -616,6 +632,44 @@ export function AdminDashboard() {
           </Link>
         </div>
       </div>
+
+      {/* Real-time Notifications Preview Widget */}
+      {notificationList.length > 0 && (
+        <Card padded={false} className="border-amber-100 shadow-sm dark:border-amber-900/30">
+          <div className="flex items-center justify-between border-b border-slate-100 p-4 dark:border-slate-800">
+            <div className="flex items-center gap-2">
+              <Bell size={17} className="text-amber-500" />
+              <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-50">
+                Thông báo & Yêu cầu mới nhận từ gia sư, học sinh
+              </h2>
+              {notificationList.filter((n) => !n.read).length > 0 && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+                  {notificationList.filter((n) => !n.read).length} chưa đọc
+                </span>
+              )}
+            </div>
+            <Link to="/admin/notifications" className="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">
+              Xem tất cả thông báo ({notificationList.length}) &rarr;
+            </Link>
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+            {notificationList.slice(0, 3).map((notif) => (
+              <div key={notif.id} className="flex items-center justify-between gap-3 p-3.5 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`h-2 w-2 rounded-full shrink-0 ${notif.read ? "bg-slate-300 dark:bg-slate-700" : "bg-blue-600"}`} />
+                  <div className="min-w-0">
+                    <p className={`truncate ${notif.read ? "font-normal text-slate-700 dark:text-slate-300" : "font-semibold text-slate-900 dark:text-white"}`}>
+                      {notif.title}
+                    </p>
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5">{notif.message}</p>
+                  </div>
+                </div>
+                <span className="text-[11px] text-slate-400 shrink-0 font-medium">{notif.from}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Core Revenue Chart + System Health Status */}
       <div className="grid gap-6 lg:grid-cols-3">

@@ -21,4 +21,4 @@
 - Mọi thay đổi đều phải ghi vào **Nhật ký cập nhật** (Section 14); không sửa thầm.
 - Sử dụng mã WBS / FR thống nhất với `docs/ke-hoach-trien-khai.md` và PRD.
 
-_Thuộc dự án: branch `dev` · Căn cứ: KHKD v1.1 (2026-09-04), PRD v.final (2026-09-04)._
+_Thuộc dự án: branch `dev` · Căn cứ: KHKD v1.3 (2026-09-15), PRD v.final (2026-09-04)._
