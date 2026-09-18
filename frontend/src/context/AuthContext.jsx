@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { tutors, tutor, students, matchRequests, paymentProofs } from "../data/mockData";
+import { tutors, tutor, students, matchRequests, paymentProofs, receptionists, receptionist as receptionistData, complaints as complaintsData } from "../data/mockData";
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = "gsa_session";
 const ADMIN_ACCOUNT = { name: "Quản trị hệ thống", initials: "QT", email: "admin@englishpath.vn" };
+const RECEPTIONIST_ACCOUNT = { name: receptionistData.name, initials: receptionistData.initials, email: receptionistData.email };
 
 // Mock notification data for admin
 const initialNotifications = [
@@ -95,6 +96,10 @@ export function AuthProvider({ children }) {
   // State quản lý match requests & thanh toán QR proof
   const [matchRequestList, setMatchRequestList] = useState(() => [...matchRequests]);
   const [paymentProofList, setPaymentProofList] = useState(() => [...paymentProofs]);
+  // Receptionist state
+  const [receptionistList, setReceptionistList] = useState(() => [...receptionists]);
+  // Complaint state
+  const [complaintList, setComplaintList] = useState(() => [...complaintsData]);
   // Notification state for admin
   const [notificationList, setNotificationList] = useState(() => [...initialNotifications]);
 
@@ -109,6 +114,10 @@ export function AuthProvider({ children }) {
 
   function loginAsTutor() {
     setSession({ role: "tutor", name: tutor.name, initials: tutor.initials });
+  }
+
+  function loginAsReceptionist() {
+    setSession({ role: "receptionist", name: RECEPTIONIST_ACCOUNT.name, initials: RECEPTIONIST_ACCOUNT.initials, email: RECEPTIONIST_ACCOUNT.email });
   }
 
   function loginAsStudent(studentId) {
@@ -265,6 +274,67 @@ export function AuthProvider({ children }) {
     requestResubmitProof(paymentId, reason);
   }
 
+  // Receptionist CRUD helpers (FR-31)
+  function addReceptionist(newReceptionist) {
+    const id = `r-${Date.now()}`;
+    const initials = newReceptionist.name
+      .trim()
+      .split(/\s+/)
+      .slice(-2)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase();
+    setReceptionistList((prev) => [{ ...newReceptionist, id, initials, complaintsHandled: 0 }, ...prev]);
+  }
+
+  function updateReceptionist(id, patch) {
+    setReceptionistList((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
+
+  function removeReceptionist(id) {
+    setReceptionistList((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  // Complaint helpers (FR-32, FR-37)
+  function addComplaint(newComplaint) {
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+    const seq = String(complaintList.length + 1).padStart(3, "0");
+    const id = `KN-${dateStr}-${seq}`;
+    setComplaintList((prev) => [
+      {
+        ...newComplaint,
+        id,
+        createdAt: now.toISOString(),
+        status: "pending",
+        statusLabel: "Chưa xử lí",
+        resolution: null,
+        resolvedAt: null,
+      },
+      ...prev,
+    ]);
+  }
+
+  function updateComplaint(id, patch) {
+    setComplaintList((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  }
+
+  function resolveComplaint(id, resolution) {
+    setComplaintList((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              status: "resolved",
+              statusLabel: "Đã xử lí",
+              resolution,
+              resolvedAt: new Date().toISOString(),
+            }
+          : c
+      )
+    );
+  }
+
   // Notification helpers
   function markNotificationRead(id) {
     setNotificationList((prev) =>
@@ -282,6 +352,7 @@ export function AuthProvider({ children }) {
         session,
         loginAsAdmin,
         loginAsTutor,
+        loginAsReceptionist,
         loginAsStudent,
         logout,
         tutorList,
@@ -304,6 +375,16 @@ export function AuthProvider({ children }) {
         approvePaymentProof,
         rejectPaymentProof,
         requestResubmitProof,
+        receptionistList,
+        setReceptionistList,
+        addReceptionist,
+        updateReceptionist,
+        removeReceptionist,
+        complaintList,
+        setComplaintList,
+        addComplaint,
+        updateComplaint,
+        resolveComplaint,
         notificationList,
         setNotificationList,
         markNotificationRead,

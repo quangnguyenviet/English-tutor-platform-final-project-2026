@@ -8,7 +8,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState("minhanh");
   const [password, setPassword] = useState("123456");
   const [error, setError] = useState("");
-  const { loginAsStudent, loginAsTutor, loginAsAdmin } = useAuth();
+  const { loginAsStudent, loginAsTutor, loginAsAdmin, loginAsReceptionist } = useAuth();
   const navigate = useNavigate();
 
   const handleLogin = (e) => {
@@ -35,6 +35,11 @@ export default function LoginPage() {
   const handleQuickAdminLogin = () => {
     loginAsAdmin();
     navigate("/admin");
+  };
+
+  const handleQuickReceptionistLogin = () => {
+    loginAsReceptionist();
+    navigate("/receptionist");
   };
 
   return (
@@ -129,13 +134,20 @@ export default function LoginPage() {
               <CheckCircle2 className="w-4 h-4" />
               <span>Vào nhanh: Học sinh (Demo Nguyễn Minh Anh)</span>
             </button>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={handleQuickTutorLogin}
                 className="py-2 px-3 rounded-xl border border-border bg-muted/50 text-foreground font-medium text-xs hover:bg-muted transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <span>Vào vai Gia sư</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleQuickReceptionistLogin}
+                className="py-2 px-3 rounded-xl border border-border bg-muted/50 text-foreground font-medium text-xs hover:bg-muted transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>Vào vai Lễ tân</span>
               </button>
               <button
                 type="button"
