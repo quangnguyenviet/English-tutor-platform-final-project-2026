@@ -8,19 +8,19 @@ updated: 2026-09-19
 
 ## 0. Document Purpose
 
-Tài liệu PRD này định nghĩa các yêu cầu nghiệp vụ và kỹ thuật cho hệ thống hỗ trợ vận hành và giảng dạy gia sư tiếng Anh 1-1 có tích hợp AI. Tài liệu làm cơ sở cho thiết kế UX, kiến trúc hệ thống và phân rã các user story cho các nhóm phát triển.
+Tài liệu PRD này định nghĩa các yêu cầu nghiệp vụ và kỹ thuật cho hệ thống hỗ trợ vận hành và giảng dạy gia sư tiếng Anh 1-1 có tích hợp AI và Spaced Repetition. Tài liệu làm cơ sở cho thiết kế UX, kiến trúc hệ thống và phân rã các user story cho các nhóm phát triển.
 
 ## 1. Vision
 
-Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất lượng giảng dạy cho mô hình gia sư tiếng Anh 1-1, với AI là công cụ giúp gia sư **tiết kiệm thời gian soạn bài** và học sinh **tự học hiệu quả hơn**.
+Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất lượng giảng dạy cho mô hình gia sư tiếng Anh 1-1, với AI và Spaced Repetition đóng vai trò đòn bẩy giúp gia sư **tiết kiệm thời gian soạn bài cá nhân hóa** và học sinh **tự học, ghi nhớ lâu dài hiệu quả hơn**.
 
 **Giá trị cốt lõi:**
 
-- **Gia sư**: nhận lớp, soạn chương trình, giao bài tập cá nhân hóa — tất cả trên di động, trong vài phút.
-- **Học sinh**: làm bài, được chấm tức thì, và tự hiểu lý do sai qua lời giải thích AI.
-- **Phụ huynh**: đăng ký học thử nhanh, xem tiến bộ con bằng biểu đồ.
-- **Admin**: ghép lớp, duyệt phí nhận lớp (sau 1 tháng dạy), quản lý lễ tân, xử lý khiếu nại và quản lý vận hành trung tâm tập trung tại một nơi.
-- **Lễ tân**: hỗ trợ Admin xử lý yêu cầu ghép lớp, duyệt thanh toán, quản lý gia sư & học sinh, tiếp nhận và ghi nhận khiếu nại tại trung tâm.
+- **Gia sư**: Nhận lớp, quản lý lộ trình bài dạy, giao bài tập cá nhân hóa tự động dựa trên **Student Knowledge Profile (SKP)** qua cơ chế **Tutor Assistant Dual-Mode** (Direct AI Generation hoặc Import File 0 Token Cost).
+- **Học sinh**: Làm bài trực tuyến, được tự động chấm điểm tức thì, xem lời giải thích AI chi tiết và được hệ thống tự động nhắc ôn lại các kiến thức sắp quên theo thuật toán **Spaced Repetition (SM-2)**.
+- **Phụ huynh**: Tìm gia sư nhanh qua Form trực quan, đăng ký học thử đơn giản, và theo dõi tiến bộ thực chất của con bằng biểu đồ định lượng.
+- **Admin**: Ghép lớp, duyệt phí nhận lớp (sau 1 tháng dạy), quản lý lễ tân, xử lý khiếu nại (`REMATCH`, `REFUND`) và đối soát tài chính trung tâm tại một nơi.
+- **Lễ tân**: Hỗ trợ Admin xử lý yêu cầu ghép lớp, duyệt thanh toán, quản lý gia sư & học sinh, tiếp nhận và ghi nhận khiếu nại trực tiếp tại trung tâm.
 
 ## 2. Target User
 
@@ -30,11 +30,11 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
   * *Functional*: Muốn tìm kiếm và lựa chọn gia sư tiếng Anh phù hợp với tính cách, lịch học và trình độ của con một cách nhanh chóng, minh bạch. Muốn dễ dàng gửi yêu cầu kết nối học thử mà không trải qua các thủ tục rườm rà. Muốn nắm bắt và theo dõi sát sao mức độ chăm chỉ cũng như sự tiến bộ thực chất về năng lực học tập của con theo thời gian.
   * *Emotional*: Cảm thấy yên tâm, tin tưởng vào sự minh bạch và chất lượng dịch vụ của trung tâm; tự hào khi thấy con tiến bộ.
 * **Gia sư (Người dạy)**:
-  * *Functional*: Muốn chủ động xây dựng và quản lý lộ trình bài giảng rõ ràng, khoa học cho từng học sinh. Muốn chuẩn bị và giao bài tập luyện tập cá nhân hóa bám sát nội dung vừa dạy trong thời gian ngắn nhất mà không tốn nhiều công sức soạn bài thủ công.
+  * *Functional*: Muốn chủ động xây dựng và quản lý lộ trình bài giảng rõ ràng, khoa học cho từng học sinh. Muốn chuẩn bị và giao bài tập luyện tập cá nhân hóa bám sát nội dung vừa dạy và điểm yếu thực tế của từng học sinh mà không tốn nhiều công sức soạn bài thủ công.
   * *Emotional*: Cảm thấy tự tin, giữ vững uy tín và thể hiện phong cách làm việc chuyên nghiệp, tận tâm trước phụ huynh mà không bị áp lực hay tốn thời gian bởi các công việc hành chính rườm rà.
 * **Học sinh (Người học)**:
-  * *Functional*: Muốn làm bài tập về nhà thuận tiện trên thiết bị cá nhân. Muốn ngay lập tức biết kết quả bài làm và hiểu rõ lý do vì sao mình làm đúng/sai ở từng câu để tự củng cố kiến thức mà không phải chờ đến buổi học tiếp theo.
-  * *Emotional*: Cảm thấy việc làm bài tập nhẹ nhàng, không bị nản hay áp lực vì luôn có hướng dẫn/giải thích rõ ràng ngay khi gặp câu khó hoặc làm sai.
+  * *Functional*: Muốn làm bài tập về nhà thuận tiện trên thiết bị cá nhân. Muốn ngay lập tức biết kết quả bài làm và hiểu rõ lý do vì sao mình làm đúng/sai ở từng câu. Muốn được nhắc ôn tập lại những kiến thức sắp quên đúng thời điểm để không bị hổng kiến thức.
+  * *Emotional*: Cảm thấy việc học nhẹ nhàng, không bị nản hay áp lực vì luôn có hướng dẫn/giải thích rõ ràng và bài tập vừa sức với trình độ.
 * **Quản trị viên (Admin - Người vận hành)**:
   * *Functional*: Muốn tiếp nhận và xử lý nhanh chóng các yêu cầu học thử từ phụ huynh, ghép nối gia sư phù hợp với nhu cầu của từng học sinh. Muốn kiểm soát và đối soát các khoản phí nhận lớp minh bạch, chính xác sau khi gia sư hoàn thành 1 tháng dạy chính thức. Muốn quản lý nhân sự lễ tân và giám sát xử lý khiếu nại để ghi nhận đúng số tiền thu vào/chi ra.
   * *Emotional*: Cảm thấy quy trình vận hành trung tâm diễn ra trơn tru, chuyên nghiệp, giảm thiểu sai sót thủ công và đảm bảo sự hài lòng cho cả gia sư lẫn phụ huynh.
@@ -69,61 +69,61 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
     4. Nếu gia sư không đồng ý, trung tâm liên hệ lại phụ huynh, và lại đăng lên cho gia sư apply (chuyển về Path 1).
   * **Climax**: Chị Lan được kết nối với gia sư phù hợp thông qua quy trình tư vấn chủ động của Trung tâm.
   * **Resolution**: Hệ thống tạo bản ghi Match Request, gia sư nhận lớp thành công. Sau 30 ngày dạy chính thức, gia sư nộp phí nhận lớp cho trung tâm.
-* **UJ-2. Minh (Gia sư) nhận lớp, lập Khung chương trình, giao bài tập qua Tutor Assistant Dual-Mode và nộp phí QR proof sau 1 tháng dạy**
+
+* **UJ-2. Minh (Gia sư) nhận lớp, lập Khung chương trình, giao bài tập cá nhân hóa dựa trên SKP qua Tutor Assistant Dual-Mode và nộp phí QR proof sau 1 tháng dạy**
 
   * **Persona + Context**: Minh, sinh viên năm 3 chuyên ngành Tiếng Anh, đi dạy thêm bằng điện thoại di động.
   * **Entry State**: Đã đăng nhập tài khoản Gia sư trên di động.
   * **Path**:
     1. Minh nhận thông báo đề xuất nhận lớp Nam (10 tuổi). Minh bấm "Chấp nhận" ➔ Hệ thống tự động **Mở khóa (Unlock) SĐT & Địa chỉ của Phụ huynh** (chị Lan) để Minh chủ động liên hệ chốt lịch học thử.
     2. Minh liên hệ chị Lan, chốt ngày giờ học thử thành công, sau buổi học thử nhập **Lịch dạy cố định hàng tuần** và bấm chọn **"Kích hoạt lớp học chính thức"** (`ACTIVE`).
-    3. Minh khởi tạo **Khung chương trình học tinh gọn (Curriculum Management)** cho lớp Nam bằng **Dual-Mode AI Curriculum Generation**: Minh có thể chọn Option A (nhập mô tả lớp *"Tiếng Anh 10 tuổi - Nhút nhát"* ➔ AI tự động sinh nháp khung 2 cấp trong hệ thống) hoặc Option B (Tải Prompt Mẫu dán vào ChatGPT ngoài ➔ Import JSON/Text kết quả vào hệ thống với 0 Token Cost), sau đó tinh chỉnh thêm Chủ đề 1 *"Family & Hobbies"* ➔ Bài 1 *"Present Simple & Daily Routines"*.
-    4. Sau buổi dạy đầu tiên thuộc Bài 1, Minh chuẩn bị bài tập cho Nam bằng **Tutor Assistant Dual-Mode**:
-       * *Option A (Direct AI Generation)*: Minh nhập/chat ghi chú nội dung bài dạy kèm yêu cầu bằng giọng văn tự nhiên: *"Tạo 5 câu trắc nghiệm ôn tập Thì hiện tại đơn và Từ vựng chủ đề Thói quen cho học sinh 10 tuổi"* ➔ Nhấn "Sinh bài tập AI".
-       * *Option B (Import Structured File)*: Nếu muốn tiết kiệm token (0 Token Cost), Minh bấm "Tải Prompt Mẫu", dán vào ChatGPT/Claude ở ngoài ➔ Upload file JSON kết quả vào hệ thống để parse tự động.
-    5. AI (`gpt-4o-mini` / `Gemini Flash`) tự động sinh bộ bài tập 5 câu (trắc nghiệm, điền từ, sửa lỗi) kèm Đáp án đúng và Lời giải thích chi tiết cho từng câu. Minh kiểm tra và bấm nút **"Giao bài"**.
-    6. **Nộp phí nhận lớp sau 1 tháng dạy**: Khi lớp học chính thức tròn 1 tháng (30 ngày), hệ thống gửi thông báo yêu cầu nộp phí nhận lớp kèm mã VietQR chuyển khoản động. Minh chuyển khoản qua ngân hàng, chụp màn hình biên lai và tải ảnh minh chứng (QR proof) lên Cổng Gia sư để gửi Admin duyệt.
-  * **Climax**: Bài tập chuyển thẳng sang Cổng Học sinh của Nam trong chưa đầy 2 phút, và yêu cầu nộp phí nhận lớp được hoàn tất sau 1 tháng dạy.
-  * **Resolution**: Minh giảng dạy trơn tru, nộp phí nhận lớp đúng hạn sau 1 tháng dạy chính thức và Admin phê duyệt phí thành công.
-* **UJ-3. Nam (Học sinh) hoàn thành bài tập online và tự học qua Lời giải thích AI**
+    3. Minh khởi tạo **Khung chương trình học tinh gọn (Curriculum Management)** cho lớp Nam bằng **Dual-Mode AI Curriculum Generation** (Option A: AI sinh nháp 3-5s hoặc Option B: Import file 0 token cost).
+    4. Sau buổi dạy, Minh giao bài tập cá nhân hóa cho Nam bằng **Tutor Assistant Dual-Mode**:
+       * Minh chọn bài vừa dạy và nhập yêu cầu câu hỏi. Hệ thống tự động truy xuất dữ liệu từ **Student Knowledge Profile (SKP)** của Nam (gồm điểm Elo rating micro-skill, dạng lỗi hay mắc, kỹ năng yếu) để làm **Adaptive Input Context**.
+       * *Option A (Direct AI Generation)*: Minh bấm "Sinh bài tập AI" ➔ AI sinh nháp bộ bài tập cá nhân hóa trong 3-5s.
+       * *Option B (Import Structured File)*: Bấm "Tải Prompt Mẫu nhúng SKP", dán vào ChatGPT/Claude ngoài ➔ Upload file JSON kết quả (0 Token Cost).
+    5. Minh kiểm tra câu hỏi/lời giải thích và bấm **"Giao bài"**.
+    6. **Nộp phí nhận lớp sau 1 tháng dạy**: Khi lớp học chính thức tròn 30 ngày, hệ thống gửi thông báo kèm VietQR. Minh chuyển khoản và upload ảnh biên lai (QR proof) để Admin phê duyệt.
+  * **Climax**: Bài tập chuyển sang Cổng Học sinh của Nam trong chưa đầy 2 phút, bám sát điểm yếu của Nam.
+  * **Resolution**: Minh giảng dạy hiệu quả, nộp phí nhận lớp đúng hạn và được Admin phê duyệt `PAID`.
 
-  * **Persona + Context**: Nam, 10 tuổi, được gia sư giao bài tập về nhà sau buổi học để củng cố kiến thức.
+* **UJ-3. Nam (Học sinh) hoàn thành bài tập online, đọc Lời giải thích AI và Ôn tập Ngắt quãng (Spaced Repetition)**
+
+  * **Persona + Context**: Nam, 10 tuổi, làm bài tập về nhà và tự ôn tập theo nhắc nhở của hệ thống.
   * **Entry State**: Đã đăng nhập tài khoản Học sinh.
   * **Path**:
-    1. Nam mở bài tập mới do thầy Minh giao và tiến hành làm 5 câu trực tuyến (trắc nghiệm, điền từ).
-    2. Đến câu số 4 (phát âm đuôi /t/ và /d/), Nam chọn nhầm đáp án.
-  * **Climax**: Nam nhấn nút "Nộp bài".
-  * **Resolution**: Hệ thống **tự động chấm điểm** (đạt 4/5 câu đúng). Ngay lập tức, màn hình hiển thị kết quả chi tiết từng câu kèm **Lời giải thích chi tiết do AI sinh sẵn** (ví dụ: *"Từ 'cat' kết thúc bằng âm bật hơi nhẹ ở đầu lưỡi /t/, trong khi 'dog' kết thúc bằng âm /d/..."*). Nam đọc lời giải thích và hiểu ngay lý do sai.
+    1. Nam làm 5 câu bài tập về nhà do thầy Minh giao (trắc nghiệm, điền từ, sửa lỗi). Hệ thống **tự động chấm điểm** và hiển thị **Lời giải thích AI chi tiết** cho từng câu làm sai.
+    2. Sau khi nộp bài, điểm `mastery_score` cho kỹ năng tương ứng trong **Student Knowledge Profile (SKP)** của Nam tự động cập nhật theo **Thuật toán Elo Rating**.
+    3. Mỗi ngày truy cập ứng dụng, Nam thấy mục **"Ôn tập kiến thức ngắt quãng (Spaced Repetition)"** gợi ý các câu hỏi/kiến thức sắp đến hạn ôn (`next_review`) dựa trên thuật toán **SM-2**. Nam hoàn thành phiên ôn tập ngắt quãng 5 phút.
+  * **Climax**: Nam hiểu sâu lý do sai và tự củng cố lại kiến thức sắp quên mà không thấy áp lực.
+  * **Resolution**: SKP và lịch trình SM-2 của Nam được cập nhật liên tục, đảm bảo năng lực tăng trưởng bền vững.
+
 * **UJ-4. Anh Bình (Admin) tư vấn Phụ huynh, tạo Match Offer và phê duyệt phí nhận lớp sau 1 tháng dạy cho Gia sư**
 
   * **Persona + Context**: Anh Bình, quản trị viên vận hành trung tâm gia sư.
   * **Entry State**: Đã đăng nhập Admin Dashboard.
   * **Path**:
-    1. Anh Bình xem màn hình **Match Request Management**, thấy yêu cầu đăng ký học thử của chị Lan cho học sinh Nam với cô Mai (95% Match).
-    2. Anh Bình gọi điện/nhắn tin cho chị Lan để chốt lịch học thử và báo giá ➔ Bấm **"Tạo Match Offer"** gửi tới Cổng Gia sư của cô Mai (kèm thông tin số tiền phí nhận lớp dự kiến thu sau 1 tháng dạy).
-    3. Cô Mai nhận thông báo Offer, bấm "Chấp nhận" ➔ Hệ thống tự động **Mở khóa (Unlock) SĐT & Địa chỉ của chị Lan trên Cổng Gia sư của cô Mai**.
-    4. Cô Mai gọi điện cho chị Lan chốt ngày/giờ học thử ➔ Cập nhật **Lịch học thử** lên Cổng Gia sư (gửi thông báo nhắc lịch cho các bên).
-    5. Sau khi hoàn thành buổi học thử, Cô Mai bấm chọn **"Hoàn thành buổi học thử"**.
-    6. Cô Mai nhập **Lịch dạy cố định hàng tuần** (Thứ 3 & Thứ 5 từ 19:00 - 21:00) và chọn **"Kích hoạt lớp học chính thức"** (Trạng thái liên kết lớp chuyển sang `ACTIVE`).
-    7. Sau 1 tháng dạy chính thức (30 ngày từ ngày kích hoạt lớp), hệ thống tự động sinh Yêu cầu nộp phí nhận lớp tới Cổng Gia sư của cô Mai. Cô Mai chuyển khoản và upload ảnh biên lai (QR proof).
-    8. Màn hình Admin hiển thị thông báo phê duyệt phí kèm ảnh biên lai của cô Mai. Anh Bình kiểm tra ảnh chuyển khoản khớp số tiền và bấm **"Phê duyệt phí"** ➔ Trạng thái phí chuyển `PAID`.
-  * **Climax**: Lớp học vận hành ổn định và khoản phí nhận lớp được đối soát phê duyệt thành công sau 1 tháng.
-  * **Resolution**: Hệ thống tự động sinh Lịch dạy Calendar trên ứng dụng của Cô Mai và Học sinh Nam, theo dõi tiến độ lớp học và ghi nhận phí nhận lớp đã thanh toán `PAID`.
+    1. Anh Bình xem màn hình **Match Request Management**, thấy yêu cầu đăng ký học thử của chị Lan cho học sinh Nam.
+    2. Anh Bình gọi điện xác nhận & báo giá ➔ Bấm **"Tạo Match Offer"** gửi tới Cổng Gia sư.
+    3. Gia sư bấm "Chấp nhận" ➔ Hệ thống tự động **Mở khóa SĐT & Địa chỉ Phụ huynh**.
+    4. Sau 1 tháng dạy chính thức (30 ngày từ ngày kích hoạt lớp), hệ thống sinh Yêu cầu nộp phí. Gia sư chuyển khoản và upload ảnh biên lai (QR proof).
+    5. Anh Bình kiểm tra ảnh biên lai khớp số tiền và bấm **"Phê duyệt phí"** ➔ Trạng thái phí chuyển `PAID`.
+  * **Climax**: Lớp học vận hành trơn tru và đối soát phí hoàn tất sau 1 tháng.
+  * **Resolution**: Hệ thống ghi nhận trạng thái phí `PAID`, theo dõi tiến độ và xuất báo cáo vận hành.
 
 ---
 
 ## 3. Glossary
 
-* **Curriculum Management (Quản lý Khung chương trình học tinh gọn Dual-Mode)**: Tính năng cho phép Gia sư tạo và quản lý cấu trúc bài giảng 2 cấp (Chủ đề/Chương ➔ Bài học) theo chế độ Dual-Mode (Option A: Direct AI Generation trực tiếp trên hệ thống; Option B: Import File/Prompt Mẫu từ Web AI ngoài như ChatGPT/Claude với 0 Token Cost), hỗ trợ gán lộ trình bài học minh bạch cho Học sinh/Phụ huynh và làm ngữ cảnh định hướng nội dung khi sinh bài tập AI.
-* **Form Tìm Gia Sư & Đăng ký Học thử**: Form tìm gia sư trực quan dành cho phụ huynh tại trang chủ, kết hợp nút Đăng ký học thử gửi yêu cầu ghép lớp tới Admin.
-* **Tutor Assistant Dual-Mode**: Bộ công cụ AI hỗ trợ gia sư soạn bài tập cá nhân hóa với 2 chế độ: Option A (Direct AI Generation từ ghi chú bài dạy/tài liệu) và Option B (Import file bài tập cấu trúc từ ChatGPT/Claude ngoài với 0 token cost).
+* **Student Knowledge Profile (SKP - Hồ sơ tri thức người học)**: Bộ nhớ dài hạn lưu trữ trạng thái học tập có cấu trúc của học sinh theo thời gian, gồm: Skill Mastery (0-100), Confidence Score, Error Patterns, Strengths & Weaknesses (Top 5), và Goals. SKP là đầu vào bắt buộc cho mọi quyết định cá nhân hóa.
+* **Elo Rating System trong Giáo dục**: Thuật toán cập nhật điểm `mastery_score` của học sinh và điểm `difficulty` của câu hỏi theo thời gian thực dựa trên kết quả trả lời đúng/sai ($\text{Expected} = \frac{1}{1 + 10^{\frac{\text{difficulty} - \text{mastery}}{400}}}$).
+* **Spaced Repetition (SM-2 Algorithm)**: Tính năng gợi ý và lập lịch ôn tập ngắt quãng các kiến thức/câu hỏi đến hạn (`next_review`) nhằm giúp học sinh ghi nhớ dài hạn theo đường cong quên lãng Ebbinghaus.
+* **Vòng lặp cá nhân hóa khép kín (Closed Loop)**: Chu trình tự động: Học sinh làm bài $\rightarrow$ Cập nhật SKP (Elo rating) $\rightarrow$ Cập nhật SM-2 $\rightarrow$ Daily Job chọn câu hỏi ôn $\rightarrow$ Tutor Assistant sinh bài mới chuẩn SKP.
+* **Curriculum Management Dual-Mode**: Tính năng cho phép Gia sư quản lý cấu trúc bài giảng 2 cấp (Chủ đề/Chương ➔ Bài học) theo chế độ Dual-Mode (Option A: Direct AI Generation; Option B: Import File 0 Token Cost).
+* **Form Tìm Gia Sư & Đăng ký Học thử**: Form tìm gia sư trực quan dành cho phụ huynh tại trang chủ, gửi yêu cầu ghép lớp tới Admin.
+* **Tutor Assistant Dual-Mode**: Bộ công cụ AI hỗ trợ gia sư soạn bài tập cá nhân hóa dựa trên SKP với 2 chế độ: Option A (Direct AI Generation) và Option B (Import File 0 Token Cost từ ChatGPT/Claude ngoài).
 * **AI Explanation (Lời giải thích chi tiết AI)**: Đoạn văn bản giải thích kiến thức và lý do đáp án đúng/sai do AI tự động sinh sẵn cho từng câu hỏi, hiển thị ngay cho học sinh sau khi nộp bài.
-* **Enrollment (Liên kết lớp học)**: Thực thể dữ liệu liên kết một gia sư với một học sinh cụ thể, làm cơ sở phân quyền bảo mật dữ liệu ở Backend (Gia sư chỉ được truy cập dữ liệu học sinh trong liên kết của mình).
-* **Practice Homework (Bài tập về nhà / Luyện tập)**: Nội dung giao sau buổi dạy nhằm rèn luyện và củng cố kiến thức, cho phép chọn chế độ xem lời giải thích từng câu. Kết quả dùng để đo lường Chỉ số Chăm chỉ (không tính vào điểm tiến bộ năng lực).
-* **Periodic Assessment / Quiz (Bài kiểm tra định kỳ)**: Bài test đánh giá năng lực làm trong điều kiện độc lập (xem kết quả sau khi nộp toàn bộ bài). Điểm số chính thức dùng để ghi nhận vào Biểu đồ Tiến bộ Năng lực.
-* **Personal Progress Log (Báo cáo tiến bộ cá nhân)**: Dashboard phân tách rõ 2 thành phần: (1) *Chỉ số Chăm chỉ* (Tỷ lệ nộp & hoàn thành bài tập về nhà); và (2) *Biểu đồ Năng lực* (Điểm số trung bình từ các Bài kiểm tra định kỳ theo thời gian).
-* **Matching Score (Điểm tương thích)**: Điểm số phần trăm (%) thể hiện mức độ phù hợp giữa hồ sơ gia sư và các tiêu chí yêu cầu của phụ huynh do thuật toán Backend tính toán.
-* **Tutor Rate Card (Bảng giá Gia sư)**: Bảng định giá học phí theo từng khối lớp/trình độ do chính gia sư chủ động cấu hình trên hồ sơ cá nhân.
-* **Ghi chú riêng tư (Private Notes)**: Ghi chú bảo mật do gia sư ghi chép về từng học sinh, chỉ hiển thị với Gia sư phụ trách và Admin.
+* **Enrollment (Liên kết lớp học)**: Thực thể dữ liệu liên kết một gia sư với một học sinh cụ thể, làm cơ sở phân quyền bảo mật dữ liệu ở Backend (Row-level security).
 
 ---
 
@@ -136,295 +136,174 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
 **Functional Requirements:**
 
 #### FR-1: Form tìm gia sư (Smart-Match Form)
-
 Phụ huynh chưa đăng nhập có thể thực hiện tìm gia sư qua Form trực quan trên trang chủ.
-
 * **Consequences (testable):**
   * *Mục tiêu học sinh:* Chọn đối tượng học sinh (Lớp/Độ tuổi), Trình độ hiện tại, Mục tiêu học tập.
   * *Yêu cầu gia sư:* Chọn giới tính, Mức học phí mong muốn, Tính cách ưu tiên.
   * *Khung giờ rảnh:* Chọn khung giờ rảnh trong tuần.
 
 #### FR-2: Hiển thị danh sách Gia sư phù hợp
-
 Backend nhận dữ liệu từ Form tìm gia sư và hiển thị danh sách gia sư phù hợp với mốc Matching Score (%).
-
 * **Consequences (testable):**
-  * Frontend hiển thị danh sách gia sư xếp theo Matching Score giảm dần kèm Điểm Đánh giá trung bình (Rating ★), số lượt Đánh giá sau học thử từ các phụ huynh trước, video giới thiệu bản thân và nút **"Đăng ký học thử"**.
+  * Frontend hiển thị danh sách gia sư xếp theo Matching Score giảm dần kèm Điểm Đánh giá trung bình, video giới thiệu bản thân và nút **"Đăng ký học thử"**.
 
 #### FR-3: Đăng ký học thử
-
-Phụ huynh bấm đăng ký học thử trực tiếp trên thẻ gia sư mong muốn mà không cần điền lại thông tin rườm rà.
-
+Phụ huynh bấm đăng ký học thử trực tiếp trên thẻ gia sư mong muốn.
 * **Consequences (testable):**
   * Hệ thống tạo bản ghi Match Request trên PostgreSQL với trạng thái `PENDING`.
   * Yêu cầu phụ huynh nhập SĐT và xác thực OTP SMS để hoàn tất đăng ký.
 
 #### FR-4: Tra cứu FAQ và Thông tin trung tâm
-
 Trang chủ hiển thị danh mục câu hỏi thường gặp (FAQ) về chính sách học thử, học phí và bảo lãnh lớp.
-
-* **Consequences (testable):**
-  * Phụ huynh có thể tra cứu nhanh các thông tin chính sách mà không cần gọi tổng đài.
 
 ---
 
 ### 4.2 Tutor Portal, Curriculum Management & Dual-Mode AI Homework Generator
 
-**Description:** Cung cấp cổng thông tin cho Gia sư trên di động, hỗ trợ quản lý lớp, quản lý khung chương trình học tinh gọn (Curriculum Management), và soạn bài tập cá nhân hóa siêu tốc qua **Tutor Assistant Dual-Mode** (Direct AI Generation hoặc Import Structured File). (Thực hiện UJ-2)
+**Description:** Cung cấp cổng thông tin cho Gia sư trên di động, hỗ trợ quản lý lớp, quản lý khung chương trình học tinh gọn (Curriculum Management), và soạn bài tập cá nhân hóa dựa trên SKP qua **Tutor Assistant Dual-Mode**. (Thực hiện UJ-2)
 
 **Functional Requirements:**
 
 #### FR-30: Quản lý Khung chương trình học tinh gọn bằng AI Dual-Mode (Curriculum Management Dual-Mode)
-
-Gia sư khởi tạo và quản lý khung chương trình học tinh gọn 2 cấp (*Chủ đề/Chương ➔ Bài học*) cho từng liên kết lớp học, hỗ trợ tạo thủ công và sinh tự động nháp lộ trình bằng **AI Dual-Mode** (Direct AI Generation hoặc Import từ Web AI ngoài).
-
+Gia sư khởi tạo và quản lý khung chương trình học tinh gọn 2 cấp (*Chủ đề/Chương ➔ Bài học*) cho từng liên kết lớp học.
 * **Consequences (testable):**
-  * **Option A (Direct AI Generation):** Gia sư nhập thông tin lớp/trình độ học sinh hoặc mục tiêu khóa học (ví dụ: *"Tiếng Anh Lớp 5 - Mục tiêu luyện phát âm & giao tiếp"*) ➔ Backend gọi API AI (`gpt-4o-mini`/`Gemini Flash`) tự động sinh nháp khung chương trình 2 cấp tinh gọn trong dưới 5 giây. Gia sư có thể tùy chỉnh hoặc bấm duyệt lưu.
-  * **Option B (Import Structured File / External Web AI):** Gia sư bấm "Tải Prompt Mẫu khung chương trình" để dán vào Web AI ngoài (ChatGPT/Claude/DeepSeek...) ➔ Upload file JSON hoặc dán đoạn văn bản kết quả lên hệ thống để trích xuất và khởi tạo khung chương trình tự động (0 Token Cost).
-  * **Tạo & Chỉnh sửa thủ công:** Gia sư có thể tự tạo, thêm/xóa/sửa các Chủ đề/Chương và Bài học theo ý muốn.
-  * **Theo dõi tiến độ lộ trình:** Khung chương trình hiển thị trạng thái tiến độ bài học (Đã hoàn thành / Đang học / Chưa học) giúp Phụ huynh & Học sinh nắm rõ lộ trình.
-  * **Tích hợp Ngữ cảnh AI:** Khi sinh bài tập AI (FR-8), Gia sư có thể chọn gán theo một Bài học cụ thể trong Khung chương trình để làm định hướng nội dung cho AI.
+  * **Option A (Direct AI Generation):** Gia sư nhập thông tin lớp/trình độ học sinh ➔ Backend gọi API AI (`gpt-4o-mini`/`Gemini Flash`) tự động sinh nháp khung chương trình 2 cấp tinh gọn trong dưới 5 giây.
+  * **Option B (Import Structured File):** Gia sư tải Prompt Mẫu dán vào Web AI ngoài ➔ Upload file JSON/Text kết quả vào hệ thống để trích xuất tự động (0 Token Cost).
+  * **Tạo & Chỉnh sửa thủ công:** Thêm/xóa/sửa các Chủ đề/Chương và Bài học.
 
 #### FR-6: Tiếp nhận và phản hồi lời mời nhận lớp
-
 Gia sư xem danh sách lớp được đề xuất và thực hiện Chấp nhận hoặc Từ chối.
-
 * **Consequences (testable):**
-  * Khi gia sư bấm "Chấp nhận", hệ thống tự động **mở khóa (Unlock) hiển thị SĐT & Địa chỉ Phụ huynh** trên Cổng Gia sư để Gia sư chủ động gọi điện liên hệ xếp lịch học thử.
-  * Phí nhận lớp được tính toán và ghi nhận ở trạng thái chờ nộp sau khi lớp dạy tròn 1 tháng chính thức.
+  * Bấm "Chấp nhận" ➔ Hệ thống tự động **mở khóa (Unlock) SĐT & Địa chỉ Phụ huynh** trên Cổng Gia sư.
 
-#### FR-8: Tự động soạn bài tập bằng AI Dual-Mode (Tutor Assistant)
-
-Hỗ trợ gia sư soạn nháp bộ bài tập về nhà hoặc bài kiểm tra cá nhân hóa với phân loại rõ ràng (`PRACTICE` hoặc `ASSESSMENT`):
-
+#### FR-8: Tự động soạn bài tập cá nhân hóa dựa trên SKP bằng AI Dual-Mode (Tutor Assistant)
+Hỗ trợ gia sư soạn nháp bộ bài tập cá nhân hóa (trắc nghiệm, điền từ, sửa lỗi, viết lại câu) kèm đáp án & lời giải thích AI chi tiết:
 * **Consequences (testable):**
-  * **Option A (Direct AI Generation):** Gia sư nhập/chat nội dung kiến thức bài dạy (hoặc chọn Bài học từ Khung chương trình) kèm yêu cầu câu hỏi bằng ngôn ngữ tự nhiên (hoặc upload file PDF/ảnh tài liệu). Backend gọi API AI (`gpt-4o-mini`/`Gemini Flash`) tự động sinh nháp bộ bài tập kèm Đáp án đúng và Lời giải thích chi tiết trong dưới 5 giây.
-  * **Option B (Import Structured File):** Gia sư bấm "Tải Prompt Mẫu" để dán vào ChatGPT/Claude/DeepSeek ngoài ➔ Upload file JSON/Text kết quả lên hệ thống để trích xuất bài tập tự động (0 Token Cost).
-  * **Phân loại bài:** Gia sư chọn thẻ phân loại trước khi giao: **Bài tập luyện tập** (`PRACTICE`) hoặc **Bài kiểm tra định kỳ** (`ASSESSMENT`).
+  * **Adaptive Input Context:** Backend tự động trích xuất dữ liệu từ **Student Knowledge Profile (SKP)** của học sinh (Skill Mastery theo Elo rating, Error Patterns, điểm yếu/mạnh, mục tiêu) gộp cùng nội dung bài vừa dạy làm bối cảnh đầu vào cho AI.
+  * **Option A (Direct AI Generation):** Gia sư nhập nội dung vừa dạy ➔ Backend gọi API AI (`gpt-4o-mini`/`Gemini Flash`) sinh nháp bộ bài tập cá nhân hóa trong dưới 5 giây.
+  * **Option B (Import Structured File):** Tải Prompt Mẫu đã đóng gói sẵn cấu trúc SKP ➔ Dán vào ChatGPT/Claude ngoài ➔ Upload file JSON/Text kết quả vào hệ thống (0 Token Cost).
+  * **Phân loại bài:** Chọn thẻ phân loại bài luyện tập (`PRACTICE`) hoặc bài kiểm tra (`ASSESSMENT`).
 
 #### FR-9: Duyệt và Giao bài tập
-
-Gia sư xem trước, sửa đổi câu hỏi/đáp án/lời giải thích trực tiếp trên giao diện mobile và bấm nút "Giao bài".
-
-* **Consequences (testable):**
-  * Gia sư có thể chỉnh sửa bất kỳ văn bản câu hỏi hoặc đáp án nào trước khi giao.
-  * Bấm nút **"Giao bài"** ➔ Bài tập được lưu vào DB và gửi thông báo chuyển ngay sang Cổng Học sinh trong dưới 1 giây (phê duyệt và chuyển bài tức thì).
+Gia sư xem trước, sửa đổi câu hỏi/đáp án/lời giải thích trực tiếp trên di động và bấm nút "Giao bài" (chuyển sang Cổng Học sinh trong dưới 1s).
 
 #### FR-21: Quản lý bài giảng video và tài liệu học tập theo từng bài học
-
-Gia sư có thể upload và đính kèm bài giảng video, tài liệu PDF/Word vào trực tiếp từng Bài học trong Khung chương trình (Curriculum) cho học sinh thông qua S3-compatible storage.
-
-* **Consequences (testable):**
-  * Cho phép gia sư chọn một Bài học cụ thể trong Khung chương trình ➔ Upload video hoặc tài liệu PDF/Word đính kèm trực tiếp vào bài học đó.
-  * Dữ liệu tài liệu/video được lưu trữ an toàn trên S3-compatible storage và phân quyền truy cập theo liên kết lớp (`Enrollment`).
+Gia sư upload bài giảng video, tài liệu PDF/Word đính kèm trực tiếp vào từng Bài học trong Khung chương trình qua S3 storage.
 
 #### FR-25: Quản lý danh sách học sinh & Ghi chú riêng tư (Private Notes)
+Gia sư ghi chép Ghi chú riêng tư cho từng học sinh. Phân quyền API trả về `403 Forbidden` nếu bên ngoài gọi truy cập.
 
-Gia sư xem danh sách học sinh thuộc liên kết `Enrollment` và ghi chép Ghi chú riêng tư cho từng học sinh.
-
-* **Consequences (testable):**
-  * Private Notes chỉ hiển thị cho Gia sư phụ trách (thuộc `Enrollment` của học sinh đó) và Admin.
-  * Ẩn hoàn toàn Private Notes khỏi Cổng Phụ huynh & Cổng Học sinh.
-  * Spring Boot RBAC API kiểm tra quyền truy cập: Trả về HTTP 403 Forbidden nếu Gia sư khác hoặc Phụ huynh/Học sinh gọi API lấy dữ liệu ghi chú.
-
-#### FR-26: Xem Lịch dạy
-
-Gia sư xem lịch dạy dạng Calendar View (phân loại ca đã dạy, chưa dạy, đổi lịch).
-
-#### FR-28: Đổi lịch dạy và Báo nghỉ
-
-Gia sư chủ động thực hiện Báo nghỉ hoặc Đổi lịch dạy trực tiếp trên app để báo cáo ghi nhận cho Trung tâm (Admin) và tự động cập nhật Lịch dạy.
-
-* **Consequences (testable):**
-  * **Báo nghỉ / Đổi lịch:** Gia sư chọn ca nghỉ hoặc ngày/giờ dạy bù mới ➔ Hệ thống tự động cập nhật ca dạy trên Calendar của Gia sư và Học sinh.
-  * **Báo cáo Trung tâm (Admin):** Hệ thống sinh thông báo và lưu bản ghi lịch sử thay đổi lịch dạy trên Admin Dashboard để Admin giám sát vận hành trung tâm. Không yêu cầu Phụ huynh phải bấm phê duyệt trên app.
+#### FR-26: Xem Lịch dạy & FR-28: Đổi lịch dạy và Báo nghỉ
+Gia sư xem Calendar view; thực hiện báo nghỉ/đổi lịch dạy (tự động cập nhật Calendar và báo cáo ghi nhận cho Admin).
 
 #### FR-29: Cấu hình Lịch học thử & Chốt Lịch dạy cố định hàng tuần
-
-Gia sư nhập ngày/giờ học thử và chốt lịch học cố định sau khi buổi học thử thành công.
-
-* **Consequences (testable):**
-  * Sau khi mở khóa thông tin liên hệ, Gia sư nhập **Ngày & Giờ học thử** ➔ Hệ thống gửi thông báo nhắc lịch cho Admin, Phụ huynh và Gia sư.
-  * Sau buổi học thử thành công, Gia sư chọn **"Học thử Thành công"** và thiết lập **Lịch dạy cố định hàng tuần** (ví dụ: Thứ 3 & Thứ 5 từ 19:00 - 21:00) ➔ Trạng thái lớp chuyển sang `ACTIVE`, tự động render các ca dạy tương lai lên Calendar của Gia sư và Học sinh.
+Gia sư nhập ngày học thử và chốt lịch học cố định hàng tuần sau khi học thử thành công để kích hoạt trạng thái lớp `ACTIVE`.
 
 #### FR-27: Quản lý Bảng giá Hồ sơ Gia sư (Tutor Rate Card)
-
-Gia sư chủ động thiết lập bảng giá học phí của bản thân phân loại theo khối lớp và chương trình học trên Cổng Gia sư.
-
-* **Consequences (testable):**
-  * Cho phép gia sư cấu hình các mức học phí khác nhau theo khối lớp (ví dụ: Tiểu học 150k/buổi, THCS 200k/buổi, THPT/IELTS 300k/buổi). Mức giá này làm căn cứ hiển thị cho phụ huynh và tính phí nhận lớp.
+Gia sư cấu hình bảng giá học phí theo khối lớp/chương trình học để làm căn cứ tính phí và hiển thị.
 
 ---
 
-### 4.3 Student Portal & Auto-Grading with AI Explanations
+### 4.3 Student Portal, Personalization Core & Spaced Repetition
 
-**Description:** Giao diện làm bài tập trực tuyến cho học sinh, tự động chấm điểm và hỗ trợ cấu hình hiển thị Lời giải thích chi tiết AI linh hoạt (xem ngay sau từng câu hoặc sau khi hoàn thành toàn bài). (Thực hiện UJ-3)
+**Description:** Giao diện làm bài tập trực tuyến cho học sinh, tự động chấm điểm, hiển thị Lời giải thích chi tiết AI, cập nhật **Student Knowledge Profile (SKP)** qua Elo rating và tự động lập lịch **Spaced Repetition (SM-2)**. (Thực hiện UJ-3)
 
 **Functional Requirements:**
 
 #### FR-11: Làm bài tập online và Lưu lịch sử bài làm
-
-Học sinh thực hiện làm bài tập trực tuyến (trắc nghiệm, điền từ, sửa lỗi) và lưu kết quả vào lịch sử làm bài.
-
-* **Consequences (testable):**
-  * Tự động ghi nhận thời gian hoàn thành và kết quả làm bài vào Lịch sử tiến bộ cá nhân của học sinh.
+Học sinh làm bài tập trực tuyến (trắc nghiệm, điền từ, sửa lỗi, viết lại câu) và lưu kết quả bài làm.
 
 #### FR-12: Tự động chấm điểm tức thì
-
-Hệ thống tự động chấm điểm bài làm của học sinh ngay khi nhấn nút "Nộp bài".
-
-* **Consequences (testable):**
-  * Điểm số và tỷ lệ câu đúng/sai hiển thị ngay lập tức trên màn hình kết quả.
+Hệ thống tự động chấm điểm bài làm ngay khi nhấn "Nộp bài", hiển thị tỷ lệ đúng/sai tức thì.
 
 #### FR-13: Cấu hình và Hiển thị Lời giải thích chi tiết AI (AI Explanation)
+Hỗ trợ 2 chế độ hiển thị:
+* **Chế độ xem tức thì (Per-question mode):** Phản hồi kết quả đúng/sai và lời giải thích AI ngay sau từng câu (bài luyện tập).
+* **Chế độ nộp toàn bài (Submit-all mode):** Hiển thị tổng điểm và lời giải thích AI từng câu sau khi nộp toàn bộ bài (bài kiểm tra).
 
-Hệ thống hỗ trợ 2 chế độ hiển thị đáp án và lời giải thích AI linh hoạt dựa trên cấu hình khi gia sư giao bài:
-
+#### FR-38: Student Knowledge Profile (SKP) & Thuật toán Elo Rating
+Hệ thống tự động duy trì và cập nhật Hồ sơ tri thức người học (SKP) sau mỗi câu trả lời của học sinh.
 * **Consequences (testable):**
-  * **Chế độ xem tức thì (Per-question mode):** Ngay khi chọn đáp án cho 1 câu, màn hình phản hồi ngay đúng/sai kèm Lời giải thích AI chi tiết cho câu đó (thích hợp cho bài luyện tập).
-  * **Chế độ nộp toàn bài (Submit-all mode):** Màn hình hiển thị tổng điểm và lời giải thích AI chi tiết cho từng câu sau khi học sinh nhấn "Nộp bài" toàn bộ bài tập (thích hợp cho bài kiểm tra).
+  * Điểm `mastery_score` (0-100) cho từng micro-skill được tự động cập nhật theo Thuật toán **Elo Rating**:
+    $$\text{Expected} = \frac{1}{1 + 10^{\frac{\text{difficulty} - \text{mastery}}{400}}}$$
+    $$\text{mastery}_{\text{new}} = \text{mastery}_{\text{old}} + K \times (\text{actual} - \text{Expected})$$
+  * Điểm `difficulty` (1-100) của câu hỏi được đánh giá bằng **Rubric-based Assessment** của AI.
+  * Tự động tổng hợp Top 5 skill mạnh nhất/yếu nhất và mapping câu sai vào `Error Pattern Catalog`.
+
+#### FR-39: Ôn tập kiến thức ngắt quãng (Spaced Repetition - SM-2)
+Hệ thống cung cấp tính năng Ôn tập ngắt quãng dựa trên Thuật toán **SM-2**.
+* **Consequences (testable):**
+  * Tự động tính toán mốc thời gian ôn tập tiếp theo (`next_review`) cho từng kiến thức/câu hỏi dựa trên lịch sử làm bài.
+  * Hiển thị danh sách câu hỏi đến hạn ôn tập hàng ngày trên Cổng Học sinh. Kết quả ôn tập được cập nhật ngược lại vào SM-2 và SKP.
 
 #### FR-15: Báo cáo Tiến bộ Cá nhân (Personal Progress Report)
-
-Hệ thống tổng hợp tiến độ học tập và phân tách báo cáo thành 2 thành phần độc lập:
-
-* **Consequences (testable):**
-  * **Chỉ số Chăm chỉ (Homework Completion Rate):** Thống kê tổng số bài tập về nhà (`PRACTICE`) đã làm, tỷ lệ hoàn thành đúng hạn (%) và mức độ chuyên cần.
-  * **Biểu đồ Tiến bộ Năng lực (Assessment Score Trend):** Vẽ biểu đồ đường thể hiện điểm số trung bình qua các bài Kiểm tra định kỳ (`ASSESSMENT`) theo tuần/tháng để phụ huynh và gia sư theo dõi sự tiến bộ năng lực thực chất.
+Phân tách rõ 2 thành phần: **Chỉ số Chăm chỉ** (tỷ lệ nộp bài `PRACTICE` đúng hạn) và **Biểu đồ Tiến bộ Năng lực** (điểm bài `ASSESSMENT` theo thời gian).
 
 #### FR-22: Học tập qua video bài giảng & tài liệu theo lộ trình bài học
-
-Học sinh truy cập Khung chương trình học để xem và tải các bài giảng video, tài liệu PDF/Word được gia sư đính kèm tương ứng theo từng bài học.
+Học sinh mở xem video bài giảng và tài liệu PDF/Word do gia sư đính kèm theo từng bài học.
 
 ---
 
 ### 4.4 Admin Dashboard & Class Assignment Management
 
-**Description:** Màn hình quản trị cho Admin quản lý các đăng ký học thử từ Phụ huynh, duyệt ghép lớp nhanh chóng, quản lý hồ sơ gia sư, phê duyệt phí nhận lớp qua QR proof, quản lý nhân sự lễ tân, và giám sát xử lý khiếu nại để đối soát doanh thu (thu vào/chi ra). (Thực hiện UJ-4)
+**Description:** Màn hình quản trị cho Admin quản lý yêu cầu học thử, duyệt ghép lớp, quản lý hồ sơ gia sư, phê duyệt phí nhận lớp qua QR proof, quản lý nhân sự lễ tân, và giám sát xử lý khiếu nại đối soát doanh thu. (Thực hiện UJ-4)
 
 **Functional Requirements:**
 
 #### FR-16: Quản lý Yêu cầu ghép lớp & Tạo Match Offer (Match Request Management)
-
-Admin Dashboard hiển thị danh sách các đăng ký học thử từ Phụ huynh qua Smart-Match Form.
-
-* **Consequences (testable):**
-  * Hệ thống tự động tính Học phí tháng theo Bảng giá của Gia sư chọn đúng khối lớp: `Học phí tháng = (Học phí/buổi do Gia sư đặt cho khối lớp đó) x (Số buổi/tuần) x 4`.
-  * Hệ thống tự động tính `Phí nhận lớp = Học phí tháng x Tỷ lệ phí %` (mặc định 30%).
-  * Admin gọi điện xác nhận nhu cầu & báo giá cho Phụ huynh ➔ Bấm **"Tạo Match Offer"** để gửi đề xuất nhận lớp (kèm thông tin số tiền phí nhận lớp dự kiến thu sau 1 tháng dạy) tới Cổng Gia sư.
+Admin tiếp nhận Form từ Phụ huynh ➔ Gọi điện tư vấn & báo giá ➔ Bấm **"Tạo Match Offer"** gửi Cổng Gia sư. Tự động tính `Học phí tháng = Rate x Sessions x 4` và `Phí nhận lớp = Học phí tháng x Tỷ lệ %`.
 
 #### FR-19: Phân quyền bảo mật Backend dựa trên Enrollment
-
-Spring Boot kiểm soát phân quyền Row-level security dựa trên bảng `Enrollment`.
-
-* **Consequences (testable):**
-  * Gia sư chỉ được gọi API dữ liệu học sinh có liên kết `ACTIVE`. Yêu cầu khác trả về HTTP `403 Forbidden`.
+Spring Boot RLS kiểm soát phân quyền dựa trên `Enrollment`. Gia sư chỉ xem dữ liệu học sinh thuộc liên kết `ACTIVE` của mình (trả về `403 Forbidden` nếu sai phân quyền).
 
 #### FR-20: Audit Log hệ thống
-
-Hệ thống ghi log chi tiết các thao tác quan trọng: `Gia sư duyệt giao bài`, `Admin tạo Match Offer`, `Admin duyệt phí`.
+Ghi nhật ký chi tiết các thao tác quan trọng: `Gia sư duyệt giao bài`, `Admin tạo Match Offer`, `Admin duyệt phí`.
 
 #### FR-23: Quản lý nộp phí QR proof và Phê duyệt phí nhận lớp sau 1 tháng dạy
-
-Hệ thống quản lý việc phát sinh yêu cầu nộp phí nhận lớp sau khi Gia sư dạy chính thức tròn 1 tháng (30 ngày) và xử lý đối soát phê duyệt phí qua ảnh biên lai chuyển khoản (QR proof).
-
-* **Consequences (testable):**
-  * **Kích hoạt Yêu cầu nộp phí sau 1 tháng dạy**: Khi lớp học chính thức (`ACTIVE`) hoạt động đủ 30 ngày kể từ ngày kích hoạt, hệ thống gửi thông báo yêu cầu Gia sư nộp phí nhận lớp kèm mã VietQR chuyển khoản động.
-  * **Nộp và Phê duyệt phí**: Gia sư thực hiện chuyển khoản và upload ảnh minh chứng chuyển khoản (QR proof). Admin kiểm tra ảnh biên lai khớp số tiền và bấm "Phê duyệt phí" ➔ Trạng thái phí chuyển sang `PAID`.
-  * **Mở khóa thông tin liên hệ độc lập với việc thu phí**: Thông tin SĐT & Địa chỉ Phụ huynh đã được mở khóa ngay khi Gia sư bấm "Chấp nhận" Match Offer (FR-6), không bị giữ khóa chờ thu phí.
+* **Kích hoạt sau 30 ngày:** Khi lớp học chính thức hoạt động đủ 30 ngày, hệ thống gửi thông báo yêu cầu nộp phí kèm mã VietQR động.
+* **Phê duyệt:** Gia sư upload ảnh biên lai (QR proof), Admin kiểm tra khớp tiền và bấm "Phê duyệt phí" (`PAID`).
 
 #### FR-24: Báo cáo vận hành Admin
-
-Hiển thị biểu đồ doanh thu trung tâm, Tỷ lệ ghép lớp thành công và xuất file Excel/PDF.
+Hiển thị biểu đồ doanh thu, tỷ lệ ghép lớp thành công và xuất dữ liệu Excel/PDF.
 
 #### FR-31: Quản lý nhân sự Lễ tân (Receptionist Management)
-
-Admin quản lý danh sách nhân viên Lễ tân của trung tâm.
-
-* **Consequences (testable):**
-  * Admin có thể thực hiện CRUD (Tạo mới / Xem / Sửa / Xóa) tài khoản Lễ tân trên Admin Dashboard.
-  * Mỗi Lễ tân có thông tin: Mã lễ tân, Họ tên, Email, SĐT, Ngày vào làm, Trạng thái (Đang hoạt động / Ngưng hoạt động).
-  * Admin có thể lọc danh sách theo trạng thái và tìm kiếm theo tên/email/SĐT.
+Admin thực hiện CRUD danh sách tài khoản Lễ tân của trung tâm.
 
 #### FR-32: Xử lý khiếu nại & Đối soát tài chính (Complaint Management)
-
-Admin xem tổng hợp toàn bộ khiếu nại do Lễ tân ghi nhận để giám sát và đối soát thu chi.
-
-* **Consequences (testable):**
-  * Admin xem danh sách toàn bộ khiếu nại từ các Lễ tân kèm filter trạng thái (Chưa xử lí / Đã xử lí).
-  * Mỗi đơn khiếu nại ghi rõ: Mã khiếu nại, Loại khiếu nại (Hoàn tiền cho gia sư / Ghép lại lớp cho phụ huynh), Mã & Họ tên người khiếu nại (gia sư/phụ huynh), Mã & Họ tên lễ tân tiếp nhận, Nội dung khiếu nại chi tiết, Thời gian tiếp nhận, Mã lớp liên quan, Số tiền hoàn (nếu có), Trạng thái xử lý, Ghi chú xử lý & kết quả.
-  * Admin có thể đánh dấu trạng thái xử lý (Chưa xử lí ➔ Đã xử lí).
-  * Admin xem tổng hợp tài chính: Tổng tiền đã hoàn trả (chi ra), Tổng khiếu nại ghép lại lớp, để đối soát với doanh thu thu vào.
+Admin xem tổng hợp toàn bộ khiếu nại từ Lễ tân, giám sát tiến độ xử lý và tổng hợp số tiền hoàn trả (`REFUND`) để đối soát cân đối tài chính với doanh thu thu vào.
 
 ---
 
 ### 4.5 Receptionist Portal & Complaint Management
 
-**Description:** Cổng thông tin dành cho Lễ tân hỗ trợ vận hành trung tâm: xử lý yêu cầu ghép lớp, duyệt thanh toán, quản lý gia sư & học sinh, gửi thông báo, và đặc biệt tiếp nhận & ghi nhận khiếu nại từ phụ huynh/gia sư đến trực tiếp trung tâm.
+**Description:** Cổng thông tin cho Lễ tân hỗ trợ vận hành trung tâm: xử lý ghép lớp, duyệt thanh toán, quản lý gia sư & học sinh, thông báo, và tiếp nhận & ghi nhận khiếu nại từ phụ huynh/gia sư.
 
 **Functional Requirements:**
 
-#### FR-33: Yêu cầu ghép lớp (Receptionist)
+#### FR-33: Yêu cầu ghép lớp & FR-34: Duyệt thanh toán (Receptionist)
+Lễ tân xử lý danh sách Match Request và kiểm tra phê duyệt ảnh biên lai QR proof từ gia sư.
 
-Lễ tân có quyền xem và xử lý danh sách yêu cầu ghép lớp từ phụ huynh, tương tự Admin (FR-16).
-
-* **Consequences (testable):**
-  * Lễ tân xem danh sách Match Request, gọi điện xác nhận phụ huynh, và tạo Match Offer gửi tới Gia sư.
-
-#### FR-34: Duyệt thanh toán (Receptionist)
-
-Lễ tân có quyền xem và duyệt các minh chứng thanh toán phí nhận lớp từ gia sư, tương tự Admin (FR-23).
-
-* **Consequences (testable):**
-  * Lễ tân kiểm tra ảnh biên lai chuyển khoản và bấm "Phê duyệt phí" hoặc "Yêu cầu gửi lại".
-
-#### FR-35: Quản lý Gia sư & Học sinh (Receptionist)
-
-Lễ tân có quyền xem danh sách gia sư và học sinh, cập nhật trạng thái hoạt động.
-
-* **Consequences (testable):**
-  * Lễ tân xem danh sách, lọc và tìm kiếm gia sư/học sinh.
-  * Lễ tân cập nhật trạng thái hoạt động gia sư (không có quyền xóa).
-
-#### FR-36: Thông báo (Receptionist)
-
-Lễ tân nhận và xem các thông báo hệ thống liên quan đến vận hành trung tâm, tương tự Admin.
+#### FR-35: Quản lý Gia sư & Học sinh & FR-36: Thông báo
+Lễ tân tra cứu, lọc hồ sơ gia sư/học sinh, cập nhật trạng thái hoạt động và xem thông báo vận hành trung tâm.
 
 #### FR-37: Xử lý khiếu nại (Complaint Management)
-
-Lễ tân tiếp nhận và ghi nhận khiếu nại từ phụ huynh hoặc gia sư đến trực tiếp trung tâm.
-
-* **Consequences (testable):**
-  * **Hai loại khiếu nại:**
-    * *Hoàn tiền cho gia sư*: Gia sư yêu cầu hoàn lại phí nhận lớp đã nộp (ví dụ: do phụ huynh đơn phương hủy lớp sớm).
-    * *Ghép lại lớp cho phụ huynh*: Phụ huynh yêu cầu đổi gia sư mới (ví dụ: không hài lòng chất lượng giảng dạy).
-  * **Thông tin trên đơn khiếu nại:**
-    * Mã khiếu nại (tự động sinh, ví dụ: `KN-20260918-001`)
-    * Loại khiếu nại: `REFUND` (Hoàn tiền) hoặc `REMATCH` (Ghép lại lớp)
-    * Người khiếu nại: Mã, Họ tên, Vai trò (Gia sư / Phụ huynh), SĐT
-    * Lễ tân tiếp nhận: Mã lễ tân, Họ tên
-    * Thời gian tiếp nhận khiếu nại
-    * Mã lớp / Enrollment liên quan
-    * Số tiền yêu cầu hoàn (nếu là loại `REFUND`)
-    * Nội dung khiếu nại chi tiết
-    * Trạng thái: `Chưa xử lí` / `Đã xử lí`
-    * Ghi chú xử lý và kết quả (cập nhật khi xử lý xong)
-  * Lễ tân tạo mới đơn khiếu nại, đánh dấu trạng thái `Chưa xử lí` → `Đã xử lí`.
-  * Danh sách khiếu nại hiển thị với filter trạng thái và tìm kiếm.
+Lễ tân tiếp nhận và ghi nhận khiếu nại từ phụ huynh hoặc gia sư đến trực tiếp trung tâm:
+* **Hai loại khiếu nại:** `REFUND` (Hoàn tiền cho gia sư) hoặc `REMATCH` (Ghép lại lớp cho phụ huynh).
+* **Tạo đơn khiếu nại:** Lưu mã khiếu nại, loại khiếu nại, người khiếu nại, lễ tân tiếp nhận, mã lớp, số tiền yêu cầu hoàn, nội dung chi tiết và chuyển trạng thái `Chưa xử lí` ➔ `Đã xử lí`.
 
 ---
 
 ## 5. Non-Goals (Explicit)
 
-* **Không xây dựng tính năng Nhật ký buổi dạy (Lesson Log)**: Loại bỏ việc ghi chép nhật ký hành chính thủ công sau mỗi buổi học để tinh gọn thao tác cho gia sư 1-1, tập trung hoàn toàn vào Quản lý Khung chương trình và Giao bài tập AI.
-* **Không xây dựng tính năng Đánh giá Gia sư sau buổi Học thử (Trial Lesson Review)**: Tạm thời chưa triển khai phần đánh giá sao và nhận xét từ phụ huynh sau buổi học thử — cần suy nghĩ thêm về thiết kế và quy trình.
-* **Không hỗ trợ Khung chương trình học đa cấp**: Chỉ thiết kế tinh gọn 2 cấp (*Chủ đề/Chương ➔ Bài học*) để tránh cồng kềnh quản lý cho gia sư 1-1.
-* **Không xây dựng Gamification cồng kềnh (EXP, Streak, Bảng xếp hạng)**: Mô hình gia sư 1-1 tập trung vào sự tiến bộ cá nhân và sự tương tác giữa Gia sư - Học sinh - Phụ huynh. Tránh cơ chế bảng xếp hạng/EXP làm gia tăng áp lực hoặc so sánh khập khễnh giữa các trình độ khác nhau.
-* **Không AI Chatbot tư vấn trên trang chủ**: Thay thế chatbot bằng Form tìm gia sư trực quan để tránh rủi ro hallucination và cồng kềnh hạ tầng SSE streaming.
-* **Không Admin Live Chat Monitor & Takeover Mode**: Loại bỏ màn hình giám sát chat real-time của Admin.
-* **Không Student Socratic Chatbot**: Loại bỏ khung chat AI rườm rà ở cổng học sinh, thay bằng tính năng tự động hiển thị Lời giải thích chi tiết AI cho từng câu ngay sau khi nộp bài.
+* **Không xây dựng tính năng Nhật ký buổi dạy (Lesson Log)**: Loại bỏ ghi chép hành chính thủ công sau từng buổi học, tập trung vào Khung chương trình và Giao bài tập AI.
+* **Không xây dựng tính năng Đánh giá Gia sư sau buổi Học thử**: Tạm thời chưa triển khai đánh giá sao sau học thử.
+* **Không hỗ trợ Khung chương trình học đa cấp**: Chỉ thiết kế tinh gọn 2 cấp (*Chủ đề/Chương ➔ Bài học*).
+* **Không xây dựng Gamification cồng kềnh (EXP, Streak, Bảng xếp hạng)**: Tập trung vào sự tiến bộ cá nhân và tương tác thực chất giữa Gia sư - Học sinh - Phụ huynh.
+* **Không AI Chatbot tư vấn trên trang chủ**: Thay thế chatbot bằng Form tìm gia sư trực quan.
+* **Không Admin Live Chat Monitor & Takeover Mode**.
+* **Không Student Socratic Chatbot**: Thay bằng tính năng tự động chấm điểm và hiển thị Lời giải thích AI cho từng câu.
 * **Không dạy học trực tuyến tích hợp**: Học qua Zoom/Meet bên ngoài.
-* **Không thanh toán trực tuyến tự động**: Phụ huynh/Gia sư chuyển khoản thủ công và Admin duyệt bằng tay trên hệ thống.
+* **Không thanh toán trực tuyến tự động qua cổng thanh toán**: Chuyển khoản thủ công và duyệt bằng ảnh biên lai QR proof.
 
 ---
 
@@ -433,22 +312,21 @@ Lễ tân tiếp nhận và ghi nhận khiếu nại từ phụ huynh hoặc gia
 ### 6.1 In Scope
 
 * Parent Portal: Landing Page, Form tìm gia sư trực quan, Nút Đăng ký học thử.
-* Admin Dashboard: Match Request Management, Phê duyệt ghép lớp nhanh chóng, Duyệt phí nhận lớp (QR proof), Quản lý nhân sự lễ tân, Xử lý khiếu nại & Đối soát tài chính, Báo cáo vận hành.
+* Admin Dashboard: Match Request Management, Phê duyệt ghép lớp, Duyệt phí nhận lớp (QR proof), Quản lý lễ tân, Xử lý khiếu nại & Đối soát tài chính, Báo cáo vận hành.
 * Receptionist Portal: Yêu cầu ghép lớp, Duyệt thanh toán, Quản lý gia sư & học sinh, Thông báo, Xử lý khiếu nại (Hoàn tiền / Ghép lại lớp).
-* Tutor Portal: Quản lý lớp, Quản lý khung chương trình học tinh gọn 2 cấp (Chủ đề/Chương ➔ Bài học), Lịch dạy, **Tutor Assistant Dual-Mode** (Direct AI Generation + Import Structured File), Giao bài tức thì, Upload video/tài liệu S3.
-* Student Portal: Làm bài tập online (Trắc nghiệm, Điền từ, Sửa lỗi), Tự động chấm điểm, Xem lời giải thích chi tiết AI từng câu, Báo cáo tiến bộ cá nhân.
+* Tutor Portal: Quản lý lớp, Curriculum Management Dual-Mode 2 cấp, Lịch dạy, **Tutor Assistant Dual-Mode** (Sinh bài tập cá nhân hóa dựa trên SKP qua Direct AI Gen hoặc Import Structured File 0 Token Cost), Giao bài tức thì, Upload tài liệu S3.
+* Student Portal: Làm bài tập online, Tự động chấm điểm, Xem lời giải thích AI từng câu, **Student Knowledge Profile (SKP) với Elo Rating**, **Ôn tập ngắt quãng Spaced Repetition (SM-2)**, Báo cáo tiến bộ cá nhân.
 * Backend Spring Boot RBAC theo `Enrollment`, Postgres DB, Docker deployment.
 
 ### 6.2 Out of Scope for MVP
 
-* Tính năng Nhật ký buổi dạy (Lesson Log).
-* Đánh giá định kỳ sau mỗi buổi học chính thức hoặc đánh giá học sinh bằng Emoticon.
-* Khung chương trình học đa cấp phức tạp.
+* Nhật ký buổi dạy (Lesson Log).
+* Đánh giá định kỳ sau mỗi buổi học chính thức hoặc học thử.
+* Khung chương trình đa cấp phức tạp >2 cấp.
 * AI Advisor Chatbot & Live Chat Takeover.
 * Student Socratic Chatbot.
-* Hệ thống Gamification phức tạp (EXP, Streak, Bảng xếp hạng).
-* Thanh toán trực tuyến tự động.
-* Báo cáo email tự động định kỳ cho phụ huynh.
+* Gamification (EXP, Streak, Bảng xếp hạng).
+* Thanh toán tự động qua cổng thanh toán.
 
 ---
 
@@ -459,11 +337,12 @@ Lễ tân tiếp nhận và ghi nhận khiếu nại từ phụ huynh hoặc gia
 * **SM-1 (Matching Speed - Tốc độ ghép lớp)**: Thời gian từ lúc phụ huynh gửi đăng ký học thử qua Form đến khi gia sư bấm Chấp nhận lời mời nhận lớp giảm xuống dưới **12 giờ**.
 * **SM-2 (Smart-Match Conversion Rate - Tỷ lệ chuyển đổi)**: Ít nhất **60%** số phụ huynh hoàn thành form tìm gia sư thực hiện gửi đăng ký học thử.
 * **SM-3 (Tutor Prep Time - Thời gian chuẩn bị bài của Gia sư)**: Thời gian gia sư soạn và giao bài tập cá nhân hóa giảm đáng kể nhờ Tutor Assistant Dual-Mode (so với soạn thủ công từ đầu).
+* **SM-4 (Knowledge Retention Rate - Tỷ lệ ghi nhớ dài hạn)**: Ít nhất **70%** số câu hỏi ôn tập ngắt quãng Spaced Repetition (SM-2) được học sinh trả lời đúng trong các phiên ôn tập định kỳ.
 
 ### 7.2 Secondary Metrics
 
-* **SM-4 (Student Homework Completion Rate - Tỷ lệ hoàn thành bài)**: Ít nhất **75%** bài tập về nhà được học sinh hoàn thành trong vòng 48 giờ.
-* **SM-5 (Explanation Utility Rate - Độ hữu ích của lời giải thích AI)**: 100% câu hỏi trong bài tập đều có lời giải thích chi tiết do AI tự động sinh sẵn.
+* **SM-5 (Student Homework Completion Rate)**: Ít nhất **75%** bài tập về nhà được học sinh hoàn thành trong vòng 48 giờ.
+* **SM-6 (Explanation Utility Rate)**: 100% câu hỏi bài tập đều có lời giải thích chi tiết do AI tự động sinh sẵn.
 
 ### 7.3 Counter-metrics (Chỉ số kiểm soát rủi ro)
 
@@ -489,6 +368,7 @@ Lễ tân tiếp nhận và ghi nhận khiếu nại từ phụ huynh hoặc gia
 ### 8.3 Integration and Dependencies
 
 * Backend Spring Boot đóng vai trò là **API Gateway duy nhất**. Giao tiếp Backend ↔ AI Service sử dụng REST API nội bộ trong VPC.
+* PostgreSQL lưu trữ có cấu trúc các bảng dữ liệu trọng yếu (`student_knowledge_profile`, `spaced_repetition_schedules`, `error_patterns`, `questions`, `enrollments`, `audit_logs`...).
 
 ### 8.4 Audit Trail
 
