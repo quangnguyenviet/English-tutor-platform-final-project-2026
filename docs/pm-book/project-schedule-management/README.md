@@ -1,6 +1,6 @@
 # 📅 Quản lý lịch trình dự án
 
-> Thư mục này thuộc **PM Book** của dự án *"Ứng dụng AI hỗ trợ vận hành và giảng dạy cho mô hình gia sư tiếng Anh 1-1"*.
+> Thư mục này thuộc **PM Book** của dự án *"Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition"*.
 
 ## Nội dung
 

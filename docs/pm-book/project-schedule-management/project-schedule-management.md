@@ -1,11 +1,11 @@
 ---
-title: Quản lý lịch trình — Ứng dụng AI hỗ trợ vận hành & giảng dạy gia sư tiếng Anh 1-1
+title: Quản lý lịch trình — Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition
 version: 1.3
 status: Đã xác nhận ngày khởi công 07/09/2026
 ngày lập: 2026-09-06
-ngày cập nhật: 2026-09-15
+ngày cập nhật: 2026-09-19
 người biên soạn: Nhóm dự án (3 thành viên)
-căn cứ: docs/ke-hoach-trien-khai.md (v1.3) + PRD v.final (2026-09-04)
+căn cứ: docs/ke-hoach-trien-khai.md (v1.3) + PRD v.final (2026-09-19)
 thời lượng: 2,5 tháng (≈10 tuần)
 baseline: 07/09/2026 → 17/11/2026
 ngày khởi công đã xác nhận: 07/09/2026
@@ -44,7 +44,7 @@ Tài liệu bao phủ toàn bộ **10 tuần triển khai + giai đoạn bàn gi
 | Ký hiệu | Tài liệu                                         | Vị trí (repository)                                                        |
 | --------- | -------------------------------------------------- | ---------------------------------------------------------------------------- |
 | PRD       | PRD v.final                                        | `_bmad-output/planning-artifacts/prds/prd-final_project-2026-08-31/prd.md` |
-| KHKD      | Kế hoạch triển khai đề tài v1.3 (2026-09-15) | `docs/ke-hoach-trien-khai.md`                                              |
+| KHKD      | Kế hoạch triển khai đề tài v1.3 (2026-09-19) | `docs/ke-hoach-trien-khai.md`                                              |
 
 > ⚠️ Trong tài liệu này, số WBS (1.x → 8.x) và số FR (FR-1 → FR-30) dùng lại nguyên văn từ KHKD/PRD để tránh phát sinh định nghĩa mới.
 
@@ -54,7 +54,7 @@ Tài liệu bao phủ toàn bộ **10 tuần triển khai + giai đoạn bàn gi
 
 | Mục               | Chi tiết                                                                                                                                                 |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tên đề tài     | Ứng dụng AI hỗ trợ vận hành và giảng dạy cho mô hình gia sư tiếng Anh 1-1                                                                    |
+| Tên đề tài     | Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition                                                                    |
 | Quy mô nhóm      | 3 thành viên                                                                                                                                            |
 | Thời lượng      | 2,5 tháng (≈10 tuần), baseline 07/09/2026 – 17/11/2026                                                                                                |
 | Frontend           | ReactJS (Parent / Tutor mobile-first / Student / Admin Dashboard)                                                                                         |

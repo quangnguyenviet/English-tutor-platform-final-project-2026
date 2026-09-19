@@ -1,13 +1,13 @@
 ---
-title: Kế hoạch triển khai đề tài — Ứng dụng AI hỗ trợ vận hành & giảng dạy gia sư tiếng Anh 1-1
+title: Kế hoạch triển khai đề tài — Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition
 version: 1.3
-ngày lập: 2026-09-04 (cập nhật 2026-09-15)
+ngày lập: 2026-09-04 (cập nhật 2026-09-19)
 nhóm: 3 thành viên
 thời lượng: 2,5 tháng (10 tuần)
 ---
 # 1. Mô tả ngắn đề tài
 
-**Tên đề tài:** Ứng dụng AI hỗ trợ vận hành và giảng dạy cho mô hình gia sư tiếng Anh 1-1
+**Tên đề tài:** Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition
 
 Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất lượng giảng dạy cho mô hình gia sư tiếng Anh 1-1, với AI là công cụ giúp gia sư **tiết kiệm thời gian soạn bài** và học sinh **tự học hiệu quả hơn**
 
@@ -145,4 +145,4 @@ Mỗi tuần phân công theo module, không theo vai trò cố định — cả
 
 ---
 
-*Tài liệu này được biên soạn dựa trên PRD "Ứng dụng AI hỗ trợ vận hành và giảng dạy cho mô hình gia sư tiếng Anh 1-1" (v.final, cập nhật 2026-09-04).*
+*Tài liệu này được biên soạn dựa trên PRD "Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition" (v.final, cập nhật 2026-09-19).*

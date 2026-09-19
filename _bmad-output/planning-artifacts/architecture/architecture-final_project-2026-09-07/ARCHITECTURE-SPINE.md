@@ -1,13 +1,13 @@
 ---
-name: 'Xương sống Kiến trúc Nền tảng Gia sư Tiếng Anh'
+name: 'Xương sống Kiến trúc — Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition'
 type: architecture-spine
 purpose: build-substrate
 altitude: system
 paradigm: Modular Monolith + Dịch vụ AI Python chuyên trách
-scope: Toàn bộ Kiến trúc Hệ thống Nền tảng Gia sư Tiếng Anh 1-1
+scope: Toàn bộ Kiến trúc Hệ thống Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition
 status: final
 created: '2026-09-07'
-updated: '2026-09-07'
+updated: '2026-09-19'
 binds:
   - FR-1
   - FR-2
@@ -35,7 +35,7 @@ sources:
 companions: []
 ---
 
-# Xương sống Kiến trúc — Nền tảng Gia sư Tiếng Anh 1-1
+# Xương sống Kiến trúc — Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition
 
 ## Mô hình Thiết kế (Design Paradigm)
 
