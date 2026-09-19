@@ -1,6 +1,6 @@
 # Brainstorming Intent: Tái Định Hình Project Brief Đồ Án Tốt Nghiệp
 
-> **Tên đề tài:** Ứng dụng AI hỗ trợ vận hành và giảng dạy cho mô hình gia sư tiếng Anh 1-1  
+> **Tên đề tài:** Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition  
 > **Phiên brainstorming:** 02/09/2026  
 > **Mục tiêu phiên:** Đánh giá & thách thức các giả định trong Project Brief cũ, cắt bỏ các phần dư thừa/tiềm ẩn rủi ro vỡ tiến độ, tinh gọn phạm vi để đảm bảo 100% hoàn thành đúng hạn với chất lượng tối ưu.
 

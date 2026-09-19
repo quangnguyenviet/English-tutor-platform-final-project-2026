@@ -1,4 +1,4 @@
-# Ứng dụng AI hỗ trợ vận hành và giảng dạy cho mô hình gia sư tiếng Anh 1-1
+# Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition
 
 Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất lượng giảng dạy cho mô hình gia sư tiếng Anh 1-1. Hệ thống gồm 4 thành viên chính: **Parent Portal**, **Tutor Portal**, **Student Portal** và **Admin Dashboard**, tích hợp **AI Service (LangGraph/FastAPI)** để tự động hóa việc biên soạn chương trình học và bài tập cá nhân hóa.
 
