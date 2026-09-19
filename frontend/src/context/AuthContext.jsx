@@ -207,6 +207,58 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Publish match request to tutor board (Path 1: open_match → published)
+  function publishMatchRequest(requestId) {
+    setMatchRequestList((prev) =>
+      prev.map((r) =>
+        r.id === requestId
+          ? {
+              ...r,
+              status: "published",
+              publishedAt: new Date().toISOString(),
+              appliedTutors: r.appliedTutors || [],
+            }
+          : r
+      )
+    );
+  }
+
+  // Select a tutor from the applied list (published → offered)
+  function selectTutorFromPublished(requestId, tutorId, tutorName, fee) {
+    setMatchRequestList((prev) =>
+      prev.map((r) =>
+        r.id === requestId
+          ? {
+              ...r,
+              status: "offered",
+              matchedTutorId: tutorId,
+              matchedTutorName: tutorName,
+              offeredAt: new Date().toISOString(),
+              matchOfferFee: fee,
+            }
+          : r
+      )
+    );
+  }
+
+  // Send direct offer for Path 2 (direct_match: pending → offered)
+  function sendDirectOffer(requestId, tutorId, tutorName, fee) {
+    setMatchRequestList((prev) =>
+      prev.map((r) =>
+        r.id === requestId
+          ? {
+              ...r,
+              status: "offered",
+              matchedTutorId: tutorId,
+              matchedTutorName: tutorName,
+              offeredAt: new Date().toISOString(),
+              matchOfferFee: fee,
+            }
+          : r
+      )
+    );
+  }
+
   // Admin Payment / QR Proof helpers (FR-23)
   function approvePaymentProof(paymentId) {
     const payment = paymentProofList.find((p) => p.id === paymentId);
@@ -370,6 +422,9 @@ export function AuthProvider({ children }) {
         updateMatchRequest,
         createMatchOffer,
         cancelMatchOffer,
+        publishMatchRequest,
+        selectTutorFromPublished,
+        sendDirectOffer,
         paymentProofList,
         setPaymentProofList,
         approvePaymentProof,

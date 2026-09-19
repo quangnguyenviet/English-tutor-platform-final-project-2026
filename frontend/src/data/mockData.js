@@ -2241,7 +2241,8 @@ export const matchRequests = [
     parentTelegram: "@letoan_hanoi",
     parentEmail: "toan.le@gmail.com",
     notes: "Cháu chuẩn bị thi IELTS vào tháng 12 năm nay để nộp xét tuyển đại học sớm.",
-    status: "pending", // "pending" | "offered" | "matched" | "cancelled"
+    registrationType: "open_match", // Path 1: Tìm gia sư trực quan (Matching mở rộng)
+    status: "pending", // "pending" | "published" | "offered" | "matched" | "cancelled"
     createdAt: "2026-03-08T08:30:00",
     matchedTutorId: null,
     matchedTutorName: null,
@@ -2268,6 +2269,9 @@ export const matchRequests = [
     parentTelegram: "@thao_vu_sg",
     parentEmail: "phuong.vu@fintechcorp.vn",
     notes: "Cần cải thiện phản xạ ngữ điệu tự nhiên và viết report cho sếp người Singapore.",
+    registrationType: "direct_match", // Path 2: Chỉ đích danh gia sư
+    designatedTutorId: "t1",
+    designatedTutorName: "Nguyễn Lan Anh",
     status: "offered",
     createdAt: "2026-03-07T14:15:00",
     matchedTutorId: "t1",
@@ -2295,6 +2299,7 @@ export const matchRequests = [
     parentTelegram: "@danglong_dn",
     parentEmail: "long.dang@gmail.com",
     notes: "Cháu mất gốc từ vựng ngữ pháp từ năm lớp 8, cần cô giáo kèm kiên nhẫn.",
+    registrationType: "open_match", // Path 1: Tìm gia sư trực quan
     status: "matched",
     createdAt: "2026-03-05T10:00:00",
     matchedTutorId: "t3",
@@ -2323,6 +2328,9 @@ export const matchRequests = [
     parentTelegram: "@thuybui_vp",
     parentEmail: "thuy.bui@edu.vn",
     notes: "Muốn học cùng gia sư có chứng chỉ IELTS 8.0 trở lên.",
+    registrationType: "direct_match", // Path 2: Chỉ đích danh gia sư
+    designatedTutorId: "t2",
+    designatedTutorName: "Trần Minh Quân",
     status: "pending",
     createdAt: "2026-03-08T11:00:00",
     matchedTutorId: null,
@@ -2350,12 +2358,73 @@ export const matchRequests = [
     parentTelegram: "@ducthanh_hcm",
     parentEmail: "thanh.nguyen@vietnet.com",
     notes: "Phụ huynh hủy vì bé bận trùng lịch học thêm Toán trên trường.",
+    registrationType: "open_match", // Path 1
     status: "cancelled",
     createdAt: "2026-03-03T16:20:00",
     matchedTutorId: null,
     matchedTutorName: null,
     platformFeeRate: 0.15,
     suggestedTutors: [],
+  },
+  // === Đơn đã gửi lên hệ thống (published) — Path 1: Gia sư vào apply ===
+  {
+    id: "mr6",
+    studentName: "Trần Bảo Ngọc",
+    grade: "Lớp 10",
+    currentLevel: "A2",
+    targetGoal: "Nâng cao kỹ năng Listening & Speaking, chuẩn bị thi giữa kỳ",
+    learningMode: "online",
+    learningModeLabel: "Trực tuyến (Online)",
+    location: "Cầu Giấy, Hà Nội",
+    preferredSchedule: "Thứ 3 - Thứ 5 - Thứ 7 (18:00 - 19:30)",
+    sessionsPerWeek: 3,
+    budgetPerSession: 270000,
+    parentName: "Chị Trần Thu Hương",
+    parentPhone: "0945 667 788",
+    parentTelegram: "@thuhuong_hn",
+    parentEmail: "huong.tran@outlook.com",
+    notes: "Bé gái thích học qua video và game, cần cô giáo vui vẻ.",
+    registrationType: "open_match", // Path 1: Đã được đẩy lên hệ thống
+    status: "published",
+    createdAt: "2026-03-08T06:00:00",
+    publishedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 giờ trước (còn 4h nữa đóng)
+    matchedTutorId: null,
+    matchedTutorName: null,
+    platformFeeRate: 0.15,
+    suggestedTutors: [],
+    appliedTutors: [
+      { tutorId: "t1", tutorName: "Nguyễn Lan Anh", appliedAt: new Date(Date.now() - 1.5 * 60 * 60 * 1000).toISOString(), message: "Em sẵn sàng nhận lớp, lịch học phù hợp ạ." },
+      { tutorId: "t3", tutorName: "Phạm Thu Hà", appliedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(), message: "Em có kinh nghiệm dạy Listening cho học sinh cấp 2-3 ạ." },
+    ],
+  },
+  {
+    id: "mr7",
+    studentName: "Lý Minh Đức",
+    grade: "Lớp 8",
+    currentLevel: "A1",
+    targetGoal: "Lấy lại gốc ngữ pháp, luyện viết câu đơn giản",
+    learningMode: "offline",
+    learningModeLabel: "Tại nhà (Offline)",
+    location: "Đống Đa, Hà Nội",
+    preferredSchedule: "Thứ 7 - Chủ Nhật (09:00 - 10:30)",
+    sessionsPerWeek: 2,
+    budgetPerSession: 240000,
+    parentName: "Anh Lý Văn Hùng",
+    parentPhone: "0911 223 344",
+    parentTelegram: "@lyvanhung_hn",
+    parentEmail: "hung.ly@gmail.com",
+    notes: "Cháu rất nhút nhát, cần thầy cô kiên nhẫn và nhẹ nhàng.",
+    registrationType: "open_match", // Path 1: Đã được đẩy lên, chưa có ai apply
+    status: "published",
+    createdAt: "2026-03-08T07:30:00",
+    publishedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(), // 4 giờ trước (còn 2h nữa đóng)
+    matchedTutorId: null,
+    matchedTutorName: null,
+    platformFeeRate: 0.15,
+    suggestedTutors: [],
+    appliedTutors: [
+      { tutorId: "t2", tutorName: "Trần Minh Quân", appliedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(), message: "Em có thể dạy cuối tuần, chuyên ngữ pháp cơ bản." },
+    ],
   },
 ];
 
