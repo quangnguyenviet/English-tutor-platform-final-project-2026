@@ -1,12 +1,12 @@
 # 📅 Quản lý lịch trình dự án
 
-> Thư mục này thuộc **PM Book** của dự án *"Ứng dụng AI hỗ trợ vận hành và giảng dạy cho mô hình gia sư tiếng Anh 1-1"*.
+> Thư mục này thuộc **PM Book** của dự án *"Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition"*.
 
 ## Nội dung
 
 | Tài liệu | Mô tả |
 |---|---|
-| [`project-schedule-management.md`](./project-schedule-management.md) | Tài liệu chính: lịch trình 10 tuần (baseline 07/09–17/11/2026), chi tiết theo tuần, mốc M1–M6, nhịp điều hành, rủi ro & quy trình thay đổi |
+| [`project-schedule-management.md`](./project-schedule-management.md) | Tài liệu chính: lịch trình 10 tuần (baseline 07/09–17/11/2026), chi tiết theo tuần, mốc M1–M6 (5 cổng, SKP, SM-2, Lễ tân & Khiếu nại), nhịp điều hành, rủi ro & quy trình thay đổi |
 
 ## Dùng tài liệu này như thế nào
 
@@ -19,6 +19,6 @@
 
 - Ngày tháng trong tài liệu là **baseline chính thức** — **ngày khởi công đã xác nhận: Thứ 2 `07/09/2026`** (mốc kết thúc M6: `17/11/2026`).
 - Mọi thay đổi đều phải ghi vào **Nhật ký cập nhật** (Section 14); không sửa thầm.
-- Sử dụng mã WBS / FR thống nhất với `docs/ke-hoach-trien-khai.md` và PRD.
+- Sử dụng mã WBS / FR thống nhất với `docs/ke-hoach-trien-khai.md` (v1.4) và PRD v.final.
 
-_Thuộc dự án: branch `dev` · Căn cứ: KHKD v1.1 (2026-09-04), PRD v.final (2026-09-04)._
+_Thuộc dự án: branch `dev` · Căn cứ: KHKD v1.4 (2026-09-19), PRD v.final (2026-09-19)._
