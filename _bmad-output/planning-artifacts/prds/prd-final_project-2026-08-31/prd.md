@@ -2,7 +2,7 @@
 title: Ứng dụng AI hỗ trợ vận hành và giảng dạy cho mô hình gia sư tiếng Anh 1-1
 status: final
 created: 2026-08-31
-updated: 2026-09-13
+updated: 2026-09-18
 ---
 # PRD: Ứng dụng AI hỗ trợ vận hành và giảng dạy cho mô hình gia sư tiếng Anh 1-1
 
@@ -19,7 +19,8 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
 - **Gia sư**: nhận lớp, soạn chương trình, giao bài tập cá nhân hóa — tất cả trên di động, trong vài phút.
 - **Học sinh**: làm bài, được chấm tức thì, và tự hiểu lý do sai qua lời giải thích AI.
 - **Phụ huynh**: đăng ký học thử nhanh, xem tiến bộ con bằng biểu đồ.
-- **Admin**: ghép lớp, duyệt phí nhận lớp (sau 1 tháng dạy), và quản lý vận hành trung tâm tập trung tại một nơi.
+- **Admin**: ghép lớp, duyệt phí nhận lớp (sau 1 tháng dạy), quản lý lễ tân, xử lý khiếu nại và quản lý vận hành trung tâm tập trung tại một nơi.
+- **Lễ tân**: hỗ trợ Admin xử lý yêu cầu ghép lớp, duyệt thanh toán, quản lý gia sư & học sinh, tiếp nhận và ghi nhận khiếu nại tại trung tâm.
 
 ## 2. Target User
 
@@ -35,9 +36,11 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
   * *Functional*: Muốn làm bài tập về nhà thuận tiện trên thiết bị cá nhân. Muốn ngay lập tức biết kết quả bài làm và hiểu rõ lý do vì sao mình làm đúng/sai ở từng câu để tự củng cố kiến thức mà không phải chờ đến buổi học tiếp theo.
   * *Emotional*: Cảm thấy việc làm bài tập nhẹ nhàng, không bị nản hay áp lực vì luôn có hướng dẫn/giải thích rõ ràng ngay khi gặp câu khó hoặc làm sai.
 * **Quản trị viên (Admin - Người vận hành)**:
-  * *Functional*: Muốn tiếp nhận và xử lý nhanh chóng các yêu cầu học thử từ phụ huynh, ghép nối gia sư phù hợp với nhu cầu của từng học sinh. Muốn kiểm soát và đối soát các khoản phí nhận lớp minh bạch, chính xác sau khi gia sư hoàn thành 1 tháng dạy chính thức.
+  * *Functional*: Muốn tiếp nhận và xử lý nhanh chóng các yêu cầu học thử từ phụ huynh, ghép nối gia sư phù hợp với nhu cầu của từng học sinh. Muốn kiểm soát và đối soát các khoản phí nhận lớp minh bạch, chính xác sau khi gia sư hoàn thành 1 tháng dạy chính thức. Muốn quản lý nhân sự lễ tân và giám sát xử lý khiếu nại để ghi nhận đúng số tiền thu vào/chi ra.
   * *Emotional*: Cảm thấy quy trình vận hành trung tâm diễn ra trơn tru, chuyên nghiệp, giảm thiểu sai sót thủ công và đảm bảo sự hài lòng cho cả gia sư lẫn phụ huynh.
-  * *Emotional*: Cảm thấy quy trình vận hành trung tâm diễn ra trơn tru, chuyên nghiệp, giảm thiểu sai sót thủ công và đảm bảo sự hài lòng cho cả gia sư lẫn phụ huynh.
+* **Lễ tân (Receptionist - Người hỗ trợ vận hành)**:
+  * *Functional*: Muốn hỗ trợ Admin xử lý các tác vụ vận hành hàng ngày: tiếp nhận yêu cầu ghép lớp, duyệt thanh toán phí nhận lớp, quản lý thông tin gia sư & học sinh, gửi thông báo. Đặc biệt, muốn tiếp nhận và ghi nhận khiếu nại từ phụ huynh/gia sư đến trực tiếp trung tâm một cách nhanh chóng, chính xác.
+  * *Emotional*: Cảm thấy công việc tiếp nhận khiếu nại và hỗ trợ vận hành được hệ thống hóa rõ ràng, không bỏ sót thông tin, đảm bảo xử lý kịp thời và chuyên nghiệp.
 
 ### 2.2 Non-Users (v1)
 
@@ -49,16 +52,23 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
 * **UJ-1. Chị Lan (Phụ huynh) tìm gia sư và đăng ký học thử qua Form Tìm Gia Sư**
 
   * **Persona + Context**: Chị Lan, nhân viên văn phòng bận rộn, có con trai Nam (10 tuổi) nhút nhát và phát âm kém. Chị cần tìm một gia sư nữ kiên nhẫn dạy vào tối Thứ 3 và Thứ 5.
-  * **Entry State**: Chưa đăng nhập, truy cập trang chủ công khai của trung tâm, nhấn nút "Tìm Gia Sư Nhanh".
-  * **Path**:
-    1. Chị Lan điền Form tìm gia sư trực quan:
-       * *Chọn mục tiêu học sinh*: Độ tuổi (10 tuổi), Trình độ (Mất gốc/Nhút nhát), Mục tiêu (Luyện phát âm & Giao tiếp cơ bản).
-       * *Chọn yêu cầu gia sư*: Giới tính (Nữ), Mức học phí mong muốn, Tính cách ưu tiên (Kiên nhẫn).
-       * *Chọn khung giờ rảnh*: Tối Thứ 3 và Tối Thứ 5.
-    2. Hệ thống hiển thị danh sách các gia sư phù hợp kèm mốc Matching Score (%) và video giới thiệu bản thân.
-    3. Chị Lan xem hồ sơ cô Mai (95% Match).
-  * **Climax**: Chị Lan bấm nút **"Đăng ký học thử"** (gửi yêu cầu tới Admin mà không cần điền lại thông tin rườm rà).
-  * **Resolution**: Hệ thống tạo một bản ghi Match Request ở trạng thái `PENDING`. Chị Lan nhập SĐT để nhận SMS xác nhận. Thông báo mới lập tức hiển thị trên Admin Dashboard.
+  * **Entry State**: Chưa đăng nhập, truy cập trang chủ công khai của trung tâm, nhấn nút "Tìm Gia Sư Nhanh" hoặc vào xem chi tiết từng gia sư.
+  * **Path 1** (Tìm gia sư chung — Matching mở rộng):
+    1. Chị Lan điền Form tìm gia sư trực quan rồi nhấn gửi.
+    2. Trung tâm nhận được thông tin, đẩy thông tin tìm lớp gia sư lên hệ thống chung.
+    3. Các gia sư vào apply lớp.
+    4. Trung tâm gọi điện lại cho phụ huynh trong vòng 12h, đưa ra list gia sư để phụ huynh lựa chọn.
+    5. Phụ huynh đồng ý, chọn gia sư.
+    6. Trung tâm gửi đề nghị tới gia sư.
+    7. Gia sư đồng ý nhận lớp và nhận được thông tin, SĐT của phụ huynh.
+    8. Sau 30 ngày gia sư sẽ trả tiền cho trung tâm.
+  * **Path 2** (Chỉ đích gia sư — Matching trực tiếp):
+    1. Chị Lan điền form chỉ đích gia sư (chọn trực tiếp gia sư mong muốn).
+    2. Trung tâm match với gia sư được chỉ định.
+    3. Nếu gia sư đồng ý thì nhận lớp ➔ Gia sư nhận thông tin liên hệ phụ huynh.
+    4. Nếu gia sư không đồng ý, trung tâm liên hệ lại phụ huynh, và lại đăng lên cho gia sư apply (chuyển về Path 1).
+  * **Climax**: Chị Lan được kết nối với gia sư phù hợp thông qua quy trình tư vấn chủ động của Trung tâm.
+  * **Resolution**: Hệ thống tạo bản ghi Match Request, gia sư nhận lớp thành công. Sau 30 ngày dạy chính thức, gia sư nộp phí nhận lớp cho trung tâm.
 * **UJ-2. Minh (Gia sư) nhận lớp, lập Khung chương trình, giao bài tập qua Tutor Assistant Dual-Mode và nộp phí QR proof sau 1 tháng dạy**
 
   * **Persona + Context**: Minh, sinh viên năm 3 chuyên ngành Tiếng Anh, đi dạy thêm bằng điện thoại di động.
@@ -290,7 +300,7 @@ Học sinh truy cập Khung chương trình học để xem và tải các bài 
 
 ### 4.4 Admin Dashboard & Class Assignment Management
 
-**Description:** Màn hình quản trị cho Admin quản lý các đăng ký học thử từ Phụ huynh, duyệt ghép lớp nhanh chóng, quản lý hồ sơ gia sư và phê duyệt phí nhận lớp qua QR proof. (Thực hiện UJ-4)
+**Description:** Màn hình quản trị cho Admin quản lý các đăng ký học thử từ Phụ huynh, duyệt ghép lớp nhanh chóng, quản lý hồ sơ gia sư, phê duyệt phí nhận lớp qua QR proof, quản lý nhân sự lễ tân, và giám sát xử lý khiếu nại để đối soát doanh thu (thu vào/chi ra). (Thực hiện UJ-4)
 
 **Functional Requirements:**
 
@@ -327,6 +337,81 @@ Hệ thống quản lý việc phát sinh yêu cầu nộp phí nhận lớp sau
 
 Hiển thị biểu đồ doanh thu trung tâm, Tỷ lệ ghép lớp thành công và xuất file Excel/PDF.
 
+#### FR-31: Quản lý nhân sự Lễ tân (Receptionist Management)
+
+Admin quản lý danh sách nhân viên Lễ tân của trung tâm.
+
+* **Consequences (testable):**
+  * Admin có thể thực hiện CRUD (Tạo mới / Xem / Sửa / Xóa) tài khoản Lễ tân trên Admin Dashboard.
+  * Mỗi Lễ tân có thông tin: Mã lễ tân, Họ tên, Email, SĐT, Ngày vào làm, Trạng thái (Đang hoạt động / Ngưng hoạt động).
+  * Admin có thể lọc danh sách theo trạng thái và tìm kiếm theo tên/email/SĐT.
+
+#### FR-32: Xử lý khiếu nại & Đối soát tài chính (Complaint Management)
+
+Admin xem tổng hợp toàn bộ khiếu nại do Lễ tân ghi nhận để giám sát và đối soát thu chi.
+
+* **Consequences (testable):**
+  * Admin xem danh sách toàn bộ khiếu nại từ các Lễ tân kèm filter trạng thái (Chưa xử lí / Đã xử lí).
+  * Mỗi đơn khiếu nại ghi rõ: Mã khiếu nại, Loại khiếu nại (Hoàn tiền cho gia sư / Ghép lại lớp cho phụ huynh), Mã & Họ tên người khiếu nại (gia sư/phụ huynh), Mã & Họ tên lễ tân tiếp nhận, Nội dung khiếu nại chi tiết, Thời gian tiếp nhận, Mã lớp liên quan, Số tiền hoàn (nếu có), Trạng thái xử lý, Ghi chú xử lý & kết quả.
+  * Admin có thể đánh dấu trạng thái xử lý (Chưa xử lí ➔ Đã xử lí).
+  * Admin xem tổng hợp tài chính: Tổng tiền đã hoàn trả (chi ra), Tổng khiếu nại ghép lại lớp, để đối soát với doanh thu thu vào.
+
+---
+
+### 4.5 Receptionist Portal & Complaint Management
+
+**Description:** Cổng thông tin dành cho Lễ tân hỗ trợ vận hành trung tâm: xử lý yêu cầu ghép lớp, duyệt thanh toán, quản lý gia sư & học sinh, gửi thông báo, và đặc biệt tiếp nhận & ghi nhận khiếu nại từ phụ huynh/gia sư đến trực tiếp trung tâm.
+
+**Functional Requirements:**
+
+#### FR-33: Yêu cầu ghép lớp (Receptionist)
+
+Lễ tân có quyền xem và xử lý danh sách yêu cầu ghép lớp từ phụ huynh, tương tự Admin (FR-16).
+
+* **Consequences (testable):**
+  * Lễ tân xem danh sách Match Request, gọi điện xác nhận phụ huynh, và tạo Match Offer gửi tới Gia sư.
+
+#### FR-34: Duyệt thanh toán (Receptionist)
+
+Lễ tân có quyền xem và duyệt các minh chứng thanh toán phí nhận lớp từ gia sư, tương tự Admin (FR-23).
+
+* **Consequences (testable):**
+  * Lễ tân kiểm tra ảnh biên lai chuyển khoản và bấm "Phê duyệt phí" hoặc "Yêu cầu gửi lại".
+
+#### FR-35: Quản lý Gia sư & Học sinh (Receptionist)
+
+Lễ tân có quyền xem danh sách gia sư và học sinh, cập nhật trạng thái hoạt động.
+
+* **Consequences (testable):**
+  * Lễ tân xem danh sách, lọc và tìm kiếm gia sư/học sinh.
+  * Lễ tân cập nhật trạng thái hoạt động gia sư (không có quyền xóa).
+
+#### FR-36: Thông báo (Receptionist)
+
+Lễ tân nhận và xem các thông báo hệ thống liên quan đến vận hành trung tâm, tương tự Admin.
+
+#### FR-37: Xử lý khiếu nại (Complaint Management)
+
+Lễ tân tiếp nhận và ghi nhận khiếu nại từ phụ huynh hoặc gia sư đến trực tiếp trung tâm.
+
+* **Consequences (testable):**
+  * **Hai loại khiếu nại:**
+    * *Hoàn tiền cho gia sư*: Gia sư yêu cầu hoàn lại phí nhận lớp đã nộp (ví dụ: do phụ huynh đơn phương hủy lớp sớm).
+    * *Ghép lại lớp cho phụ huynh*: Phụ huynh yêu cầu đổi gia sư mới (ví dụ: không hài lòng chất lượng giảng dạy).
+  * **Thông tin trên đơn khiếu nại:**
+    * Mã khiếu nại (tự động sinh, ví dụ: `KN-20260918-001`)
+    * Loại khiếu nại: `REFUND` (Hoàn tiền) hoặc `REMATCH` (Ghép lại lớp)
+    * Người khiếu nại: Mã, Họ tên, Vai trò (Gia sư / Phụ huynh), SĐT
+    * Lễ tân tiếp nhận: Mã lễ tân, Họ tên
+    * Thời gian tiếp nhận khiếu nại
+    * Mã lớp / Enrollment liên quan
+    * Số tiền yêu cầu hoàn (nếu là loại `REFUND`)
+    * Nội dung khiếu nại chi tiết
+    * Trạng thái: `Chưa xử lí` / `Đã xử lí`
+    * Ghi chú xử lý và kết quả (cập nhật khi xử lý xong)
+  * Lễ tân tạo mới đơn khiếu nại, đánh dấu trạng thái `Chưa xử lí` → `Đã xử lí`.
+  * Danh sách khiếu nại hiển thị với filter trạng thái và tìm kiếm.
+
 ---
 
 ## 5. Non-Goals (Explicit)
@@ -348,7 +433,8 @@ Hiển thị biểu đồ doanh thu trung tâm, Tỷ lệ ghép lớp thành cô
 ### 6.1 In Scope
 
 * Parent Portal: Landing Page, Form tìm gia sư trực quan, Nút Đăng ký học thử.
-* Admin Dashboard: Match Request Management, Phê duyệt ghép lớp nhanh chóng, Duyệt phí nhận lớp (QR proof), Báo cáo vận hành.
+* Admin Dashboard: Match Request Management, Phê duyệt ghép lớp nhanh chóng, Duyệt phí nhận lớp (QR proof), Quản lý nhân sự lễ tân, Xử lý khiếu nại & Đối soát tài chính, Báo cáo vận hành.
+* Receptionist Portal: Yêu cầu ghép lớp, Duyệt thanh toán, Quản lý gia sư & học sinh, Thông báo, Xử lý khiếu nại (Hoàn tiền / Ghép lại lớp).
 * Tutor Portal: Quản lý lớp, Quản lý khung chương trình học tinh gọn 2 cấp (Chủ đề/Chương ➔ Bài học), Lịch dạy, **Tutor Assistant Dual-Mode** (Direct AI Generation + Import Structured File), Giao bài tức thì, Upload video/tài liệu S3.
 * Student Portal: Làm bài tập online (Trắc nghiệm, Điền từ, Sửa lỗi), Tự động chấm điểm, Xem lời giải thích chi tiết AI từng câu, Báo cáo tiến bộ cá nhân.
 * Backend Spring Boot RBAC theo `Enrollment`, Postgres DB, Docker deployment.
