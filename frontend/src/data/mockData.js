@@ -2414,17 +2414,42 @@ export const matchRequests = [
     parentTelegram: "@lyvanhung_hn",
     parentEmail: "hung.ly@gmail.com",
     notes: "Cháu rất nhút nhát, cần thầy cô kiên nhẫn và nhẹ nhàng.",
-    registrationType: "open_match", // Path 1: Đã được đẩy lên, chưa có ai apply
+    registrationType: "open_match", // Path 1: Đã được đẩy lên, chưa có ai offer, thời gian còn
     status: "published",
     createdAt: "2026-03-08T07:30:00",
-    publishedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(), // 4 giờ trước (còn 2h nữa đóng)
+    publishedAt: new Date(Date.now() - 2.5 * 60 * 60 * 1000).toISOString(), // 2.5 giờ trước (còn 3.5h nữa đóng)
     matchedTutorId: null,
     matchedTutorName: null,
     platformFeeRate: 0.15,
     suggestedTutors: [],
-    appliedTutors: [
-      { tutorId: "t2", tutorName: "Trần Minh Quân", appliedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(), message: "Em có thể dạy cuối tuần, chuyên ngữ pháp cơ bản." },
-    ],
+    appliedTutors: [], // Mock trường hợp 1: Không có ai offer vào đơn, thời gian còn -> nút Match Offer mờ đi & disable
+  },
+  {
+    id: "mr8",
+    studentName: "Hoàng Gia Bách",
+    grade: "Lớp 6",
+    currentLevel: "A1",
+    targetGoal: "Luyện phát âm chuẩn Phonics & từ vựng thiếu nhi nâng cao",
+    learningMode: "online",
+    learningModeLabel: "Trực tuyến (Online)",
+    location: "Hà Đông, Hà Nội",
+    preferredSchedule: "Thứ 3 - Thứ 6 (19:00 - 20:30)",
+    sessionsPerWeek: 2,
+    budgetPerSession: 250000,
+    parentName: "Chị Đỗ Thu Thảo",
+    parentPhone: "0968 123 789",
+    parentTelegram: "@thuthao_hadong",
+    parentEmail: "thao.do@gmail.com",
+    notes: "Bé hiếu động, thích phương pháp tương tác hình ảnh sinh động.",
+    registrationType: "open_match", // Path 1: Đã được đẩy lên, không có ai offer VÀ thời gian đã hết (quá 6h)
+    status: "published",
+    createdAt: "2026-03-07T08:00:00",
+    publishedAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(), // 8 giờ trước (> 6h -> HẾT HẠN)
+    matchedTutorId: null,
+    matchedTutorName: null,
+    platformFeeRate: 0.15,
+    suggestedTutors: [],
+    appliedTutors: [], // Mock trường hợp 2: Không có ai offer VÀ hết thời gian -> nút Match Offer đổi thành Re-Offer
   },
 ];
 

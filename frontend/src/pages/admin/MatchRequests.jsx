@@ -22,6 +22,7 @@ import {
   Users,
   Globe,
   UserPlus,
+  RotateCcw,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/ui/PageHeader";
@@ -196,6 +197,24 @@ export function MatchRequests() {
   };
 
   // === PUBLISHED ACTIONS ===
+
+  // Path 1: Re-Offer to tutor board when 6h countdown expired and 0 tutors applied
+  const handleReOfferToBoard = (req) => {
+    setConfirmModal({
+      open: true,
+      title: "Đẩy lại đề nghị lên trang gia sư (Re-Offer)",
+      message: `Đơn của học sinh ${req.studentName} đã hết thời gian 6 giờ mà chưa có gia sư nào nhận. Bạn xác nhận Re-Offer để đẩy lại lên trang gia sư trong 6 giờ tiếp theo chứ?`,
+      confirmLabel: "Xác nhận Re-Offer",
+      confirmTone: "amber",
+      onConfirm: () => {
+        publishMatchRequest(req.id);
+        closeConfirmModal();
+        setSuccessPopup(
+          `Đã Re-Offer thành công! Đơn của học sinh ${req.studentName} đã được đẩy lại lên bảng tin gia sư và gia hạn thêm 6 giờ.`
+        );
+      },
+    });
+  };
 
   // Open modal to select from applied tutors
   const handleOpenPublishedSelect = (req) => {
@@ -582,8 +601,21 @@ export function MatchRequests() {
                   {/* Published: Applied Tutors count & countdown */}
                   {req.status === "published" && (
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 rounded-lg border border-violet-100 bg-violet-50/70 p-2.5 text-xs text-violet-800 dark:border-violet-900/40 dark:bg-violet-950/40 dark:text-violet-200">
-                        <Users size={16} className="text-violet-600 dark:text-violet-400 shrink-0" />
+                      <div
+                        className={`flex items-center gap-2 rounded-lg border p-2.5 text-xs ${
+                          publishedTimeRemaining?.expired && (!req.appliedTutors || req.appliedTutors.length === 0)
+                            ? "border-amber-200 bg-amber-50/70 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200"
+                            : "border-violet-100 bg-violet-50/70 text-violet-800 dark:border-violet-900/40 dark:bg-violet-950/40 dark:text-violet-200"
+                        }`}
+                      >
+                        <Users
+                          size={16}
+                          className={
+                            publishedTimeRemaining?.expired && (!req.appliedTutors || req.appliedTutors.length === 0)
+                              ? "text-amber-600 dark:text-amber-400 shrink-0"
+                              : "text-violet-600 dark:text-violet-400 shrink-0"
+                          }
+                        />
                         <div>
                           <span className="font-semibold">{req.appliedTutors?.length || 0}</span> gia sư đã đăng ký apply
                           {publishedTimeRemaining && !publishedTimeRemaining.expired && (
@@ -593,7 +625,7 @@ export function MatchRequests() {
                           )}
                           {publishedTimeRemaining && publishedTimeRemaining.expired && (
                             <span className="ml-2 text-[11px] text-rose-500 font-medium">
-                              (Đã hết thời gian đăng ký)
+                              (Đã hết thời gian đăng ký{(!req.appliedTutors || req.appliedTutors.length === 0) ? " - Chưa có ai nhận" : ""})
                             </span>
                           )}
                         </div>
@@ -666,16 +698,50 @@ export function MatchRequests() {
                       </Button>
                     )}
 
-                    {/* PUBLISHED — Select from applied tutors */}
+                    {/* PUBLISHED — Select from applied tutors OR Re-Offer if expired with 0 tutors */}
                     {req.status === "published" && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleOpenPublishedSelect(req)}
-                        disabled={!req.appliedTutors || req.appliedTutors.length === 0}
-                        className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <UserCheck size={14} /> Match Offer ({req.appliedTutors?.length || 0} GS đã đăng ký)
-                      </Button>
+                      (() => {
+                        const hasApplicants = req.appliedTutors && req.appliedTutors.length > 0;
+                        const isExpired = publishedTimeRemaining?.expired;
+
+                        // Case 2: 0 applicants and expired -> "Re-Offer" button
+                        if (!hasApplicants && isExpired) {
+                          return (
+                            <Button
+                              size="sm"
+                              onClick={() => handleReOfferToBoard(req)}
+                              className="w-full justify-center bg-amber-600 hover:bg-amber-700 text-white shadow-sm font-medium"
+                            >
+                              <RotateCcw size={14} /> Re-Offer (Đẩy lại lên trang GS)
+                            </Button>
+                          );
+                        }
+
+                        // Case 1: 0 applicants and not expired -> Disabled dimmed "Match Offer" button
+                        if (!hasApplicants) {
+                          return (
+                            <Button
+                              size="sm"
+                              disabled
+                              className="w-full justify-center bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-50 cursor-not-allowed border border-slate-200 dark:border-slate-700 shadow-none pointer-events-none"
+                              title="Chưa có gia sư nào đăng ký nhận lớp"
+                            >
+                              <UserCheck size={14} /> Match Offer (0 GS đã đăng ký)
+                            </Button>
+                          );
+                        }
+
+                        // Normal Case: Has applicants -> Active "Match Offer" button
+                        return (
+                          <Button
+                            size="sm"
+                            onClick={() => handleOpenPublishedSelect(req)}
+                            className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                          >
+                            <UserCheck size={14} /> Match Offer ({req.appliedTutors.length} GS đã đăng ký)
+                          </Button>
+                        );
+                      })()
                     )}
 
                     {/* OFFERED — Change tutor */}
@@ -752,6 +818,35 @@ export function MatchRequests() {
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+
+              {/* Notice when 0 tutors applied for Published status */}
+              {req.status === "published" && (!req.appliedTutors || req.appliedTutors.length === 0) && (
+                <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
+                  <div
+                    className={`flex items-center gap-2 rounded-lg p-2.5 text-xs ${
+                      publishedTimeRemaining?.expired
+                        ? "border border-amber-200 bg-amber-50/60 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300"
+                        : "border border-dashed border-slate-200 bg-slate-50/50 text-slate-500 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400"
+                    }`}
+                  >
+                    {publishedTimeRemaining?.expired ? (
+                      <>
+                        <AlertCircle size={15} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span>
+                          Thời gian nhận đăng ký 6 giờ đã kết thúc nhưng chưa có gia sư nhận. Vui lòng bấm <strong>"Re-Offer"</strong> để gia hạn và đẩy lại lên trang gia sư.
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Clock size={15} className="text-slate-400 shrink-0" />
+                        <span>
+                          Đơn đang hiển thị trên bảng tin gia sư. Nút <strong>"Match Offer"</strong> đang tạm khóa và sẽ tự động kích hoạt khi có ít nhất 1 gia sư đăng ký nhận lớp.
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
