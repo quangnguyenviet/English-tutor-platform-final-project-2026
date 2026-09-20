@@ -1,12 +1,10 @@
-import { X, Star, Award, Calendar, Clock, CheckCircle2, ArrowRight } from "lucide-react";
+import { X, Award, Calendar, Clock, CheckCircle2, ArrowRight } from "lucide-react";
 import Button from "../../components/ui/Button";
 import Avatar from "../../components/ui/Avatar";
 import Badge from "../../components/ui/Badge";
 
 export default function TutorDetailModal({ tutor, onClose, onSelectTutor }) {
   if (!tutor) return null;
-
-  const isFull = tutor.scheduleBadgeTone === "rose";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
@@ -25,21 +23,17 @@ export default function TutorDetailModal({ tutor, onClose, onSelectTutor }) {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50">{tutor.name}</h2>
-              <Badge tone={tutor.scheduleBadgeTone || "emerald"}>
-                {tutor.scheduleBadge || "RẢNH LỊCH"}
-              </Badge>
+              {tutor.gender && (
+                <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">
+                  {tutor.gender}
+                </span>
+              )}
             </div>
 
             <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
-              <div className="flex items-center gap-1 text-amber-500 font-semibold">
-                <Star size={16} className="fill-amber-400 text-amber-400" />
-                <span>{tutor.rating}</span>
-                <span className="text-xs text-slate-400">({tutor.reviewsCount} đánh giá)</span>
-              </div>
-              <span>&middot;</span>
               <span>Học phí: <strong className="text-slate-900 dark:text-slate-100">{tutor.ratePerHour}</strong></span>
               <span>&middot;</span>
-              <span>Đã dạy: <strong className="text-slate-900 dark:text-slate-100">{tutor.teachingHours}</strong></span>
+              <span>Hình thức: <strong className="text-slate-900 dark:text-slate-100">{tutor.learningModeLabel || "Online & Offline"}</strong></span>
             </div>
 
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -156,11 +150,9 @@ export default function TutorDetailModal({ tutor, onClose, onSelectTutor }) {
               <div key={r.id} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3 text-xs dark:border-slate-800 dark:bg-slate-800/40">
                 <div className="mb-1 flex items-center justify-between">
                   <span className="font-semibold text-slate-900 dark:text-slate-100">{r.student}</span>
-                  <div className="flex items-center gap-0.5 text-amber-500">
-                    {[...Array(r.rating)].map((_, idx) => (
-                      <Star key={idx} size={12} className="fill-amber-400 text-amber-400" />
-                    ))}
-                  </div>
+                  <span className="text-[10px] text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-300 px-2 py-0.5 rounded-md font-medium">
+                    Học sinh đã học
+                  </span>
                 </div>
                 <p className="text-slate-600 dark:text-slate-300">&quot;{r.comment}&quot;</p>
               </div>
@@ -174,14 +166,13 @@ export default function TutorDetailModal({ tutor, onClose, onSelectTutor }) {
             Đóng
           </Button>
           <Button
-            disabled={isFull}
             onClick={() => {
               onClose();
               onSelectTutor(tutor);
             }}
             className="flex-1"
           >
-            {isFull ? "Hết chỗ" : "Kết nối & Thuê Gia sư ngay"} <ArrowRight size={16} className="ml-1" />
+            Kết nối & Thuê Gia sư ngay <ArrowRight size={16} className="ml-1" />
           </Button>
         </div>
       </div>

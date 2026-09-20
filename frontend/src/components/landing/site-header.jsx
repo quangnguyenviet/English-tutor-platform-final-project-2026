@@ -17,20 +17,20 @@ export function SiteHeader({ onOpenContactModal }) {
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
-          <a href="#how-it-works" className="hover:text-foreground transition-colors">
-            Cách hoạt động
-          </a>
-          <a href="#features" className="hover:text-foreground transition-colors">
-            Tính năng
-          </a>
-          <a href="#faq" className="hover:text-foreground transition-colors">
-            Học phí & FAQ
-          </a>
-          <a href="#testimonials" className="hover:text-foreground transition-colors">
-            Đánh giá
-          </a>
+        <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
+          <Link to="/tutors" className="hover:text-foreground transition-colors font-semibold text-primary">
+            Gia sư
+          </Link>
+          <Link to="/faq" className="hover:text-foreground transition-colors">
+            Hỏi đáp
+          </Link>
+          {/* UC-P05 & UC-P06: Tạm ẩn tab Phụ huynh theo dõi, triển khai sau
+          <Link to="/parent-view" className="hover:text-foreground transition-colors text-emerald-600 dark:text-emerald-400 font-semibold">
+            Phụ huynh theo dõi
+          </Link>
+          */}
         </nav>
+
 
         {/* Action Controls */}
         <div className="flex items-center gap-3">
@@ -39,7 +39,7 @@ export function SiteHeader({ onOpenContactModal }) {
             to="/login"
             className="hidden sm:inline-flex px-4 py-2 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
           >
-            Đăng nhập học sinh
+            Đăng nhập
           </Link>
           <button
             type="button"

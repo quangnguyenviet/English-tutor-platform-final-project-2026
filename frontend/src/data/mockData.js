@@ -11,6 +11,8 @@ export const tutors = [
   {
     id: "t1",
     name: "Nguyễn Lan Anh",
+    gender: "Nữ",
+    highlights: ["Học sinh giỏi Quốc Gia", "Học sinh trường chuyên (Cấp 3)", "Thủ khoa", "Chuyên dạy học sinh mất gốc"],
     email: "lananh.tutor@example.com",
     initials: "LA",
     phone: "0987 654 321",
@@ -31,6 +33,8 @@ export const tutors = [
     location: "Online qua Jitsi / Zoom",
     birthYear: "2001 (25 tuổi)",
     hometown: "Nam Định",
+    province: "TP. Hồ Chí Minh",
+    district: "Quận 3",
     currentAddress: "Quận 3, TP.HCM",
     university: "Đại học Sư Phạm TP.HCM - Sư phạm Tiếng Anh",
     highSchool: "Cựu học sinh Chuyên Lê Hồng Phong (Nam Định)",
@@ -55,6 +59,8 @@ export const tutors = [
   {
     id: "t2",
     name: "Trần Minh Quân",
+    gender: "Nam",
+    highlights: ["Học sinh giỏi Quốc Gia", "Học sinh trường chuyên (Cấp 3)", "Chuyên luyện thi Đại học"],
     email: "minhquan.tutor@example.com",
     initials: "MQ",
     phone: "0912 345 678",
@@ -75,6 +81,8 @@ export const tutors = [
     location: "Tại nhà học sinh (Q.3) hoặc Trung tâm EdTech Q.1",
     birthYear: "2002 (24 tuổi)",
     hometown: "TP. Hồ Chí Minh",
+    province: "TP. Hồ Chí Minh",
+    district: "Quận 1",
     currentAddress: "Quận 1, TP.HCM",
     university: "Đại học Ngoại Thương TP.HCM - Kinh tế Đối ngoại",
     highSchool: "Cựu học sinh Chuyên Lê Hồng Phong (TP.HCM)",
@@ -97,6 +105,8 @@ export const tutors = [
   {
     id: "t3",
     name: "Phạm Thu Hà",
+    gender: "Nữ",
+    highlights: ["Học sinh trường chuyên (Cấp 3)", "Học sinh giỏi Tỉnh/TP", "Đạt giải hùng biện"],
     email: "thuha.tutor@example.com",
     initials: "TH",
     phone: "0909 111 222",
@@ -117,6 +127,8 @@ export const tutors = [
     location: "Online qua Jitsi / Zoom",
     birthYear: "2003 (23 tuổi)",
     hometown: "Nghệ An",
+    province: "TP. Hồ Chí Minh",
+    district: "Quận 10",
     currentAddress: "Quận 10, TP.HCM",
     university: "Đại học Ngoại Ngữ - Ngôn ngữ Anh",
     highSchool: "Cựu học sinh Chuyên Phan Bội Châu (Nghệ An)",
@@ -139,6 +151,8 @@ export const tutors = [
   {
     id: "t4",
     name: "Lê Đức Anh",
+    gender: "Nam",
+    highlights: ["Học sinh trường chuyên (Cấp 3)", "Học sinh giỏi Tỉnh/TP", "Đạt giải hùng biện"],
     email: "ducanh.tutor@example.com",
     initials: "ĐA",
     phone: "0933 444 555",
@@ -156,11 +170,13 @@ export const tutors = [
     scheduleBadgeTone: "emerald",
     learningMode: "offline",
     learningModeLabel: "Dạy Offline Tại nhà",
-    location: "Tại nhà học sinh (Q.1, TP.HCM)",
+    location: "Tại nhà học sinh (Cầu Giấy, Nam Từ Liêm, HN)",
     birthYear: "2002 (24 tuổi)",
     hometown: "Hà Nội",
-    currentAddress: "Quận 1, TP.HCM",
-    university: "Đại học Bách Khoa TP.HCM - Kỹ thuật",
+    province: "Hà Nội",
+    district: "Cầu Giấy",
+    currentAddress: "Quận Cầu Giấy, Hà Nội",
+    university: "Đại học Bách Khoa Hà Nội - Kỹ thuật Tiên tiến",
     highSchool: "Cựu học sinh Chuyên Hà Nội - Amsterdam",
     graduationScore: "28.75 điểm khối D01 (Tiếng Anh: 9.8/10)",
     academicRank: "Giỏi (GPA 3.68/4.0)",
@@ -181,6 +197,8 @@ export const tutors = [
   {
     id: "t5",
     name: "Vũ Mai Phương",
+    gender: "Nữ",
+    highlights: ["Học sinh trường chuyên (Cấp 3)", "Học sinh giỏi Tỉnh/TP"],
     email: "maiphuong.tutor@example.com",
     initials: "MP",
     phone: "0966 777 888",
@@ -201,6 +219,8 @@ export const tutors = [
     location: "Online hoặc Tại nhà học sinh (Q.10, TP.HCM)",
     birthYear: "2003 (23 tuổi)",
     hometown: "Hải Phòng",
+    province: "TP. Hồ Chí Minh",
+    district: "Quận 10",
     currentAddress: "Quận 10, TP.HCM",
     university: "Đại học Kinh Tế TP.HCM (UEH) - Quản trị Kinh doanh",
     highSchool: "Cựu học sinh Chuyên Trần Phú (Hải Phòng)",
@@ -212,6 +232,249 @@ export const tutors = [
     availableSlots: ["Thứ 2 (17:30 - 19:00)", "Thứ 4 (17:30 - 19:00)", "Thứ 6 (17:30 - 19:00)"],
     reviews: [
       { id: "r6", student: "Trần Quỳnh Nhi", rating: 5, comment: "Chiến thuật làm bài đọc của cô giúp em làm bài nhanh và chính xác hơn hẳn!" }
+    ]
+  },
+  {
+    id: "t6",
+    name: "Đặng Thu Thảo",
+    gender: "Nữ",
+    highlights: ["Thủ khoa", "Học sinh giỏi Quốc Gia", "Học sinh trường chuyên (Cấp 3)", "Chuyên luyện thi Đại học"],
+    email: "thuthao.tutor@example.com",
+    initials: "TT",
+    phone: "0988 222 333",
+    status: "active",
+    joinedDate: "2025-11-01",
+    studentsCount: 4,
+    specialization: ["IELTS 8.0+", "Ngữ pháp chuyên sâu", "Luyện thi vào 10"],
+    gradeLevels: ["Cấp 2", "Cấp 3", "Luyện thi Đại học"],
+    ratePerHour: "260.000đ",
+    progressRate: "97%",
+    learningMode: "both",
+    learningModeLabel: "Online & Offline linh hoạt",
+    location: "Tại nhà học sinh (Cầu Giấy, Nam Từ Liêm, HN)",
+    birthYear: "2001 (25 tuổi)",
+    hometown: "Hà Nội",
+    province: "Hà Nội",
+    district: "Cầu Giấy",
+    currentAddress: "Quận Cầu Giấy, Hà Nội",
+    university: "Đại học Ngoại Ngữ - ĐHQGHN (ULIS) - Sư phạm Tiếng Anh",
+    highSchool: "Cựu học sinh Chuyên Ngoại Ngữ (CNN)",
+    graduationScore: "29.2 điểm khối D01 (Tiếng Anh: 10.0/10)",
+    academicRank: "Xuất sắc (GPA 3.92/4.0)",
+    awards: [
+      { year: "2021", title: "Thủ khoa tốt nghiệp ĐH Ngoại Ngữ - ĐHQGHN", issuer: "ĐHQGHN" },
+      { year: "2019", title: "Giải Nhì HSG Quốc Gia môn Tiếng Anh", issuer: "Bộ GD&ĐT" }
+    ],
+    bio: "Thủ khoa Sư phạm Tiếng Anh ULIS. 4 năm kinh nghiệm luyện thi vào 10 chuyên ngữ và bứt phá band điểm IELTS từ 5.0 lên 7.0+.",
+    certificates: [
+      { name: "IELTS 8.5 Overall (Reading 9.0, Listening 9.0)", issuer: "IDP" },
+      { name: "Chứng chỉ C1 Sư phạm Chuẩn Châu Âu", issuer: "ULIS" }
+    ],
+    availableSlots: ["Thứ 2 (18:30 - 20:30)", "Thứ 4 (18:30 - 20:30)", "Thứ 6 (18:30 - 20:30)"],
+    reviews: [
+      { id: "r7", student: "Bùi Hoàng Nam", rating: 5, comment: "Cô Thảo dạy phương pháp ghi nhớ ngữ pháp cực kỳ logic và dễ hiểu." }
+    ]
+  },
+  {
+    id: "t7",
+    name: "Hoàng Tuấn Minh",
+    gender: "Nam",
+    highlights: ["Học sinh trường chuyên (Cấp 3)", "Học sinh giỏi Tỉnh/TP", "Đạt giải hùng biện"],
+    email: "tuanminh.tutor@example.com",
+    initials: "TM",
+    phone: "0915 666 777",
+    status: "active",
+    joinedDate: "2025-10-10",
+    studentsCount: 3,
+    specialization: ["IELTS Speaking & Writing", "Tiếng Anh Giao tiếp", "Debate học thuật"],
+    gradeLevels: ["Cấp 3", "Đại học", "Người đi làm"],
+    ratePerHour: "320.000đ",
+    progressRate: "96%",
+    learningMode: "offline",
+    learningModeLabel: "Dạy Offline Tại nhà",
+    location: "Tại nhà học sinh (Đống Đa, Ba Đình, HN)",
+    birthYear: "2002 (24 tuổi)",
+    hometown: "Hà Nội",
+    province: "Hà Nội",
+    district: "Đống Đa",
+    currentAddress: "Quận Đống Đa, Hà Nội",
+    university: "Đại học Ngoại Thương Hà Nội (FTU) - Kinh tế Đối ngoại",
+    highSchool: "Cựu học sinh Chuyên Hà Nội - Amsterdam",
+    graduationScore: "29.0 điểm khối D01 (Tiếng Anh: 9.8/10)",
+    academicRank: "Xuất sắc (GPA 3.88/4.0)",
+    awards: [
+      { year: "2020", title: "Giải Nhất Hùng biện Tiếng Anh TP Hà Nội", issuer: "Sở GD&ĐT Hà Nội" },
+      { year: "2022", title: "Quán quân Cuộc thi Tranh biện Học thuật", issuer: "FTU Debate Club" }
+    ],
+    bio: "Cựu học sinh Chuyên Anh Ams, IELTS 8.5. Rèn luyện tư duy phản biện và phản xạ giao tiếp tự nhiên chuẩn ngữ điệu Anh - Mỹ.",
+    certificates: [
+      { name: "IELTS 8.5 (Speaking 8.5)", issuer: "British Council" },
+      { name: "Chứng chỉ Nghiệp vụ Sư phạm Quốc tế", issuer: "Cambridge" }
+    ],
+    availableSlots: ["Thứ 3 (19:00 - 21:00)", "Thứ 5 (19:00 - 21:00)", "Chủ Nhật (14:30 - 16:30)"],
+    reviews: [
+      { id: "r8", student: "Nguyễn Hải Long", rating: 5, comment: "Thầy Minh luyện Speaking rất tự nhiên, sửa lỗi phát âm và từ nối rất hay." }
+    ]
+  },
+  {
+    id: "t8",
+    name: "Ngô Phương Linh",
+    gender: "Nữ",
+    highlights: ["Học sinh trường chuyên (Cấp 3)", "Học sinh giỏi Tỉnh/TP", "Chuyên dạy học sinh mất gốc"],
+    email: "phuonglinh.tutor@example.com",
+    initials: "PL",
+    phone: "0977 888 999",
+    status: "active",
+    joinedDate: "2025-12-05",
+    studentsCount: 2,
+    specialization: ["Tiếng Anh Mất gốc / Foundation", "Phát âm chuẩn IPA", "Giao tiếp phản xạ"],
+    gradeLevels: ["Cấp 1", "Cấp 2", "Người đi làm"],
+    ratePerHour: "200.000đ",
+    progressRate: "94%",
+    learningMode: "online",
+    learningModeLabel: "Dạy Online Trực tuyến",
+    location: "Online qua Jitsi / Zoom",
+    birthYear: "2003 (23 tuổi)",
+    hometown: "Hà Nội",
+    province: "Hà Nội",
+    district: "Hai Bà Trưng",
+    currentAddress: "Quận Hai Bà Trưng, Hà Nội",
+    university: "Đại học Hà Nội (HANU) - Khoa Tiếng Anh",
+    highSchool: "Cựu học sinh Chuyên Sư Phạm Hà Nội",
+    graduationScore: "28.2 điểm khối D01 (Tiếng Anh: 9.6/10)",
+    academicRank: "Giỏi (GPA 3.78/4.0)",
+    awards: [
+      { year: "2021", title: "Giải Ba HSG Thành phố Hà Nội môn Tiếng Anh", issuer: "Sở GD&ĐT Hà Nội" }
+    ],
+    bio: "Cử nhân Ngôn ngữ Anh HANU, chuyên sâu trị mất gốc cho học sinh, kiên nhẫn bám sát từng buổi học để lấy lại nền tảng vững chắc.",
+    certificates: [
+      { name: "IELTS 8.0 Overall", issuer: "British Council" },
+      { name: "TESOL Quốc tế 120h", issuer: "TESOL International" }
+    ],
+    availableSlots: ["Thứ 2 (17:00 - 19:00)", "Thứ 4 (17:00 - 19:00)", "Thứ 7 (09:00 - 11:00)"],
+    reviews: [
+      { id: "r9", student: "Đặng Mai Anh", rating: 5, comment: "Cô Linh rất kiên nhẫn, bé nhà mình từ sợ tiếng Anh giờ rất thích học." }
+    ]
+  },
+  {
+    id: "t9",
+    name: "Bùi Quốc Hưng",
+    gender: "Nam",
+    highlights: ["Học sinh giỏi Quốc Gia", "Học sinh trường chuyên (Cấp 3)", "Thủ khoa", "Chuyên luyện thi Đại học"],
+    email: "quochung.tutor@example.com",
+    initials: "QH",
+    phone: "0934 111 333",
+    status: "active",
+    joinedDate: "2025-08-15",
+    studentsCount: 5,
+    specialization: ["Luyện thi Chuyên Anh", "Tiếng Anh THPT", "Luyện thi Đại học"],
+    gradeLevels: ["Cấp 3", "Luyện thi Đại học"],
+    ratePerHour: "280.000đ",
+    progressRate: "98%",
+    learningMode: "both",
+    learningModeLabel: "Online & Offline linh hoạt",
+    location: "Tại nhà học sinh (Ba Đình, Tây Hồ, HN)",
+    birthYear: "2000 (26 tuổi)",
+    hometown: "Hà Nội",
+    province: "Hà Nội",
+    district: "Ba Đình",
+    currentAddress: "Quận Ba Đình, Hà Nội",
+    university: "Đại học Sư Phạm Hà Nội (HNUE) - Khoa Tiếng Anh",
+    highSchool: "Cựu học sinh THPT Chu Văn An (Hà Nội)",
+    graduationScore: "29.0 điểm khối D01 (Tiếng Anh: 10.0/10)",
+    academicRank: "Xuất sắc (GPA 3.90/4.0)",
+    awards: [
+      { year: "2021", title: "Giải Nhất Giáo viên trẻ Tài năng Sư Phạm", issuer: "ĐH Sư Phạm HN" },
+      { year: "2018", title: "Giải Nhì HSG Quốc Gia môn Tiếng Anh", issuer: "Bộ GD&ĐT" }
+    ],
+    bio: "Giáo viên tiếng Anh tốt nghiệp ĐH Sư Phạm Hà Nội. Đã kèm cặp hơn 120 học sinh đỗ trường Chuyên và khối trường Đại học Top 1.",
+    certificates: [
+      { name: "IELTS 8.5 (Reading 9.0)", issuer: "IDP" },
+      { name: "Chứng chỉ Giảng dạy Chuyên ngữ", issuer: "ĐH Sư Phạm HN" }
+    ],
+    availableSlots: ["Thứ 3 (18:00 - 20:00)", "Thứ 5 (18:00 - 20:00)", "Thứ 7 (14:00 - 16:00)"],
+    reviews: [
+      { id: "r10", student: "Vũ Tuấn Kiệt", rating: 5, comment: "Thầy Hưng tổng hợp bộ đề thi chuyên rất sát, mẹo làm bài đọc hiểu cực kỳ chuẩn." }
+    ]
+  },
+  {
+    id: "t10",
+    name: "Trần Diệu Hương",
+    gender: "Nữ",
+    highlights: ["Học sinh trường chuyên (Cấp 3)", "Học sinh giỏi Tỉnh/TP", "Học bổng"],
+    email: "dieuhuong.tutor@example.com",
+    initials: "DH",
+    phone: "0963 555 777",
+    status: "active",
+    joinedDate: "2026-01-10",
+    studentsCount: 3,
+    specialization: ["Tiếng Anh Tiểu học", "Tiếng Anh THCS", "Ngữ pháp & Từ vựng"],
+    gradeLevels: ["Cấp 1", "Cấp 2"],
+    ratePerHour: "220.000đ",
+    progressRate: "95%",
+    learningMode: "offline",
+    learningModeLabel: "Dạy Offline Tại nhà",
+    location: "Tại nhà học sinh (Thanh Xuân, Hà Đông, HN)",
+    birthYear: "2003 (23 tuổi)",
+    hometown: "Hà Nội",
+    province: "Hà Nội",
+    district: "Thanh Xuân",
+    currentAddress: "Quận Thanh Xuân, Hà Nội",
+    university: "Đại học Ngoại Ngữ - ĐHQGHN (ULIS) - Tiếng Anh Thương mại",
+    highSchool: "Cựu học sinh Chuyên Nguyễn Huệ (Hà Nội)",
+    graduationScore: "28.5 điểm khối D01 (Tiếng Anh: 9.8/10)",
+    academicRank: "Giỏi (GPA 3.82/4.0)",
+    awards: [
+      { year: "2021", title: "Giải Nhì HSG TP Hà Nội môn Tiếng Anh", issuer: "Sở GD&ĐT Hà Nội" }
+    ],
+    bio: "Chuyên kèm tiếng Anh cho học sinh cấp 1, cấp 2 và ôn thi chứng chỉ Cambridge Flyers. Phương pháp trực quan sinh động giúp các em yêu thích môn học.",
+    certificates: [
+      { name: "IELTS 8.0", issuer: "British Council" },
+      { name: "TKT Cambridge Module 1 & 2 Band 4", issuer: "Cambridge English" }
+    ],
+    availableSlots: ["Thứ 2 (17:30 - 19:00)", "Thứ 4 (17:30 - 19:00)", "Chủ Nhật (08:30 - 10:30)"],
+    reviews: [
+      { id: "r11", student: "Phạm Hà My", rating: 5, comment: "Cô Hương dạy nhẹ nhàng và chu đáo, bé nhà mình đạt 15/15 khiên Flyers." }
+    ]
+  },
+  {
+    id: "t11",
+    name: "Nguyễn Hải Đăng",
+    gender: "Nam",
+    highlights: ["Học sinh trường chuyên (Cấp 3)", "Thủ khoa", "Học bổng"],
+    email: "haidang.tutor@example.com",
+    initials: "HĐ",
+    phone: "0945 999 888",
+    status: "active",
+    joinedDate: "2026-02-01",
+    studentsCount: 2,
+    specialization: ["TOEIC", "Tiếng Anh Giao tiếp", "Phát âm chuẩn IPA"],
+    gradeLevels: ["Đại học", "Người đi làm"],
+    ratePerHour: "250.000đ",
+    progressRate: "93%",
+    learningMode: "online",
+    learningModeLabel: "Dạy Online Trực tuyến",
+    location: "Online qua Jitsi / Zoom",
+    birthYear: "2001 (25 tuổi)",
+    hometown: "Hà Nội",
+    province: "Hà Nội",
+    district: "Nam Từ Liêm",
+    currentAddress: "Quận Nam Từ Liêm, Hà Nội",
+    university: "Đại học Bách Khoa Hà Nội (HUST) - Chương trình Tiên tiến English",
+    highSchool: "Cựu học sinh Chuyên Hà Nội - Amsterdam",
+    graduationScore: "28.7 điểm khối D01 (Tiếng Anh: 9.8/10)",
+    academicRank: "Xuất sắc (GPA 3.86/4.0)",
+    awards: [
+      { year: "2022", title: "Top 1 Kỹ sư trẻ xuất sắc HUST", issuer: "ĐH Bách Khoa Hà Nội" }
+    ],
+    bio: "TOEIC 985/990, IELTS 8.0. Chuyên luyện thi TOEIC cấp tốc và rèn luyện kỹ năng phỏng vấn tiếng Anh cho sinh viên và người đi làm.",
+    certificates: [
+      { name: "TOEIC 985/990", issuer: "ETS" },
+      { name: "IELTS 8.0 Overall", issuer: "IDP" }
+    ],
+    availableSlots: ["Thứ 3 (20:00 - 21:30)", "Thứ 5 (20:00 - 21:30)", "Thứ 7 (19:30 - 21:00)"],
+    reviews: [
+      { id: "r12", student: "Lê Văn Tuấn", rating: 5, comment: "Chiến thuật làm bài nghe và đọc TOEIC của thầy Đăng rất thực tế, em đạt 850 điểm sau 2 tháng." }
     ]
   }
 ];
@@ -453,28 +716,150 @@ export const students = [
     exercises: [
       {
         id: "e1",
-        title: "Bài tập từ vựng chủ đề Environment & Society",
-        skill: "Từ vựng",
-        difficulty: "Cơ bản",
-        type: "Trắc nghiệm",
-        status: "graded",
-        score: 9,
-        maxScore: 10,
-        assignedDate: "2026-02-11",
-        submittedAt: "2026-02-12",
+        title: "Bài tập Luyện tập: Mệnh đề quan hệ & Collocations",
+        skill: "Ngữ pháp & Từ vựng",
+        difficulty: "Trung bình",
+        mode: "practice", // PRACTICE: per-question immediate explanation
+        type: "Trắc nghiệm & Sửa lỗi",
+        status: "assigned",
+        assignedDate: "2026-03-08",
+        dueDate: "2026-03-10",
         sessionId: "lp1",
         tutorId: "t1",
         tutorName: "Cô Lan Anh",
         tutorAvatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80",
         colorTheme: "indigo",
         subject: "Luyện thi IELTS 6.5+",
-        feedback: "Làm bài từ vựng rất chuẩn xác, áp dụng collocations linh hoạt! Phát huy tiếp nhé."
+        questions: [
+          {
+            id: "q1",
+            kind: "mcq",
+            prompt: "The scientist ______ invented the new clean energy technology was awarded the Nobel Prize.",
+            options: ["A. who", "B. which", "C. whose", "D. whom"],
+            correct: "A. who",
+            aiExplanation: {
+              rule: "Đại từ quan hệ 'who' thay thế cho danh từ chỉ người đóng vai trò chủ ngữ.",
+              whyCorrect: "'The scientist' là người, phía sau là động từ 'invented' cần chủ ngữ ➔ Dùng 'who'.",
+              distractors: "'Which' chỉ vật; 'Whose' chỉ sở hữu; 'Whom' chỉ làm tân ngữ."
+            }
+          },
+          {
+            id: "q2",
+            kind: "fill",
+            prompt: "Điền từ thích hợp vào chỗ trống để tạo collocation chính xác:",
+            sentence: "We need to ______ measures to reduce plastic waste in our oceans.",
+            correct: "take",
+            aiExplanation: {
+              rule: "Collocation cố định: 'take measures' = thực hiện các biện pháp.",
+              whyCorrect: "Trong văn cảnh giải quyết vấn đề, động từ đi với 'measures' bắt buộc là 'take'.",
+              distractors: "Không dùng 'make' hay 'do' vì không tự nhiên trong văn phong Anh ngữ."
+            }
+          },
+          {
+            id: "q3",
+            kind: "error_correction",
+            prompt: "Tìm và sửa lỗi sai trong câu sau (chỉ 1 từ):",
+            sentence: "She was interested on learning more about Vietnamese cultural heritage.",
+            wrongPart: "on",
+            correct: "in",
+            aiExplanation: {
+              rule: "Cụm tính từ đi với giới từ cố định: 'interested IN something'.",
+              whyCorrect: "'interested on' là lỗi sai giới từ phổ biến. Cần sửa thành 'interested in'.",
+              distractors: "Không kết hợp với 'on', 'at' hay 'for'."
+            }
+          },
+          {
+            id: "q4",
+            kind: "sentence_transformation",
+            prompt: "Viết lại câu sau với từ gợi ý 'Although':",
+            originalSentence: "Despite the heavy rain, the football match continued.",
+            givenStart: "Although",
+            correct: "Although it rained heavily, the football match continued.",
+            aiExplanation: {
+              rule: "'Despite + Noun phrase' tương đương với 'Although + S + V'.",
+              whyCorrect: "'heavy rain' chuyển thành mệnh đề 'it rained heavily' hoặc 'it was raining heavily'.",
+              distractors: "Không dùng 'Although the heavy rain' vì Although phải đi cùng mệnh đề có động từ vị ngữ."
+            }
+          }
+        ]
+      },
+      {
+        id: "e3",
+        title: "Bài Kiểm tra Năng lực Định kỳ (Assessment Mini-Test)",
+        skill: "Tổng hợp",
+        difficulty: "Chuẩn IELTS 6.0",
+        mode: "assessment", // ASSESSMENT: submit-all mode
+        type: "4 Dạng Chuẩn PRD",
+        status: "assigned",
+        score: null,
+        maxScore: 10,
+        assignedDate: "2026-03-09",
+        dueDate: "2026-03-11",
+        sessionId: "lp3",
+        tutorId: "t1",
+        tutorName: "Cô Lan Anh",
+        tutorAvatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80",
+        colorTheme: "indigo",
+        subject: "Luyện thi IELTS 6.5+",
+        questions: [
+          {
+            id: "aq1",
+            kind: "mcq",
+            prompt: "If we ______ earlier, we wouldn't have missed the opening speech.",
+            options: ["A. had arrived", "B. arrived", "C. would arrive", "D. have arrived"],
+            correct: "A. had arrived",
+            aiExplanation: {
+              rule: "Câu điều kiện loại 3: If + S + had V3/ed, S + would have V3/ed.",
+              whyCorrect: "Mệnh đề chính 'wouldn't have missed' chỉ sự việc không xảy ra trong quá khứ.",
+              distractors: "Arrived (loại 2), have arrived (loại 1) đều không phù hợp ngữ cảnh quá khứ."
+            }
+          },
+          {
+            id: "aq2",
+            kind: "fill",
+            prompt: "Điền giới từ thích hợp vào chỗ trống:",
+            sentence: "She apologized ______ her teacher for being late to class.",
+            correct: "to",
+            aiExplanation: {
+              rule: "Cấu trúc: 'apologize TO someone FOR something' (xin lỗi ai về việc gì).",
+              whyCorrect: "Phía sau là đối tượng tiếp nhận lời xin lỗi 'her teacher', dùng giới từ 'to'.",
+              distractors: "Nhiều học sinh hay nhầm dùng 'apologize with', đây là lỗi dịch thô."
+            }
+          },
+          {
+            id: "aq3",
+            kind: "error_correction",
+            prompt: "Tìm và sửa lỗi sai trong câu:",
+            sentence: "The number of students who applies for this scholarship has increased.",
+            wrongPart: "applies",
+            correct: "apply",
+            aiExplanation: {
+              rule: "Hòa hợp đại từ quan hệ: 'who' thay cho 'students' (danh từ số nhiều) nên động từ theo sau là số nhiều.",
+              whyCorrect: "'students' là số nhiều -> động từ phải là 'apply' nguyên thể, không chia 'applies'.",
+              distractors: "Lưu ý 'The number of' đi với động từ chính 'has increased' là đúng, chỉ sai ở mệnh đề quan hệ."
+            }
+          },
+          {
+            id: "aq4",
+            kind: "sentence_transformation",
+            prompt: "Viết lại câu sang thể bị động:",
+            originalSentence: "They will announce the exam results tomorrow morning.",
+            givenStart: "The exam results",
+            correct: "The exam results will be announced tomorrow morning.",
+            aiExplanation: {
+              rule: "Bị động thì tương lai đơn: S + will be + V3/ed.",
+              whyCorrect: "'will announce' chuyển thành 'will be announced'.",
+              distractors: "Không được thiếu 'be' (lỗi phổ biến: will announced)."
+            }
+          }
+        ]
       },
       {
         id: "e2",
         title: "Luyện nghe hội thoại đời sống & Ngữ điệu IPA",
         skill: "Nghe",
         difficulty: "Trung bình",
+        mode: "practice",
         type: "Trắc nghiệm",
         status: "graded",
         score: 7,
@@ -490,29 +875,11 @@ export const students = [
         feedback: "Phần nhận diện nối âm đuôi /s/ và /z/ còn hơi nhầm lẫn một chút, xem lại file ghi âm cô gửi nhé."
       },
       {
-        id: "e3",
-        title: "Đọc hiểu: Biến đổi khí hậu & Skimming Tactics",
-        skill: "Đọc",
-        difficulty: "Trung bình",
-        type: "Trắc nghiệm + Điền từ",
-        status: "graded",
-        score: 8,
-        maxScore: 10,
-        assignedDate: "2026-02-18",
-        submittedAt: "2026-02-19",
-        sessionId: "lp3",
-        tutorId: "t1",
-        tutorName: "Cô Lan Anh",
-        tutorAvatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80",
-        colorTheme: "indigo",
-        subject: "Luyện thi IELTS 6.5+",
-        feedback: "Kỹ thuật Skimming áp dụng tốt, tiết kiệm được 5 phút thời gian làm bài!"
-      },
-      {
         id: "e4",
         title: "Writing Task 1: Mô tả biểu đồ dân số & Xu hướng",
         skill: "Viết",
         difficulty: "Trung bình",
+        mode: "assessment",
         type: "Tự luận",
         status: "graded",
         score: 6,
@@ -529,52 +896,299 @@ export const students = [
       },
       {
         id: "e5",
-        title: "Writing Task 2: Bài luận Ưu nhược điểm Mạng xã hội",
+        title: "Luyện Viết Câu Phức & Paraphrase Đề Thi Writing",
+        skill: "Viết",
+        difficulty: "Khá",
+        mode: "practice",
+        type: "4 Dạng Chuẩn PRD",
+        status: "assigned",
+        assignedDate: "2026-03-09",
+        dueDate: "2026-03-12",
+        sessionId: "lp5",
+        tutorId: "t2",
+        tutorName: "Thầy Minh Quân",
+        tutorAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80",
+        colorTheme: "blue",
+        subject: "IELTS Writing Task 2",
+        tutorNote: "Em chú ý cách biến đổi câu chủ động sang bị động và dùng mệnh đề quan hệ để nâng Band điểm Cohesion nhé!",
+        questions: [
+          {
+            id: "wq1",
+            kind: "sentence_transformation",
+            prompt: "Viết lại câu sau sử dụng mệnh đề quan hệ bắt đầu với 'Students':",
+            originalSentence: "Some students participate in extracurricular activities. They tend to develop better social skills.",
+            givenStart: "Students",
+            correct: "Students who participate in extracurricular activities tend to develop better social skills.",
+            aiExplanation: {
+              rule: "Mệnh đề quan hệ xác định kết hợp 2 câu đơn có cùng chủ ngữ chỉ người.",
+              whyCorrect: "'who participate in extracurricular activities' bổ nghĩa làm rõ cho 'Students'.",
+              distractors: "Tránh viết 2 câu rời rạc để tăng điểm Grammatical Range trong IELTS Writing."
+            }
+          },
+          {
+            id: "wq2",
+            kind: "fill",
+            prompt: "Điền từ nối mang nghĩa nhượng bộ phù hợp vào chỗ trống:",
+            sentence: "Technological advancements bring numerous benefits; ______, they pose privacy risks.",
+            correct: "however",
+            aiExplanation: {
+              rule: "Trạng từ liên kết 'however' đứng giữa dấu chấm phẩy và dấu phẩy để nối 2 ý tương phản.",
+              whyCorrect: "Vế trước nói về lợi ích, vế sau là rủi ro ➔ Cần từ nối tương phản 'however' hoặc 'nevertheless'.",
+              distractors: "Không dùng 'although' ở đây vì sau dấu chấm phẩy cần trạng từ liên kết, không phải liên từ phụ thuộc."
+            }
+          },
+          {
+            id: "wq3",
+            kind: "error_correction",
+            prompt: "Tìm và sửa 1 lỗi sai về hòa hợp chủ vị trong câu nghị luận:",
+            sentence: "The widespread use of smartphones have altered social communication patterns.",
+            wrongPart: "have",
+            correct: "has",
+            aiExplanation: {
+              rule: "Chủ ngữ là danh từ số ít 'The widespread use', cụm giới từ 'of smartphones' chỉ bổ nghĩa.",
+              whyCorrect: "Động từ phải chia số ít là 'has altered', không chia theo 'smartphones'.",
+              distractors: "Bẫy danh từ số nhiều đứng ngay trước trợ động từ."
+            }
+          },
+          {
+            id: "wq4",
+            kind: "mcq",
+            prompt: "Chọn từ học thuật thay thế tốt nhất cho 'big problem' trong bài viết luận:",
+            options: ["A. pressing issue", "B. huge thing", "C. bad situation", "D. hard deal"],
+            correct: "A. pressing issue",
+            aiExplanation: {
+              rule: "Sử dụng Academic Collocations để nâng Lexical Resource Band 7.0+.",
+              whyCorrect: "'pressing issue' (vấn đề cấp bách) là cụm từ học thuật trang trọng chuẩn IELTS.",
+              distractors: "'huge thing', 'hard deal' mang tính khẩu ngữ (spoken English)."
+            }
+          }
+        ]
+      },
+      {
+        id: "e6",
+        title: "Luyện Phát Âm Đuôi /s/ và /z/ Trong Giao Tiếp Tự Nhiên",
+        skill: "Phát âm & Nói",
+        difficulty: "Cơ bản",
+        mode: "practice",
+        type: "Trắc nghiệm & Điền từ",
+        status: "assigned",
+        assignedDate: "2026-03-09",
+        dueDate: "2026-03-11",
+        sessionId: "lp6",
+        tutorId: "t3",
+        tutorName: "Cô Thu Hà",
+        tutorAvatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80",
+        colorTheme: "emerald",
+        subject: "Giao tiếp & Phát âm IPA",
+        tutorNote: "Khôi nhớ phát âm chậm và rõ âm đuôi, chú ý dây thanh quản rung khi phát âm /z/ nhé con!",
+        questions: [
+          {
+            id: "pq1",
+            kind: "mcq",
+            prompt: "Từ nào dưới đây có đuôi 's' được phát âm là /z/?",
+            options: ["A. books", "B. plays", "C. cats", "D. laughs"],
+            correct: "B. plays",
+            aiExplanation: {
+              rule: "Quy tắc đuôi 's': Đi sau nguyên âm hoặc phụ âm hữu thanh sẽ phát âm là /z/.",
+              whyCorrect: "'play' kết thúc bằng nguyên âm đôi /eɪ/ (hữu thanh) ➔ 'plays' phát âm đuôi là /z/.",
+              distractors: "books (/k/), cats (/t/), laughs (/f/) đều kết thúc bằng phụ âm vô thanh nên đuôi 's' phát âm là /s/."
+            }
+          },
+          {
+            id: "pq2",
+            kind: "mcq",
+            prompt: "Đuôi 'es' trong từ 'watches' được phát âm là:",
+            options: ["A. /ɪz/", "B. /s/", "C. /z/", "D. /d/"],
+            correct: "A. /ɪz/",
+            aiExplanation: {
+              rule: "Khi từ kết thúc bằng các âm xuýt (/tʃ/, /dʒ/, /s/, /z/, /ʃ/, /ʒ/), đuôi 'es' đọc là /ɪz/.",
+              whyCorrect: "'watch' kết thúc bằng /tʃ/ nên thêm 'es' đọc thành /wɒtʃɪz/.",
+              distractors: "Không đọc là /s/ hay /z/ vì thiếu âm đệm /ɪ/."
+            }
+          },
+          {
+            id: "pq3",
+            kind: "fill",
+            prompt: "Điền dạng số nhiều đúng của danh từ 'city' (chú ý đổi y ➔ ies):",
+            sentence: "Many modern ______ around the world are facing traffic congestion.",
+            correct: "cities",
+            aiExplanation: {
+              rule: "Danh từ kết thúc bằng phụ âm + 'y', khi chuyển sang số nhiều đổi 'y' thành 'ies'.",
+              whyCorrect: "'city' ➔ 'cities' (phát âm đuôi là /z/).",
+              distractors: "Không viết là 'citys'."
+            }
+          },
+          {
+            id: "pq4",
+            kind: "error_correction",
+            prompt: "Tìm và sửa lỗi chính tả ở dạng số nhiều:",
+            sentence: "She bought three knifes for the cooking lesson.",
+            wrongPart: "knifes",
+            correct: "knives",
+            aiExplanation: {
+              rule: "Danh từ kết thúc bằng 'fe' chuyển sang số nhiều đổi thành 'ves'.",
+              whyCorrect: "'knife' ➔ 'knives' (phát âm /naɪvz/ với âm /z/).",
+              distractors: "knifes là cách viết sai ngữ pháp tiếng Anh."
+            }
+          }
+        ]
+      },
+      {
+        id: "e7",
+        title: "Writing Task 2 Essay: Urbanization & Quality of Life",
         skill: "Viết",
         difficulty: "Nâng cao",
-        type: "Tự luận",
+        mode: "assessment",
+        type: "Bài luận hoàn chỉnh",
         status: "submitted",
-        assignedDate: "2026-03-04",
-        submittedAt: "2026-03-05",
+        assignedDate: "2026-03-05",
+        submittedAt: "2026-03-07",
         sessionId: "lp5",
         tutorId: "t2",
         tutorName: "Thầy Minh Quân",
         tutorAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80",
         colorTheme: "blue",
         subject: "IELTS Writing Task 2"
-      },
-      {
-        id: "e6",
-        title: "Speaking Part 2: Bài nói ghi âm Tả một chuyến đi xa",
-        skill: "Nói",
-        difficulty: "Trung bình",
-        type: "Bài nói (ghi âm)",
-        status: "assigned",
-        assignedDate: "2026-03-06",
-        dueDate: "2026-03-08",
-        sessionId: "lp6",
-        tutorId: "t1",
-        tutorName: "Cô Lan Anh",
-        tutorAvatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80",
-        colorTheme: "indigo",
-        subject: "Luyện thi IELTS 6.5+"
-      },
-      {
-        id: "e7",
-        title: "Phát âm IPA: Phân biệt âm /θ/ và /ð/ qua câu thoại",
-        skill: "Nói",
-        difficulty: "Cơ bản",
-        type: "Bài nói (ghi âm)",
-        status: "assigned",
-        assignedDate: "2026-03-07",
-        dueDate: "2026-03-09",
-        tutorId: "t3",
-        tutorName: "Cô Thu Hà",
-        tutorAvatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80",
-        colorTheme: "emerald",
-        subject: "Giao tiếp & Phát âm IPA"
       }
     ],
+    studentKnowledgeProfile: {
+      overallElo: 74,
+      microSkills: [
+        { id: "sk1", name: "Thì Quá khứ đơn & Tiếp diễn", category: "Ngữ pháp", masteryElo: 82, confidence: 90, status: "mastered" },
+        { id: "sk2", name: "Mệnh đề quan hệ xác định", category: "Ngữ pháp", masteryElo: 48, confidence: 55, status: "learning" },
+        { id: "sk3", name: "Câu điều kiện loại 2 & 3", category: "Ngữ pháp", masteryElo: 54, confidence: 60, status: "learning" },
+        { id: "sk4", name: "Collocations chủ đề Môi trường", category: "Từ vựng", masteryElo: 79, confidence: 85, status: "mastered" },
+        { id: "sk5", name: "Từ nối Cohesion Task 2", category: "Viết", masteryElo: 52, confidence: 58, status: "learning" },
+        { id: "sk6", name: "Ngữ âm nguyên âm đôi /eə/ & /ɪə/", category: "Phát âm", masteryElo: 88, confidence: 92, status: "mastered" },
+        { id: "sk7", name: "Kỹ thuật Skimming & Scanning", category: "Đọc", masteryElo: 84, confidence: 88, status: "mastered" },
+        { id: "sk8", name: "Nhận diện bẫy Distractor Section 3", category: "Nghe", masteryElo: 46, confidence: 50, status: "weak" }
+      ],
+      strengths: [
+        { name: "Ngữ âm nguyên âm đôi /eə/ & /ɪə/", masteryElo: 88, category: "Phát âm", badge: "Top 1" },
+        { name: "Kỹ thuật Skimming & Scanning", masteryElo: 84, category: "Đọc", badge: "Top 2" },
+        { name: "Thì Quá khứ đơn & Tiếp diễn", masteryElo: 82, category: "Ngữ pháp", badge: "Top 3" },
+        { name: "Collocations chủ đề Môi trường", masteryElo: 79, category: "Từ vựng", badge: "Top 4" },
+        { name: "Phản xạ chào hỏi & Giới thiệu bản thân", masteryElo: 76, category: "Nói", badge: "Top 5" }
+      ],
+      weaknesses: [
+        { name: "Nhận diện bẫy Distractor Section 3", masteryElo: 46, category: "Nghe", priority: "Cấp thiết", suggestion: "Luyện thêm 3 bài Section 3 cùng cô Lan Anh" },
+        { name: "Mệnh đề quan hệ xác định", masteryElo: 48, category: "Ngữ pháp", priority: "Cấp thiết", suggestion: "Ôn lại quy tắc who/whom/whose/which" },
+        { name: "Từ nối Cohesion Task 2", masteryElo: 52, category: "Viết", priority: "Cần cải thiện", suggestion: "Thực hành chuỗi liên kết However, Furthermore" },
+        { name: "Câu điều kiện loại 2 & 3", masteryElo: 54, category: "Ngữ pháp", priority: "Cần cải thiện", suggestion: "Làm bài tập phân biệt giả định hiện tại & quá khứ" },
+        { name: "Phát âm đuôi /s/ và /z/ trong văn cảnh nhanh", masteryElo: 58, category: "Phát âm", priority: "Nhắc nhở", suggestion: "Ghi âm lặp lại đoạn thoại ngắn" }
+      ],
+      errorPatterns: [
+        { id: "ep1", title: "Nhầm lẫn giữa Relative Pronoun 'which' và 'where'", count: 5, lastOccurred: "2026-03-04", example: "The school which I studied (sai) ➔ where I studied", remedy: "Phân biệt mệnh đề trạng ngữ chỉ nơi chốn và tân ngữ" },
+        { id: "ep2", title: "Chia sai thì động từ trong Mệnh đề điều kiện loại 3", count: 4, lastOccurred: "2026-02-28", example: "If I knew ➔ If I had known", remedy: "Nhớ công thức: If + S + had V3/ed, S + would have V3/ed" },
+        { id: "ep3", title: "Thiếu s/es ở ngôi thứ ba số ít khi nói nhanh", count: 3, lastOccurred: "2026-03-06", example: "He say ➔ He says", remedy: "Tập nói chậm và ngắt nhịp cuối từ" },
+        { id: "ep4", title: "Dùng sai giới từ đi kèm tính từ (Interested on ➔ in)", count: 3, lastOccurred: "2026-02-20", example: "Interested on reading ➔ Interested in reading", remedy: "Học thuộc theo cụm Adjective + Preposition" }
+      ]
+    },
+    spacedRepetitionDeck: {
+      streakDays: 5,
+      totalReviewedCount: 38,
+      dueTodayCount: 5,
+      retentionRate: "88%",
+      items: [
+        {
+          id: "sr-1",
+          microSkill: "Mệnh đề quan hệ",
+          type: "mcq",
+          prompt: "Choose the correct relative pronoun: 'The village ______ my grandfather was born is now a famous tourist attraction.'",
+          options: ["A. which", "B. where", "C. that", "D. who"],
+          correct: "B. where",
+          nextReview: "Hôm nay (Đến hạn)",
+          intervalDays: 1,
+          easeFactor: 2.5,
+          repetitions: 2,
+          aiExplanation: {
+            rule: "Trạng từ quan hệ 'where' thay thế cho cụm trạng ngữ chỉ nơi chốn (in that village).",
+            whyCorrect: "Mệnh đề sau là 'my grandfather was born [in the village]' ➔ cần từ nối trạng ngữ 'where'.",
+            distractors: "'Which' và 'That' là đại từ chỉ vật, chỉ dùng khi đóng vai trò chủ ngữ hoặc tân ngữ trong mệnh đề."
+          }
+        },
+        {
+          id: "sr-2",
+          microSkill: "Câu điều kiện loại 3",
+          type: "fill",
+          prompt: "Điền dạng đúng của động từ trong ngoặc:",
+          sentence: "If she ______ (listen) to my advice yesterday, she would not have failed the interview.",
+          correct: "had listened",
+          nextReview: "Hôm nay (Đến hạn)",
+          intervalDays: 2,
+          easeFactor: 2.6,
+          repetitions: 3,
+          aiExplanation: {
+            rule: "Câu điều kiện loại 3 diễn tả giả định trái ngược với quá khứ: If + S + had + V3/ed.",
+            whyCorrect: "Dấu hiệu 'yesterday' và mệnh đề chính 'would not have failed' xác định đây là Type 3.",
+            distractors: "Không dùng 'listened' (loại 2) vì sự việc đã xảy ra và kết thúc trong quá khứ."
+          }
+        },
+        {
+          id: "sr-3",
+          microSkill: "Sửa lỗi sai",
+          type: "error_correction",
+          prompt: "Tìm và sửa 1 từ sai trong câu sau:",
+          sentence: "Many students are extremely interested on discovering artificial intelligence tools.",
+          wrongPart: "on",
+          correctReplacement: "in",
+          nextReview: "Hôm nay (Đến hạn)",
+          intervalDays: 3,
+          easeFactor: 2.4,
+          repetitions: 2,
+          aiExplanation: {
+            rule: "Cụm tính từ cố định: 'be interested IN sth/doing sth' (quan tâm, hứng thú với điều gì).",
+            whyCorrect: "'interested on' là lỗi dịch thô (word-by-word) từ tiếng Việt sang tiếng Anh. Đúng phải là 'interested in'.",
+            distractors: "Không đi với 'on', 'with' hay 'about'."
+          }
+        },
+        {
+          id: "sr-4",
+          microSkill: "Viết lại câu",
+          type: "sentence_transformation",
+          prompt: "Viết lại câu sao cho nghĩa không đổi, bắt đầu bằng từ gợi ý:",
+          originalSentence: "Although he was exhausted, he completed the report on time.",
+          givenStart: "In spite of",
+          correct: "In spite of being exhausted, he completed the report on time.",
+          acceptableAlternatives: [
+            "In spite of his exhaustion, he completed the report on time."
+          ],
+          nextReview: "Hôm nay (Đến hạn)",
+          intervalDays: 4,
+          easeFactor: 2.5,
+          repetitions: 4,
+          aiExplanation: {
+            rule: "'Although + S + V' chuyển sang 'In spite of / Despite + V-ing / Noun phrase'.",
+            whyCorrect: "Chủ ngữ 2 vế giống nhau (he), nên rút gọn thành V-ing: 'In spite of being exhausted'.",
+            distractors: "Tránh nhầm 'In spite of' đi với mệnh đề 'he was exhausted' (phải có 'the fact that')."
+          }
+        },
+        {
+          id: "sr-5",
+          microSkill: "Collocations IELTS",
+          type: "mcq",
+          prompt: "Select the most natural collocation: 'The local government should ______ measures to combat air pollution.'",
+          options: ["A. make", "B. take", "C. do", "D. bring"],
+          correct: "B. take",
+          nextReview: "Hôm nay (Đến hạn)",
+          intervalDays: 2,
+          easeFactor: 2.7,
+          repetitions: 3,
+          aiExplanation: {
+            rule: "Collocation học thuật cố định: 'take measures' (thực hiện các biện pháp / giải pháp).",
+            whyCorrect: "Trong tiếng Anh chuẩn học thuật, chỉ dùng 'take steps' hoặc 'take measures'.",
+            distractors: "'make measures' hay 'do measures' là lỗi phổ biến do người học ghép từ tự do."
+          }
+        }
+      ]
+    },
+    effortMetrics: {
+      practiceCompletionRate: 94,
+      onTimeSubmissionRate: 90,
+      spacedRepetitionSessionsThisWeek: 6,
+      currentStreak: 5,
+      totalHoursLearned: "32.5h"
+    },
     progressHistory: [
       { date: "Tuần 1", Nghe: 5, Nói: 5, Đọc: 5, Viết: 4, "Từ vựng": 6, "Ngữ pháp": 5 },
       { date: "Tuần 2", Nghe: 6, Nói: 5, Đọc: 6, Viết: 4, "Từ vựng": 7, "Ngữ pháp": 6 },
@@ -2544,3 +3158,204 @@ export const paymentProofs = [
     rejectReason: null,
   },
 ];
+
+export const mockSKP = students[0]?.studentKnowledgeProfile;
+export const mockSpacedRepetitionDeck = students[0]?.spacedRepetitionDeck;
+export const mockEffortMetrics = students[0]?.effortMetrics;
+
+export const publicClassListings = [
+  {
+    id: "cl-01",
+    code: "LOP-ENG-8812",
+    subject: "Tiếng Anh IELTS 6.0+",
+    gradeLevel: "Lớp 8 (THCS)",
+    studentGender: "Nam",
+    teachingMode: "Online",
+    address: "Cầu Giấy, Hà Nội (Dạy qua Jitsi / Zoom)",
+    feePerSession: 250000,
+    commissionRate: 30,
+    postedDate: "08/03/2026",
+    schedule: "Thứ 2 - 4 - 6 (19:30 - 21:00)",
+    requirements: "Cần gia sư kiên nhẫn, kèm phát âm IPA và ngữ pháp cơ bản.",
+    sessionsPerWeek: 3,
+    duration: "90 phút / buổi"
+  },
+  {
+    id: "cl-02",
+    code: "LOP-ENG-7734",
+    subject: "Tiếng Anh Giao tiếp cơ bản",
+    gradeLevel: "Lớp 7 (THCS)",
+    studentGender: "Nữ",
+    teachingMode: "Tại nhà",
+    address: "Quận 3, TP. Hồ Chí Minh",
+    feePerSession: 300000,
+    commissionRate: 35,
+    postedDate: "07/03/2026",
+    schedule: "Thứ 3 - Thứ 5 (18:00 - 19:30)",
+    requirements: "Ưu tiên gia sư nữ tốt nghiệp ĐH Sư Phạm, dạy tại nhà học sinh.",
+    sessionsPerWeek: 2,
+    duration: "90 phút / buổi"
+  },
+  {
+    id: "cl-03",
+    code: "LOP-ENG-9941",
+    subject: "Luyện thi Chuyên Anh vào 10",
+    gradeLevel: "Lớp 9 (Chuyển cấp)",
+    studentGender: "Nam",
+    teachingMode: "Online",
+    address: "Đống Đa, Hà Nội",
+    feePerSession: 350000,
+    commissionRate: 30,
+    postedDate: "06/03/2026",
+    schedule: "Thứ 7 - Chủ Nhật (14:00 - 16:00)",
+    requirements: "Cần gia sư có kinh nghiệm luyện thi vào trường chuyên Chuyên ngữ, Ams.",
+    sessionsPerWeek: 2,
+    duration: "120 phút / buổi"
+  },
+  {
+    id: "cl-04",
+    code: "LOP-ENG-1052",
+    subject: "Tiếng Anh Mất gốc / Lấy lại căn bản",
+    gradeLevel: "Lớp 10 (THPT)",
+    studentGender: "Nam",
+    teachingMode: "Tại nhà",
+    address: "Quận 10, TP. Hồ Chí Minh",
+    feePerSession: 280000,
+    commissionRate: 30,
+    postedDate: "10/03/2026",
+    schedule: "Thứ 3 - Thứ 6 (19:00 - 20:30)",
+    requirements: "Học sinh mất gốc ngữ pháp trầm trọng, cần gia sư kiên nhẫn giảng chậm và chấm bài kỹ.",
+    sessionsPerWeek: 2,
+    duration: "90 phút / buổi"
+  },
+  {
+    id: "cl-05",
+    code: "LOP-ENG-6623",
+    subject: "Tiếng Anh Tiểu học & Luyện thi Flyers",
+    gradeLevel: "Lớp 4 (Tiểu học)",
+    studentGender: "Nữ",
+    teachingMode: "Tại nhà",
+    address: "Quận Ba Đình, Hà Nội",
+    feePerSession: 220000,
+    commissionRate: 30,
+    postedDate: "11/03/2026",
+    schedule: "Thứ 2 - Thứ 5 (17:30 - 19:00)",
+    requirements: "Bé chuẩn bị thi chứng chỉ Cambridge Flyers, cần gia sư phát âm chuẩn, tạo không khí học hào hứng.",
+    sessionsPerWeek: 2,
+    duration: "90 phút / buổi"
+  },
+  {
+    id: "cl-06",
+    code: "LOP-ENG-4418",
+    subject: "IELTS Academic 7.0+ (Target Speaking & Writing)",
+    gradeLevel: "Lớp 11 (THPT)",
+    studentGender: "Nữ",
+    teachingMode: "Online",
+    address: "Quận 1, TP. Hồ Chí Minh (Học qua Zoom)",
+    feePerSession: 400000,
+    commissionRate: 35,
+    postedDate: "12/03/2026",
+    schedule: "Thứ 4 - Thứ 7 (20:00 - 21:30)",
+    requirements: "Yêu cầu gia sư IELTS 8.0+ (Writing >= 7.5), có kinh nghiệm sửa bài học thuật chi tiết.",
+    sessionsPerWeek: 2,
+    duration: "90 phút / buổi"
+  },
+  {
+    id: "cl-07",
+    code: "LOP-ENG-5539",
+    subject: "Tiếng Anh Ôn thi Tốt nghiệp THPT & Đại học",
+    gradeLevel: "Lớp 12 (Luyện thi ĐH)",
+    studentGender: "Nam",
+    teachingMode: "Tại nhà",
+    address: "Quận Nam Từ Liêm, Hà Nội",
+    feePerSession: 320000,
+    commissionRate: 30,
+    postedDate: "13/03/2026",
+    schedule: "Thứ 3 - Thứ 5 - Chủ Nhật (18:30 - 20:00)",
+    requirements: "Mục tiêu 9+ điểm thi ĐH khối D01, tập trung giải đề thi thử các trường chuyên.",
+    sessionsPerWeek: 3,
+    duration: "90 phút / buổi"
+  },
+  {
+    id: "cl-08",
+    code: "LOP-ENG-3371",
+    subject: "Tiếng Anh Giao tiếp cho Người đi làm",
+    gradeLevel: "Người đi làm (Công sở)",
+    studentGender: "Nam",
+    teachingMode: "Online",
+    address: "TP. Thủ Đức, TP. Hồ Chí Minh",
+    feePerSession: 260000,
+    commissionRate: 25,
+    postedDate: "14/03/2026",
+    schedule: "Thứ 2 - Thứ 6 (20:30 - 22:00)",
+    requirements: "Học viên là kỹ sư IT, cần rèn phản xạ giao tiếp trong môi trường dự án quốc tế và email chuyên nghiệp.",
+    sessionsPerWeek: 2,
+    duration: "90 phút / buổi"
+  },
+  {
+    id: "cl-09",
+    code: "LOP-ENG-2284",
+    subject: "Luyện thi TOEIC 750+ Cấp tốc",
+    gradeLevel: "Sinh viên (Đại học)",
+    studentGender: "Nữ",
+    teachingMode: "Online",
+    address: "Quận Hai Bà Trưng, Hà Nội",
+    feePerSession: 250000,
+    commissionRate: 30,
+    postedDate: "15/03/2026",
+    schedule: "Thứ 3 - Thứ 7 (19:30 - 21:00)",
+    requirements: "Cần chuẩn đầu ra tốt nghiệp ĐH, học viên hiện tại ở band 500, cần lộ trình 2 tháng bứt phá.",
+    sessionsPerWeek: 2,
+    duration: "90 phút / buổi"
+  },
+  {
+    id: "cl-10",
+    code: "LOP-ENG-9105",
+    subject: "Tiếng Anh Tiểu học Lớp 2 (Phát âm & Từ vựng)",
+    gradeLevel: "Lớp 2 (Tiểu học)",
+    studentGender: "Nam",
+    teachingMode: "Tại nhà",
+    address: "Quận Bình Thạnh, TP. Hồ Chí Minh",
+    feePerSession: 200000,
+    commissionRate: 30,
+    postedDate: "16/03/2026",
+    schedule: "Thứ 2 - Thứ 4 (17:00 - 18:30)",
+    requirements: "Dạy kèm bé 7 tuổi, cần gia sư vui vẻ, có giáo cụ và trò chơi tương tác kích thích bé nói tiếng Anh.",
+    sessionsPerWeek: 2,
+    duration: "90 phút / buổi"
+  },
+  {
+    id: "cl-11",
+    code: "LOP-ENG-8462",
+    subject: "Tiếng Anh Lớp 6 Củng cố & Bồi dưỡng THCS",
+    gradeLevel: "Lớp 6 (THCS)",
+    studentGender: "Nữ",
+    teachingMode: "Tại nhà",
+    address: "Quận Thanh Xuân, Hà Nội",
+    feePerSession: 230000,
+    commissionRate: 30,
+    postedDate: "17/03/2026",
+    schedule: "Thứ 5 - Chủ Nhật (18:00 - 19:30)",
+    requirements: "Học sinh mới lên cấp 2 bỡ ngỡ kiến thức ngữ pháp mới, cần gia sư ôn sát chương trình SGK Global Success.",
+    sessionsPerWeek: 2,
+    duration: "90 phút / buổi"
+  },
+  {
+    id: "cl-12",
+    code: "LOP-ENG-7219",
+    subject: "Tiếng Anh Nâng cao & Thuyết trình (Debate)",
+    gradeLevel: "Lớp 8 (THCS)",
+    studentGender: "Nam",
+    teachingMode: "Tại nhà",
+    address: "Quận 7, TP. Hồ Chí Minh",
+    feePerSession: 350000,
+    commissionRate: 35,
+    postedDate: "18/03/2026",
+    schedule: "Thứ 7 - Chủ Nhật (09:00 - 10:30)",
+    requirements: "Học sinh học trường quốc tế, cần gia sư kèm kỹ năng tranh biện và tư duy phản biện tiếng Anh.",
+    sessionsPerWeek: 2,
+    duration: "90 phút / buổi"
+  }
+];
+
+

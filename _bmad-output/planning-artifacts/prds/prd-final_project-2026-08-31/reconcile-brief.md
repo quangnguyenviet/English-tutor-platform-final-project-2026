@@ -13,7 +13,7 @@
 
 2. **Parent Portal (Phase A)**:
    - **Brief**: Standard Survey Form (Student Level/Goal, Tutor Requirements, Schedule) + Instant Demo Registration.
-   - **PRD**: FR-1, FR-2, FR-3, FR-4 detail the survey form, matching score calculation, instant registration, and FAQ lookup.
+   - **PRD**: FR-1, FR-2, FR-3, FR-4 detail the survey form, tutor suggestions by criteria, instant registration, and FAQ lookup.
 
 3. **Tutor Portal (Phase B - Core Focus)**:
    - **Brief**: Curriculum Management (lean <= 2 levels: Chapter ➔ Lesson), Tutor Assistant Dual-Mode (Option A: Direct AI Generation in 3-5s; Option B: Import structured file with 0 token cost), Assign Homework.

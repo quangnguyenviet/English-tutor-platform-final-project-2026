@@ -585,3 +585,127 @@ body {
 .fade-slide-in {
   animation: fadeSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
+
+/* ===== Hero Gradient for Guest Pages ===== */
+.hero-gradient {
+  background: linear-gradient(135deg, #0B1220 0%, #111C31 60%, #1A2740 100%);
+}
+
+.hero-gradient input {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+}
+
+.hero-gradient input::placeholder {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+.hero-gradient input:focus {
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25) !important;
+}
+
+/* ===== Card Animations & Hover Effects ===== */
+.tutor-card-hover {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.tutor-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.1);
+  border-color: var(--primary);
+}
+
+[data-theme="dark"] .tutor-card-hover:hover {
+  box-shadow: 0 12px 28px -8px rgba(0, 191, 255, 0.2);
+  border-color: rgba(0, 191, 255, 0.4);
+}
+
+.stagger-item {
+  animation: fadeSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.slide-in-left {
+  animation: slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.slide-in-right {
+  animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.fade-in {
+  animation: fade-in 0.2s ease-out both;
+}
+
+/* ===== Badge Tone Classes ===== */
+.badge-blue {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+.badge-emerald {
+  background-color: #ecfdf5;
+  color: #047857;
+}
+.badge-amber {
+  background-color: #fffbeb;
+  color: #b45309;
+}
+.badge-rose {
+  background-color: #fff1f2;
+  color: #be123c;
+}
+.badge-slate,
+.badge-neutral {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+.badge-violet,
+.badge-purple {
+  background-color: #f5f3ff;
+  color: #6d28d9;
+}
+
+[data-theme="dark"] .badge-blue,
+.dark .badge-blue {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+[data-theme="dark"] .badge-emerald,
+.dark .badge-emerald {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+}
+[data-theme="dark"] .badge-amber,
+.dark .badge-amber {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+}
+[data-theme="dark"] .badge-rose,
+.dark .badge-rose {
+  background-color: rgba(244, 63, 94, 0.15);
+  color: #fda4af;
+}
+[data-theme="dark"] .badge-slate,
+[data-theme="dark"] .badge-neutral,
+.dark .badge-slate,
+.dark .badge-neutral {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+}
+[data-theme="dark"] .badge-violet,
+[data-theme="dark"] .badge-purple,
+.dark .badge-violet,
+.dark .badge-purple {
+  background-color: rgba(139, 92, 246, 0.15);
+  color: #c4b5fd;
+}

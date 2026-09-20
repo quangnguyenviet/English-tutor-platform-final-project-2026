@@ -124,7 +124,7 @@ function AppShellInner() {
       { to: "/student/marketplace", label: "Khám phá Gia sư", icon: Search },
       {
         to: "/student/chat",
-        label: "Hộp thư & Bài Test",
+        label: "Hộp thư",
         icon: MessageCircle,
         badge: () => (studentMatching?.studentStatus === "WAITING_APPROVAL" ? "1" : null),
       },

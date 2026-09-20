@@ -53,15 +53,18 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
 
   * **Persona + Context**: Chị Lan, nhân viên văn phòng bận rộn, có con trai Nam (10 tuổi) nhút nhát và phát âm kém. Chị cần tìm một gia sư nữ kiên nhẫn dạy vào tối Thứ 3 và Thứ 5.
   * **Entry State**: Chưa đăng nhập, truy cập trang chủ công khai của trung tâm, nhấn nút "Tìm Gia Sư Nhanh" hoặc vào xem chi tiết từng gia sư.
-  * **Path 1** (Tìm gia sư chung — Matching mở rộng):
-    1. Chị Lan điền Form tìm gia sư trực quan rồi nhấn gửi.
-    2. Trung tâm nhận được thông tin, đẩy thông tin tìm lớp gia sư lên hệ thống chung.
-    3. Các gia sư vào apply lớp.
-    4. Trung tâm gọi điện lại cho phụ huynh trong vòng 12h, đưa ra list gia sư để phụ huynh lựa chọn.
-    5. Phụ huynh đồng ý, chọn gia sư.
-    6. Trung tâm gửi đề nghị tới gia sư.
-    7. Gia sư đồng ý nhận lớp và nhận được thông tin, SĐT của phụ huynh.
-    8. Sau 30 ngày gia sư sẽ trả tiền cho trung tâm.
+  * **Path 1** (Tìm gia sư chung — Smart-Match Form & Tư vấn kết nối):
+    1. Chị Lan mở Smart-Match Form trên trang chủ và hoàn thành 4 bước trực quan:
+       - Bước 1: Khối lớp, trình độ hiện tại, mục tiêu học tập (hỗ trợ Combobox vừa chọn nhanh vừa tự gõ tùy chỉnh).
+       - Bước 2: Tiêu chí gia sư & mức học phí mong muốn (Combobox linh hoạt).
+       - Bước 3: Số buổi học, thiết lập lịch rảnh chi tiết từng ngày (T2-CN: ca Sáng/Chiều/Tối/Tự nhập) & Họ tên, SĐT phụ huynh (tự động kiểm tra định dạng SĐT Việt Nam 10 chữ số).
+       - Bước 4: Rà soát bản tóm tắt hồ sơ hoàn chỉnh (Profile Confirmation) và bấm "Xác nhận & Gửi yêu cầu".
+    2. Hệ thống tạo bản ghi Match Request trạng thái `PENDING` và hiển thị Popup "Tiếp nhận yêu cầu thành công" (loại bỏ bước OTP SMS giúp tối ưu trải nghiệm và tỷ lệ hoàn tất).
+    3. Trung tâm nhận được thông tin, chuyên viên gọi điện lại cho phụ huynh trong vòng 12h, tư vấn danh sách gia sư phù hợp nhất để phụ huynh lựa chọn lịch học thử 01 buổi miễn phí.
+    4. Phụ huynh đồng ý, chọn gia sư.
+    5. Trung tâm gửi đề nghị tới gia sư.
+    6. Gia sư đồng ý nhận lớp và nhận được thông tin, SĐT của phụ huynh để liên hệ chốt lịch dạy.
+    7. Sau 30 ngày gia sư sẽ trả tiền cho trung tâm.
   * **Path 2** (Chỉ đích gia sư — Matching trực tiếp):
     1. Chị Lan điền form chỉ đích gia sư (chọn trực tiếp gia sư mong muốn).
     2. Trung tâm match với gia sư được chỉ định.
@@ -135,23 +138,47 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
 
 **Functional Requirements:**
 
-#### FR-1: Form tìm gia sư (Smart-Match Form)
-Phụ huynh chưa đăng nhập có thể thực hiện tìm gia sư qua Form trực quan trên trang chủ.
+#### FR-1: Form tìm gia sư (Smart-Match Form 4 bước)
+Phụ huynh chưa đăng nhập có thể thực hiện tìm gia sư qua Form trực quan đa bước trên trang chủ.
 * **Consequences (testable):**
-  * *Mục tiêu học sinh:* Chọn đối tượng học sinh (Lớp/Độ tuổi), Trình độ hiện tại, Mục tiêu học tập.
-  * *Yêu cầu gia sư:* Chọn giới tính, Mức học phí mong muốn, Tính cách ưu tiên.
-  * *Khung giờ rảnh:* Chọn khung giờ rảnh trong tuần.
+  * *Bước 1 - Mục tiêu & Trình độ học sinh:* Nhập tên con (tùy chọn), chọn/gõ Khối lớp/Độ tuổi, Trình độ hiện tại, Mục tiêu học tập ưu tiên (toàn bộ ô chọn dạng Combobox cho phép chọn nhanh hoặc nhấp gõ tùy chỉnh).
+  * *Bước 2 - Yêu cầu gia sư & Học phí:* Chọn/gõ Mức học phí mong muốn/buổi, Giới tính gia sư, Phong cách/tính cách gia sư (hỗ trợ Combobox linh hoạt).
+  * *Bước 3 - Lịch học linh hoạt & Liên hệ:* Chọn số buổi học/tuần; chọn các ngày rảnh trong tuần (T2-CN) với ca học cài đặt độc lập riêng từng ngày (Sáng, Chiều, Tối sau 19h hoặc Tự nhập giờ); nhập Họ tên và Số điện thoại (xác thực thời gian thực chuẩn định dạng SĐT Việt Nam 10 chữ số, khóa nút tiếp tục nếu chưa đúng định dạng).
+  * *Bước 4 - Xác nhận hồ sơ (Profile Confirmation):* Hiển thị bảng tổng hợp toàn bộ thông tin đã điền để phụ huynh rà soát; hỗ trợ nút "Quay lại" chỉnh sửa hoặc nút "Xác nhận & Gửi yêu cầu".
+  * *Popup tiếp nhận thành công (Dedicated Success Modal):* Sau khi gửi, hệ thống tạo bản ghi Match Request trạng thái `PENDING` và hiển thị Popup thông báo thành công: huy hiệu căn giữa "Tiếp nhận yêu cầu thành công", thông báo trung tâm ghi nhận hồ sơ và sẽ liên hệ trực tiếp trong vòng 12 giờ để tư vấn chọn gia sư phù hợp nhất cho con; nút "Xác nhận" đóng modal và làm mới form.
 
-#### FR-2: Hiển thị danh sách Gia sư phù hợp
-Backend nhận dữ liệu từ Form tìm gia sư và hiển thị danh sách gia sư phù hợp với mốc Matching Score (%).
+#### FR-2: Khám phá, lọc danh sách Gia sư chuyên môn Tiếng Anh và xem Hồ sơ chi tiết
+Hệ thống cung cấp giao diện khám phá danh sách gia sư chuyên môn tiếng Anh tinh gọn, hỗ trợ bộ lọc đa chiều dạng dropdown và hiển thị chi tiết hồ sơ năng lực xác thực.
 * **Consequences (testable):**
-  * Frontend hiển thị danh sách gia sư xếp theo Matching Score giảm dần kèm Điểm Đánh giá trung bình, video giới thiệu bản thân và nút **"Đăng ký học thử"**.
+  * **Bố cục & Phân trang:** Không sử dụng thanh tìm kiếm hero hay nhãn "Bộ lọc nhanh" gây rối mắt; hiển thị danh sách 6 gia sư/trang (lưới 2 hàng x 3 cột) kèm thanh điều hướng phân trang (Trang 1, 2, 3...) mượt mà.
+  * **Bộ lọc Dropdown chuyên sâu:**
+    - *Địa điểm động 2 cấp:* Chọn Tỉnh/Thành phố (Hà Nội, TP.HCM) ➔ Hộp chọn Quận/Huyện tự động cập nhật danh sách các quận/huyện tương ứng.
+    - *Chuyên môn Tiếng Anh trọng tâm:* Chuyên biệt hóa 100% về bộ môn tiếng Anh (IELTS, TOEIC, Giao tiếp, Tiếng Anh THCS, Tiếng Anh THPT, Luyện thi Chuyên Anh, Tiếng Anh Mất gốc / Foundation, Ngữ pháp & Từ vựng, Phát âm chuẩn IPA).
+    - *Cấp lớp & Hình thức học:* Lớp 1 - 12, Luyện thi ĐH, Người đi làm; Hình thức học Online hoặc Tại nhà.
+    - *Giới tính & Điểm nổi bật:* Lọc gia sư Nam/Nữ, thành tích nổi bật (IELTS 8.0+, Học sinh giỏi Quốc gia, Du học sinh, Thủ khoa...).
+    - *Sắp xếp danh sách:* Phù hợp nhất, Học phí thấp đến cao, Học phí cao đến thấp, Mới nhất.
+  * **Thẻ gia sư (Tutor Card):**
+    - Hiển thị thông tin thực chất: Ảnh đại diện/Initials, Họ tên, Trường đại học & chuyên ngành, Giới tính (hiển thị trực tiếp bên dưới tên trường), Học phí/buổi, Địa bàn và các thẻ chuyên môn/thành tích.
+    - Đã loại bỏ hoàn toàn: Điểm đánh giá sao số (star rating), các huy hiệu trạng thái lịch rảnh (như "rảnh 3 buổi/tuần", "full lịch") và số giờ dạy tích lũy (như "420+ giờ") nhằm bảo mật và đánh giá công bằng.
+  * **Trang hồ sơ chi tiết (`/tutors/:tutorId`):**
+    - Lược bỏ breadcrumb mã lớp dài dòng; hiển thị đầy đủ bằng cấp, chứng chỉ quốc tế xác thực, triết lý sư phạm, danh sách lớp đang dạy, lịch rảnh tham khảo và phản hồi thực tế từ học viên.
+    - Nút kêu gọi hành động: **"Liên hệ ngay"** mở trực tiếp biểu mẫu đăng ký học cùng gia sư (FR-3).
 
-#### FR-3: Đăng ký học thử
-Phụ huynh bấm đăng ký học thử trực tiếp trên thẻ gia sư mong muốn.
+#### FR-3: Đăng ký học thử & Liên hệ gia sư chỉ định (Direct Match Request Modal)
+Phụ huynh gửi yêu cầu liên hệ và đăng ký học thử 01 buổi miễn phí với gia sư chỉ định ngay trên trang chi tiết gia sư thông qua biểu mẫu tương tác `HireTutorModal`.
 * **Consequences (testable):**
-  * Hệ thống tạo bản ghi Match Request trên PostgreSQL với trạng thái `PENDING`.
-  * Yêu cầu phụ huynh nhập SĐT và xác thực OTP SMS để hoàn tất đăng ký.
+  * **Cấu trúc biểu mẫu 2 phần rõ ràng:**
+    - *Phần 1 - Thông tin học sinh & Nhu cầu học tập:* Tên học sinh (*bắt buộc*), Lớp học (*bắt buộc* - Dropdown Lớp 1 - 12, ĐH), Trình độ hiện tại (*bắt buộc* - Mất gốc, Cơ bản, Khá, Giỏi, Luyện thi), Mục tiêu học tập (*bắt buộc* - Lấy lại gốc, Vào 10, ĐH 8.5+, IELTS, TOEIC...), Hình thức học (Online / Tại nhà kèm địa chỉ).
+    - *Phần 2 - Thông tin phụ huynh liên hệ:* Tên phụ huynh (*bắt buộc*), Số điện thoại / Zalo phụ huynh (*bắt buộc*), Ghi chú thêm gửi riêng cho gia sư.
+  * **Công cụ chọn lịch học trực quan (Interactive Schedule Picker):**
+    - Nút **"+ Thêm lịch"** mở bảng chọn lịch tương tác: **Bước 1 (Chọn thứ):** Chọn thứ trong tuần (`Thứ 2` -> `Chủ Nhật`) ➔ **Bước 2 (Chọn buổi):** Chọn `Buổi Sáng`, `Buổi Chiều`, hoặc `Buổi Tối` (**không yêu cầu chọn giờ chi tiết**).
+    - Lịch được chọn xuất hiện dưới dạng thẻ nhãn (tag) trực quan (VD: `Thứ 2 - Buổi Tối`), kèm nút `X` xóa linh hoạt từng buổi. Nút "Xong" để thu gọn bảng chọn.
+  * **Xác thực Số điện thoại Việt Nam thời gian thực (Real-time Phone Validation):**
+    - Kiểm tra chuẩn định dạng 10 chữ số di động Việt Nam (đầu số hợp lệ `03, 05, 07, 08, 09` hoặc tiền tố `+84/84`).
+    - Phản hồi giao diện: Viền xanh (`border-emerald-500`) + icon tích xanh `✓` khi đúng; viền đỏ (`border-rose-500`) + dòng thông báo *"Vui lòng nhập đúng số điện thoại."* khi sai; nút submit từ chối gửi nếu số điện thoại chưa hợp lệ.
+  * **Xử lý bản ghi & Màn hình hoàn tất tinh gọn:**
+    - Nhấn **"Gửi thông tin liên hệ"** ➔ Tạo bản ghi Match Request trên cơ sở dữ liệu với trạng thái `PENDING` kèm thông tin học sinh, lịch học, phụ huynh và `tutorId`.
+    - Chuyển sang Màn hình thành công (Success Screen): Icon tích xanh, tiêu đề *"Gửi yêu cầu liên hệ thành công!"*, thông điệp xác nhận tinh gọn *"Yêu cầu đã được gửi đến gia sư [Tên gia sư]"*, và nút **"Hoàn tất"** để đóng modal.
 
 #### FR-4: Tra cứu FAQ và Thông tin trung tâm
 Trang chủ hiển thị danh mục câu hỏi thường gặp (FAQ) về chính sách học thử, học phí và bảo lãnh lớp.
@@ -378,7 +405,7 @@ Lễ tân tiếp nhận và ghi nhận khiếu nại từ phụ huynh hoặc gia
 
 ## 9. Open Questions
 
-1. **Thuật toán Matching Score**: Cách thức tính điểm tương thích gia sư dựa trên những trọng số cụ thể (ưu tiên khung giờ rảnh 40%, kỹ năng 30%, giới tính/học phí 30%).
+1. **Tiêu chí lọc gia sư phù hợp**: Quy tắc ưu tiên danh sách gia sư gợi ý dựa trên các tiêu chí phụ huynh lựa chọn (ưu tiên khung giờ rảnh, môn học/kỹ năng, mức học phí).
 2. **Định dạng Import Bài tập (Option B)**: Định dạng file chuẩn (JSON hay Markdown) để gia sư upload từ ChatGPT ngoài vào hệ thống?
 3. **Tương tác lịch dạy**: Gia sư gửi yêu cầu đổi lịch/báo nghỉ thì hệ thống tự động thông báo qua Zalo/SMS hay ứng dụng?
 

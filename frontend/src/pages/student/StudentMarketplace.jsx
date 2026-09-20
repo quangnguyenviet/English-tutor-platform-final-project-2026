@@ -1,172 +1,293 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Filter, Sparkles, SlidersHorizontal } from "lucide-react";
+import { BookOpen, Award, User, X, Search } from "lucide-react";
 import { tutors } from "../../data/mockData";
 import { useStudentMatching } from "../../context/StudentMatchingContext";
-import PageHeader from "../../components/ui/PageHeader";
-import TutorCard from "../../components/cards/TutorCard";
+import TutorCard from "../../components/guest/TutorCard";
 import TutorDetailModal from "./TutorDetailModal";
+
+const SUBJECTS = [
+  "IELTS",
+  "TOEIC",
+  "Tiếng Anh Giao tiếp",
+  "Tiếng Anh THCS",
+  "Tiếng Anh THPT",
+  "Tiếng Anh Tiểu học",
+  "Luyện thi Chuyên Anh",
+  "Ngữ pháp & Từ vựng",
+  "Phát âm chuẩn IPA",
+  "Tiếng Anh Mất gốc / Foundation"
+];
+
+const HIGHLIGHT_OPTIONS = [
+  "Học sinh giỏi Quốc Gia",
+  "Học sinh trường chuyên (Cấp 3)",
+  "Học sinh giỏi Tỉnh/TP",
+  "Huy chương vàng Quốc Tế",
+  "Du học sinh",
+  "Thủ khoa",
+  "Á khoa",
+  "Học bổng",
+  "Chuyên dạy học sinh mất gốc",
+  "Chuyên luyện thi Đại học"
+];
+
+const GENDERS = ["Tất cả giới tính", "Nam", "Nữ"];
 
 export default function StudentMarketplace() {
   const navigate = useNavigate();
   const { selectTutorAndStartOnboarding } = useStudentMatching();
 
   const [selectedTutorForDetail, setSelectedTutorForDetail] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSpec, setSelectedSpec] = useState("all");
-  const [selectedGrade, setSelectedGrade] = useState("all");
-  const [selectedMode, setSelectedMode] = useState("all");
-  const [onlyAvailable, setOnlyAvailable] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedHighlight, setSelectedHighlight] = useState("");
+  const [selectedGender, setSelectedGender] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Filter tutors
+  // 3 gia sư mỗi hàng, tối đa 2 hàng = 6 gia sư / trang
+  const tutorsPerPage = 6;
+
+  // Filter tutors by 3 criteria
   const filteredTutors = useMemo(() => {
     return tutors.filter((t) => {
-      // Search
-      const matchesSearch =
-        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.specialization.some((s) => s.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        t.bio.toLowerCase().includes(searchQuery.toLowerCase());
+      // 1. Chuyên môn Tiếng Anh
+      if (selectedSubject) {
+        const sLow = selectedSubject.toLowerCase();
+        const combinedText = [
+          ...(t.subjects || []),
+          ...(t.specialization || []),
+          t.bio || "",
+          t.university || ""
+        ].join(" ").toLowerCase();
 
-      // Specialization
-      const matchesSpec =
-        selectedSpec === "all" || t.specialization.some((s) => s.toLowerCase().includes(selectedSpec.toLowerCase()));
+        let matched = combinedText.includes(sLow);
+        if (!matched) {
+          if (sLow.includes("ielts") && combinedText.includes("ielts")) matched = true;
+          if (sLow.includes("toeic") && combinedText.includes("toeic")) matched = true;
+          if (sLow.includes("giao tiếp") && (combinedText.includes("giao tiếp") || combinedText.includes("speaking"))) matched = true;
+          if (sLow.includes("thpt") && (combinedText.includes("thpt") || combinedText.includes("cấp 3"))) matched = true;
+          if (sLow.includes("thcs") && (combinedText.includes("thcs") || combinedText.includes("cấp 2") || combinedText.includes("chuyên"))) matched = true;
+          if (sLow.includes("tiểu học") && (combinedText.includes("tiểu học") || combinedText.includes("cấp 1"))) matched = true;
+          if (sLow.includes("ngữ pháp") && combinedText.includes("ngữ pháp")) matched = true;
+          if (sLow.includes("phát âm") && (combinedText.includes("phát âm") || combinedText.includes("ipa"))) matched = true;
+          if (sLow.includes("mất gốc") && combinedText.includes("mất gốc")) matched = true;
+        }
+        if (!matched) return false;
+      }
 
-      // Grade
-      const matchesGrade = selectedGrade === "all" || t.gradeLevels?.includes(selectedGrade);
+      // 2. Thành tích nổi bật
+      if (selectedHighlight) {
+        const hLow = selectedHighlight.toLowerCase();
+        let matched = (t.highlights || []).some(
+          (th) => th.toLowerCase().includes(hLow) || hLow.includes(th.toLowerCase())
+        );
 
-      // Mode
-      const matchesMode =
-        selectedMode === "all" || t.learningMode === selectedMode || t.learningMode === "both";
+        if (!matched) {
+          const bioAwardsText = [
+            t.bio || "",
+            t.highSchool || "",
+            t.academicRank || "",
+            ...(t.awards || []).map((a) => a.title || ""),
+            ...(t.certificates || []).map((c) => c.name || "")
+          ].join(" ").toLowerCase();
 
-      // Available
-      const matchesAvailable = !onlyAvailable || t.scheduleBadgeTone !== "rose";
+          matched = bioAwardsText.includes(hLow);
+        }
+        if (!matched) return false;
+      }
 
-      return matchesSearch && matchesSpec && matchesGrade && matchesMode && matchesAvailable;
+      // 3. Giới tính
+      if (selectedGender && selectedGender !== "Tất cả giới tính") {
+        if ((t.gender || "").toLowerCase() !== selectedGender.toLowerCase()) return false;
+      }
+
+      return true;
     });
-  }, [searchQuery, selectedSpec, selectedGrade, selectedMode, onlyAvailable]);
+  }, [selectedSubject, selectedHighlight, selectedGender]);
+
+  // Pagination calculation
+  const totalPages = Math.ceil(filteredTutors.length / tutorsPerPage);
+  const paginatedTutors = useMemo(() => {
+    const start = (currentPage - 1) * tutorsPerPage;
+    return filteredTutors.slice(start, start + tutorsPerPage);
+  }, [filteredTutors, currentPage, tutorsPerPage]);
+
+  const handlePageChange = (pageNum) => {
+    setCurrentPage(pageNum);
+  };
+
+  const handleResetFilters = () => {
+    setSelectedSubject("");
+    setSelectedHighlight("");
+    setSelectedGender("");
+    setCurrentPage(1);
+  };
 
   function handleConnectTutor(tutorItem) {
     selectTutorAndStartOnboarding(tutorItem);
     navigate("/student/onboarding");
   }
 
+  const hasActiveFilters = Boolean(
+    selectedSubject ||
+    selectedHighlight ||
+    (selectedGender && selectedGender !== "Tất cả giới tính")
+  );
+
   return (
-    <div>
-      {/* Hero Banner */}
-      <div className="mb-8 overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 text-white shadow-xl dark:from-blue-900 dark:via-indigo-900 dark:to-purple-900">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="max-w-2xl">
-            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold backdrop-blur-md">
-              <Sparkles size={14} /> Active Tutor Matching System
-            </div>
-            <h1 className="text-2xl font-bold md:text-3xl">Khám phá & Ghép đôi Gia sư Cá nhân hóa</h1>
-            <p className="mt-1 text-xs text-blue-100 md:text-sm">
-              Tìm gia sư phù hợp với mục tiêu, lịch rảnh và lực học của bạn. Làm bài Quiz Placement Test 15 phút để sinh Lộ trình Adaptive tự động.
-            </p>
+    <div className="space-y-6 pb-20">
+      {/* 3 Dropdown Filters at the Top */}
+      <div className="bg-card border border-border p-4 rounded-2xl shadow-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          {/* Dropdown 1: Chuyên môn */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+              <BookOpen size={14} className="text-primary" /> Chuyên môn
+            </label>
+            <select
+              value={selectedSubject}
+              onChange={(e) => {
+                setSelectedSubject(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground cursor-pointer focus:border-primary outline-none transition-colors"
+            >
+              <option value="">Tất cả chuyên môn</option>
+              {SUBJECTS.map((sub) => (
+                <option key={sub} value={sub}>
+                  {sub}
+                </option>
+              ))}
+            </select>
           </div>
-          <div className="shrink-0">
-            <div className="rounded-xl bg-white/10 p-4 text-center backdrop-blur-md border border-white/20">
-              <p className="text-2xl font-black">{tutors.length}</p>
-              <p className="text-xs text-blue-100">Gia sư chất lượng cao</p>
-            </div>
+
+          {/* Dropdown 2: Thành tích nổi bật */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+              <Award size={14} className="text-primary" /> Thành tích nổi bật
+            </label>
+            <select
+              value={selectedHighlight}
+              onChange={(e) => {
+                setSelectedHighlight(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground cursor-pointer focus:border-primary outline-none transition-colors"
+            >
+              <option value="">Tất cả thành tích</option>
+              {HIGHLIGHT_OPTIONS.map((hl) => (
+                <option key={hl} value={hl}>
+                  {hl}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Dropdown 3: Giới tính */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+              <User size={14} className="text-primary" /> Giới tính
+            </label>
+            <select
+              value={selectedGender}
+              onChange={(e) => {
+                setSelectedGender(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-background text-foreground cursor-pointer focus:border-primary outline-none transition-colors"
+            >
+              {GENDERS.map((g) => (
+                <option key={g} value={g === "Tất cả giới tính" ? "" : g}>
+                  {g}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
+
+        {/* Clear filter action */}
+        {hasActiveFilters && (
+          <div className="mt-3 pt-3 border-t border-border flex justify-end">
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+            >
+              <X size={13} /> Xóa bộ lọc
+            </button>
+          </div>
+        )}
       </div>
 
-      <PageHeader
-        title="Danh sách Gia sư Sẵn sàng Ghép đôi"
-        description="Lọc theo môn học, khung giờ rảnh và mức học phí mong muốn."
-      />
-
-      {/* Filter Bar */}
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-5">
-          {/* Search Input */}
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm theo tên gia sư, môn học..."
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs outline-none focus:border-blue-500 focus:bg-white dark:border-slate-700 dark:bg-slate-800 dark:focus:bg-slate-900"
-            />
+      {/* Tutor Cards Grid: 3 gia sư mỗi hàng, tối đa 2 hàng (6 gia sư/trang) */}
+      {paginatedTutors.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {paginatedTutors.map((tutor, i) => (
+              <TutorCard
+                key={tutor.id}
+                tutor={tutor}
+                index={i}
+                onViewDetail={(t) => setSelectedTutorForDetail(t)}
+                onConnect={(t) => handleConnectTutor(t)}
+              />
+            ))}
           </div>
 
-          {/* Learning Mode Filter */}
-          <div className="flex items-center gap-2">
-            <select
-              value={selectedMode}
-              onChange={(e) => setSelectedMode(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800"
-            >
-              <option value="all">Tất cả Hình thức</option>
-              <option value="online">💻 Học Online Trực tuyến</option>
-              <option value="offline">🏠 Học Offline Tại nhà / Trung tâm</option>
-            </select>
-          </div>
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-center gap-1.5 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="px-3.5 py-2 rounded-xl border border-border text-xs font-semibold hover:bg-muted disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+              >
+                Trước
+              </button>
 
-          {/* Specialization Filter */}
-          <div className="flex items-center gap-2">
-            <Filter size={14} className="shrink-0 text-slate-400" />
-            <select
-              value={selectedSpec}
-              onChange={(e) => setSelectedSpec(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800"
-            >
-              <option value="all">Tất cả Chuyên môn</option>
-              <option value="IELTS">IELTS</option>
-              <option value="Giao tiếp">Giao tiếp</option>
-              <option value="Ngữ pháp">Ngữ pháp / Lấy gốc</option>
-              <option value="Writing">Writing chuyên sâu</option>
-              <option value="Speaking">Speaking & Debate</option>
-            </select>
-          </div>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  type="button"
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`w-9 h-9 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    currentPage === pageNum
+                      ? "bg-primary text-primary-foreground shadow-xs scale-105"
+                      : "border border-border bg-card hover:bg-muted text-foreground"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              ))}
 
-          {/* Grade Level Filter */}
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal size={14} className="shrink-0 text-slate-400" />
-            <select
-              value={selectedGrade}
-              onChange={(e) => setSelectedGrade(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800"
-            >
-              <option value="all">Tất cả Cấp học</option>
-              <option value="Cấp 1">Cấp 1 (Tiểu học)</option>
-              <option value="Cấp 2">Cấp 2 (THCS)</option>
-              <option value="Cấp 3">Cấp 3 (THPT)</option>
-              <option value="Đại học">Đại học / Người đi làm</option>
-            </select>
-          </div>
-
-          {/* Only Available Toggle */}
-          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-            <input
-              type="checkbox"
-              checked={onlyAvailable}
-              onChange={(e) => setOnlyAvailable(e.target.checked)}
-              className="accent-blue-600"
-            />
-            <span>Chỉ hiện gia sư còn lịch</span>
-          </label>
-        </div>
-      </div>
-
-      {/* Tutor Grid */}
-      {filteredTutors.length > 0 ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredTutors.map((tutor) => (
-            <TutorCard
-              key={tutor.id}
-              tutor={tutor}
-              onViewDetail={(t) => setSelectedTutorForDetail(t)}
-              onSelectTutor={(t) => handleConnectTutor(t)}
-            />
-          ))}
-        </div>
+              <button
+                type="button"
+                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3.5 py-2 rounded-xl border border-border text-xs font-semibold hover:bg-muted disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+              >
+                Tiếp
+              </button>
+            </div>
+          )}
+        </>
       ) : (
-        <div className="py-12 text-center text-slate-400">
-          <p className="text-sm">Không tìm thấy Gia sư nào phù hợp với bộ lọc.</p>
+        <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-border rounded-2xl p-6 bg-card">
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-3">
+            <Search className="w-7 h-7 text-muted-foreground" />
+          </div>
+          <h3 className="text-sm font-bold text-foreground mb-1">Không tìm thấy gia sư phù hợp</h3>
+          <p className="text-muted-foreground text-xs max-w-xs mb-4">
+            Không có gia sư nào thỏa mãn cả 3 tiêu chí lọc hiện tại. Thử chọn lại chuyên môn hoặc thành tích khác.
+          </p>
+          <button
+            type="button"
+            onClick={handleResetFilters}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-medium hover:bg-primary/90 transition-colors cursor-pointer"
+          >
+            Đặt lại bộ lọc
+          </button>
         </div>
       )}
 

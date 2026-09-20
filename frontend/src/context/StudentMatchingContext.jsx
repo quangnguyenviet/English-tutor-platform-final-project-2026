@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 import { tutors } from "../data/mockData";
 
 const StudentMatchingContext = createContext(null);
-const STORAGE_KEY = "gsa_student_matching_threads_v2";
+const STORAGE_KEY = "gsa_student_matching_threads_v4";
 
 const DEFAULT_ONBOARDING = {
   targetGoal: "Luyện thi IELTS 6.5",
@@ -36,20 +36,15 @@ const INITIAL_THREADS = {
     onboardingData: DEFAULT_ONBOARDING,
     placementTestResult: DEFAULT_PLACEMENT_RESULT,
     chatMessages: [
-      { id: "m1-1", sender: "system", timestamp: "09:00", text: "Bạn đã kết nối thành công với Gia sư Nguyễn Lan Anh." },
-      { id: "m1-2", sender: "student", timestamp: "09:01", type: "onboarding_card", data: DEFAULT_ONBOARDING },
-      { id: "m1-3", sender: "tutor", timestamp: "09:02", type: "quiz_result_card", data: DEFAULT_PLACEMENT_RESULT },
-      {
-        id: "m1-4",
-        sender: "tutor",
-        timestamp: "09:05",
-        text: "🎉 Chúc mừng! Tôi đã chấp nhận hồ sơ và kích hoạt Lộ trình học 12 buổi. Em hãy kiểm tra phần Lịch học & Bài tập nhé!",
-      },
+      { id: "m1-1", sender: "system", timestamp: "09:00", text: "Cuộc trò chuyện với Gia sư Nguyễn Lan Anh bắt đầu." },
+      { id: "m1-2", sender: "student", timestamp: "09:01", text: "Chào cô Lan Anh, em muốn hỏi về tài liệu buổi học ngày mai ạ." },
+      { id: "m1-3", sender: "tutor", timestamp: "09:03", text: "Chào em! Cô đã gửi tài liệu trong mục Tài liệu học tập rồi nhé. Em xem trước phần từ vựng Unit 4 nha." },
+      { id: "m1-4", sender: "student", timestamp: "09:05", text: "Dạ vâng cô, em đã tải về xem rồi ạ." },
     ],
   },
   t2: {
     tutor: tutors[1], // Trần Minh Quân
-    studentStatus: "WAITING_APPROVAL",
+    studentStatus: "MATCHED",
     onboardingData: {
       targetGoal: "IELTS Writing 7.0+",
       currentLevel: "B2 / Khá",
@@ -57,58 +52,17 @@ const INITIAL_THREADS = {
       weeklySchedule: "2 buổi/tuần (Tối T3 - T5)",
       note: "Muốn học chuyên sâu kỹ năng Viết luận IELTS Task 2.",
     },
-    placementTestResult: {
-      score: 88,
-      totalScore: 100,
-      completedAt: "10:15 Hôm nay",
-      skillBreakdown: { "Nghe": 90, "Nói": 80, "Đọc": 95, "Viết": 75, "Từ vựng": 92, "Ngữ pháp": 86 },
-      recommendedLevel: "IELTS Writing Intensive (Target 7.0+)",
-      tutorComment: "Điểm Viết của học sinh khá tốt, cần luyện thêm cách mở rộng ý tưởng và dùng từ nối học thuật.",
-    },
+    placementTestResult: null,
     chatMessages: [
-      { id: "m2-1", sender: "system", timestamp: "10:00", text: "Bạn đã gửi yêu cầu kết nối tới Gia sư Trần Minh Quân." },
-      {
-        id: "m2-2",
-        sender: "student",
-        timestamp: "10:01",
-        type: "onboarding_card",
-        data: {
-          targetGoal: "IELTS Writing 7.0+",
-          currentLevel: "B2 / Khá",
-          weakSkills: ["Viết"],
-          weeklySchedule: "2 buổi/tuần (Tối T3 - T5)",
-        },
-      },
-      {
-        id: "m2-3",
-        sender: "tutor",
-        timestamp: "10:15",
-        type: "quiz_result_card",
-        data: {
-          score: 88,
-          totalScore: 100,
-          completedAt: "10:15 Hôm nay",
-          skillBreakdown: { "Nghe": 90, "Nói": 80, "Đọc": 95, "Viết": 75, "Từ vựng": 92, "Ngữ pháp": 86 },
-          recommendedLevel: "IELTS Writing Intensive (Target 7.0+)",
-          tutorComment: "Điểm Viết của học sinh khá tốt, cần luyện thêm cách mở rộng ý tưởng và dùng từ nối học thuật.",
-        },
-      },
-      {
-        id: "m2-4",
-        sender: "tutor",
-        timestamp: "Vừa xong",
-        type: "roadmap_preview_card",
-        data: {
-          status: "pending_approval",
-          recommendedPath: "Lộ trình 10 Buổi: IELTS Writing Task 1 & Task 2 Master",
-          targetBand: "6.5 -> 7.5",
-        },
-      },
+      { id: "m2-1", sender: "system", timestamp: "10:00", text: "Cuộc trò chuyện với Gia sư Trần Minh Quân bắt đầu." },
+      { id: "m2-2", sender: "student", timestamp: "10:02", text: "Chào thầy Quân, bài tập Writing hôm qua em đã nộp trên hệ thống rồi ạ." },
+      { id: "m2-3", sender: "tutor", timestamp: "10:10", text: "Chào em! Thầy đã nhận được bài. Chiều nay thầy sẽ xem và chấm chi tiết cho em nhé." },
+      { id: "m2-4", sender: "student", timestamp: "10:12", text: "Em cảm ơn thầy nhiều ạ." },
     ],
   },
   t3: {
     tutor: tutors[2], // Phạm Thu Hà
-    studentStatus: "CHAT_&_QUIZ",
+    studentStatus: "MATCHED",
     onboardingData: {
       targetGoal: "Phát âm IPA & Giao tiếp phản xạ",
       currentLevel: "A2 / Sơ cấp",
@@ -118,25 +72,10 @@ const INITIAL_THREADS = {
     },
     placementTestResult: null,
     chatMessages: [
-      { id: "m3-1", sender: "system", timestamp: "11:00", text: "Bạn đã gửi yêu cầu kết nối tới Gia sư Phạm Thu Hà." },
-      {
-        id: "m3-2",
-        sender: "tutor",
-        timestamp: "11:05",
-        text: "Chào em! Tôi chào đón em đến với khóa học Phát âm & Giao tiếp. Em làm bài Quiz 15 phút bên dưới để tôi xếp lớp nhé!",
-      },
-      {
-        id: "m3-3",
-        sender: "tutor",
-        timestamp: "11:05",
-        type: "quiz_proposal_card",
-        data: {
-          quizTitle: "Bài Quiz Đánh giá Phát âm & Phản xạ Đầu vào",
-          durationMinutes: 15,
-          totalQuestions: 8,
-          skills: ["Phát âm", "Nói", "Nghe"],
-        },
-      },
+      { id: "m3-1", sender: "system", timestamp: "11:00", text: "Cuộc trò chuyện với Gia sư Phạm Thu Hà bắt đầu." },
+      { id: "m3-2", sender: "tutor", timestamp: "11:05", text: "Chào em! Rất vui được đồng hành cùng em trong khóa luyện phát âm và giao tiếp." },
+      { id: "m3-3", sender: "student", timestamp: "11:08", text: "Chào cô Thu Hà ạ! Em muốn cải thiện phần phát âm đuôi và phản xạ nói tiếng Anh ạ." },
+      { id: "m3-4", sender: "tutor", timestamp: "11:10", text: "Được rồi em, chúng ta sẽ bắt đầu từ các nguyên âm và phụ âm cơ bản trong buổi học tới nhé!" },
     ],
   },
 };
@@ -340,7 +279,7 @@ export function StudentMatchingProvider({ children }) {
           id: `msg-${Date.now()}`,
           sender: "tutor",
           timestamp: "Vừa xong",
-          text: "🎉 Chúc mừng! Gia sư đã chấp nhận kết nối và kích hoạt Lộ trình học tập. LMS đã mở khóa đầy đủ cho em!",
+          text: "Chúc mừng! Gia sư đã chấp nhận kết nối và kích hoạt Lộ trình học tập.LMS đã mở khóa đầy đủ cho em!",
         },
       ];
 

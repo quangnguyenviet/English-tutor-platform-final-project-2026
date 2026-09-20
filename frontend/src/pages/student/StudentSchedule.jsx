@@ -445,18 +445,11 @@ export default function StudentSchedule() {
                             </div>
 
                             {/* Subject & Tutor */}
-                            <div className="flex items-center gap-2 mb-2">
-                              <img
-                                src={sessionItem.tutorAvatar}
-                                alt={sessionItem.tutorName}
-                                className="w-6 h-6 rounded-full object-cover ring-2 ring-white dark:ring-slate-800"
-                              />
-                              <div className="min-w-0">
-                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                                  {sessionItem.tutorName}
-                                </p>
-                                <p className="text-[10px] text-slate-500 truncate">{sessionItem.subject}</p>
-                              </div>
+                            <div className="mb-2">
+                              <p className="text-xs font-semibold text-foreground truncate">
+                                {sessionItem.tutorName}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground truncate">{sessionItem.subject}</p>
                             </div>
 
                             {/* Topic Title */}
@@ -601,33 +594,23 @@ export default function StudentSchedule() {
                   const isOffline = item.learningMode === "offline";
 
                   return (
-                    <Card key={item.id} className={`p-5 border-l-4 ${theme.border} hover:shadow-lg transition-all`}>
+                    <Card key={item.id} className="p-5 border border-border bg-card hover:border-primary/40 transition-colors">
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        {/* Left Column: Date, Time & Tutor Avatar */}
-                        <div className="flex items-start gap-4 min-w-[240px]">
-                          <div className="relative">
-                            <img
-                              src={item.tutorAvatar}
-                              alt={item.tutorName}
-                              className="w-12 h-12 rounded-2xl object-cover ring-2 ring-slate-100 dark:ring-slate-800 shadow-sm"
-                            />
-                            <span className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full ${theme.dotBg} border-2 border-white dark:border-slate-900`} />
+                        {/* Left Column: Date, Time & Tutor */}
+                        <div className="min-w-[220px]">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                              {item.dayOfWeek} ({item.dateStr})
+                            </span>
+                            <span className="text-xs text-muted-foreground">•</span>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock size={12} /> {item.startTime} - {item.endTime}
+                            </span>
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-                                {item.dayOfWeek} ({item.dateStr})
-                              </span>
-                              <span className="text-xs text-slate-400">•</span>
-                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                                <Clock size={13} className={theme.text} /> {item.startTime} - {item.endTime}
-                              </span>
-                            </div>
-                            <h4 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
-                              {item.tutorName}
-                            </h4>
-                            <p className="text-xs text-slate-500 font-medium">{item.subject}</p>
-                          </div>
+                          <h4 className="text-sm font-semibold text-foreground mt-1">
+                            {item.tutorName}
+                          </h4>
+                          <p className="text-xs text-muted-foreground">{item.subject}</p>
                         </div>
 
                         {/* Middle Column: Topic, Online Room Info & Prep Note */}
@@ -750,33 +733,23 @@ export default function StudentSchedule() {
                   const isOffline = item.learningMode === "offline";
 
                   return (
-                    <Card key={item.id} className={`p-5 border-l-4 ${theme.border} hover:shadow-lg transition-all opacity-95 hover:opacity-100`}>
+                    <Card key={item.id} className="p-5 border border-border bg-card hover:border-primary/40 transition-colors">
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        {/* Left Column: Date, Time & Tutor Avatar */}
-                        <div className="flex items-start gap-4 min-w-[240px]">
-                          <div className="relative">
-                            <img
-                              src={item.tutorAvatar}
-                              alt={item.tutorName}
-                              className="w-12 h-12 rounded-2xl object-cover ring-2 ring-slate-100 dark:ring-slate-800 shadow-sm"
-                            />
-                            <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
+                        {/* Left Column: Date, Time & Tutor */}
+                        <div className="min-w-[220px]">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                              {item.dayOfWeek} ({item.dateStr})
+                            </span>
+                            <span className="text-xs text-muted-foreground">•</span>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Clock size={12} /> {item.startTime} - {item.endTime}
+                            </span>
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-                                {item.dayOfWeek} ({item.dateStr})
-                              </span>
-                              <span className="text-xs text-slate-400">•</span>
-                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                                <Clock size={13} className={theme.text} /> {item.startTime} - {item.endTime}
-                              </span>
-                            </div>
-                            <h4 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
-                              {item.tutorName}
-                            </h4>
-                            <p className="text-xs text-slate-500 font-medium">{item.subject}</p>
-                          </div>
+                          <h4 className="text-sm font-semibold text-foreground mt-1">
+                            {item.tutorName}
+                          </h4>
+                          <p className="text-xs text-muted-foreground">{item.subject}</p>
                         </div>
 
                         {/* Middle Column: Lesson Takeaways Summary & Tutor Eval */}

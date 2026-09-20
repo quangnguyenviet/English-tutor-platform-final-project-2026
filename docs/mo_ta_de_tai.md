@@ -1,9 +1,8 @@
-
 # Mô tả đề tài
 
 ## Tên đề tài đề xuất
 
-**Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition**
+**Xây dựng nền tảng dạy kèm tiếng Anh 1-1 ứng dụng LLM, Student Knowledge Profile và Spaced Repetition**
 
 ## 1. Đặt vấn đề
 
@@ -50,22 +49,13 @@ Hệ thống được thiết kế theo 4 cổng người dùng dành cho 4 nhó
 - **Xem tài liệu và video bài giảng:** Dễ dàng mở xem bài giảng video và tài liệu đính kèm do gia sư gửi theo từng bài học.
 - **Theo dõi biểu đồ tiến bộ cá nhân:** Phân tách rõ ràng giữa *Chỉ số chăm chỉ* (tỷ lệ làm bài tập về nhà đúng hạn) và *Biểu đồ năng lực* (kết quả các bài kiểm tra định kỳ theo thời gian).
 
-### Cổng Lễ tân
+### Cổng Quản trị (Admin)
 
-- **Xử lý yêu cầu ghép lớp (Match Request Management):** Tiếp nhận danh sách đăng ký học thử từ phụ huynh qua Match Form; gọi điện thoại tư vấn, xác nhận nhu cầu và tạo đề nghị nhận lớp (Match Offer) gửi tới gia sư phù hợp.
-- **Duyệt thanh toán phí nhận lớp qua QR proof:** Tiếp nhận và kiểm tra ảnh biên lai chuyển khoản phí nhận lớp (sau 1 tháng dạy) do gia sư tải lên; đối soát số tiền khớp lệnh và thực hiện phê duyệt phí hoặc gửi yêu cầu tải lại minh chứng nếu sai lệch.
-- **Quản lý Gia sư & Học sinh:** Xem danh sách, tra cứu, lọc hồ sơ gia sư và học sinh trong trung tâm; cập nhật trạng thái hoạt động của tài khoản gia sư để phục vụ điều phối lớp học.
-- **Tiếp nhận & Ghi nhận khiếu nại (Complaint Management):** Tiếp nhận khiếu nại trực tiếp từ phụ huynh hoặc gia sư đến trung tâm và tạo đơn ghi nhận lên hệ thống:
-- **Nhận thông báo vận hành:** Tiếp nhận và theo dõi các thông báo biến động hệ thống liên quan đến vận hành trung tâm (yêu cầu học thử mới, gia sư báo đổi lịch/nghỉ dạy, minh chứng thanh toán mới...).
-
-### Cổng Quản trị viên
-
-- **Quản lý ghép lớp và Điều phối tổng thể:** Giám sát toàn bộ luồng yêu cầu ghép lớp từ phụ huynh.
-- **Phê duyệt phí nhận lớp và Đối soát tài chính tập trung:** Kiểm tra minh chứng chuyển khoản (QR proof) của gia sư sau 1 tháng dạy chính thức, bấm phê duyệt chuyển trạng thái phí sang `PAID` và theo dõi dòng tiền thu vào của trung tâm.
-- **Giám sát và Xử lý khiếu nại tổng thể (Complaint Oversight và Financial Reconciliation):** Xem danh sách toàn bộ khiếu nại do các Lễ tân tiếp nhận kèm bộ lọc trạng thái; giám sát tiến độ xử lý khiếu nại đổi gia sư (`REMATCH`) và hoàn tiền (`REFUND`); tổng hợp số tiền hoàn trả (chi ra) để đối soát cân đối tài chính với doanh thu thu vào.
-- **Quản lý nhân sự (Lễ tân, học sinh, gia sư) :** Quản lý toàn diện danh sách đối tượng tham gia hệ thống.
-- **Báo cáo vận hành & Xuất dữ liệu trung tâm:** Theo dõi biểu đồ trực quan về doanh thu, số lượng lớp học đang hoạt động, tỷ lệ ghép lớp thành công; hỗ trợ xuất báo cáo định kỳ dưới định dạng Excel hoặc PDF.
-- **Bảo mật phân quyền & Nhật ký kiểm toán (Audit Log):** Kiểm soát phân quyền Row-level security nghiêm ngặt theo bảng `Enrollment` (đảm bảo gia sư chỉ truy cập được dữ liệu lớp phụ trách); hệ thống tự động ghi nhật ký kiểm toán (Audit Log) chi tiết cho các thao tác trọng yếu (tạo Match Offer, duyệt phí, xử lý khiếu nại, duyệt giao bài...).
+- **Quản lý ghép lớp & Gửi đề nghị nhận lớp:** Tiếp nhận yêu cầu tìm gia sư từ phụ huynh, hệ thống tự động tính học phí tháng và phí nhận lớp để Admin tư vấn và gửi đề nghị nhận lớp cho gia sư.
+- **Duyệt phí nhận lớp:** Kiểm tra và phê duyệt ảnh chụp hóa đơn chuyển khoản phí nhận lớp của gia sư sau 1 tháng dạy.
+- **Bảo mật thông tin lớp học:** Quản lý phân quyền chặt chẽ, đảm bảo gia sư chỉ xem được thông tin của học sinh mà mình phụ trách.
+- **Lưu lịch sử hoạt động:** Ghi nhận nhật ký các thao tác quan trọng trên hệ thống để dễ dàng kiểm tra lại khi cần.
+- **Báo cáo vận hành trung tâm:** Xem thống kê doanh thu, tỷ lệ ghép lớp thành công và xuất báo cáo dưới dạng file Excel hoặc PDF.
 
 ## 3. Các thành phần kỹ thuật cốt lõi
 
@@ -156,12 +146,11 @@ Vòng lặp này đảm bảo:
 Để giải quyết bài toán tối ưu chi phí API LLM và tạo sự linh hoạt tối đa cho gia sư, các tính năng AI cốt lõi (Khung chương trình học và Sinh bài tập cá nhân hóa) đều được thiết kế theo cơ chế **Dual-Mode**:
 
 - **Option A — Direct AI Generation (Sinh trực tiếp trên hệ thống):**
-
   - Gia sư thao tác 1-click trực tiếp trên giao diện Cổng Gia sư.
   - Hệ thống Backend tự động đóng gói dữ liệu bối cảnh (Context) — bao gồm thông tin lộ trình học hoặc Student Knowledge Profile (năng lực micro-skill, các lỗi sai hay mắc, độ khó mục tiêu) — và gọi REST API sang Python AI Service (`gpt-4o-mini` / `Gemini Flash`) để sinh nháp nội dung trong dưới 5 giây.
   - Trải nghiệm mượt mà, tiện lợi trực tiếp trên ứng dụng di động.
-- **Option B — Import Structured File (Sử dụng Web AI ngoài — 0 Token Cost):**
 
+- **Option B — Import Structured File (Sử dụng Web AI ngoài — 0 Token Cost):**
   - Gia sư tải **Prompt Mẫu** có sẵn từ hệ thống (đã được nhúng cấu trúc SKP context hoặc yêu cầu chuẩn hóa).
   - Gia sư dán prompt vào các công cụ Web AI ngoài (ChatGPT, Claude, DeepSeek...).
   - Upload file JSON hoặc dán đoạn văn bản kết quả vào hệ thống để Python AI Service trích xuất và khởi tạo dữ liệu tự động.

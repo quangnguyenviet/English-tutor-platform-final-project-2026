@@ -2,7 +2,8 @@ import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import LandingPage from "./pages/LandingPage";
-import StudentDashboardPage from "./pages/StudentDashboardPage";
+import StudentDashboard from "./pages/student/StudentDashboard";
+import StudentSchedule from "./pages/student/StudentSchedule";
 import AppShell from "./components/layout/AppShell";
 import LoginPage from "./pages/LoginPage";
 
@@ -39,7 +40,20 @@ import StudentExercises from "./pages/student/StudentExercises";
 import ExerciseTaking from "./pages/student/ExerciseTaking";
 import StudentProgress from "./pages/student/StudentProgress";
 import StudentMaterials from "./pages/student/StudentMaterials";
+import SpacedRepetitionSession from "./pages/student/SpacedRepetitionSession";
 import SettingsPage from "./pages/SettingsPage";
+
+import GuestLayout from "./components/guest/GuestLayout";
+import GuestTutorExplorePage from "./pages/guest/GuestTutorExplorePage";
+import GuestTutorDetailPage from "./pages/guest/GuestTutorDetailPage";
+import GuestClassesExplorePage from "./pages/guest/GuestClassesExplorePage";
+import GuestClassDetailPage from "./pages/guest/GuestClassDetailPage";
+import GuestPricingPage from "./pages/guest/GuestPricingPage";
+import GuestFAQPage from "./pages/guest/GuestFAQPage";
+import GuestHowItWorksPage from "./pages/guest/GuestHowItWorksPage";
+import GuestContactPage from "./pages/guest/GuestContactPage";
+import ParentProgressViewPage from "./pages/guest/ParentProgressViewPage";
+
 
 function RequireRole({ role, children }) {
   const { session } = useAuth();
@@ -58,17 +72,27 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <Routes>
-          {/* Landing Page cho Phụ huynh (Khách xem không cần đăng nhập) */}
+          {/* Landing Page & Guest Portal Routes (Không cần đăng nhập) */}
           <Route path="/" element={<LandingPage />} />
+          <Route element={<GuestLayout />}>
+            <Route path="/tutors" element={<GuestTutorExplorePage />} />
+            <Route path="/tutors/:tutorId" element={<GuestTutorDetailPage />} />
+            <Route path="/classes" element={<GuestClassesExplorePage />} />
+            <Route path="/classes/:classId" element={<GuestClassDetailPage />} />
+            <Route path="/pricing" element={<GuestPricingPage />} />
+            <Route path="/faq" element={<GuestFAQPage />} />
+            <Route path="/how-it-works" element={<GuestHowItWorksPage />} />
+            <Route path="/contact" element={<GuestContactPage />} />
+            {/* UC-P05: Tra cứu tiến độ (Tạm ẩn, phát triển sau)
+            <Route path="/parent-view" element={<ParentProgressViewPage />} />
+            */}
+          </Route>
+
 
           {/* Student Dashboard App (Yêu cầu đăng nhập học sinh) */}
           <Route
             path="/dashboard"
-            element={
-              <RequireRole role="student">
-                <StudentDashboardPage />
-              </RequireRole>
-            }
+            element={<Navigate to="/student" replace />}
           />
 
           {/* Trang Đăng nhập Học sinh */}
@@ -137,13 +161,14 @@ export default function App() {
               </RequireRole>
             }
           >
-            <Route index element={<StudentDashboardPage />} />
+            <Route index element={<StudentDashboard />} />
             <Route path="marketplace" element={<StudentMarketplace />} />
             <Route path="onboarding" element={<StudentOnboarding />} />
             <Route path="chat" element={<StudentChat />} />
-            <Route path="schedule" element={<StudentDashboardPage />} />
+            <Route path="schedule" element={<StudentSchedule />} />
             <Route path="exercises" element={<StudentExercises />} />
             <Route path="exercises/:exerciseId" element={<ExerciseTaking />} />
+            <Route path="spaced-repetition" element={<SpacedRepetitionSession />} />
             <Route path="progress" element={<StudentProgress />} />
             <Route path="materials" element={<StudentMaterials />} />
             <Route path="settings" element={<SettingsPage />} />

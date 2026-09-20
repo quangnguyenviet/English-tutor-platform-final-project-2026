@@ -21,6 +21,10 @@ import {
   Check,
   Bot,
   Zap,
+  Brain,
+  Flame,
+  AlertCircle,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getStudentById } from "../../data/mockData";
@@ -38,8 +42,8 @@ export default function StudentProgress() {
   const { placementTestResult } = useStudentMatching();
   const student = getStudentById(session?.studentId || "s1");
 
-  // State management
-  const [mainViewMode, setMainViewMode] = useState("roadmap"); // "roadmap" | "scores"
+  // State management: "roadmap" | "skp" | "scores"
+  const [mainViewMode, setMainViewMode] = useState("roadmap");
   const [selectedTutorId, setSelectedTutorId] = useState("t1"); // "t1" | "t2" | "t3"
   const [activeScoreTutorTab, setActiveScoreTutorTab] = useState("all");
   const [selectedSessionForModal, setSelectedSessionForModal] = useState(null);
@@ -47,6 +51,7 @@ export default function StudentProgress() {
   const gradedExercises = student?.exercises?.filter((e) => e.status === "graded") || [];
   const tutorBreakdowns = student?.tutorProgressBreakdown || [];
   const aiRoadmaps = student?.aiRoadmaps || [];
+  const skp = student?.studentKnowledgeProfile;
 
   const selectedRoadmap =
     aiRoadmaps.find((r) => r.tutorId === selectedTutorId) || aiRoadmaps[0];
@@ -59,35 +64,47 @@ export default function StudentProgress() {
     <div className="space-y-6 pb-12">
       {/* Page Header */}
       <PageHeader
-        title="Lộ trình AI & Báo cáo Tiến bộ Multi-Tutor"
-        description="Theo dõi Lộ trình Học cá nhân hóa do AI & Gia sư biên soạn cùng kết quả tăng trưởng năng lực theo từng kỹ năng."
+        title="Lộ trình AI, Hồ sơ Tri thức & Báo cáo Tiến bộ"
+        description="Theo dõi Lộ trình Học cá nhân hóa, Hồ sơ tri thức SKP với Elo rating và các chỉ số tăng trưởng năng lực thực chất."
       />
 
       {/* Main View Mode Selector Tabs */}
-      <div className="flex items-center gap-3 bg-slate-200/70 dark:bg-slate-800/80 p-1.5 rounded-2xl w-fit text-xs font-bold shadow-inner">
+      <div className="flex items-center gap-2 bg-slate-200/70 dark:bg-slate-800/80 p-1.5 rounded-2xl w-fit text-xs font-bold shadow-inner flex-wrap">
         <button
           onClick={() => setMainViewMode("roadmap")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
             mainViewMode === "roadmap"
               ? "bg-white text-blue-600 dark:bg-slate-900 dark:text-blue-400 shadow-md"
               : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
           }`}
         >
           <Bot size={16} className="text-amber-500" />
-          🤖 AI Lộ trình Học Cá nhân hóa (3 Gia sư)
+          🤖 AI Lộ trình Học Cá nhân hóa
+        </button>
+        <button
+          onClick={() => setMainViewMode("skp")}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
+            mainViewMode === "skp"
+              ? "bg-white text-purple-600 dark:bg-slate-900 dark:text-purple-400 shadow-md"
+              : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          }`}
+        >
+          <Brain size={16} className="text-purple-500" />
+          🧠 Hồ sơ Tri thức (SKP) & Elo Rating
         </button>
         <button
           onClick={() => setMainViewMode("scores")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
             mainViewMode === "scores"
               ? "bg-white text-blue-600 dark:bg-slate-900 dark:text-blue-400 shadow-md"
               : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
           }`}
         >
           <BarChart3 size={16} className="text-blue-500" />
-          📈 Báo cáo Tiến bộ & Điểm số Baseline
+          📈 Báo cáo Tiến bộ (Chăm chỉ vs Năng lực)
         </button>
       </div>
+
 
       {/* VIEW MODE 1: AI LEARNING ROADMAP PER TUTOR */}
       {mainViewMode === "roadmap" && (
@@ -105,21 +122,12 @@ export default function StudentProgress() {
                     <button
                       key={tb.tutorId}
                       onClick={() => setSelectedTutorId(tb.tutorId)}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
                         isSelected
-                          ? tb.colorTheme === "indigo"
-                            ? "bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300"
-                            : tb.colorTheme === "blue"
-                            ? "bg-blue-600 text-white shadow-md ring-2 ring-blue-300"
-                            : "bg-emerald-600 text-white shadow-md ring-2 ring-emerald-300"
-                          : "bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                          ? "bg-foreground text-background"
+                          : "bg-muted hover:bg-muted/80 text-muted-foreground"
                       }`}
                     >
-                      <img
-                        src={tb.tutorAvatar}
-                        alt={tb.tutorName}
-                        className="w-6 h-6 rounded-full object-cover ring-2 ring-white"
-                      />
                       <span>
                         {tb.tutorName} ({tb.subject})
                       </span>
@@ -136,32 +144,25 @@ export default function StudentProgress() {
 
           {/* AI Overview Header Card */}
           {selectedRoadmap && (
-            <Card className="p-6 bg-gradient-to-r from-blue-50/90 via-indigo-50/70 to-purple-50/60 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-purple-950/20 border-blue-200/80 dark:border-blue-900/60 shadow-md space-y-5">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-blue-100 dark:border-blue-900/60 pb-5">
+            <Card className="p-5 border border-border bg-card space-y-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border pb-4">
                 {/* Tutor Info & Target */}
-                <div className="flex items-start gap-4">
-                  <img
-                    src={selectedRoadmap.tutorAvatar}
-                    alt={selectedRoadmap.tutorName}
-                    className="w-14 h-14 rounded-2xl object-cover ring-4 ring-white dark:ring-slate-800 shadow-md shrink-0"
-                  />
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">
-                        {selectedRoadmap.tutorName}
-                      </span>
-                      <Badge tone={selectedRoadmap.colorTheme === "indigo" ? "indigo" : selectedRoadmap.colorTheme === "blue" ? "blue" : "emerald"}>
-                        {selectedRoadmap.subject}
-                      </Badge>
-                      <span className="text-xs text-slate-400">&middot;</span>
-                      <span className="text-xs text-slate-500 font-medium">
-                        Cập nhật: {selectedRoadmap.generatedAt}
-                      </span>
-                    </div>
-                    <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                      AI Personalized Roadmap ({selectedRoadmap.baselineScore} ➔ {selectedRoadmap.targetScore})
-                    </h3>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="text-sm font-semibold text-foreground">
+                      {selectedRoadmap.tutorName}
+                    </span>
+                    <Badge tone="neutral" size="xs">
+                      {selectedRoadmap.subject}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">&middot;</span>
+                    <span className="text-xs text-muted-foreground">
+                      Cập nhật: {selectedRoadmap.generatedAt}
+                    </span>
                   </div>
+                  <h3 className="text-lg font-bold text-foreground">
+                    Lộ trình học cá nhân hóa ({selectedRoadmap.baselineScore} ➔ {selectedRoadmap.targetScore})
+                  </h3>
                 </div>
 
                 {/* Score Milestones Pills */}
@@ -334,9 +335,236 @@ export default function StudentProgress() {
         </div>
       )}
 
-      {/* VIEW MODE 2: ORIGINAL SCORES & BASELINE PROGRESS REPORT */}
+      {/* VIEW MODE 2: STUDENT KNOWLEDGE PROFILE (SKP) & ELO RATING (FR-38) */}
+      {mainViewMode === "skp" && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* SKP Overview Banner */}
+          <Card className="p-6 bg-gradient-to-r from-purple-50/90 via-indigo-50/70 to-blue-50/60 dark:from-purple-950/40 dark:via-indigo-950/30 dark:to-blue-950/20 border-purple-200/80 dark:border-purple-900/60 shadow-md space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-black text-2xl shadow-lg shrink-0">
+                  <Brain size={32} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300">
+                      Student Knowledge Profile (SKP) Engine
+                    </span>
+                    <Badge tone="purple">Thuật toán Elo Rating</Badge>
+                  </div>
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                    Hồ Sơ Tri Thức Người Học & Độ Tinh Thông Micro-Skills
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                    Điểm số được cập nhật theo thời gian thực sau mỗi câu trả lời đúng/sai bằng công thức Elo Rating.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 bg-white/90 dark:bg-slate-900/90 p-3 rounded-2xl border border-purple-100 dark:border-purple-900 shadow-xs shrink-0">
+                <div className="text-center px-4 border-r border-slate-100 dark:border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-medium">Chỉ số Tinh thông (Overall Elo)</span>
+                  <span className="text-2xl font-black text-purple-600 dark:text-purple-400">
+                    {skp?.overallElo || 74}/100
+                  </span>
+                </div>
+                <div className="text-center px-2">
+                  <span className="text-[10px] text-slate-400 block font-medium">Trạng thái</span>
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">
+                    Bứt phá nhanh
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Micro-skills Grid with Elo Rating Bars */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Target size={18} className="text-blue-500" /> Bảng Theo Dõi Micro-Skills (Elo Rating 0 - 100)
+              </h3>
+              <span className="text-xs text-slate-400">8 Kỹ năng vi mô cốt lõi</span>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {skp?.microSkills?.map((skill) => {
+                const isMastered = skill.status === "mastered";
+                const isLearning = skill.status === "learning";
+
+                return (
+                  <Card key={skill.id} className="p-4 space-y-3 border-slate-200 dark:border-slate-800">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          {skill.category}
+                        </span>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
+                          {skill.name}
+                        </h4>
+                      </div>
+                      <Badge tone={isMastered ? "emerald" : isLearning ? "blue" : "rose"} size="xs">
+                        {isMastered ? "Thành thạo" : isLearning ? "Đang luyện" : "Yếu"}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span className="text-slate-500">Elo Mastery:</span>
+                        <span className="font-extrabold text-slate-900 dark:text-white">
+                          {skill.masteryElo}/100
+                        </span>
+                      </div>
+                      <ProgressBar
+                        value={skill.masteryElo}
+                        size="sm"
+                        tone={isMastered ? "emerald" : isLearning ? "blue" : "rose"}
+                      />
+                    </div>
+
+                    <div className="flex justify-between text-[11px] text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2">
+                      <span>Độ tự tin:</span>
+                      <span className="font-bold text-slate-600 dark:text-slate-300">{skill.confidence}%</span>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Top 5 Strengths & Top 5 Weaknesses Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Top 5 Strengths */}
+            <Card className="p-5 space-y-3 border-emerald-200 dark:border-emerald-950">
+              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold text-sm">
+                <CheckCircle2 size={18} />
+                <span>Top 5 Điểm Mạnh Nhất (Strengths)</span>
+              </div>
+              <div className="space-y-2">
+                {skp?.strengths?.map((st, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                        {i + 1}
+                      </span>
+                      <div>
+                        <p className="font-bold text-slate-900 dark:text-white">{st.name}</p>
+                        <p className="text-[10px] text-slate-500">{st.category}</p>
+                      </div>
+                    </div>
+                    <span className="font-black text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg shadow-xs">
+                      {st.masteryElo} Elo
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* Top 5 Weaknesses */}
+            <Card className="p-5 space-y-3 border-rose-200 dark:border-rose-950">
+              <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400 font-bold text-sm">
+                <AlertCircle size={18} />
+                <span>Top 5 Điểm Yếu Cần Cải Thiện (Weaknesses)</span>
+              </div>
+              <div className="space-y-2">
+                {skp?.weaknesses?.map((wk, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-rose-500 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                        {i + 1}
+                      </span>
+                      <div>
+                        <p className="font-bold text-slate-900 dark:text-white">{wk.name}</p>
+                        <p className="text-[10px] text-slate-500">{wk.suggestion}</p>
+                      </div>
+                    </div>
+                    <span className="font-black text-rose-600 dark:text-rose-400 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg shadow-xs shrink-0">
+                      {wk.masteryElo} Elo
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+
+          {/* Error Pattern Catalog (FR-38) */}
+          <Card className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <AlertCircle size={18} className="text-amber-500" />
+                  Danh Mục Dạng Lỗi Thường Gặp (Error Pattern Catalog)
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Tự động phân loại các lỗi sai trong bài tập và đề xuất giải pháp xử lý triệt để.
+                </p>
+              </div>
+              <span className="text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded-lg">
+                4 Dạng lỗi phổ biến
+              </span>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {skp?.errorPatterns?.map((ep) => (
+                <div key={ep.id} className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 dark:text-white">{ep.title}</span>
+                    <span className="text-[11px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950 px-2 py-0.5 rounded-full">
+                      Mắc {ep.count} lần
+                    </span>
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-300 italic p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800 font-mono text-[11px]">
+                    Ví dụ: {ep.example}
+                  </p>
+                  <p className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+                    🎯 Giải pháp khắc phục: {ep.remedy}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* VIEW MODE 3: ORIGINAL SCORES & EFFORT METRICS REPORT (FR-15) */}
       {mainViewMode === "scores" && (
         <div className="space-y-6 animate-fadeIn">
+          {/* FR-15: EFFORT METRICS CARD (Chỉ số chăm chỉ) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Card className="p-4 border-l-4 border-l-amber-500">
+              <span className="text-[11px] text-slate-500 font-medium block">Tỷ lệ nộp bài đúng hạn</span>
+              <p className="text-xl font-black text-amber-600 mt-1">
+                {student?.effortMetrics?.onTimeSubmissionRate || 90}%
+              </p>
+              <span className="text-[10px] text-emerald-600 font-semibold">✓ Đạt chuẩn chuyên cần</span>
+            </Card>
+
+            <Card className="p-4 border-l-4 border-l-emerald-500">
+              <span className="text-[11px] text-slate-500 font-medium block">Chuỗi Spaced Repetition</span>
+              <p className="text-xl font-black text-emerald-600 mt-1 flex items-center gap-1">
+                <Flame size={18} className="fill-amber-500 text-amber-500" />
+                {student?.effortMetrics?.currentStreak || 5} Ngày
+              </p>
+              <span className="text-[10px] text-slate-500">Ôn tập 5p mỗi ngày</span>
+            </Card>
+
+            <Card className="p-4 border-l-4 border-l-blue-500">
+              <span className="text-[11px] text-slate-500 font-medium block">Tỷ lệ xong bài Practice</span>
+              <p className="text-xl font-black text-blue-600 mt-1">
+                {student?.effortMetrics?.practiceCompletionRate || 94}%
+              </p>
+              <span className="text-[10px] text-slate-500">18/19 bài tập</span>
+            </Card>
+
+            <Card className="p-4 border-l-4 border-l-purple-500">
+              <span className="text-[11px] text-slate-500 font-medium block">Thời gian học tích lũy</span>
+              <p className="text-xl font-black text-purple-600 mt-1">
+                {student?.effortMetrics?.totalHoursLearned || "32.5h"}
+              </p>
+              <span className="text-[10px] text-slate-500">Qua 18 buổi học & tự ôn</span>
+            </Card>
+          </div>
+
           {/* 1. Placement Baseline Card */}
           {placementTestResult && (
             <Card className="border-blue-200 bg-gradient-to-r from-blue-50/90 via-indigo-50/70 to-purple-50/50 dark:border-blue-900/60 dark:from-blue-950/50 dark:via-indigo-950/40 dark:to-purple-950/30 p-5 shadow-sm">
@@ -369,6 +597,7 @@ export default function StudentProgress() {
             </Card>
           )}
 
+
           {/* 2. Tutor Breakdown Tabs */}
           <Card className="p-4">
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -387,17 +616,12 @@ export default function StudentProgress() {
                 <button
                   key={tb.tutorId}
                   onClick={() => setActiveScoreTutorTab(tb.tutorId)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
                     activeScoreTutorTab === tb.tutorId
-                      ? tb.colorTheme === "indigo"
-                        ? "bg-indigo-600 text-white shadow-sm"
-                        : tb.colorTheme === "blue"
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "bg-emerald-600 text-white shadow-sm"
-                      : "bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                      ? "bg-foreground text-background"
+                      : "bg-muted hover:bg-muted/80 text-muted-foreground"
                   }`}
                 >
-                  <img src={tb.tutorAvatar} alt={tb.tutorName} className="w-5 h-5 rounded-full object-cover" />
                   {tb.tutorName} ({tb.subject})
                 </button>
               ))}
@@ -409,16 +633,13 @@ export default function StudentProgress() {
             {tutorBreakdowns
               .filter((tb) => activeScoreTutorTab === "all" || tb.tutorId === activeScoreTutorTab)
               .map((tb) => (
-                <Card key={tb.tutorId} className="p-5 space-y-4 hover:shadow-lg transition-all border-t-4 border-t-blue-500">
+                <Card key={tb.tutorId} className="p-4 space-y-3 border border-border bg-card hover:border-primary/40 transition-colors">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <img src={tb.tutorAvatar} alt={tb.tutorName} className="w-10 h-10 rounded-2xl object-cover ring-2 ring-slate-100 dark:ring-slate-800" />
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white">{tb.tutorName}</h3>
-                        <p className="text-xs text-slate-500">{tb.subject}</p>
-                      </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">{tb.tutorName}</h3>
+                      <p className="text-xs text-muted-foreground">{tb.subject}</p>
                     </div>
-                    <Badge tone="emerald" size="xs">
+                    <Badge tone="neutral" size="xs">
                       {tb.growthPercentage}
                     </Badge>
                   </div>
@@ -483,17 +704,14 @@ export default function StudentProgress() {
             </div>
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredGraded.map((ex) => (
-                <div key={ex.id} className="flex items-center justify-between gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <img src={ex.tutorAvatar} alt={ex.tutorName} className="w-8 h-8 rounded-full object-cover shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-900 dark:text-slate-50 truncate">{ex.title}</p>
-                      <p className="text-[11px] text-slate-500">
-                        Gia sư {ex.tutorName} &middot; {ex.skill} &middot; Chấm ngày {ex.submittedAt}
-                      </p>
-                    </div>
+                <div key={ex.id} className="flex items-center justify-between gap-3 p-4 hover:bg-muted/30 transition-colors">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-foreground truncate">{ex.title}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Gia sư {ex.tutorName} &middot; {ex.skill} &middot; Chấm ngày {ex.submittedAt}
+                    </p>
                   </div>
-                  <span className="shrink-0 text-sm font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1 rounded-xl">
+                  <span className="shrink-0 text-xs font-semibold text-foreground bg-muted px-2.5 py-1 rounded-md">
                     {ex.score}/{ex.maxScore}
                   </span>
                 </div>

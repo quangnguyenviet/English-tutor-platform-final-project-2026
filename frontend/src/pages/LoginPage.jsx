@@ -43,7 +43,7 @@ export default function LoginPage() {
       <header className="max-w-7xl w-full mx-auto flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 font-semibold text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
-          <span>Về trang chủ (Dành cho Phụ huynh)</span>
+          <span>Về trang chủ</span>
         </Link>
         <ThemeToggle />
       </header>
@@ -57,9 +57,7 @@ export default function LoginPage() {
               <GraduationCap className="w-6 h-6" />
             </div>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">Đăng nhập Học sinh</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Nhập tài khoản học sinh để vào trang học tập cá nhân (Dashboard)
-            </p>
+
           </div>
 
           {error && (
@@ -114,35 +112,26 @@ export default function LoginPage() {
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-border" />
             </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-card px-2 text-muted-foreground">hoặc trải nghiệm nhanh</span>
-            </div>
+
           </div>
 
           {/* Quick Demo Role Buttons */}
           <div className="space-y-2">
-            <button
-              type="button"
-              onClick={handleQuickStudentLogin}
-              className="w-full py-2.5 px-3 rounded-xl border border-accent/40 bg-accent/10 text-accent font-semibold text-xs hover:bg-accent/20 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Vào nhanh: Học sinh (Demo Nguyễn Minh Anh)</span>
-            </button>
+
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={handleQuickTutorLogin}
                 className="py-2 px-3 rounded-xl border border-border bg-muted/50 text-foreground font-medium text-xs hover:bg-muted transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <span>Vào vai Gia sư</span>
+                <span>Gia sư</span>
               </button>
               <button
                 type="button"
                 onClick={handleQuickAdminLogin}
                 className="py-2 px-3 rounded-xl border border-border bg-muted/50 text-foreground font-medium text-xs hover:bg-muted transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <span>Vào vai Admin</span>
+                <span>Admin</span>
               </button>
             </div>
           </div>

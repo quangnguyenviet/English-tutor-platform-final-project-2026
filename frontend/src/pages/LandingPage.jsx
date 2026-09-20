@@ -29,7 +29,7 @@ export function LandingPage() {
         <Trust />
         <Testimonials />
         <TutorCTA />
-        <FAQ />
+        <FAQ onOpenContactModal={openContactModal} />
         <FinalCTA onOpenContactModal={openContactModal} />
       </main>
       <SiteFooter />

@@ -169,7 +169,7 @@ gantt
 | ------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | 1.8 | Thiết kế sơ đồ tuần tự (Sequence Diagram) cho các thủ tục/chức năng quan trọng | Tập sơ đồ Sequence Diagram (UML) | Sơ đồ tuần tự hoàn chỉnh cho Ghép lớp, Duyệt phí 30 ngày, AI sinh bài nhúng SKP, Auto-grading & SKP update, Spaced Repetition daily review |
 | 1.10 | Thiết kế sơ đồ hoạt động (Activity Diagram) cho các nghiệp vụ phức tạp | Tập sơ đồ Activity Diagram (UML) | Sơ đồ hoạt động hoàn chỉnh cho luồng Dual-Mode AI/Import nhúng SKP, Luồng ghép lớp & duyệt phí 30 ngày, Luồng tiếp nhận & đối soát khiếu nại REFUND/REMATCH |
-| 2.2 | Module Parent / Smart-Match Form & Registration (FR-1→FR-3) — Form tìm gia sư trực quan, matching score cơ bản, đăng ký học thử (OTP SMS) | API tìm gia sư, matching score, đăng ký học thử | Luồng tìm gia sư → danh sách gia sư + matching score → tạo Match Request (OTP SMS) hoạt động |
+| 2.2 | Module Parent / Smart-Match Form & Registration (FR-1→FR-3) — Form tìm gia sư trực quan theo tiêu chí, đăng ký học thử (OTP SMS) | API tìm gia sư theo tiêu chí, đăng ký học thử | Luồng tìm gia sư → danh sách gia sư gợi ý theo tiêu chí → tạo Match Request (OTP SMS) hoạt động |
 | 2.3 | Module Parent tra cứu FAQ & thông tin trung tâm (FR-4) | API + giao diện FAQ & thông tin | Trang FAQ hiển thị dữ liệu thật từ BE |
 
 ## Tuần 4 — Admin Dashboard & Receptionist Portal: Vận hành & Khiếu nại (28/09 – 04/10/2026) — **M2**

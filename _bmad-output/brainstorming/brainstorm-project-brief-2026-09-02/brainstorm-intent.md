@@ -21,7 +21,7 @@
 * **Dynamic Smart-Match Questionnaire 3 Bước:** Thay thế chatbot bằng một Wizard khảo sát tương tác 3 bước trực quan:
   * *Bước 1:* Mục tiêu & thông tin học sinh (Lớp, trình độ, mục tiêu học).
   * *Bước 2:* Yêu cầu gia sư (Giới tính, khu vực, học phí, khung giờ rảnh).
-  * *Bước 3:* Thuật toán Backend tính toán **Matching Score (%)** và render danh sách Gia sư phù hợp nhất kèm nút **"Đăng ký học thử 1-Click"**.
+  * *Bước 3:* Hệ thống Backend lọc và render danh sách Gia sư phù hợp nhất kèm nút **"Đăng ký học thử 1-Click"**.
 
 #### B. Admin Dashboard:
 * **Match Request Management:** Nhận thông tin đăng ký học thử từ Phụ huynh ➔ Duyệt ghép gia sư 1-click.

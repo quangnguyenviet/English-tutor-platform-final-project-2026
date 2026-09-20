@@ -8,7 +8,7 @@ Bản PRD được xây dựng rất tốt, bám sát các câu chuyện nghiệ
 ## 1. Decision-readiness — adequate
 Tài liệu thể hiện rõ các quyết định thiết kế quan trọng như giới hạn Quota để kiểm soát chi phí API, áp dụng White-label AI để bảo vệ hình ảnh chuyên nghiệp cho gia sư. Các câu hỏi mở và giả định được lập chỉ mục rõ ràng.
 *   **Trade-offs**: Đã cân bằng tốt giữa chi phí vận hành AI (Socratic quota) và trải nghiệm tự học của học sinh.
-*   **Gaps**: Cần làm rõ thuật toán Matching Score và cơ chế phân tích cảm xúc để tự động kích hoạt cảnh báo Takeover.
+*   **Gaps**: Cần làm rõ cơ chế phân tích cảm xúc để tự động kích hoạt cảnh báo Takeover.
 
 ### Findings
 - **[high]** Xác định ngưỡng Takeover (§ 9.2) — Chưa định nghĩa rõ thế nào là phụ huynh "giận dữ" hay "hỏi dồn" để kích hoạt Takeover tự động. *Fix:* Đưa ra quy tắc cụ thể (ví dụ: phát hiện 3 từ khóa tiêu cực liên tiếp hoặc 2 lần lặp lại câu hỏi về giá cả mà không có câu trả lời khớp FAQ).
