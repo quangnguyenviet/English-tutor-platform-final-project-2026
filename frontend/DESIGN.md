@@ -62,6 +62,12 @@
 - No purple/blue neon gradients on large areas
 - No AI purple (`#8B5CF6`, `#A855F7`) as a primary accent
 - No pure black `#000000` anywhere
+- No "rainbow clutter" (mixing 4+ bright accent colors on a single card component). Neutral Slate tints (`bg-slate-100 text-slate-700`) must be used for secondary tags, filters, and metadata.
+
+### Color Restraint & Palette Discipline
+- **Rule of 1 Dominant Accent:** Standardize on Blue (`#3B82F6`) as the primary brand color for CTAs, active states, and primary indicators.
+- **Strict Semantic Status Colors:** Red/Rose reserved strictly for urgent/destructive actions; Emerald for completed/paid success states; Slate/Blue for neutral metadata.
+- **Background Palette Purity:** Card backgrounds must remain neutral white/slate, avoiding random colored background fills (purple, yellow, amber panels).
 
 ---
 

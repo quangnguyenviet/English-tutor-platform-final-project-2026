@@ -28,6 +28,8 @@ import ManageMaterialsRoute from "./pages/tutor/manage/ManageMaterialsRoute";
 import TutorExerciseDetail from "./pages/tutor/TutorExerciseDetail";
 import ExerciseGenerator from "./pages/tutor/ExerciseGenerator";
 import ClassRequests from "./pages/tutor/ClassRequests";
+import AvailableClasses from "./pages/tutor/AvailableClasses";
+import AvailableClassDetail from "./pages/tutor/AvailableClassDetail";
 import LibraryPaths from "./pages/tutor/LibraryPaths";
 import LibraryPathDetail from "./pages/tutor/LibraryPathDetail";
 import LibraryExercises from "./pages/tutor/LibraryExercises";
@@ -104,9 +106,10 @@ export default function App() {
             element={<Navigate to="/student" replace />}
           />
 
-          {/* Trang Đăng nhập Học sinh */}
+          {/* Trang Đăng nhập */}
           <Route path="/login" element={<LoginPage />} />
 
+          {/* Admin Routes */}
           <Route
             path="/admin"
             element={
@@ -128,6 +131,7 @@ export default function App() {
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 
+          {/* Tutor Routes */}
           <Route
             path="/tutor"
             element={
@@ -155,6 +159,8 @@ export default function App() {
             <Route path="students/:studentId/exercises/:exerciseId" element={<TutorExerciseDetail />} />
             <Route path="schedule" element={<TutorSchedule />} />
             <Route path="exercise-generator" element={<ExerciseGenerator />} />
+            <Route path="available-classes" element={<AvailableClasses />} />
+            <Route path="available-classes/:classId" element={<AvailableClassDetail />} />
             <Route path="requests" element={<ClassRequests />} />
             <Route path="library/paths" element={<LibraryPaths />} />
             <Route path="library/paths/:templateId" element={<LibraryPathDetail />} />
@@ -164,6 +170,7 @@ export default function App() {
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 
+          {/* Student Routes */}
           <Route
             path="/student"
             element={
@@ -185,6 +192,7 @@ export default function App() {
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 
+          {/* Receptionist Routes */}
           <Route
             path="/receptionist"
             element={
@@ -203,6 +211,7 @@ export default function App() {
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 
+          {/* Catch-all Wildcard Route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

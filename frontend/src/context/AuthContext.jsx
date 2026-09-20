@@ -84,9 +84,9 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
+      return raw ? JSON.parse(raw) : { role: "tutor", name: tutor.name, initials: tutor.initials };
     } catch {
-      return null;
+      return { role: "tutor", name: tutor.name, initials: tutor.initials };
     }
   });
 
