@@ -6,7 +6,6 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  Sparkles,
   Calculator,
   Send,
   Calendar,
@@ -19,6 +18,11 @@ import {
   Zap,
   Trash2,
   Timer,
+  Upload,
+  Users,
+  Globe,
+  UserPlus,
+  RotateCcw,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/ui/PageHeader";
@@ -31,6 +35,7 @@ import ConfirmModal from "../../components/ui/ConfirmModal";
 
 const statusMeta = {
   pending: { label: "Chờ xử lý", tone: "amber" },
+  published: { label: "Đã gửi lên hệ thống", tone: "violet" },
   offered: { label: "Đã gửi đề nghị", tone: "blue" },
   matched: { label: "Đã ghép thành công", tone: "emerald" },
   cancelled: { label: "Đã hủy", tone: "slate" },
@@ -67,24 +72,43 @@ function getDaysRemaining(cancelledAt) {
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 }
 
+function getPublishedHoursRemaining(publishedAt) {
+  if (!publishedAt) return null;
+  const pubDate = new Date(publishedAt);
+  const closeDate = new Date(pubDate.getTime() + 6 * 60 * 60 * 1000); // 6 hours
+  const now = new Date();
+  const diffMs = closeDate - now;
+  if (diffMs <= 0) return { hours: 0, minutes: 0, expired: true };
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  return { hours, minutes, expired: false };
+}
+
 export function MatchRequests() {
   const {
     matchRequestList,
     createMatchOffer,
     updateMatchRequest,
     cancelMatchOffer,
+    publishMatchRequest,
+    selectTutorFromPublished,
+    sendDirectOffer,
     tutorList,
   } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // Modal State for Creating Match Offer
+  // Modal State for Creating Match Offer (existing flow — for "offered" tab change tutor)
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedTutorId, setSelectedTutorId] = useState("");
   const [customFeeRate, setCustomFeeRate] = useState(0.15); // 15%
   const [adminNote, setAdminNote] = useState("");
   const [toastMessage, setToastMessage] = useState(null);
+
+  // Modal State for Published -> Select Applied Tutor
+  const [publishedSelectRequest, setPublishedSelectRequest] = useState(null);
+  const [selectedAppliedTutorId, setSelectedAppliedTutorId] = useState("");
 
   // ConfirmModal states
   const [confirmModal, setConfirmModal] = useState({
@@ -110,7 +134,7 @@ export function MatchRequests() {
     setConfirmModal((prev) => ({ ...prev, open: false, onConfirm: null }));
   };
 
-  // Filtered requests (removed modeFilter)
+  // Filtered requests
   const filtered = matchRequestList.filter((r) => {
     const matchSearch =
       r.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -126,13 +150,124 @@ export function MatchRequests() {
   // Calculate stats
   const totalCount = matchRequestList.length;
   const pendingCount = matchRequestList.filter((r) => r.status === "pending").length;
+  const publishedCount = matchRequestList.filter((r) => r.status === "published").length;
   const offeredCount = matchRequestList.filter((r) => r.status === "offered").length;
   const matchedCount = matchRequestList.filter((r) => r.status === "matched").length;
 
-  // Open Match Offer Modal
+  // === PENDING ACTIONS ===
+
+  // Path 1: Open match — Publish to tutor board
+  const handlePublishToBoard = (req) => {
+    setConfirmModal({
+      open: true,
+      title: "Đẩy offer lên trang gia sư",
+      message: `Bạn xác nhận đẩy offer này lên trang gia sư chứ?`,
+      confirmLabel: "Đồng ý",
+      confirmTone: "blue",
+      onConfirm: () => {
+        publishMatchRequest(req.id);
+        closeConfirmModal();
+        setSuccessPopup(`Đơn của học sinh ${req.studentName} đã được đẩy lên trang gia sư thành công. Gia sư có thể vào đăng ký trong vòng 6 giờ.`);
+      },
+    });
+  };
+
+  // Path 2: Direct match — Send offer directly to designated tutor
+  const handleSendDirectOffer = (req) => {
+    const tutorName = req.designatedTutorName || "gia sư được chỉ định";
+    const tutorId = req.designatedTutorId;
+    if (!tutorId) return;
+
+    const monthlySessions = (req.sessionsPerWeek || 3) * 4;
+    const totalTuition = monthlySessions * (req.budgetPerSession || 250000);
+    const calculatedFee = Math.round(totalTuition * (req.platformFeeRate || 0.15));
+
+    setConfirmModal({
+      open: true,
+      title: "Gửi offer cho gia sư",
+      message: `Bạn xác nhận gửi offer cho gia sư ${tutorName} chứ?`,
+      confirmLabel: "Đồng ý",
+      confirmTone: "blue",
+      onConfirm: () => {
+        sendDirectOffer(req.id, tutorId, tutorName, calculatedFee);
+        closeConfirmModal();
+        setSuccessPopup(`Hệ thống sẽ gửi đề nghị tới gia sư ${tutorName}.`);
+      },
+    });
+  };
+
+  // === PUBLISHED ACTIONS ===
+
+  // Path 1: Re-Offer to tutor board when 6h countdown expired and 0 tutors applied
+  const handleReOfferToBoard = (req) => {
+    setConfirmModal({
+      open: true,
+      title: "Đẩy lại đề nghị lên trang gia sư (Re-Offer)",
+      message: `Đơn của học sinh ${req.studentName} đã hết thời gian 6 giờ mà chưa có gia sư nào nhận. Bạn xác nhận Re-Offer để đẩy lại lên trang gia sư trong 6 giờ tiếp theo chứ?`,
+      confirmLabel: "Xác nhận Re-Offer",
+      confirmTone: "amber",
+      onConfirm: () => {
+        publishMatchRequest(req.id);
+        closeConfirmModal();
+        setSuccessPopup(
+          `Đã Re-Offer thành công! Đơn của học sinh ${req.studentName} đã được đẩy lại lên bảng tin gia sư và gia hạn thêm 6 giờ.`
+        );
+      },
+    });
+  };
+
+  // Open modal to select from applied tutors
+  const handleOpenPublishedSelect = (req) => {
+    setPublishedSelectRequest(req);
+    if (req.appliedTutors && req.appliedTutors.length > 0) {
+      setSelectedAppliedTutorId(req.appliedTutors[0].tutorId);
+    } else {
+      setSelectedAppliedTutorId("");
+    }
+  };
+
+  const handleClosePublishedSelect = () => {
+    setPublishedSelectRequest(null);
+    setSelectedAppliedTutorId("");
+  };
+
+  const handleConfirmPublishedSelect = () => {
+    if (!publishedSelectRequest || !selectedAppliedTutorId) return;
+
+    const chosenApplied = publishedSelectRequest.appliedTutors?.find(
+      (t) => t.tutorId === selectedAppliedTutorId
+    );
+    if (!chosenApplied) return;
+
+    const monthlySessions = (publishedSelectRequest.sessionsPerWeek || 3) * 4;
+    const totalTuition = monthlySessions * (publishedSelectRequest.budgetPerSession || 250000);
+    const calculatedFee = Math.round(totalTuition * (publishedSelectRequest.platformFeeRate || 0.15));
+
+    setConfirmModal({
+      open: true,
+      title: "Xác nhận gửi đề nghị",
+      message: `Bạn xác nhận gửi offer cho gia sư ${chosenApplied.tutorName} chứ?`,
+      confirmLabel: "Đồng ý",
+      confirmTone: "blue",
+      onConfirm: () => {
+        selectTutorFromPublished(
+          publishedSelectRequest.id,
+          chosenApplied.tutorId,
+          chosenApplied.tutorName,
+          calculatedFee
+        );
+        closeConfirmModal();
+        handleClosePublishedSelect();
+        setSuccessPopup(`Hệ thống sẽ gửi đề nghị tới gia sư ${chosenApplied.tutorName}.`);
+      },
+    });
+  };
+
+  // === OFFERED ACTIONS (existing — change tutor / cancel offer) ===
+
+  // Open Match Offer Modal (for offered tab — change tutor)
   const handleOpenOfferModal = (req) => {
     setSelectedRequest(req);
-    // Pre-select top suggested tutor if available
     if (req.suggestedTutors && req.suggestedTutors.length > 0) {
       setSelectedTutorId(req.suggestedTutors[0].tutorId);
     } else if (activeTutors.length > 0) {
@@ -205,7 +340,7 @@ export function MatchRequests() {
     });
   };
 
-  // Cancel offer with ConfirmModal (new — for "offered" status)
+  // Cancel offer with ConfirmModal (for "offered" status)
   const handleCancelOffer = (req) => {
     setConfirmModal({
       open: true,
@@ -262,7 +397,7 @@ export function MatchRequests() {
       />
 
       {/* KPI Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           icon={ClipboardList}
           label="Tổng yêu cầu tiếp nhận"
@@ -276,6 +411,13 @@ export function MatchRequests() {
           value={pendingCount}
           hint="Cần tạo đề nghị"
           tone="amber"
+        />
+        <StatCard
+          icon={Globe}
+          label="Đã gửi lên hệ thống"
+          value={publishedCount}
+          hint="Gia sư đang apply"
+          tone="violet"
         />
         <StatCard
           icon={Send}
@@ -293,7 +435,7 @@ export function MatchRequests() {
         />
       </div>
 
-      {/* Filters & Search Toolbar — removed mode filter */}
+      {/* Filters & Search Toolbar */}
       <Card padded={false} className="p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           {/* Status Tabs */}
@@ -301,6 +443,7 @@ export function MatchRequests() {
             {[
               { key: "all", label: "Tất cả" },
               { key: "pending", label: "Chờ xử lý", count: pendingCount },
+              { key: "published", label: "Đã gửi lên hệ thống", count: publishedCount },
               { key: "offered", label: "Đã gửi đề nghị", count: offeredCount },
               { key: "matched", label: "Đã ghép thành công", count: matchedCount },
               { key: "cancelled", label: "Đã hủy" },
@@ -330,7 +473,7 @@ export function MatchRequests() {
             ))}
           </div>
 
-          {/* Search — removed mode filter dropdown */}
+          {/* Search */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative min-w-[240px] flex-1 sm:w-64">
               <Search
@@ -355,6 +498,9 @@ export function MatchRequests() {
           const monthlyEstimate = (req.sessionsPerWeek || 3) * 4 * (req.budgetPerSession || 250000);
           const platformFeeEstimate = req.matchOfferFee || Math.round(monthlyEstimate * (req.platformFeeRate || 0.15));
           const daysRemaining = req.status === "cancelled" ? getDaysRemaining(req.cancelledAt) : null;
+          const publishedTimeRemaining = req.status === "published" ? getPublishedHoursRemaining(req.publishedAt) : null;
+          const isOpenMatch = req.registrationType === "open_match";
+          const isDirectMatch = req.registrationType === "direct_match";
 
           return (
             <div
@@ -376,6 +522,19 @@ export function MatchRequests() {
                       {req.grade}
                     </span>
                     <Badge tone={meta.tone}>{meta.label}</Badge>
+                    {/* Registration Type Badge */}
+                    {req.status === "pending" && isOpenMatch && (
+                      <Badge tone="violet">
+                        <Globe size={10} className="mr-1 inline" />
+                        Tìm GS trực quan
+                      </Badge>
+                    )}
+                    {req.status === "pending" && isDirectMatch && (
+                      <Badge tone="sky">
+                        <UserPlus size={10} className="mr-1 inline" />
+                        Chỉ đích danh GS
+                      </Badge>
+                    )}
                   </div>
 
                   {/* Target Goal */}
@@ -384,7 +543,7 @@ export function MatchRequests() {
                     {req.targetGoal}
                   </p>
 
-                  {/* Schedule & Location Details — removed learningModeLabel */}
+                  {/* Schedule & Location Details */}
                   <div className="grid grid-cols-1 gap-2 text-xs text-slate-600 dark:text-slate-400 sm:grid-cols-2">
                     <div className="flex items-center gap-2">
                       <Calendar size={14} className="text-blue-500 shrink-0" />
@@ -414,6 +573,16 @@ export function MatchRequests() {
                     </div>
                   )}
 
+                  {/* Designated tutor info for Path 2 pending */}
+                  {req.status === "pending" && isDirectMatch && req.designatedTutorName && (
+                    <div className="flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50/70 p-2.5 text-xs text-sky-800 dark:border-sky-900/40 dark:bg-sky-950/40 dark:text-sky-200">
+                      <UserPlus size={16} className="text-sky-600 dark:text-sky-400 shrink-0" />
+                      <div>
+                        Gia sư được chỉ đích danh: <span className="font-semibold">{req.designatedTutorName}</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Matched Tutor Status if already offered or matched */}
                   {(req.status === "offered" || req.status === "matched") && req.matchedTutorName && (
                     <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/70 p-2.5 text-xs text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
@@ -425,6 +594,41 @@ export function MatchRequests() {
                             (Gửi lúc: {formatTs(req.offeredAt)})
                           </span>
                         )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Published: Applied Tutors count & countdown */}
+                  {req.status === "published" && (
+                    <div className="space-y-2">
+                      <div
+                        className={`flex items-center gap-2 rounded-lg border p-2.5 text-xs ${
+                          publishedTimeRemaining?.expired && (!req.appliedTutors || req.appliedTutors.length === 0)
+                            ? "border-amber-200 bg-amber-50/70 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200"
+                            : "border-violet-100 bg-violet-50/70 text-violet-800 dark:border-violet-900/40 dark:bg-violet-950/40 dark:text-violet-200"
+                        }`}
+                      >
+                        <Users
+                          size={16}
+                          className={
+                            publishedTimeRemaining?.expired && (!req.appliedTutors || req.appliedTutors.length === 0)
+                              ? "text-amber-600 dark:text-amber-400 shrink-0"
+                              : "text-violet-600 dark:text-violet-400 shrink-0"
+                          }
+                        />
+                        <div>
+                          <span className="font-semibold">{req.appliedTutors?.length || 0}</span> gia sư đã đăng ký apply
+                          {publishedTimeRemaining && !publishedTimeRemaining.expired && (
+                            <span className="ml-2 text-[11px] text-violet-600/80 dark:text-violet-300/80">
+                              (Còn {publishedTimeRemaining.hours}h{publishedTimeRemaining.minutes}p để đóng)
+                            </span>
+                          )}
+                          {publishedTimeRemaining && publishedTimeRemaining.expired && (
+                            <span className="ml-2 text-[11px] text-rose-500 font-medium">
+                              (Đã hết thời gian đăng ký{(!req.appliedTutors || req.appliedTutors.length === 0) ? " - Chưa có ai nhận" : ""})
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -472,16 +676,75 @@ export function MatchRequests() {
 
                   {/* Action Buttons */}
                   <div className="mt-4 pt-2 border-t border-slate-200/80 dark:border-slate-700 flex flex-col gap-2">
-                    {req.status === "pending" && (
+                    {/* PENDING — Path 1: Open Match */}
+                    {req.status === "pending" && isOpenMatch && (
                       <Button
                         size="sm"
-                        onClick={() => handleOpenOfferModal(req)}
-                        className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => handlePublishToBoard(req)}
+                        className="w-full justify-center bg-violet-600 hover:bg-violet-700 text-white"
                       >
-                        <Zap size={14} /> Tạo Match Offer
+                        <Upload size={14} /> Đẩy offer cho trang gia sư
                       </Button>
                     )}
 
+                    {/* PENDING — Path 2: Direct Match */}
+                    {req.status === "pending" && isDirectMatch && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleSendDirectOffer(req)}
+                        className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <Send size={14} /> Gửi offer cho gia sư
+                      </Button>
+                    )}
+
+                    {/* PUBLISHED — Select from applied tutors OR Re-Offer if expired with 0 tutors */}
+                    {req.status === "published" && (
+                      (() => {
+                        const hasApplicants = req.appliedTutors && req.appliedTutors.length > 0;
+                        const isExpired = publishedTimeRemaining?.expired;
+
+                        // Case 2: 0 applicants and expired -> "Re-Offer" button
+                        if (!hasApplicants && isExpired) {
+                          return (
+                            <Button
+                              size="sm"
+                              onClick={() => handleReOfferToBoard(req)}
+                              className="w-full justify-center bg-amber-600 hover:bg-amber-700 text-white shadow-sm font-medium"
+                            >
+                              <RotateCcw size={14} /> Re-Offer (Đẩy lại lên trang GS)
+                            </Button>
+                          );
+                        }
+
+                        // Case 1: 0 applicants and not expired -> Disabled dimmed "Match Offer" button
+                        if (!hasApplicants) {
+                          return (
+                            <Button
+                              size="sm"
+                              disabled
+                              className="w-full justify-center bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-50 cursor-not-allowed border border-slate-200 dark:border-slate-700 shadow-none pointer-events-none"
+                              title="Chưa có gia sư nào đăng ký nhận lớp"
+                            >
+                              <UserCheck size={14} /> Match Offer (0 GS đã đăng ký)
+                            </Button>
+                          );
+                        }
+
+                        // Normal Case: Has applicants -> Active "Match Offer" button
+                        return (
+                          <Button
+                            size="sm"
+                            onClick={() => handleOpenPublishedSelect(req)}
+                            className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                          >
+                            <UserCheck size={14} /> Match Offer ({req.appliedTutors.length} GS đã đăng ký)
+                          </Button>
+                        );
+                      })()
+                    )}
+
+                    {/* OFFERED — Change tutor */}
                     {req.status === "offered" && (
                       <>
                         <Button
@@ -501,7 +764,18 @@ export function MatchRequests() {
                       </>
                     )}
 
+                    {/* PENDING — Cancel */}
                     {req.status === "pending" && (
+                      <button
+                        onClick={() => handleCancelRequest(req.id, req.studentName)}
+                        className="text-center text-[11px] text-slate-400 hover:text-rose-500 transition"
+                      >
+                        Hủy yêu cầu
+                      </button>
+                    )}
+
+                    {/* PUBLISHED — Cancel */}
+                    {req.status === "published" && (
                       <button
                         onClick={() => handleCancelRequest(req.id, req.studentName)}
                         className="text-center text-[11px] text-slate-400 hover:text-rose-500 transition"
@@ -513,49 +787,66 @@ export function MatchRequests() {
                 </div>
               </div>
 
-              {/* AI Matching Recommendations (Bottom bar of card) */}
-              {req.suggestedTutors && req.suggestedTutors.length > 0 && req.status === "pending" && (
+
+              {/* Applied Tutors list for Published status */}
+              {req.status === "published" && req.appliedTutors && req.appliedTutors.length > 0 && (
                 <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400">
-                    <Sparkles size={14} />
-                    <span>Gia sư AI gợi ý phù hợp nhất:</span>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400">
+                    <Users size={14} />
+                    <span>Gia sư đã đăng ký nhận lớp:</span>
                   </div>
                   <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                    {req.suggestedTutors.map((sug) => {
-                      const tutorDetail = tutorList.find((t) => t.id === sug.tutorId);
+                    {req.appliedTutors.map((applied) => {
+                      const tutorDetail = tutorList.find((t) => t.id === applied.tutorId);
                       return (
                         <div
-                          key={sug.tutorId}
-                          className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/50 p-2.5 text-xs transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-800/30 dark:hover:bg-slate-800/60"
+                          key={applied.tutorId}
+                          className="flex items-center justify-between rounded-lg border border-violet-100 bg-violet-50/50 p-2.5 text-xs transition hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950/30 dark:hover:bg-violet-900/40"
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <Avatar initials={tutorDetail?.initials || "GS"} size="sm" />
                             <div className="min-w-0">
                               <p className="font-semibold text-slate-800 dark:text-slate-100 truncate">
-                                {sug.tutorName}
+                                {applied.tutorName}
                               </p>
-                              <p className="text-[11px] text-slate-400 truncate">{sug.reason}</p>
+                              <p className="text-[11px] text-slate-400 truncate">{applied.message}</p>
+                              <p className="text-[10px] text-violet-500">
+                                Đăng ký lúc: {formatTs(applied.appliedAt)}
+                              </p>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-600 dark:bg-blue-950 dark:text-blue-300">
-                              {sug.matchScore}%
-                            </span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                handleOpenOfferModal(req);
-                                setSelectedTutorId(sug.tutorId);
-                              }}
-                              className="h-7 text-xs px-2"
-                            >
-                              Chọn
-                            </Button>
                           </div>
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+
+              {/* Notice when 0 tutors applied for Published status */}
+              {req.status === "published" && (!req.appliedTutors || req.appliedTutors.length === 0) && (
+                <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
+                  <div
+                    className={`flex items-center gap-2 rounded-lg p-2.5 text-xs ${
+                      publishedTimeRemaining?.expired
+                        ? "border border-amber-200 bg-amber-50/60 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300"
+                        : "border border-dashed border-slate-200 bg-slate-50/50 text-slate-500 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400"
+                    }`}
+                  >
+                    {publishedTimeRemaining?.expired ? (
+                      <>
+                        <AlertCircle size={15} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span>
+                          Thời gian nhận đăng ký 6 giờ đã kết thúc nhưng chưa có gia sư nhận. Vui lòng bấm <strong>"Re-Offer"</strong> để gia hạn và đẩy lại lên trang gia sư.
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Clock size={15} className="text-slate-400 shrink-0" />
+                        <span>
+                          Đơn đang hiển thị trên bảng tin gia sư. Nút <strong>"Match Offer"</strong> đang tạm khóa và sẽ tự động kích hoạt khi có ít nhất 1 gia sư đăng ký nhận lớp.
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -576,7 +867,153 @@ export function MatchRequests() {
         )}
       </div>
 
-      {/* Modal: Create Match Offer (FR-16) */}
+      {/* Modal: Select Applied Tutor from Published (New) */}
+      {publishedSelectRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="fade-slide-in relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                  Chọn gia sư từ danh sách đăng ký
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Chọn gia sư đã đăng ký nhận lớp {publishedSelectRequest.studentName} để gửi đề nghị chính thức.
+                </p>
+              </div>
+              <button
+                onClick={handleClosePublishedSelect}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {/* Summary of Request */}
+              <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-4 text-xs dark:border-violet-900/40 dark:bg-violet-950/30">
+                <p className="font-semibold text-violet-900 dark:text-violet-200">
+                  Học sinh: {publishedSelectRequest.studentName} &bull; {publishedSelectRequest.grade} (Trình độ {publishedSelectRequest.currentLevel})
+                </p>
+                <p className="mt-1 text-violet-800 dark:text-violet-300">
+                  Mục tiêu: {publishedSelectRequest.targetGoal}
+                </p>
+              </div>
+
+              {/* Applied Tutors List */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400 mb-2">
+                  Danh sách gia sư đã đăng ký ({publishedSelectRequest.appliedTutors?.length || 0})
+                </label>
+                <div className="grid gap-2 max-h-60 overflow-y-auto pr-1">
+                  {publishedSelectRequest.appliedTutors && publishedSelectRequest.appliedTutors.length > 0 ? (
+                    publishedSelectRequest.appliedTutors.map((applied) => {
+                      const isSelected = selectedAppliedTutorId === applied.tutorId;
+                      const tutorDetail = tutorList.find((t) => t.id === applied.tutorId);
+
+                      return (
+                        <div
+                          key={applied.tutorId}
+                          onClick={() => setSelectedAppliedTutorId(applied.tutorId)}
+                          className={`flex cursor-pointer items-center justify-between rounded-xl border p-3 transition ${
+                            isSelected
+                              ? "border-blue-600 bg-blue-50/60 dark:border-blue-500 dark:bg-blue-950/40"
+                              : "border-slate-200 hover:border-blue-200 dark:border-slate-800 dark:hover:border-slate-700"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar initials={tutorDetail?.initials || "GS"} size="sm" />
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                {applied.tutorName}
+                              </p>
+                              <p className="text-xs text-slate-400">
+                                {applied.message}
+                              </p>
+                              <p className="text-[10px] text-violet-500 mt-0.5">
+                                Đăng ký lúc: {formatTs(applied.appliedAt)}
+                              </p>
+                            </div>
+                          </div>
+                          <input
+                            type="radio"
+                            name="applied_tutor_select"
+                            checked={isSelected}
+                            onChange={() => setSelectedAppliedTutorId(applied.tutorId)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                          />
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 p-8 text-center dark:border-slate-800">
+                      <Users size={28} className="text-slate-300 dark:text-slate-600" />
+                      <p className="mt-2 text-xs text-slate-400">
+                        Chưa có gia sư nào đăng ký nhận lớp này.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Fee Calculation */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
+                <div className="flex items-center gap-2">
+                  <Calculator size={16} className="text-blue-600 dark:text-blue-400" />
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Phí kết nối dự kiến
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="rounded-lg bg-white p-2 dark:bg-slate-900">
+                    <p className="text-slate-400">Đơn giá / buổi</p>
+                    <p className="font-semibold text-slate-800 dark:text-slate-100">
+                      {fmtVND(publishedSelectRequest.budgetPerSession)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-white p-2 dark:bg-slate-900">
+                    <p className="text-slate-400">Tổng buổi tháng</p>
+                    <p className="font-semibold text-slate-800 dark:text-slate-100">
+                      {(publishedSelectRequest.sessionsPerWeek || 3) * 4} buổi
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-blue-100/70 p-2 dark:bg-blue-900/40">
+                    <p className="text-blue-700 dark:text-blue-300">Phí kết nối</p>
+                    <p className="font-bold text-blue-700 dark:text-blue-300">
+                      {fmtVND(
+                        Math.round(
+                          (publishedSelectRequest.sessionsPerWeek || 3) *
+                            4 *
+                            (publishedSelectRequest.budgetPerSession || 250000) *
+                            (publishedSelectRequest.platformFeeRate || 0.15)
+                        )
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800">
+              <Button variant="secondary" size="sm" onClick={handleClosePublishedSelect}>
+                Hủy bỏ
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleConfirmPublishedSelect}
+                disabled={!selectedAppliedTutorId}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Send size={14} /> Gửi đề nghị cho gia sư
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Create Match Offer (FR-16) — for offered tab change tutor */}
       {selectedRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
           <div className="fade-slide-in relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">

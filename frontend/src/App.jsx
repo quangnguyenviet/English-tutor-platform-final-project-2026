@@ -15,6 +15,8 @@ import PaymentApproval from "./pages/admin/PaymentApproval";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminLogs from "./pages/admin/AdminLogs";
 import AdminNotifications from "./pages/admin/AdminNotifications";
+import ReceptionistManagement from "./pages/admin/ReceptionistManagement";
+import ComplaintManagement from "./pages/admin/ComplaintManagement";
 import TutorDashboard from "./pages/tutor/TutorDashboard";
 import StudentsList from "./pages/tutor/StudentsList";
 import StudentDetail from "./pages/tutor/StudentDetail";
@@ -54,6 +56,13 @@ import GuestHowItWorksPage from "./pages/guest/GuestHowItWorksPage";
 import GuestContactPage from "./pages/guest/GuestContactPage";
 import ParentProgressViewPage from "./pages/guest/ParentProgressViewPage";
 
+import ReceptionistDashboard from "./pages/receptionist/ReceptionistDashboard";
+import ReceptionistMatchRequests from "./pages/receptionist/ReceptionistMatchRequests";
+import ReceptionistPaymentApproval from "./pages/receptionist/ReceptionistPaymentApproval";
+import ReceptionistTutorList from "./pages/receptionist/ReceptionistTutorList";
+import ReceptionistStudentList from "./pages/receptionist/ReceptionistStudentList";
+import ReceptionistNotifications from "./pages/receptionist/ReceptionistNotifications";
+import ReceptionistComplaints from "./pages/receptionist/ReceptionistComplaints";
 
 function RequireRole({ role, children }) {
   const { session } = useAuth();
@@ -111,6 +120,8 @@ export default function App() {
             <Route path="students" element={<StudentManagement />} />
             <Route path="match-requests" element={<MatchRequests />} />
             <Route path="payments" element={<PaymentApproval />} />
+            <Route path="receptionists" element={<ReceptionistManagement />} />
+            <Route path="complaints" element={<ComplaintManagement />} />
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="notifications" element={<AdminNotifications />} />
             <Route path="logs" element={<AdminLogs />} />
@@ -171,6 +182,24 @@ export default function App() {
             <Route path="spaced-repetition" element={<SpacedRepetitionSession />} />
             <Route path="progress" element={<StudentProgress />} />
             <Route path="materials" element={<StudentMaterials />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
+
+          <Route
+            path="/receptionist"
+            element={
+              <RequireRole role="receptionist">
+                <AppShell />
+              </RequireRole>
+            }
+          >
+            <Route index element={<ReceptionistDashboard />} />
+            <Route path="match-requests" element={<ReceptionistMatchRequests />} />
+            <Route path="payments" element={<ReceptionistPaymentApproval />} />
+            <Route path="tutors" element={<ReceptionistTutorList />} />
+            <Route path="students" element={<ReceptionistStudentList />} />
+            <Route path="complaints" element={<ReceptionistComplaints />} />
+            <Route path="notifications" element={<ReceptionistNotifications />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 

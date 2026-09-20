@@ -26,6 +26,8 @@ import {
   Unlock,
   Lock,
   Bell,
+  FileWarning,
+  HeadphonesIcon,
 } from "lucide-react";
 import {
   BarChart,
@@ -84,6 +86,8 @@ export function AdminDashboard() {
     paymentProofList,
     approvePaymentProof,
     notificationList = [],
+    receptionistList = [],
+    complaintList = [],
   } = useAuth();
 
   const [timeframe, setTimeframe] = useState("month");
@@ -480,10 +484,10 @@ export function AdminDashboard() {
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
             <Sparkles size={15} className="text-blue-500" /> Thao tác nhanh & Điều hướng nghiệp vụ
           </h2>
-          <span className="text-[11px] font-medium text-slate-400">7 chức năng quản trị</span>
+          <span className="text-[11px] font-medium text-slate-400">9 chức năng quản trị</span>
         </div>
 
-        <div className="grid gap-3.5 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
+        <div className="grid gap-3.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-9">
           {/* Action 1: Yêu cầu Ghép lớp (FR-16) */}
           <Link
             to="/admin/match-requests"
@@ -564,6 +568,48 @@ export function AdminDashboard() {
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                 {studentList.length} học viên theo học
+              </p>
+            </div>
+          </Link>
+
+          {/* Action 4b: Quản lý Lễ tân (FR-31) */}
+          <Link
+            to="/admin/receptionists"
+            className="group relative flex flex-col justify-between rounded-xl bg-white p-4 border border-slate-200 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-400 hover:shadow-md dark:bg-slate-900 dark:border-slate-800 dark:hover:border-sky-700"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-600 text-white shadow-sm group-hover:scale-105 transition-transform">
+                <HeadphonesIcon size={20} />
+              </div>
+              <ArrowUpRight size={15} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-all" />
+            </div>
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                Quản lý Lễ tân
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                {receptionistList.length} nhân viên lễ tân
+              </p>
+            </div>
+          </Link>
+
+          {/* Action 4c: Xử lý khiếu nại (FR-32) */}
+          <Link
+            to="/admin/complaints"
+            className="group relative flex flex-col justify-between rounded-xl bg-white p-4 border border-slate-200 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-rose-400 hover:shadow-md dark:bg-slate-900 dark:border-slate-800 dark:hover:border-rose-700"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-600 text-white shadow-sm group-hover:scale-105 transition-transform">
+                <FileWarning size={20} />
+              </div>
+              <ArrowUpRight size={15} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-all" />
+            </div>
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
+                Xử lý khiếu nại
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                {complaintList.filter((c) => c.status === "pending").length} chưa xử lý
               </p>
             </div>
           </Link>
