@@ -37,7 +37,8 @@ postgres_data/
 
 # Cline & Memory Bank
 .clinerules
-docs/memory-bank/
-docs/pm-book/github-project-management/
+#docs/memory-bank/
+#docs/pm-book/github-project-management/
+docs/
 
 _bmad-output/planning-artifacts/ux-designs/

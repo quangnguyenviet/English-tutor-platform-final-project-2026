@@ -6,7 +6,6 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  Sparkles,
   Calculator,
   Send,
   Calendar,
@@ -722,41 +721,6 @@ export function MatchRequests() {
                 </div>
               </div>
 
-              {/* AI Matching Recommendations (Bottom bar of card) */}
-              {req.suggestedTutors && req.suggestedTutors.length > 0 && req.status === "pending" && (
-                <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400">
-                    <Sparkles size={14} />
-                    <span>Gia sư AI gợi ý phù hợp nhất:</span>
-                  </div>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                    {req.suggestedTutors.map((sug) => {
-                      const tutorDetail = tutorList.find((t) => t.id === sug.tutorId);
-                      return (
-                        <div
-                          key={sug.tutorId}
-                          className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50/50 p-2.5 text-xs transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-800/30 dark:hover:bg-slate-800/60"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <Avatar initials={tutorDetail?.initials || "GS"} size="sm" />
-                            <div className="min-w-0">
-                              <p className="font-semibold text-slate-800 dark:text-slate-100 truncate">
-                                {sug.tutorName}
-                              </p>
-                              <p className="text-[11px] text-slate-400 truncate">{sug.reason}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-600 dark:bg-blue-950 dark:text-blue-300">
-                              {sug.matchScore}%
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
 
               {/* Applied Tutors list for Published status */}
               {req.status === "published" && req.appliedTutors && req.appliedTutors.length > 0 && (
