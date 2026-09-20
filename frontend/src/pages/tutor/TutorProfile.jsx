@@ -21,7 +21,12 @@ import {
   Sliders,
   FileText,
   CreditCard,
-  GraduationCap
+  GraduationCap,
+  Camera,
+  Video,
+  Play,
+  Film,
+  Sparkles
 } from "lucide-react";
 import clsx from "clsx";
 import PageHeader from "../../components/ui/PageHeader";
@@ -45,9 +50,16 @@ const subjectOptions = [
 ];
 
 const levelOptions = [
-  { value: "teacher", label: "Giáo viên chính thức" },
-  { value: "student", label: "Sinh viên các trường Đại học" },
+  { value: "teacher", label: "Giáo viên / Giảng viên", desc: "Đang giảng dạy tại trường học hoặc trung tâm" },
+  { value: "professional", label: "Người đi làm / Chuyên gia", desc: "Đang làm việc tại doanh nghiệp hoặc làm tự do" },
+  { value: "student", label: "Sinh viên Đại học", desc: "Đang theo học tại các trường Đại học / Cao đẳng" },
 ];
+
+const levelLabels = {
+  teacher: "Giáo viên / Giảng viên",
+  professional: "Người đi làm / Chuyên gia",
+  student: "Sinh viên Đại học",
+};
 
 const weekDays = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
 const dayBlocks = ["Sáng", "Chiều", "Tối"];
@@ -74,30 +86,32 @@ const defaultApprovedProfile = {
   rejectionReason: "",
 
   // Basic Info (Instant Update - No Admin approval required)
+  avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80",
+  avatarFileName: "anh_chan_dung_lananh.jpg",
+  videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
+  videoFileName: "video_gioi_thieu_lananh.mp4",
+  videoEmbedUrl: "https://www.youtube.com/watch?v=demo_tutor_intro",
   subjects: ["IELTS", "Giao tiếp cơ bản", "Ngữ pháp", "Phát âm"],
-  bio: "Giáo viên tiếng Anh với 5 năm kinh nghiệm luyện thi IELTS và giao tiếp cho học sinh cấp 2-3.",
+  bio: "Chuyên viên phiên dịch & giảng dạy tiếng Anh chuyên sâu luyện thi IELTS và tiếng Anh giao tiếp doanh nghiệp.",
   serviceAreas: ["Quận 1, TP.HCM", "Quận 3, TP.HCM", "Dạy online"],
   availability: ["Thứ 2|Tối", "Thứ 4|Tối", "Thứ 6|Tối", "Thứ 7|Sáng", "Thứ 7|Chiều", "Chủ nhật|Sáng"],
   phone: "0987 654 321",
   zalo: "0987 654 321",
 
   // Important Info: Academic & Proof Documents (Requires Admin approval)
-  qualificationLevel: "teacher", // "teacher" | "student"
-  experienceYears: 5,
+  qualificationLevel: "professional", // "teacher" | "professional" | "graduated" | "student"
+  currentRole: "Chuyên viên Dịch thuật & Đối ngoại",
   birthYear: "2001 (25 tuổi)",
   hometown: "Nam Định",
   currentAddress: "Quận 3, TP.HCM",
-  university: "Đại học Sư Phạm TP.HCM - Sư phạm Tiếng Anh",
+  university: "Đại học Ngoại Thương TP.HCM - Ngôn ngữ Anh",
   highSchool: "THPT Chuyên Lê Hồng Phong (Nam Định)",
   graduationScore: "28.5 điểm khối D01",
   academicRank: "Xuất sắc (GPA 3.85/4.0)",
 
-  // Academic Proof & ID Verification Files
-  idCardNumber: "03620100**** (Đã xác thực)",
-  idCardFrontName: "cccd_mat_truoc_lananh.jpg",
-  idCardBackName: "cccd_mat_sau_lananh.jpg",
-  degreeScanName: "bang_dai_hoc_su_pham_lananh.pdf",
-  transcriptScanName: "bang_diem_gpa_su_pham_lananh.pdf",
+  // Academic Proof Files
+  degreeScanName: "bang_dai_hoc_ngoai_thuong_lananh.pdf",
+  transcriptScanName: "bang_diem_gpa_ngoai_thuong_lananh.pdf",
 
   // Extra Certificates
   certificates: [
@@ -112,8 +126,9 @@ function emptyCertForm() {
 
 // Important fields metadata
 const IMPORTANT_FIELDS_META = {
-  qualificationLevel: { label: "Trình độ phân loại", format: (v) => (v === "teacher" ? "Giáo viên chính thức" : "Sinh viên") },
-  experienceYears: { label: "Số năm kinh nghiệm", format: (v) => `${v} năm` },
+  avatarFileName: { label: "Ảnh chân dung gia sư (Rõ mặt)", format: (v) => v || "anh_chan_dung.jpg" },
+  qualificationLevel: { label: "Vai trò / Phân loại gia sư", format: (v) => levelLabels[v] || v },
+  currentRole: { label: "Công việc / Lĩnh vực hiện tại" },
   birthYear: { label: "Năm sinh / Tuổi" },
   hometown: { label: "Quê quán" },
   currentAddress: { label: "Nơi ở hiện tại" },
@@ -121,9 +136,6 @@ const IMPORTANT_FIELDS_META = {
   highSchool: { label: "Trường THPT Cấp 3" },
   graduationScore: { label: "Điểm tốt nghiệp THPT / Thi ĐH" },
   academicRank: { label: "Xếp loại Học lực / GPA" },
-  idCardNumber: { label: "Số CCCD / CMND" },
-  idCardFrontName: { label: "Ảnh Mặt trước CCCD" },
-  idCardBackName: { label: "Ảnh Mặt sau CCCD" },
   degreeScanName: { label: "Minh chứng Bằng ĐH / Thẻ SV" },
   transcriptScanName: { label: "Minh chứng Bảng điểm GPA / Học bạ" },
 };
@@ -194,6 +206,39 @@ export default function TutorProfile() {
   // ----------------------------------------------------
   // Academic & Proof File Selection Simulators
   // ----------------------------------------------------
+  function handleAvatarFileUpload(e) {
+    const file = e.target.files?.[0];
+    if (file) {
+      const tempUrl = URL.createObjectURL(file);
+      setFormData((prev) => ({
+        ...prev,
+        avatarFileName: file.name,
+        avatarUrl: tempUrl,
+      }));
+    }
+  }
+
+  function handleVideoFileUpload(e) {
+    const file = e.target.files?.[0];
+    if (file) {
+      const tempUrl = URL.createObjectURL(file);
+      setFormData((prev) => ({
+        ...prev,
+        videoFileName: file.name,
+        videoUrl: tempUrl,
+      }));
+    }
+  }
+
+  function handleRemoveVideo() {
+    setFormData((prev) => ({
+      ...prev,
+      videoFileName: "",
+      videoUrl: "",
+      videoEmbedUrl: "",
+    }));
+  }
+
   function handleProofFileUpload(fieldKey, e) {
     const file = e.target.files?.[0];
     if (file) {
@@ -277,7 +322,7 @@ export default function TutorProfile() {
     const newPendingObj = { ...pendingChanges };
 
     // Check Basic fields
-    const basicKeys = ["subjects", "bio", "serviceAreas", "availability", "phone", "zalo"];
+    const basicKeys = ["subjects", "bio", "serviceAreas", "availability", "phone", "zalo", "videoUrl", "videoFileName", "videoEmbedUrl"];
     basicKeys.forEach((key) => {
       if (JSON.stringify(formData[key]) !== JSON.stringify(approvedProfile[key])) {
         hasBasicChanges = true;
@@ -286,8 +331,9 @@ export default function TutorProfile() {
 
     // Check Important fields & Proof Files
     const importantKeys = [
+      "avatarFileName",
       "qualificationLevel",
-      "experienceYears",
+      "currentRole",
       "birthYear",
       "hometown",
       "currentAddress",
@@ -295,9 +341,6 @@ export default function TutorProfile() {
       "highSchool",
       "graduationScore",
       "academicRank",
-      "idCardNumber",
-      "idCardFrontName",
-      "idCardBackName",
       "degreeScanName",
       "transcriptScanName",
     ];
@@ -340,7 +383,7 @@ export default function TutorProfile() {
       setNotification({
         type: "important",
         title: "Đã cập nhật thông tin & Giấy tờ minh chứng",
-        message: "Thông tin cơ bản đã áp dụng ngay. Lý lịch học tập, giấy tờ CCCD & bằng cấp mới đã được chuyển sang hàng chờ Admin phê duyệt.",
+        message: "Thông tin cơ bản đã áp dụng ngay. Lý lịch học tập, vai trò & bằng cấp mới đã được chuyển sang hàng chờ Admin phê duyệt.",
       });
     } else if (hasBasicChanges) {
       setNotification({
@@ -407,7 +450,7 @@ export default function TutorProfile() {
   function simulateAdminReject() {
     setProfileStatus("rejected");
     setRejectionReason(
-      "Admin phản hồi: Ảnh chụp minh chứng Bằng ĐH / Thẻ Sinh Viên và CCCD chưa rõ nét. Vui lòng tải lại ảnh bản scan đầy đủ 4 góc."
+      "Admin phản hồi: Ảnh chụp minh chứng Bằng ĐH / Thẻ Sinh Viên chưa rõ nét. Vui lòng tải lại ảnh bản scan đầy đủ 4 góc."
     );
     setNotification({
       type: "rejected",
@@ -439,13 +482,6 @@ export default function TutorProfile() {
           newVal: "bang_ngoai_thuong_scan_moi.pdf",
           rawNewVal: "bang_ngoai_thuong_scan_moi.pdf",
         },
-        experienceYears: {
-          fieldKey: "experienceYears",
-          label: "Số năm kinh nghiệm",
-          oldVal: "5 năm",
-          newVal: "6 năm",
-          rawNewVal: 6,
-        },
       };
       const mockPendingCert = [
         {
@@ -466,7 +502,6 @@ export default function TutorProfile() {
         ...prev,
         university: "Đại học Ngoại Thương TP.HCM - Kinh tế đối ngoại",
         degreeScanName: "bang_ngoai_thuong_scan_moi.pdf",
-        experienceYears: 6,
       }));
     } else if (state === "rejected") {
       setProfileStatus("rejected");
@@ -571,7 +606,12 @@ export default function TutorProfile() {
       {/* ---------------------------------------------------- */}
       <PageHeader
         title="Quản lý Hồ sơ Năng lực Gia sư"
-        description="Khai báo thông tin giảng dạy, lý lịch học tập kèm file minh chứng (Bằng ĐH, Bảng điểm, CCCD), bằng cấp khác và thời gian rảnh."
+        description="Khai báo ảnh chân dung rõ mặt, thông tin giảng dạy, vai trò / kinh nghiệm, lý lịch học tập kèm file minh chứng và thời gian rảnh."
+        actions={
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+            <span className="text-rose-500 font-bold text-sm">*</span> Trường bắt buộc
+          </span>
+        }
       />
 
       {/* SYSTEM NOTIFICATION */}
@@ -749,7 +789,7 @@ export default function TutorProfile() {
         <div className="mb-4 flex items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
           <div>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              Môn / Kỹ năng có thể giảng dạy
+              Môn / Kỹ năng có thể giảng dạy <span className="text-rose-500 font-bold ml-0.5">*</span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Chọn các môn hoặc kỹ năng chuyên môn bạn nhận dạy.
@@ -775,16 +815,16 @@ export default function TutorProfile() {
       </Card>
 
       {/* ---------------------------------------------------- */}
-      {/* SECTION 2: GIỚI THIỆU BẢN THÂN (CƠ BẢN ⚡) */}
+      {/* SECTION 2: GIỚI THIỆU BẢN THÂN & Ảnh ĐẠI DIỆN (CƠ BẢN ⚡) */}
       {/* ---------------------------------------------------- */}
       <Card>
         <div className="mb-4 flex items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
           <div>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              Giới thiệu ngắn &amp; Liên hệ
+              Ảnh chân dung, Giới thiệu ngắn &amp; Liên hệ
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Mô tả phương pháp truyền đạt và số điện thoại kết nối.
+              Upload ảnh đại diện gia sư (yêu cầu rõ mặt) và mô tả phương pháp giảng dạy.
             </p>
           </div>
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -792,10 +832,124 @@ export default function TutorProfile() {
           </span>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
+          {/* AVATAR UPLOAD SUB-SECTION */}
+          <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="relative group shrink-0">
+                <img
+                  src={formData.avatarUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80"}
+                  alt="Ảnh chân dung gia sư"
+                  className="h-24 w-24 rounded-2xl object-cover border-2 border-white dark:border-slate-800 shadow-md"
+                />
+                <label className="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-900/50 text-white opacity-0 group-hover:opacity-100 transition cursor-pointer">
+                  <Camera size={20} />
+                  <input
+                    type="file"
+                    onChange={handleAvatarFileUpload}
+                    className="hidden"
+                    accept="image/jpeg,image/png,image/webp"
+                  />
+                </label>
+              </div>
+
+              <div className="space-y-1.5 flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                    Ảnh chân dung gia sư <span className="text-rose-500 font-bold ml-0.5">*</span>
+                  </h3>
+                  {pendingChanges.avatarFileName ? (
+                    <Badge tone="amber">Ảnh mới chờ duyệt</Badge>
+                  ) : (
+                    <Badge tone="emerald">Bắt buộc rõ mặt</Badge>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Ảnh đại diện hiển thị công khai cho Phụ huynh &amp; Học sinh. Bắt buộc chụp <strong>chân dung chính diện, rõ gương mặt, không đeo khẩu trang hoặc kính râm</strong>.
+                </p>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <label className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition cursor-pointer shadow-xs">
+                    <Upload size={13} /> Tải ảnh chân dung mới
+                    <input
+                      type="file"
+                      onChange={handleAvatarFileUpload}
+                      className="hidden"
+                      accept="image/jpeg,image/png,image/webp"
+                    />
+                  </label>
+                  <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                    File: {formData.avatarFileName || "anh_chan_dung_lananh.jpg"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* OPTIONAL VIDEO INTRO SUB-SECTION */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-900/60 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                  <Video size={16} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    Video Giới thiệu &amp; Thử giảng <span className="text-slate-400 font-normal normal-case">(Không bắt buộc)</span>
+                  </h3>
+                </div>
+              </div>
+              <Badge tone="indigo">
+                <Sparkles size={11} className="mr-1" /> Khuyên dùng · Đóng góp 85% ấn tượng
+              </Badge>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Tải lên video ngắn (khoảng 2-5 phút, hoặc dán link bài giảng dài hơn nếu có) để giới thiệu phong cách truyền đạt hoặc bài giảng thử về chủ đề thế mạnh (VD: IELTS Speaking part 2, Ngữ pháp cơ bản). Video giúp phụ huynh &amp; học sinh hình dung rõ nét nhất trước khi nhận lớp.
+            </p>
+
+            <div className="grid gap-3 sm:grid-cols-2 pt-1">
+              {/* Option 1: Direct File Upload */}
+              <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800 space-y-2">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                  <Upload size={13} className="text-blue-500" /> Tải file video trực tiếp (.mp4, .webm)
+                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition cursor-pointer shrink-0">
+                    <Film size={13} /> Chọn file video
+                    <input
+                      type="file"
+                      onChange={handleVideoFileUpload}
+                      className="hidden"
+                      accept="video/mp4,video/webm,video/quicktime"
+                    />
+                  </label>
+                  <span className="truncate text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                    {formData.videoFileName || "Chưa có file video"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Option 2: Paste Video Link */}
+              <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800 space-y-2">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                  <Play size={13} className="text-rose-500" /> Dán đường dẫn link (YouTube, TikTok, Drive...)
+                </span>
+                <input
+                  type="url"
+                  value={formData.videoEmbedUrl || ""}
+                  onChange={(e) => setFormData({ ...formData, videoEmbedUrl: e.target.value })}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  className={inputClass}
+                />
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300">
-              Giới thiệu ngắn bản thân &amp; Phong cách giảng dạy
+              Giới thiệu ngắn bản thân &amp; Phong cách giảng dạy <span className="text-rose-500 font-bold ml-0.5">*</span>
             </label>
             <textarea
               value={formData.bio}
@@ -809,7 +963,7 @@ export default function TutorProfile() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300">
-                Số điện thoại liên hệ
+                Số điện thoại liên hệ <span className="text-rose-500 font-bold ml-0.5">*</span>
               </label>
               <input
                 type="text"
@@ -820,7 +974,7 @@ export default function TutorProfile() {
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300">
-                Số Zalo liên hệ
+                Số Zalo liên hệ <span className="text-rose-500 font-bold ml-0.5">*</span>
               </label>
               <input
                 type="text"
@@ -834,16 +988,16 @@ export default function TutorProfile() {
       </Card>
 
       {/* ---------------------------------------------------- */}
-      {/* SECTION 3: TRÌNH ĐỘ & KINH NGHIỆM (QUAN TRỌNG 🔒) */}
+      {/* SECTION 3: VAI TRÒ & PHÂN LOẠI GIA SƯ (QUAN TRỌNG 🔒) */}
       {/* ---------------------------------------------------- */}
       <Card>
         <div className="mb-4 flex items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
           <div>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50 flex items-center gap-2">
-              Trình độ Phân loại &amp; Kinh nghiệm
+              Vai trò &amp; Phân loại Gia sư
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Thông tin phân loại gia sư chính thức từ hệ thống.
+              Khai báo vai trò hiện tại (Giáo viên, Người đi làm, Sinh viên) và công việc / lĩnh vực công tác.
             </p>
           </div>
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -851,27 +1005,40 @@ export default function TutorProfile() {
           </span>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="space-y-4">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
-              <span>Trình độ phân loại gia sư</span>
+              <span>Vai trò / Đối tượng gia sư <span className="text-rose-500 font-bold ml-0.5">*</span></span>
               {pendingChanges.qualificationLevel && (
                 <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
                   <Clock size={11} /> Chờ duyệt
                 </span>
               )}
             </label>
-            <div className="flex flex-wrap gap-2">
-              {levelOptions.map((o) => (
-                <button
-                  type="button"
-                  key={o.value}
-                  onClick={() => setFormData({ ...formData, qualificationLevel: o.value })}
-                  className={chipClass(formData.qualificationLevel === o.value)}
-                >
-                  {o.label}
-                </button>
-              ))}
+            <div className="grid gap-2.5 sm:grid-cols-3">
+              {levelOptions.map((o) => {
+                const isSelected = formData.qualificationLevel === o.value;
+                return (
+                  <button
+                    type="button"
+                    key={o.value}
+                    onClick={() => setFormData({ ...formData, qualificationLevel: o.value })}
+                    className={clsx(
+                      "flex flex-col items-start rounded-xl border p-3 text-left transition cursor-pointer select-none",
+                      isSelected
+                        ? "border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 dark:border-blue-500 ring-2 ring-blue-500/20"
+                        : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+                    )}
+                  >
+                    <span className={clsx("text-xs font-bold", isSelected ? "text-blue-700 dark:text-blue-300" : "text-slate-800 dark:text-slate-200")}>
+                      {o.label}
+                    </span>
+                    <span className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                      {o.desc}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
             {pendingChanges.qualificationLevel && (
               <p className="mt-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2 rounded border border-amber-200 dark:border-amber-900">
@@ -882,30 +1049,23 @@ export default function TutorProfile() {
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
-              <span>Số năm kinh nghiệm</span>
-              {pendingChanges.experienceYears && (
+              <span>Công việc / Lĩnh vực công tác hiện tại</span>
+              {pendingChanges.currentRole && (
                 <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
                   <Clock size={11} /> Chờ duyệt
                 </span>
               )}
             </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min={0}
-                max={50}
-                value={formData.experienceYears}
-                onChange={(e) => setFormData({ ...formData, experienceYears: e.target.value })}
-                className={clsx(
-                  pendingChanges.experienceYears ? pendingInputClass : inputClass,
-                  "w-32"
-                )}
-              />
-              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">năm kinh nghiệm</span>
-            </div>
-            {pendingChanges.experienceYears && (
-              <p className="mt-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2 rounded border border-amber-200 dark:border-amber-900">
-                Chờ duyệt: <strong>{pendingChanges.experienceYears.newVal}</strong> (Đang hiển thị: {pendingChanges.experienceYears.oldVal})
+            <input
+              type="text"
+              value={formData.currentRole || ""}
+              onChange={(e) => setFormData({ ...formData, currentRole: e.target.value })}
+              placeholder="VD: Software Engineer, Chuyên viên Marketing, Biên phiên dịch..."
+              className={pendingChanges.currentRole ? pendingInputClass : inputClass}
+            />
+            {pendingChanges.currentRole && (
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                Chờ duyệt: <strong>{pendingChanges.currentRole.newVal}</strong>
               </p>
             )}
           </div>
@@ -913,18 +1073,17 @@ export default function TutorProfile() {
       </Card>
 
       {/* ---------------------------------------------------- */}
-      {/* SECTION 4: LÝ LỊCH HỌC TẬP & GIẤY TỜ MINH CHỨNG (QUAN TRỌNG 🔒) */}
-      {/* INTEGRATED ACADEMIC CREDENTIALS + ID VERIFICATION + PROOF FILES */}
+      {/* SECTION 4: LÝ LỊCH HỌC TẬP & FILE MINH CHỨNG (QUAN TRỌNG 🔒) */}
       {/* ---------------------------------------------------- */}
       <Card>
         <div className="mb-4 flex items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
           <div>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50 flex items-center gap-2">
               <GraduationCap size={18} className="text-blue-600" />
-              Lý lịch Học tập, Định danh &amp; Giấy tờ Minh chứng
+              Lý lịch Học tập &amp; File Minh chứng
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Khai báo học vấn kèm ảnh chụp CCCD, Bằng Đại Học / Thẻ Sinh Viên &amp; Bảng điểm để Admin đối soát chính xác.
+              Khai báo học vấn kèm file/ảnh scan Bằng Đại Học / Thẻ Sinh Viên &amp; Bảng điểm để Admin đối soát chính xác.
             </p>
           </div>
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -941,7 +1100,7 @@ export default function TutorProfile() {
           <div className="grid gap-4 xs:grid-cols-2 lg:grid-cols-3">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                <span>Năm sinh / Tuổi</span>
+                <span>Năm sinh / Tuổi <span className="text-rose-500 font-bold ml-0.5">*</span></span>
                 {pendingChanges.birthYear && <span className="text-[11px] text-amber-600 font-medium">Chờ duyệt</span>}
               </label>
               <input
@@ -955,7 +1114,7 @@ export default function TutorProfile() {
 
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                <span>Quê quán</span>
+                <span>Quê quán <span className="text-rose-500 font-bold ml-0.5">*</span></span>
                 {pendingChanges.hometown && <span className="text-[11px] text-amber-600 font-medium">Chờ duyệt</span>}
               </label>
               <input
@@ -969,7 +1128,7 @@ export default function TutorProfile() {
 
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                <span>Nơi ở hiện tại</span>
+                <span>Nơi ở hiện tại <span className="text-rose-500 font-bold ml-0.5">*</span></span>
                 {pendingChanges.currentAddress && <span className="text-[11px] text-amber-600 font-medium">Chờ duyệt</span>}
               </label>
               <input
@@ -997,7 +1156,7 @@ export default function TutorProfile() {
 
             <div>
               <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                <span>Trường ĐH &amp; Chuyên ngành</span>
+                <span>Trường ĐH &amp; Chuyên ngành <span className="text-rose-500 font-bold ml-0.5">*</span></span>
                 {pendingChanges.university && <span className="text-[11px] text-amber-600 font-medium">Chờ duyệt</span>}
               </label>
               <input
@@ -1039,82 +1198,19 @@ export default function TutorProfile() {
           </div>
         </div>
 
-        {/* PART B: PROOF FILES & CCCD INTEGRATION */}
+        {/* PART B: PROOF FILES */}
         <div className="mt-6 space-y-4 border-t border-slate-100 pt-5 dark:border-slate-800">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-            <CreditCard size={15} className="text-blue-600" />
-            2. Giấy tờ Định danh (CCCD) &amp; File Minh chứng Học vấn
+            <FileText size={15} className="text-blue-600" />
+            2. File Minh chứng Học vấn (Bằng ĐH / Thẻ Sinh Viên &amp; Bảng điểm)
           </h3>
 
-          {/* CCCD section */}
           <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3.5 dark:border-slate-800 dark:bg-slate-900/60 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                <CreditCard size={14} className="text-slate-500" /> Xác minh Căn cước công dân (CCCD / CMND)
-              </span>
-              {pendingChanges.idCardNumber && (
-                <Badge tone="amber">Số CCCD mới chờ duyệt</Badge>
-              )}
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300">
-                  Số CCCD / CMND
-                </label>
-                <input
-                  type="text"
-                  value={formData.idCardNumber}
-                  onChange={(e) => setFormData({ ...formData, idCardNumber: e.target.value })}
-                  className={pendingChanges.idCardNumber ? pendingInputClass : inputClass}
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                  <span>Mặt trước CCCD</span>
-                  {pendingChanges.idCardFrontName && <span className="text-[10px] text-amber-600 font-bold">Chờ duyệt</span>}
-                </label>
-                <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-2 text-xs dark:border-slate-700 dark:bg-slate-800">
-                  <span className="truncate font-mono text-slate-600 dark:text-slate-300">
-                    {formData.idCardFrontName}
-                  </span>
-                  <label className="cursor-pointer text-blue-600 hover:underline text-[11px] font-semibold shrink-0 ml-1">
-                    Đổi
-                    <input type="file" onChange={(e) => handleProofFileUpload("idCardFrontName", e)} className="hidden" accept="image/*,.pdf" />
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                  <span>Mặt sau CCCD</span>
-                  {pendingChanges.idCardBackName && <span className="text-[10px] text-amber-600 font-bold">Chờ duyệt</span>}
-                </label>
-                <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-2 text-xs dark:border-slate-700 dark:bg-slate-800">
-                  <span className="truncate font-mono text-slate-600 dark:text-slate-300">
-                    {formData.idCardBackName}
-                  </span>
-                  <label className="cursor-pointer text-blue-600 hover:underline text-[11px] font-semibold shrink-0 ml-1">
-                    Đổi
-                    <input type="file" onChange={(e) => handleProofFileUpload("idCardBackName", e)} className="hidden" accept="image/*,.pdf" />
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Academic Proof Documents Upload */}
-          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3.5 dark:border-slate-800 dark:bg-slate-900/60 space-y-3">
-            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-              <FileText size={14} className="text-slate-500" /> File Minh chứng Học vấn (Bằng ĐH / Thẻ Sinh Viên &amp; Bảng điểm)
-            </span>
-
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Degree / Student ID Scan */}
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                  <span>Minh chứng Bằng Tốt Nghiệp ĐH / Thẻ Sinh Viên</span>
+                  <span>Minh chứng Bằng Tốt Nghiệp ĐH / Thẻ Sinh Viên <span className="text-rose-500 font-bold ml-0.5">*</span></span>
                   {pendingChanges.degreeScanName ? (
                     <span className="text-[10px] font-bold text-amber-600">File mới chờ duyệt</span>
                   ) : (
@@ -1164,16 +1260,16 @@ export default function TutorProfile() {
       </Card>
 
       {/* ---------------------------------------------------- */}
-      {/* SECTION 5: BẰNG CẤP & CHỨNG CHỈ KHÁC (QUAN TRỌNG 🔒) */}
+      {/* SECTION 5: BẰNG CẤP & CHỨNG CHỈ (QUAN TRỌNG 🔒) */}
       {/* ---------------------------------------------------- */}
       <Card>
         <div className="mb-4 flex items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
           <div>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              Chứng chỉ Chuyên môn Khác (IELTS, TESOL...)
+              Chứng chỉ và thành tích đặc biệt
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Danh sách văn bằng, chứng chỉ ngoại ngữ hoặc kỹ năng bổ sung đính kèm.
+              Danh sách văn bằng, chứng chỉ ngoại ngữ (IELTS, TESOL...), giải thưởng hoặc thành tích đặc biệt đính kèm.
             </p>
           </div>
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -1275,14 +1371,14 @@ export default function TutorProfile() {
         {/* Add cert form */}
         <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/50 space-y-3">
           <h3 className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-            <Plus size={14} className="text-blue-600" /> Thêm chứng chỉ khác:
+            <Plus size={14} className="text-blue-600" /> Thêm chứng chỉ / thành tích đặc biệt:
           </h3>
 
           <div className="grid gap-3 sm:grid-cols-3">
             <input
               value={certForm.name}
               onChange={(e) => setCertForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Tên bằng cấp (VD: IELTS 8.0)"
+              placeholder="Tên chứng chỉ / thành tích (VD: IELTS 8.0, Giải Nhất HSG...)"
               className={inputClass}
             />
             <input
@@ -1326,7 +1422,7 @@ export default function TutorProfile() {
         <div className="mb-4 flex items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
           <div>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              Khu vực nhận lớp &amp; Hình thức dạy
+              Khu vực nhận lớp &amp; Hình thức dạy <span className="text-rose-500 font-bold ml-0.5">*</span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Khu vực di chuyển giảng dạy hoặc chọn dạy Online.
@@ -1384,7 +1480,7 @@ export default function TutorProfile() {
         <div className="p-5 pb-3 flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800">
           <div>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              Lịch rảnh có thể nhận lớp mới
+              Lịch rảnh có thể nhận lớp mới <span className="text-rose-500 font-bold ml-0.5">*</span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Chọn các khung giờ bạn rảnh để tiếp nhận lớp học sinh mới.

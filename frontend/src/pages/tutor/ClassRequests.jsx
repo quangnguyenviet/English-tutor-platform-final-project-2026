@@ -25,6 +25,10 @@ import {
   User,
   UserCheck,
   DollarSign,
+  Send,
+  FileText,
+  ThumbsUp,
+  XCircle,
 } from "lucide-react";
 import { classRequests as initialRequests } from "../../data/mockData";
 import PageHeader from "../../components/ui/PageHeader";
@@ -37,26 +41,28 @@ import clsx from "clsx";
 // Các bước trong tiến trình Post-paid 30 ngày
 const trackSteps = [
   { key: "pending_offer", label: "Nhận Match Offer" },
-  { key: "unlocked_trial_setup", label: "Mở Khóa SĐT & Hẹn Học Thử" },
-  { key: "in_trial", label: "Đang Học Thử" },
-  { key: "active_pay_later", label: "Kích Hoạt Lớp (Phí Hạn 30d)" },
-  { key: "completed_paid", label: "Admin Xác Nhận Phí & Hoàn Tất" },
+  { key: "unlocked_schedule_setup", label: "Mở Khóa SĐT & Chốt Lịch Học" },
+  { key: "in_trial", label: "Buổi 1 Học Thử" },
+  { key: "active_pay_later", label: "Kích Hoạt Lớp (Hạn Phí 30d)" },
+  { key: "completed_paid", label: "Admin Duyệt Phí & Hoàn Tất" },
 ];
 
 const statusMeta = {
   pending_offer: { label: "Match Offer Mới", tone: "amber" },
-  unlocked_trial_setup: { label: "Đã Mở Khóa SĐT - Chờ Hẹn Học Thử", tone: "blue" },
-  in_trial: { label: "Đang Học Thử", tone: "violet" },
+  unlocked_schedule_setup: { label: "Đã Mở Khóa SĐT - Chờ Lên Lịch Học", tone: "blue" },
+  unlocked_trial_setup: { label: "Đã Mở Khóa SĐT - Chờ Lên Lịch Học", tone: "blue" },
+  in_trial: { label: "Đang Học (Buổi 1 Học Thử)", tone: "violet" },
   active_pay_later: { label: "Đang Dạy (Hạn Nộp Phí 30 Ngày)", tone: "emerald" },
   waiting_fee_approval: { label: "Đang Chờ Admin Duyệt Phí", tone: "amber" },
   completed_paid: { label: "Đã Hoàn Tất Nghĩa Vụ Phí", tone: "emerald" },
+  trial_failed: { label: "Hủy Sau Buổi 1 (Miễn Phí 30%)", tone: "rose" },
   rejected: { label: "Đã Từ Chối", tone: "rose" },
 };
 
 function StatusTrack({ status }) {
   let activeIndex = 0;
   if (status === "pending_offer") activeIndex = 0;
-  else if (status === "unlocked_trial_setup") activeIndex = 1;
+  else if (status === "unlocked_schedule_setup" || status === "unlocked_trial_setup") activeIndex = 1;
   else if (status === "in_trial") activeIndex = 2;
   else if (status === "active_pay_later") activeIndex = 3;
   else if (status === "waiting_fee_approval" || status === "completed_paid") activeIndex = 4;
@@ -134,13 +140,18 @@ export default function ClassRequests() {
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
 
-  // States cho Form Lịch học thử
-  const [trialDate, setTrialDate] = useState("2026-09-18");
-  const [trialTime, setTrialTime] = useState("19:30 - 21:00");
-  const [trialNote, setTrialNote] = useState("Chuẩn bị tài liệu kiểm tra trình độ đầu vào & tạo không khí thoải mái.");
+  // Modal Cam kết 1-Click ở Bước 1
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [consentAgreed, setConsentAgreed] = useState(false);
 
-  // States cho Form Lịch cố định
+  // States cho Lịch học & Ngày khai giảng
+  const [startDate, setStartDate] = useState("2026-09-22");
   const [fixedSchedule, setFixedSchedule] = useState("Thứ 3 - Thứ 5 (19:00 - 20:30)");
+
+  // State cho Thất bại Buổi 1 ở Bước 3
+  const [showTrialFailForm, setShowTrialFailForm] = useState(false);
+  const [trialFailReason, setTrialFailReason] = useState("ph_change_mind");
+  const [trialFailNote, setTrialFailNote] = useState("");
 
   // State cho VietQR Modal
   const [showQrModal, setShowQrModal] = useState(false);
@@ -153,15 +164,19 @@ export default function ClassRequests() {
     setRejecting(false);
     setRejectReason("");
     setReceiptUploaded(false);
+    setShowConsentModal(false);
+    setShowTrialFailForm(false);
   }
 
   function updateSelected(patch) {
     setRequests((prev) => prev.map((r) => (r.id === selectedId ? { ...r, ...patch } : r)));
   }
 
-  // 1. Chấp nhận Offer -> Mở khóa liên hệ ngay lập tức
+  // 1. Chấp nhận Offer -> Mở khóa liên hệ ngay lập tức (Sau khi đồng ý Cam kết 1-Click)
   function acceptOffer() {
-    updateSelected({ status: "unlocked_trial_setup" });
+    updateSelected({ status: "unlocked_schedule_setup" });
+    setShowConsentModal(false);
+    setConsentAgreed(false);
     if (filterTab === "pending") {
       setFilterTab("all");
     }
@@ -175,16 +190,16 @@ export default function ClassRequests() {
     setRejectReason("");
   }
 
-  // 2. Chốt Lịch học thử -> In Trial
-  function confirmTrialSetup() {
+  // 2. Chốt Lịch học chính thức (Buổi 1 tự động là học thử) -> In Trial
+  function confirmScheduleSetup() {
     updateSelected({
       status: "in_trial",
-      trialDate,
-      trialTime,
+      fixedSchedule,
+      startDate,
     });
   }
 
-  // 3. Học thử thành công -> Kích hoạt Lớp chính thức (Pay-Later 30 ngày)
+  // 3a. Buổi 1 học thử thành công -> Kích hoạt Lớp chính thức (Pay-Later 30 ngày)
   function activateOfficialClass() {
     updateSelected({
       status: "active_pay_later",
@@ -193,6 +208,16 @@ export default function ClassRequests() {
       feeDueDate: "2026-10-15",
       daysRemaining: 30,
     });
+  }
+
+  // 3b. Buổi 1 học thử thất bại / PH Hủy -> Miễn phí 30%, lưu vết
+  function confirmTrialFail() {
+    updateSelected({
+      status: "trial_failed",
+      trialFailReason,
+      trialFailNote,
+    });
+    setShowTrialFailForm(false);
   }
 
   // 4. Gửi minh chứng VietQR -> Waiting Approval
@@ -215,9 +240,9 @@ export default function ClassRequests() {
   // Filtering
   const filteredRequests = requests.filter((r) => {
     if (filterTab === "pending") return r.status === "pending_offer";
-    if (filterTab === "in_trial") return r.status === "unlocked_trial_setup" || r.status === "in_trial";
+    if (filterTab === "in_trial") return r.status === "unlocked_schedule_setup" || r.status === "unlocked_trial_setup" || r.status === "in_trial";
     if (filterTab === "active") return r.status === "active_pay_later" || r.status === "waiting_fee_approval";
-    if (filterTab === "completed") return r.status === "completed_paid" || r.status === "rejected";
+    if (filterTab === "completed") return r.status === "completed_paid" || r.status === "rejected" || r.status === "trial_failed";
     return true;
   });
 
@@ -340,7 +365,7 @@ export default function ClassRequests() {
               </div>
 
               {/* Progress Stepper 5 bước */}
-              {selected.status !== "rejected" && (
+              {selected.status !== "rejected" && selected.status !== "trial_failed" && (
                 <div className="rounded-xl bg-slate-50 p-4 border border-slate-200/60 dark:bg-slate-900/60 dark:border-slate-800">
                   <StatusTrack status={selected.status} />
                 </div>
@@ -372,7 +397,7 @@ export default function ClassRequests() {
                       ✨ Nhấn nút <strong>"Chấp nhận Offer & Mở khóa SĐT"</strong> bên dưới để hiển thị SĐT & số nhà đầy đủ ngay lập tức mà không phải thanh toán trước!
                     </p>
                   </div>
-                ) : selected.status !== "rejected" ? (
+                ) : selected.status !== "rejected" && selected.status !== "trial_failed" ? (
                   <div className="rounded-lg bg-emerald-50/90 p-4 border border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900/60 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200 font-bold text-sm">
@@ -426,7 +451,7 @@ export default function ClassRequests() {
                     variant="primary"
                     size="lg"
                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-600/25 border-none px-6 py-3 rounded-xl transition-all transform active:scale-95"
-                    onClick={acceptOffer}
+                    onClick={() => setShowConsentModal(true)}
                   >
                     <Check size={20} className="stroke-[3]" /> Chấp Nhận Offer & Mở Khóa SĐT Ngay
                   </Button>
@@ -461,15 +486,15 @@ export default function ClassRequests() {
                 </div>
               )}
 
-              {/* 2. Trạng thái: UNLOCKED_TRIAL_SETUP (Đã mở khóa SĐT, chọn ngày học thử) */}
-              {selected.status === "unlocked_trial_setup" && (
+              {/* 2. Trạng thái: UNLOCKED_SCHEDULE_SETUP (Đã mở khóa SĐT, chọn Lịch học chính thức) */}
+              {(selected.status === "unlocked_schedule_setup" || selected.status === "unlocked_trial_setup") && (
                 <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-900/60 dark:bg-blue-950/30 space-y-4">
                   {/* Banner Tự động Thêm Học Sinh */}
                   <div className="rounded-lg bg-emerald-100/80 p-3 border border-emerald-200/80 dark:bg-emerald-950/60 dark:border-emerald-900 text-xs font-medium text-emerald-900 dark:text-emerald-200 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
                       <UserCheck size={18} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
                       <span>
-                        Học sinh <strong>{selected.studentName}</strong> đã được tự động thêm vào <strong>Danh sách học sinh của tôi</strong> với nhãn 🧪 <em>Đang học thử</em>.
+                        Học sinh <strong>{selected.studentName}</strong> đã được tự động thêm vào <strong>Danh sách học sinh của tôi</strong>.
                       </span>
                     </div>
                     <Link
@@ -482,84 +507,159 @@ export default function ClassRequests() {
 
                   <div className="flex items-center gap-2 text-blue-900 dark:text-blue-200 font-bold text-sm">
                     <Calendar size={18} className="text-blue-600 dark:text-blue-400" />
-                    Bước 2: Gọi Điện Phụ Huynh & Chốt Lịch Học Thử
+                    Bước 2: Gọi Điện Phụ Huynh &amp; Chốt Lịch Học Chính Thức
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
-                        Ngày dạy học thử
+                        Lịch học cố định hàng tuần
                       </label>
                       <input
-                        type="date"
-                        value={trialDate}
-                        onChange={(e) => setTrialDate(e.target.value)}
+                        type="text"
+                        value={fixedSchedule}
+                        onChange={(e) => setFixedSchedule(e.target.value)}
+                        placeholder="Ví dụ: Thứ 3 &amp; Thứ 5 (19:00 - 20:30)"
                         className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 dark:border-slate-800 dark:bg-slate-900"
                       />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
-                        Khung giờ dạy thử
+                        Ngày bắt đầu học (Buổi 1 học thử)
                       </label>
                       <input
-                        type="text"
-                        value={trialTime}
-                        onChange={(e) => setTrialTime(e.target.value)}
-                        placeholder="Ví dụ: 19:30 - 21:00"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
                         className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 dark:border-slate-800 dark:bg-slate-900"
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
-                      Ghi chú nội dung buổi học thử
-                    </label>
-                    <input
-                      type="text"
-                      value={trialNote}
-                      onChange={(e) => setTrialNote(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 dark:border-slate-800 dark:bg-slate-900"
-                    />
-                  </div>
-
-                  <Button variant="primary" size="md" onClick={confirmTrialSetup}>
-                    <Check size={16} /> Xác Nhận Lịch Học Thử & Bắt Đầu
+                  <Button variant="primary" size="md" onClick={confirmScheduleSetup}>
+                    <Check size={16} /> Chốt Lịch Học
                   </Button>
                 </div>
               )}
 
-              {/* 3. Trạng thái: IN_TRIAL (Đang dạy thử) */}
+              {/* 3. Trạng thái: IN_TRIAL (Đang học - Buổi 1 học thử & Telegram Notification Mockup) */}
               {selected.status === "in_trial" && (
-                <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-4 dark:border-violet-900/60 dark:bg-violet-950/30 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-violet-900 dark:text-violet-200 font-bold text-sm">
-                      <Clock size={18} className="text-violet-600 dark:text-violet-400" />
-                      Bước 3: Lớp Đang Học Thử
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-4 dark:border-violet-900/60 dark:bg-violet-950/30 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-violet-900 dark:text-violet-200 font-bold text-sm">
+                        <Clock size={18} className="text-violet-600 dark:text-violet-400" />
+                        Bước 3: Lớp Đang Học (Buổi 1 Học Thử)
+                      </div>
+                      <Badge tone="violet">Lịch học: {selected.fixedSchedule || fixedSchedule}</Badge>
                     </div>
-                    <Badge tone="violet">Lịch: {selected.trialDate || trialDate} ({selected.trialTime || trialTime})</Badge>
+
+                    <div className="rounded-lg bg-white p-3 dark:bg-slate-900 border border-violet-100 dark:border-violet-900/50 space-y-1 text-xs">
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">
+                        📅 Ngày dạy buổi 1: <span className="text-violet-600 dark:text-violet-400 font-bold">{selected.startDate || selected.trialDate || startDate}</span>
+                      </p>
+                      <p className="text-slate-600 dark:text-slate-400">
+                        Buổi 1 là buổi học thử chính thức. Sau khi hoàn thành buổi học, gia sư có thể bấm nút xác nhận bên dưới hoặc tương tác 1 chạm qua thông báo Telegram Bot tự động.
+                      </p>
+                    </div>
+
+                    {/* TELEGRAM BOT PUSH NOTIFICATION SIMULATION CARD */}
+                    <div className="rounded-xl border border-sky-300 bg-gradient-to-r from-sky-50 via-blue-50 to-indigo-50 p-4 shadow-sm dark:border-sky-900/80 dark:from-slate-900 dark:via-sky-950/40 dark:to-slate-900 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-500 text-white shadow-sm">
+                            <Send size={14} className="-ml-0.5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-sky-950 dark:text-sky-200 flex items-center gap-1.5">
+                              Telegram Push Bot Notification <Badge tone="blue" className="text-[9px]">Demo Interactive Push</Badge>
+                            </p>
+                            <p className="text-[10px] text-sky-700 dark:text-sky-300">Tự động kích hoạt lúc 21:00 tối ngày dạy Buổi 1</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg bg-white/90 p-3 text-xs text-slate-700 dark:bg-slate-900/90 dark:text-slate-200 border border-sky-100 dark:border-sky-900/50 space-y-1">
+                        <p className="font-bold text-sky-900 dark:text-sky-300">
+                          🔔 [TUTOR BOT] Hôm nay bạn vừa dạy xong Buổi 1 lớp {selected.subject}!
+                        </p>
+                        <p className="text-slate-600 dark:text-slate-400">
+                          Hãy chọn phản hồi nhanh bên dưới để cập nhật trạng thái lớp:
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                        <Button
+                          variant="primary"
+                          size="md"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-600/20 border-none"
+                          onClick={activateOfficialClass}
+                        >
+                          <ThumbsUp size={16} /> 👍 Buổi 1 Thành Công ➔ Kích Hoạt Hạn Phí 30 Ngày
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="md"
+                          className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/40 font-semibold"
+                          onClick={() => setShowTrialFailForm(true)}
+                        >
+                          <XCircle size={16} /> ⚠️ Buổi 1 Thất Bại / PH Hủy Lớp
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Modal/Form Khai báo Buổi 1 Thất bại */}
+                    {showTrialFailForm && (
+                      <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-4 dark:border-rose-900/70 dark:bg-rose-950/40 space-y-3">
+                        <div className="flex items-center gap-2 text-rose-900 dark:text-rose-200 font-bold text-sm">
+                          <AlertTriangle size={18} className="text-rose-600 dark:text-rose-400" />
+                          Khai báo Buổi 1 Không Thành Công (Miễn 100% Phí 30%)
+                        </div>
+                        <p className="text-xs text-rose-800/90 dark:text-rose-300/90">
+                          Hệ thống sẽ ghi nhận lý do và hủy nghĩa vụ đóng phí nhận lớp này cho bạn. Admin sẽ hỗ trợ ưu tiên ghép lớp mới phù hợp hơn.
+                        </p>
+
+                        <div className="space-y-2">
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                            Vui lòng chọn lý do chính:
+                          </label>
+                          <select
+                            value={trialFailReason}
+                            onChange={(e) => setTrialFailReason(e.target.value)}
+                            className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs outline-none focus:border-rose-400 dark:border-slate-800 dark:bg-slate-900"
+                          >
+                            <option value="ph_change_mind">Phụ huynh đổi ý / Thay đổi kế hoạch học tập</option>
+                            <option value="not_matching_style">Học sinh không phù hợp phương pháp giảng dạy</option>
+                            <option value="schedule_conflict">Lịch dạy thực tế phát sinh trùng khớp lịch khác</option>
+                            <option value="tuition_issue">Vấn đề thỏa thuận học phí với phụ huynh</option>
+                            <option value="other">Lý do khác</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Ghi chú bổ sung cho Admin (nếu có):
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={trialFailNote}
+                            onChange={(e) => setTrialFailNote(e.target.value)}
+                            placeholder="Mô tả chi tiết để Admin hỗ trợ ghép lớp mới..."
+                            className="w-full resize-none rounded-lg border border-slate-200 bg-white p-2.5 text-xs outline-none focus:border-rose-400 dark:border-slate-800 dark:bg-slate-900"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <Button variant="danger" size="sm" onClick={confirmTrialFail}>
+                            <Check size={14} /> Xác Nhận Khai Báo Hủy Lớp
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setShowTrialFailForm(false)}>
+                            Đóng
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-
-                  <p className="text-xs text-violet-900/80 dark:text-violet-200/80">
-                    Sau khi hoàn thành buổi học thử với học sinh <strong>{selected.studentName}</strong>, hãy thiết lập lịch dạy cố định bên dưới để kích hoạt lớp chính thức.
-                  </p>
-
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      Thiết lập Lịch dạy cố định hàng tuần
-                    </label>
-                    <input
-                      type="text"
-                      value={fixedSchedule}
-                      onChange={(e) => setFixedSchedule(e.target.value)}
-                      placeholder="Ví dụ: Thứ 3 & Thứ 5 (19:00 - 20:30)"
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-400 dark:border-slate-800 dark:bg-slate-900"
-                    />
-                  </div>
-
-                  <Button variant="primary" size="md" onClick={activateOfficialClass}>
-                    <GraduationCap size={16} /> Học Thử Thành Công ➔ Kích Hoạt Lớp Chính Thức
-                  </Button>
                 </div>
               )}
 
@@ -637,6 +737,25 @@ export default function ClassRequests() {
                 </div>
               )}
 
+              {/* Trạng thái: TRIAL_FAILED (Buổi 1 không thành công) */}
+              {selected.status === "trial_failed" && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-4 dark:border-rose-900/60 dark:bg-rose-950/30 space-y-2">
+                  <div className="flex items-center gap-2 text-rose-900 dark:text-rose-200 font-bold text-sm">
+                    <XCircle size={18} className="text-rose-600 dark:text-rose-400" />
+                    Lớp Học Đã Hủy Sau Buổi 1 (Miễn 100% Phí Giới Thiệu)
+                  </div>
+                  <p className="text-xs text-slate-700 dark:text-slate-300">
+                    <strong>Lý do khai báo:</strong> {selected.trialFailReason === "ph_change_mind" ? "Phụ huynh đổi ý / Thay đổi kế hoạch" : selected.trialFailReason || "Phụ huynh hủy sau buổi học thử."}
+                  </p>
+                  {selected.trialFailNote && (
+                    <p className="text-xs text-slate-500 italic">Ghi chú: "{selected.trialFailNote}"</p>
+                  )}
+                  <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold pt-1">
+                    💚 Hệ thống đã tự động miễn phí 30% cho lớp này. Ban quản trị sẽ sớm liên hệ gợi ý danh sách lớp mới cho bạn!
+                  </p>
+                </div>
+              )}
+
               {/* Trạng thái: REJECTED */}
               {selected.status === "rejected" && (
                 <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-4 dark:border-rose-900/60 dark:bg-rose-950/30 space-y-2">
@@ -650,6 +769,71 @@ export default function ClassRequests() {
           )}
         </div>
       </div>
+
+      {/* MODAL CAM KẾT 1-CLICK Ở BƯỚC 1 (SMART CONSENT MODAL) */}
+      {showConsentModal && selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 space-y-5 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <FileText className="text-emerald-600 dark:text-emerald-400" size={20} />
+                <h4 className="font-bold text-slate-900 dark:text-slate-50 text-base">Cam Kết Điều Khoản Nhận Lớp (Post-Paid)</h4>
+              </div>
+              <button onClick={() => setShowConsentModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
+              <p className="font-semibold text-slate-800 dark:text-slate-100">
+                Bằng việc chấp nhận nhận lớp <span className="text-emerald-600 dark:text-emerald-400 font-bold">{selected.subject}</span> ({selected.studentName}), bạn đồng ý với các cam kết sau:
+              </p>
+
+              <div className="rounded-xl bg-slate-50 p-3.5 dark:bg-slate-800/60 space-y-2 border border-slate-100 dark:border-slate-800 text-[11px]">
+                <div className="flex items-start gap-2">
+                  <Check size={14} className="mt-0.5 text-emerald-600 shrink-0" />
+                  <span><strong>Mở khóa 100% SĐT & Địa chỉ:</strong> Được hiển thị thông tin liên hệ phụ huynh ngay lập tức mà chưa cần đóng phí.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check size={14} className="mt-0.5 text-emerald-600 shrink-0" />
+                  <span><strong>Hạn nộp phí 30 ngày:</strong> Phí nhận lớp (30% học phí tháng đầu) sẽ được tính từ ngày kích hoạt lớp chính thức.</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check size={14} className="mt-0.5 text-emerald-600 shrink-0" />
+                  <span><strong>Miễn phí khi buổi 1 thất bại:</strong> Nếu Phụ huynh hủy sau buổi 1, bạn được miễn 100% phí khi khai báo trên hệ thống.</span>
+                </div>
+              </div>
+
+              <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={consentAgreed}
+                  onChange={(e) => setConsentAgreed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-tight">
+                  Tôi đã đọc, hiểu rõ và cam kết thực hiện đúng nghĩa vụ phí giới thiệu theo chính sách Post-paid.
+                </span>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <Button variant="ghost" size="sm" onClick={() => setShowConsentModal(false)}>
+                Hủy
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                disabled={!consentAgreed}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                onClick={acceptOffer}
+              >
+                <Unlock size={16} /> Đồng Ý &amp; Mở Khóa SĐT Ngay
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL THANH TOÁN VIETQR PENDING FEE */}
       {showQrModal && selected && (
