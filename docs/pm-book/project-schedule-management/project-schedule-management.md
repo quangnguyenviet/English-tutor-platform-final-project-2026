@@ -194,7 +194,7 @@ gantt
 | ------- | --------------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------- |
 | 3.1 | Enrollment, Match Offer acceptance (Unlock SĐT & Địa chỉ Phụ huynh), QR proof payment sau 30 ngày dạy | API CRUD tương ứng | Gia sư chấp nhận Match Offer → hệ thống unlock liên hệ Phụ huynh; nộp ảnh QR proof sau 30 ngày dạy thành công |
 | 3.3 | **Quản lý Buổi học thực tế & Nhật ký dạy học (Daily Lesson Sessions & Public Class Log Work - FR-40)** | API CRUD Session & Log Work, upload S3 | Gia sư tạo dòng thời gian buổi học thực tế, điền 1 vùng văn bản Log Work dùng chung 3 bên minh bạch và đính kèm tài liệu S3 |
-| 3.5 | Rate Card, Private Notes, Lịch dạy, Đổi lịch/Báo nghỉ, Lịch học thử & Cố định (`ACTIVE`), Upload tài liệu S3 (FR-21, FR-25→FR-29) | API tương ứng + UI | Cấu hình lịch học thử & chốt lịch cố định (`ACTIVE`); đổi lịch, upload tài liệu S3 hoạt động |
+| 3.5 | Rate Card, Private Notes, Lịch dạy, Lịch học thử & Cố định (`ACTIVE`), Upload tài liệu S3 (FR-21, FR-25→FR-29) | API tương ứng + UI | Cấu hình lịch học thử & chốt lịch cố định (`ACTIVE`), upload tài liệu S3 hoạt động |
 | 3.2 | Quản lý Khung chương trình thủ công (Non-AI Curriculum Management) | API + UI Khung chương trình cơ bản | Gia sư tạo & chỉnh sửa khung chương trình thủ công 2 cấp |
 
 ## Tuần 6 — Student SKP & Spaced Repetition (Core Personalization) (12/10 – 18/10/2026) — **M3**

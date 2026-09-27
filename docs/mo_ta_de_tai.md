@@ -32,7 +32,7 @@ Hệ thống được thiết kế theo 5 cổng người dùng (Parent, Tutor, 
   - **Main Canvas (Trái - 65%):** Hiển thị danh sách câu hỏi xem trước, hỗ trợ chỉnh sửa inline trực tiếp nội dung/đáp án/giải thích trước khi bấm "Duyệt & Giao bài".
   - **Assistance Dock (Phải - 35%):** Gồm Tab 1 (Form cấu hình tham số, tự động nạp Context của Buổi học N & SKP học sinh để AI sinh bài tập) và Tab 2 (Chat Freestyle Co-pilot cho phép gia sư ra lệnh điều chỉnh, làm khó/dễ hoặc đổi chủ đề câu hỏi). Hỗ trợ chế độ Import File 0 Token Cost (Option B).
 - **Xem báo cáo Student Knowledge Profile & Private Notes:** Theo dõi chi tiết điểm thành thạo Elo (`mastery_score`), các dạng lỗi hay mắc và ghi chú riêng bảo mật về thói quen học sinh.
-- **Quản lý thời khóa biểu, Đổi lịch/Báo nghỉ & Nộp phí 30 ngày:** Quản lý lịch dạy, đổi lịch/báo nghỉ, cập nhật Rate Card và nộp ảnh chụp QR proof chuyển khoản phí nhận lớp sau 30 ngày dạy chính thức.
+- **Quản lý thời khóa biểu, Rate Card & Nộp phí 30 ngày:** Quản lý lịch dạy cố định, cập nhật Rate Card và nộp ảnh chụp QR proof chuyển khoản phí nhận lớp sau 30 ngày dạy chính thức.
 
 ### Cổng Học sinh
 

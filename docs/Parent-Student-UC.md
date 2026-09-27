@@ -860,7 +860,7 @@ Use Case kết thúc.
 | **UC-P04** | Tra cứu thông tin, Bảng giá & FAQ | Phụ huynh | **FR-4**: Tra cứu FAQ và Thông tin trung tâm | Vision, JTBD |
 | **UC-P05** | Tra cứu tiến độ định lượng của con | Phụ huynh | **FR-15, Vision**: Báo cáo định lượng phụ huynh | Section 1, JTBD 2.1 |
 | **UC-P06** | Gửi yêu cầu đổi gia sư (Rematch)/Khiếu nại | Phụ huynh | **FR-37**: Xử lý khiếu nại (Receptionist/Parent) | UJ-1, FR-37 |
-| **UC-S01** | Bảng điều khiển & Lịch học cá nhân | Học sinh | **FR-26, FR-28**: Lịch học & Đổi lịch | UJ-3 |
+| **UC-S01** | Bảng điều khiển & Lịch học cá nhân | Học sinh | **FR-26, FR-28**: Lịch học cá nhân | UJ-3 |
 | **UC-S02** | Làm bài tập Luyện tập + Giải thích AI | Học sinh | **FR-11, FR-12, FR-13**: Per-question mode | UJ-3 |
 | **UC-S03** | Làm bài kiểm tra năng lực định kỳ | Học sinh | **FR-11, FR-12, FR-13**: Submit-all mode | UJ-3 |
 | **UC-S04** | Ôn tập ngắt quãng Spaced Repetition | Học sinh | **FR-39**: Spaced Repetition (SM-2 Algorithm) | UJ-3 |
