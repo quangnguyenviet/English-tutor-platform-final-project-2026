@@ -14,48 +14,38 @@ Hệ thống của nhóm ứng dụng AI để hỗ trợ quá trình dạy và 
 
 ## 2. Các chức năng chính dự định phát triển
 
-Hệ thống được thiết kế theo 4 cổng người dùng dành cho 4 nhóm đối tượng:
+Hệ thống được thiết kế theo 5 cổng người dùng (Parent, Tutor, Student, Admin, Receptionist) phục vụ đầy đủ quy trình vận hành và giảng dạy:
 
 ### Cổng Phụ huynh
 
-- **Tìm kiếm & Xem hồ sơ gia sư phù hợp:** Phụ huynh chọn các tiêu chí (độ tuổi/trình độ/mục tiêu của con, yêu cầu về gia sư, khung giờ rảnh trong tuần), hệ thống tự động trả về danh sách các hồ sơ gia sư phù hợp nhất (kèm thông tin kinh nghiệm và video tự giới thiệu) để phụ huynh tham khảo và lựa chọn.
+- **Tìm kiếm & Xem hồ sơ gia sư phù hợp (Smart-Match Form):** Phụ huynh chọn các tiêu chí (độ tuổi/trình độ/mục tiêu của con, yêu cầu gia sư, khung giờ rảnh trong tuần), hệ thống tự động trả về danh sách các hồ sơ gia sư phù hợp nhất kèm thông tin kinh nghiệm và video tự giới thiệu.
 - **Đăng ký học thử đơn giản:** Phụ huynh chọn gia sư ưng ý và hoàn tất đăng ký học thử nhanh chóng qua tin nhắn xác thực SĐT.
-- **Tra cứu thông tin minh bạch:** Dễ dàng tìm hiểu thông tin trung tâm cùng các giải đáp thường gặp về chính sách học thử và bảo đảm chất lượng.
+- **Tra cứu thông tin & Xem Báo cáo Nhật ký bài học từng buổi (Public Class Log Work):** Phụ huynh dễ dàng tra cứu FAQ trung tâm và xem minh bạch Nhật ký dạy học từng buổi do Gia sư ghi nhận (kiến thức đã học, dặn dò, thái độ học tập) giúp theo dõi tiến bộ thực chất của con mà không làm phiền giờ học.
 
 ### Cổng Gia sư
 
-- **Nhận lớp & Liên hệ phụ huynh ngay:** Tiếp nhận và phản hồi các đề nghị nhận lớp từ trung tâm. Ngay khi đồng ý nhận lớp, gia sư sẽ thấy thông tin liên hệ của phụ huynh để chủ động gọi điện sắp xếp buổi học thử.
-- **Quản lý lịch học thử & Lịch dạy cố định:** Nhập thời gian học thử và chốt lịch dạy cố định hàng tuần sau khi nhận lớp thành công. Lịch dạy sẽ tự động hiển thị trên thời khóa biểu.
-- **Xây dựng khung chương trình học nhanh chóng (Curriculum Management Dual-Mode):** Dễ dàng tạo và sắp xếp lộ trình bài học tinh gọn 2 cấp (Chủ đề/Chương ➔ Bài học). Gia sư có thể tự nhập thủ công hoặc linh hoạt sử dụng cơ chế **Dual-Mode**:
-  - **Option A (Direct AI Generation):** Nhập trình độ, mục tiêu của học sinh để AI sinh trực tiếp nháp khung bài giảng 2 cấp trên hệ thống chỉ trong 3–5 giây.
-  - **Option B (Import Structured File):** Tải Prompt Mẫu dán vào các Web AI ngoài (ChatGPT, Claude...) và import file JSON/Text kết quả vào hệ thống với **0 Token Cost**.
-- **Tạo bài tập cá nhân hóa dựa trên Student Knowledge Profile (Tutor Assistant Dual-Mode):** Nhập nội dung bài vừa dạy, AI sẽ tự động truy xuất dữ liệu từ **Student Knowledge Profile** của học sinh (mức độ thành thạo micro-skill, các dạng lỗi sai thường gặp, điểm yếu và mục tiêu) để sinh bộ bài tập cá nhân hóa (trắc nghiệm, điền từ, sửa lỗi, viết lại câu) kèm đáp án và lời giải thích chi tiết. Hỗ trợ 2 chế độ **Dual-Mode**:
-  - **Option A (Direct AI Generation):** Sinh bài tập trực tiếp từ ứng dụng, tự động đóng gói dữ liệu SKP làm bối cảnh đầu vào (Adaptive Input Context) để AI sinh bài tập cá nhân hóa chuẩn xác trong 3–5 giây.
-  - **Option B (Import Structured File):** Tải Prompt Mẫu đã đóng gói sẵn cấu trúc SKP để chạy trên Web AI ngoài (ChatGPT, Claude...) và import file kết quả vào hệ thống với **0 Token Cost**.
-- **Duyệt và giao bài tập tức thì:** Kiểm tra, tùy chỉnh nội dung câu hỏi/đáp án ngay trên điện thoại và gửi bài tập cho học sinh chỉ với một thao tác.
-- **Xem báo cáo Student Knowledge Profile:** Theo dõi chi tiết về điểm thành thạo, các dạng lỗi sai hay mắc, điểm mạnh, điểm yếu và sự tiến bộ của học sinh qua từng thời kỳ.
-- **Ghi chú riêng về học sinh:** Ghi chép lưu ý cá nhân về tính cách, thói quen của từng học sinh để giảng dạy tốt hơn (thông tin này bảo mật, chỉ gia sư và trung tâm thấy).
-- **Đính kèm tài liệu & bài giảng:** Tải lên bài giảng video và tài liệu học tập (PDF, Word) tương ứng với từng bài học để học sinh ôn thêm ở nhà.
-- **Quản lý thời khóa biểu & Báo nghỉ/Đổi lịch:** Xem lịch dạy hàng tuần; chủ động báo nghỉ hoặc hẹn lịch dạy bù khi có việc bận (hệ thống tự động cập nhật lịch cho học sinh và báo cho trung tâm).
-- **Quản lý bảng học phí:** Tự cập nhật các mức học phí của bản thân theo từng khối lớp và chương trình học.
-- **Nộp phí nhận lớp tiện lợi:** Sau 1 tháng dạy chính thức, gia sư nhận thông tin chuyển khoản phí nhận lớp và tải ảnh chụp hóa đơn lên hệ thống để trung tâm phê duyệt.
+- **Nhận lớp & Liên hệ phụ huynh ngay:** Tiếp nhận và phản hồi đề nghị nhận lớp từ trung tâm. Ngay khi đồng ý nhận lớp, gia sư sẽ thấy thông tin liên hệ của phụ huynh để chủ động gọi điện sắp xếp buổi học thử.
+- **Quản lý lịch học thử & Lịch dạy cố định:** Nhập thời gian học thử và chốt lịch dạy cố định hàng tuần sau khi nhận lớp thành công (`ACTIVE`). Lịch dạy tự động hiển thị trên thời khóa biểu.
+- **Quản lý Khung chương trình học 2 cấp (Curriculum Roadmap Master Plan):** Tạo và sắp xếp lộ trình bài học tinh gọn 2 cấp (Chủ đề/Chương ➔ Bài học). Gia sư có thể tự nhập thủ công hoặc dùng AI sinh khung lộ trình 2 cấp (Option A) hoặc Import file JSON/Text từ ChatGPT ngoài với **0 Token Cost** (Option B).
+- **Quản lý Buổi học thực tế & Nhật ký dạy học (Daily Lesson Sessions & Log Work):** Dòng thời gian quản lý từng buổi học thực tế độc lập với Khung chương trình. Gia sư ghi nhận thông tin buổi học, đính kèm tài liệu S3, và điền 1 vùng văn bản **Public Class Log Work** dùng chung minh bạch giữa 3 bên (Gia sư, Học sinh, Phụ huynh).
+- **Soạn & Giao bài tập qua AI Split-Screen Workspace:** Tích hợp trực tiếp tại màn hình Chi tiết Buổi học N. Giao diện dạng chia đôi màn hình:
+  - **Main Canvas (Trái - 65%):** Hiển thị danh sách câu hỏi xem trước, hỗ trợ chỉnh sửa inline trực tiếp nội dung/đáp án/giải thích trước khi bấm "Duyệt & Giao bài".
+  - **Assistance Dock (Phải - 35%):** Gồm Tab 1 (Form cấu hình tham số, tự động nạp Context của Buổi học N & SKP học sinh để AI sinh bài tập) và Tab 2 (Chat Freestyle Co-pilot cho phép gia sư ra lệnh điều chỉnh, làm khó/dễ hoặc đổi chủ đề câu hỏi). Hỗ trợ chế độ Import File 0 Token Cost (Option B).
+- **Xem báo cáo Student Knowledge Profile & Private Notes:** Theo dõi chi tiết điểm thành thạo Elo (`mastery_score`), các dạng lỗi hay mắc và ghi chú riêng bảo mật về thói quen học sinh.
+- **Quản lý thời khóa biểu, Đổi lịch/Báo nghỉ & Nộp phí 30 ngày:** Quản lý lịch dạy, đổi lịch/báo nghỉ, cập nhật Rate Card và nộp ảnh chụp QR proof chuyển khoản phí nhận lớp sau 30 ngày dạy chính thức.
 
 ### Cổng Học sinh
 
-- **Làm bài tập trực tuyến mọi lúc mọi nơi:** Làm bài tập về nhà hoặc bài kiểm tra (trắc nghiệm, điền từ, sửa lỗi, viết lại câu) ngay trên điện thoại hoặc máy tính.
-- **Chấm điểm tức thì:** Hệ thống tự động chấm điểm và hiển thị kết quả đúng/sai ngay sau khi nộp bài.
-- **Xem lời giải thích chi tiết do AI soạn sẵn:** Hệ thống cung cấp hướng dẫn giải chi tiết cho từng câu để học sinh tự hiểu lỗi sai.
-- **Bài tập cá nhân hóa & Ôn tập ngắt quãng:** Bài tập được thiết kế tự động dựa trên Student Knowledge Profile (tập trung vào kỹ năng yếu nhất, độ khó phù hợp). Hệ thống tự động nhắc lại các câu hỏi/kiến thức sắp quên vào các phiên ôn tập hàng ngày để giúp học sinh ghi nhớ lâu hơn.
-- **Xem tài liệu và video bài giảng:** Dễ dàng mở xem bài giảng video và tài liệu đính kèm do gia sư gửi theo từng bài học.
-- **Theo dõi biểu đồ tiến bộ cá nhân:** Phân tách rõ ràng giữa *Chỉ số chăm chỉ* (tỷ lệ làm bài tập về nhà đúng hạn) và *Biểu đồ năng lực* (kết quả các bài kiểm tra định kỳ theo thời gian).
+- **Mở Buổi học N & Xem tài liệu/nhật ký:** Học sinh mở đúng Buổi học N để xem nhật ký dặn dò của gia sư và xem/tải tài liệu học tập đính kèm S3.
+- **Làm bài trực tuyến & Chấm điểm Zero-LLM:** Làm bài tập trực tuyến (trắc nghiệm, điền từ, sửa lỗi, viết lại câu). Ngay khi nộp bài, hệ thống Backend tự động chấm điểm và cập nhật Elo SKP tức thì bằng thuật toán thuần Java/Postgres mà **không tốn chi phí gọi LLM API (Zero LLM Overhead)**.
+- **Xem Lời giải thích AI chi tiết:** Hệ thống hiển thị hướng dẫn giải chi tiết do AI sinh từ trước cho từng câu hỏi để học sinh hiểu sâu lỗi sai.
+- **Ôn tập ngắt quãng Spaced Repetition (SM-2):** Daily Session 5 phút hiển thị các câu hỏi đến hạn ôn tập (`next_review`) giúp củng cố kiến thức sắp quên theo thuật toán SM-2.
+- **Theo dõi tiến bộ cá nhân:** Biểu đồ định lượng phân tách *Chỉ số chăm chỉ* (tỷ lệ hoàn thành bài tập) và *Biểu đồ tiến bộ năng lực* (điểm Elo rating theo thời gian).
 
-### Cổng Quản trị (Admin)
+### Cổng Quản trị (Admin) & Cổng Lễ tân (Receptionist)
 
-- **Quản lý ghép lớp & Gửi đề nghị nhận lớp:** Tiếp nhận yêu cầu tìm gia sư từ phụ huynh, hệ thống tự động tính học phí tháng và phí nhận lớp để Admin tư vấn và gửi đề nghị nhận lớp cho gia sư.
-- **Duyệt phí nhận lớp:** Kiểm tra và phê duyệt ảnh chụp hóa đơn chuyển khoản phí nhận lớp của gia sư sau 1 tháng dạy.
-- **Bảo mật thông tin lớp học:** Quản lý phân quyền chặt chẽ, đảm bảo gia sư chỉ xem được thông tin của học sinh mà mình phụ trách.
-- **Lưu lịch sử hoạt động:** Ghi nhận nhật ký các thao tác quan trọng trên hệ thống để dễ dàng kiểm tra lại khi cần.
-- **Báo cáo vận hành trung tâm:** Xem thống kê doanh thu, tỷ lệ ghép lớp thành công và xuất báo cáo dưới dạng file Excel hoặc PDF.
+- **Cổng Admin:** Quản lý Match Request, tạo Match Offer, tính phí tự động, duyệt phí QR proof (sau 30 ngày dạy), phân quyền RBAC theo Enrollment, xem Audit log, quản lý nhân sự Lễ tân, xử lý khiếu nại & đối soát tài chính trung tâm (`REFUND`/`REMATCH`).
+- **Cổng Lễ tân:** Tiếp nhận và gửi yêu cầu ghép lớp, duyệt ảnh QR proof thanh toán tại trung tâm, tra cứu quản lý gia sư & học sinh, phát thông báo trung tâm, và tiếp nhận/ghi nhận khiếu nại trực tiếp từ phụ huynh.
 
 ## 3. Các thành phần kỹ thuật cốt lõi
 
@@ -141,27 +131,24 @@ Vòng lặp này đảm bảo:
 2. Hệ thống ngày càng hiểu học sinh hơn theo thời gian
 3. Gia sư có báo cáo chi tiết để can thiệp đúng lúc
 
-### 3.4. Cơ chế AI Dual-Mode (Curriculum & Homework Generation)
+### 3.4. AI Split-Screen Workspace & Zero-LLM Submission Architecture
 
-Để giải quyết bài toán tối ưu chi phí API LLM và tạo sự linh hoạt tối đa cho gia sư, các tính năng AI cốt lõi (Khung chương trình học và Sinh bài tập cá nhân hóa) đều được thiết kế theo cơ chế **Dual-Mode**:
+Để vừa giải quyết bài toán tối ưu chi phí LLM, vừa mang lại trải nghiệm tiện nghi tối đa cho Gia sư và Học sinh, hệ thống triển khai 2 cơ chế kiến trúc đột phá:
 
-- **Option A — Direct AI Generation (Sinh trực tiếp trên hệ thống):**
-  - Gia sư thao tác 1-click trực tiếp trên giao diện Cổng Gia sư.
-  - Hệ thống Backend tự động đóng gói dữ liệu bối cảnh (Context) — bao gồm thông tin lộ trình học hoặc Student Knowledge Profile (năng lực micro-skill, các lỗi sai hay mắc, độ khó mục tiêu) — và gọi REST API sang Python AI Service (`gpt-4o-mini` / `Gemini Flash`) để sinh nháp nội dung trong dưới 5 giây.
-  - Trải nghiệm mượt mà, tiện lợi trực tiếp trên ứng dụng di động.
+1. **AI Split-Screen Workspace (tại Chi tiết Buổi học N):**
+   - **Giao diện Split-Screen:** Main Canvas (Trái 65%) hiển thị danh sách câu hỏi AI sinh ra kèm nút Inline Edit; Assistance Dock (Phải 35%) gồm Tab 1 Form Config nạp sẵn bối cảnh Buổi học N & SKP và Tab 2 Chat Co-pilot điều chỉnh freestyle.
+   - **Dual-Mode Sinh nội dung:** Option A (Direct AI Generation qua FastAPI/LangGraph trong 3–5 giây) và Option B (Import File JSON/Text từ ChatGPT ngoài với **0 Token Cost**).
 
-- **Option B — Import Structured File (Sử dụng Web AI ngoài — 0 Token Cost):**
-  - Gia sư tải **Prompt Mẫu** có sẵn từ hệ thống (đã được nhúng cấu trúc SKP context hoặc yêu cầu chuẩn hóa).
-  - Gia sư dán prompt vào các công cụ Web AI ngoài (ChatGPT, Claude, DeepSeek...).
-  - Upload file JSON hoặc dán đoạn văn bản kết quả vào hệ thống để Python AI Service trích xuất và khởi tạo dữ liệu tự động.
-  - Tối ưu chi phí **0 Token Cost** cho hệ thống trung tâm và đảm bảo tính liên tục của dịch vụ.
+2. **Zero-LLM Submission Engine (khi Học sinh nộp bài):**
+   - Toàn bộ metadata câu hỏi (đáp án, `difficulty`, nhãn `error_tags`, lời giải thích AI chi tiết) đã được AI chuẩn hóa và lưu trữ sẵn tại CSDL PostgreSQL khi gia sư duyệt bài tập.
+   - Khi Học sinh nộp bài, hệ thống Backend Spring Boot thực hiện chấm điểm tự động, tính lại điểm Elo SKP (`mastery_score`) và cập nhật lịch ôn tập ngắt quãng SM-2 (`next_review`) hoàn toàn bằng code Java/SQL thuần **mà không gọi bất kỳ LLM API nào (0 LLM Token Cost khi nộp bài)**, đảm bảo thời gian phản hồi tức thì (<100ms) và kiểm soát 100% chi phí vận hành.
 
 ## 4. Kỹ thuật và công nghệ dự định áp dụng
 
-- **Backend:** Spring Boot, đóng vai trò API Gateway duy nhất, áp dụng cơ chế phân quyền theo thực thể `Enrollment` (row-level security), xác thực bằng JWT (hạn 24h).
-- **Cơ sở dữ liệu:** PostgreSQL (lưu trữ SKP, `review_schedule`, `student_errors`, `questions`, `enrollments`, `audit_logs`...).
-- **AI Service:** Tích hợp các mô hình ngôn ngữ chi phí thấp (`gpt-4o-mini`, `Gemini Flash`) qua REST API nội bộ trong VPC để sinh khung chương trình học và bài tập cá nhân hóa kèm lời giải thích; áp dụng bộ lọc kiểm duyệt nội dung (Content Moderation), Validation Pipeline và giới hạn chi phí (hard cost limit + Option B Import File 0 Token Cost).
-- **Lưu trữ file:** Amazon S3 (hoặc S3-compatible storage) cho bài giảng video và tài liệu học tập PDF/Word.
+- **Backend:** Spring Boot, đóng vai trò API Gateway duy nhất, áp dụng cơ chế phân quyền RBAC theo thực thể `Enrollment` (row-level security), xác thực bằng JWT (hạn 24h), chạy Zero-LLM Submission Engine.
+- **Cơ sở dữ liệu:** PostgreSQL (lưu trữ SKP, `review_schedule`, `student_errors`, `questions`, `enrollments`, `daily_sessions`, `class_log_works`, `complaints`, `receptionists`, `audit_logs`...).
+- **AI Service:** Python FastAPI + LangGraph Agent tích hợp mô hình ngôn ngữ chi phí thấp (`gpt-4o-mini`, `Gemini Flash`) qua REST API nội bộ để sinh khung chương trình 2 cấp và sinh bài tập tại AI Split-Screen Workspace; áp dụng bộ lọc kiểm duyệt nội dung (Content Moderation), Validation Pipeline và trích xuất dữ liệu Import (Option B 0 Token Cost).
+- **Lưu trữ file:** Amazon S3 (hoặc S3-compatible storage) cho bài giảng video và tài liệu học tập PDF/Word đính kèm tại Buổi học N.
 - **Triển khai:** Docker containerization.
 
 ## 5. Cơ sở lý thuyết và thực tiễn

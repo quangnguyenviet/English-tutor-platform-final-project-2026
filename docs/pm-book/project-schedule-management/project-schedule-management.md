@@ -1,11 +1,11 @@
 ---
 title: Quản lý lịch trình — Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition
-version: 1.4
+version: 1.5
 status: Đã xác nhận ngày khởi công 07/09/2026
 ngày lập: 2026-09-06
-ngày cập nhật: 2026-09-19
+ngày cập nhật: 2026-09-27
 người biên soạn: Nhóm dự án (3 thành viên)
-căn cứ: docs/ke-hoach-trien-khai.md (v1.4) + PRD v.final (2026-09-19)
+căn cứ: docs/ke-hoach-trien-khai.md (v1.6) + PRD v1.6 (2026-09-27)
 thời lượng: 2,5 tháng (≈10 tuần)
 baseline: 07/09/2026 → 17/11/2026
 ngày khởi công đã xác nhận: 07/09/2026
@@ -43,10 +43,10 @@ Tài liệu bao phủ toàn bộ **10 tuần triển khai + giai đoạn bàn gi
 
 | Ký hiệu | Tài liệu                                         | Vị trí (repository)                                                        |
 | --------- | -------------------------------------------------- | ---------------------------------------------------------------------------- |
-| PRD       | PRD v.final (2026-09-19)                          | `_bmad-output/planning-artifacts/prds/prd-final_project-2026-08-31/prd.md` |
-| KHKD      | Kế hoạch triển khai đề tài v1.4 (2026-09-19) | `docs/ke-hoach-trien-khai.md`                                              |
+| PRD       | PRD v1.6 (2026-09-27)                              | `_bmad-output/planning-artifacts/prds/prd-final_project-2026-08-31/prd.md` |
+| KHKD      | Kế hoạch triển khai đề tài v1.6 (2026-09-27) | `docs/ke-hoach-trien-khai.md`                                              |
 
-> ⚠️ Trong tài liệu này, số WBS (1.x → 9.x) và số FR (FR-1 → FR-39) dùng lại nguyên văn từ KHKD v1.4 và PRD v.final để tránh phát sinh định nghĩa mới.
+> ⚠️ Trong tài liệu này, số WBS (1.x → 9.x) và số FR (FR-1 → FR-40) dùng lại nguyên văn từ KHKD v1.6 và PRD v1.6 để tránh phát sinh định nghĩa mới.
 
 ---
 
@@ -57,12 +57,12 @@ Tài liệu bao phủ toàn bộ **10 tuần triển khai + giai đoạn bàn gi
 | Tên đề tài     | Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition                                                                    |
 | Quy mô nhóm      | 3 thành viên                                                                                                                                            |
 | Thời lượng      | 2,5 tháng (≈10 tuần), baseline 07/09/2026 – 17/11/2026                                                                                                |
-| Frontend           | ReactJS (5 cổng: Parent / Tutor mobile-first / Student / Admin Dashboard / Receptionist Portal)                                                                                         |
-| Backend            | Spring Boot — API Gateway duy nhất, RBAC theo `Enrollment`, auth JWT 24h, PostgreSQL, audit log                                                                        |
-| AI Service         | Python + LangGraph — Agent sinh Khung chương trình 2 cấp, Agent Tutor Assistant (sinh bài tập bám sát SKP + đáp án + giải thích), Parser Import 0 Token Cost, Content Moderation                                                                  |
+| Frontend           | ReactJS (5 cổng: Parent Portal, Tutor Portal mobile-first, Student Portal, Admin Dashboard, Receptionist Portal)                                                                                         |
+| Backend            | Spring Boot — API Gateway duy nhất, RBAC theo `Enrollment`, auth JWT 24h, PostgreSQL, Zero-LLM Submission Engine, audit log                                                                        |
+| AI Service         | Python + LangGraph — Agent sinh Khung chương trình 2 cấp, AI Split-Screen Workspace Agent (auto-load context Buổi N & SKP + Chat Co-pilot refiner), Parser Import 0 Token Cost, Content Moderation                                                                  |
 | Core Personalization | Student Knowledge Profile (SKP) với Thuật toán Elo Rating, Spaced Repetition Engine với Thuật toán SM-2 |
-| Hạ tầng          | PostgreSQL (thực thể SKP, SM-2, Complaints, Audit Logs...), S3-compatible storage, Docker Compose, CI/CD cơ bản                                                                                                 |
-| Các luồng chính | UJ-1 (Phụ huynh tìm gia sư → học thử), UJ-2 (Gia sư nhận lớp unlock SĐT → giao bài AI nhúng SKP → nộp phí QR 30 ngày), UJ-3 (Học sinh làm bài auto-grading → Elo SKP → Ôn tập ngắt quãng SM-2), UJ-4 (Admin ghép lớp, duyệt phí 30 ngày, quản lý lễ tân & đối soát khiếu nại REFUND/REMATCH) |
+| Hạ tầng          | PostgreSQL (thực thể SKP, SM-2, Daily Sessions, Class Log Works, Complaints, Audit Logs...), S3-compatible storage, Docker Compose, CI/CD cơ bản                                                                                                 |
+| Các luồng chính | UJ-1 (Phụ huynh tìm gia sư → học thử → xem Public Class Log Work), UJ-2 (Gia sư nhận lớp unlock SĐT → quản lý Daily Sessions & Log Work → AI Split-Screen Workspace nhúng SKP → nộp phí QR 30 ngày), UJ-3 (Học sinh làm bài auto-grading Zero-LLM → Elo SKP → Ôn tập ngắt quãng SM-2), UJ-4 (Admin ghép lớp, duyệt phí 30 ngày, quản lý lễ tân & đối soát khiếu nại REFUND/REMATCH) |
 
 ---
 
@@ -188,23 +188,24 @@ gantt
 
 **Tiêu chí:** UJ-1 & UJ-4 phiên bản vận hành cơ bản chạy end-to-end (tìm gia sư → tạo Match Request → Admin/Lễ tân ghép offer → gia sư chấp nhận unlock liên hệ → duyệt phí QR proof 30 ngày → tiếp nhận khiếu nại REFUND/REMATCH).
 
-## Tuần 5 — Tutor: Vận hành cơ bản (05/10 – 11/10/2026)
+## Tuần 5 — Tutor: Vận hành cơ bản & Daily Sessions (05/10 – 11/10/2026)
 
 | Mã WBS | Công việc | Đầu ra chính | Tiêu chí hoàn thành |
 | ------- | --------------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------- |
 | 3.1 | Enrollment, Match Offer acceptance (Unlock SĐT & Địa chỉ Phụ huynh), QR proof payment sau 30 ngày dạy | API CRUD tương ứng | Gia sư chấp nhận Match Offer → hệ thống unlock liên hệ Phụ huynh; nộp ảnh QR proof sau 30 ngày dạy thành công |
-| 3.4 | Rate Card, Private Notes, Lịch dạy, Đổi lịch/Báo nghỉ, Lịch học thử & Cố định (`ACTIVE`), Upload tài liệu S3 (FR-21, FR-25→FR-29) | API tương ứng + UI | Cấu hình lịch học thử & chốt lịch cố định (`ACTIVE`); đổi lịch, upload tài liệu S3 hoạt động |
+| 3.3 | **Quản lý Buổi học thực tế & Nhật ký dạy học (Daily Lesson Sessions & Public Class Log Work - FR-40)** | API CRUD Session & Log Work, upload S3 | Gia sư tạo dòng thời gian buổi học thực tế, điền 1 vùng văn bản Log Work dùng chung 3 bên minh bạch và đính kèm tài liệu S3 |
+| 3.5 | Rate Card, Private Notes, Lịch dạy, Đổi lịch/Báo nghỉ, Lịch học thử & Cố định (`ACTIVE`), Upload tài liệu S3 (FR-21, FR-25→FR-29) | API tương ứng + UI | Cấu hình lịch học thử & chốt lịch cố định (`ACTIVE`); đổi lịch, upload tài liệu S3 hoạt động |
 | 3.2 | Quản lý Khung chương trình thủ công (Non-AI Curriculum Management) | API + UI Khung chương trình cơ bản | Gia sư tạo & chỉnh sửa khung chương trình thủ công 2 cấp |
 
 ## Tuần 6 — Student SKP & Spaced Repetition (Core Personalization) (12/10 – 18/10/2026) — **M3**
 
 | Mã WBS | Công việc | Đầu ra chính | Tiêu chí hoàn thành |
 | ------- | -------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------- |
-| 3.3 | Giao bài tập thủ công (Non-AI Homework Assignment) | UI & API Giao bài tập | Gia sư soạn và giao bài tập thủ công cho học sinh |
-| 4.1 | Làm bài trực tuyến, Auto-grading chấm điểm tự động (FR-11→FR-13) | Giao diện & API làm bài | Học sinh làm bài trực tuyến; hệ thống tự động chấm điểm tức thì |
+| 3.4 | Giao bài tập thủ công tại Chi tiết Buổi học N (Non-AI Homework Assignment) | UI & API Giao bài tập | Gia sư soạn và giao bài tập thủ công cho học sinh tại Buổi học N |
+| 4.1 | Mở Buổi học N làm bài trực tuyến, Auto-grading chấm điểm Zero-LLM (FR-11→FR-13) | Giao diện & API làm bài | Học sinh nộp bài; Backend Spring Boot tự động chấm điểm và tính lại Elo/SM-2 tức thì không tốn Token LLM |
 | 4.2 | **Student Knowledge Profile (SKP) & Elo Rating Engine (FR-38)** | Engine Elo rating + Bảng SKP tự động cập nhật | `mastery_score` và độ khó câu hỏi tự động cập nhật sau mỗi câu làm bài |
 | 4.3 | **Ôn tập ngắt quãng Spaced Repetition (SM-2 Algorithm - FR-39)** | Engine SM-2 + Giao diện Ôn tập ngắt quãng | Tự động lập lịch `next_review`, hiển thị danh sách câu hỏi đến hạn ôn hàng ngày (Daily Session 5 phút) |
-| 4.4 | Báo cáo tiến bộ (FR-15) — Chỉ số Chăm chỉ + Biểu đồ Tiến bộ Năng lực; Xem tài liệu/video theo bài học (FR-22) | Giao diện & API báo cáo | Biểu đồ năng lực hiển thị từ dữ liệu SKP thật; xem được tài liệu/video |
+| 4.4 | Báo cáo tiến bộ (FR-15) — Chỉ số Chăm chỉ + Biểu đồ Tiến bộ Năng lực; Xem tài liệu/video theo buổi học (FR-22) | Giao diện & API báo cáo | Biểu đồ năng lực hiển thị từ dữ liệu SKP thật; xem được tài liệu/video đính kèm Buổi N |
 
 ### ✔️ M3 — Vận hành Gia sư & Core Personalization Học sinh hoàn chỉnh (Không AI) (cuối tuần 6, 18/10/2026)
 
@@ -218,19 +219,19 @@ gantt
 | 7.4 | Parser chế độ Import (Option B — JSON/Text từ Web AI ngoài 0 Token Cost) — phần Curriculum | Module parse & validate | Import file JSON/Text → curriculum hợp lệ |
 | 3.2 | Tích hợp UI Curriculum Dual-Mode (AI Generate + Import JSON 0 Token Cost) | UI Curriculum Dual-Mode | Gia sư chọn Option A (AI) hoặc Option B (Import) để tạo curriculum |
 
-## Tuần 8 — Tutor Assistant AI nhúng SKP & Student AI (26/10 – 01/11/2026) — **M4**
+## Tuần 8 — Tutor Assistant AI Split-Screen Workspace nhúng SKP & Student AI (26/10 – 01/11/2026) — **M4**
 
 | Mã WBS | Công việc | Đầu ra chính | Tiêu chí hoàn thành |
 | ------- | ------------------------------------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------- |
-| 7.3 | Agent Tutor Assistant: sinh bài tập bám sát bối cảnh SKP + đáp án + giải thích chi tiết (Option A) | Endpoint `/homework/generate` nhúng SKP | AI Agent nhận bối cảnh SKP (Skill mastery, Error patterns) sinh bài tập cá nhân hóa |
+| 7.3 | Agent Tutor Assistant: sinh bài tập bám sát bối cảnh Buổi N & SKP + đáp án + giải thích chi tiết (Option A) | Endpoint `/homework/generate` & `/refine` nhúng SKP | AI Agent tự nạp context Buổi học N và SKP học sinh để sinh bài tập cá nhân hóa & tinh chỉnh qua Co-pilot |
 | 7.4 | Parser Import Option B — phần bài tập nhúng SKP (0 Token Cost) | Module parse & validate | Import file bài tập cấu trúc SKP từ ngoài → bài tập hợp lệ |
-| 3.3 | UI Tutor Assistant (AI Generation / Import File 0 Token Cost) | UI Tutor Assistant hoàn chỉnh | Gia sư sinh bài từ AI bám SKP hoặc import → duyệt & giao bài |
+| 3.4 | **Tutor Assistant AI Split-Screen Workspace (FR-8, FR-9)** | UI Split-Screen Workspace hoàn chỉnh | Giao diện chia đôi Canvas trái 65% inline edit & Dock phải 35% Config/Co-pilot; duyệt & giao bài bám bối cảnh Buổi N |
 | 7.5 | Content Moderation filter + Privacy (ẩn danh hoá input học sinh) | Middleware kiểm duyệt | Nội dung nhạy cảm bị chặn; input gửi AI được ẩn danh hoá |
 | 4.1 | Tích hợp xem lời giải thích AI (AI Explanation) trong Student Portal | UI Student với AI Explanation | Học sinh xem được lời giải thích AI từng câu hoặc sau submit |
 
-### ✔️ M4 — AI Service & Assistant AI nhúng SKP hoàn chỉnh (cuối tuần 8, 01/11/2026)
+### ✔️ M4 — AI Service & Assistant AI Split-Screen Workspace nhúng SKP hoàn chỉnh (cuối tuần 8, 01/11/2026)
 
-**Tiêu chí:** Tích hợp hoàn tất các tính năng AI (Curriculum Agent, Tutor Assistant Agent nhúng SKP, Import Parser 0 Token Cost, Moderation & AI Explanation).
+**Tiêu chí:** Tích hợp hoàn tất các tính năng AI (Curriculum Agent, Tutor Assistant AI Split-Screen Workspace tại Buổi học N, Import Parser 0 Token Cost, Moderation & AI Explanation).
 
 ## Tuần 9 — Tích hợp toàn hệ thống 5 cổng & Tối ưu AI (02/11 – 08/11/2026) — **M5**
 
@@ -439,6 +440,7 @@ Một đầu việc (WBS) chỉ được tính là **hoàn thành** khi **đủ 
 
 | Version | Ngày | Người | Nội dung thay đổi |
 | ------- | ---------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.5 | 2026-09-27 | Nhóm dự án | **Cập nhật WBS & lịch trình theo KHKD v1.6 & PRD v1.6**: Bổ sung Quản lý Buổi học thực tế & Nhật ký dạy học 3 bên minh bạch (Daily Lesson Sessions & Log Work - FR-40), nâng cấp Tutor Assistant AI Split-Screen Workspace tại Chi tiết Buổi học N (Canvas trái 65%, Dock phải 35% auto-load context + Chat Co-pilot), và làm rõ kiến trúc Zero-LLM Submission Engine khi nộp bài. |
 | 1.4 | 2026-09-19 | Nhóm dự án | **Cập nhật WBS & lịch trình theo KHKD v1.4 & PRD v.final**: Mở rộng từ 4 cổng lên 5 cổng ReactJS (thêm Receptionist Portal); bổ sung Student Knowledge Profile (SKP & Elo Rating Engine - FR-38), Spaced Repetition (SM-2 Algorithm - FR-39), Quản lý Lễ tân & Xử lý khiếu nại đối soát tài chính (`REFUND`/`REMATCH`). |
 | 1.3 | 2026-09-15 | Nhóm dự án | **Cập nhật WBS & lịch trình theo KHKD v1.3**: Ưu tiên hoàn thiện luồng vận hành cơ bản 4 cổng không AI từ Tuần 2 đến Tuần 6; đẩy việc tích hợp AI Service sang Tuần 7 và Tuần 8; giữ nguyên Tuần 1. |
 | 1.2 | 2026-09-15 | Nhóm dự án | **Cập nhật WBS & lịch trình theo KHKD v1.2**: bổ sung các đầu việc đặc tả Use Case (WBS 1.7), sơ đồ State Machine (WBS 1.9) vào Tuần 2 và sơ đồ Sequence (WBS 1.8), sơ đồ Activity (WBS 1.10) vào Tuần 3; giữ nguyên Tuần 1. |
@@ -453,11 +455,11 @@ Một đầu việc (WBS) chỉ được tính là **hoàn thành** khi **đủ 
 
 | Tài liệu | Đường dẫn | Dùng để |
 | -------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Kế hoạch triển khai đề tài | `docs/ke-hoach-trien-khai.md` | Nguồn WBS, công việc, mốc, rủi ro (base của tài liệu này) |
-| PRD | `_bmad-output/planning-artifacts/prds/prd-final_project-2026-08-31/prd.md` | Yêu cầu chức năng FR-1→FR-39, UJ-1→UJ-4, NFR |
+| Kế hoạch triển khai đề tài | `docs/ke-hoach-trien-khai.md` | Nguồn WBS, công việc, mốc, rủi ro (base của tài liệu này - v1.6) |
+| PRD | `_bmad-output/planning-artifacts/prds/prd-final_project-2026-08-31/prd.md` | Yêu cầu chức năng FR-1→FR-40, UJ-1→UJ-4, NFR (v1.6) |
 | Brief dự án | `_bmad-output/planning-artifacts/briefs/brief-final_project-2026-08-30/brief.md` | Bối cảnh & phạm vi tổng quan |
 | Source frontend | `frontend/` | Prototype & implementation ReactJS hiện có |
 
 ---
 
-*Tài liệu được biên soạn dựa trên Kế hoạch triển khai đề tài v1.4 (2026-09-19) và PRD v.final (2026-09-19).*
+*Tài liệu được biên soạn dựa trên Kế hoạch triển khai đề tài v1.6 (2026-09-27) và PRD v1.6 (2026-09-27).*
