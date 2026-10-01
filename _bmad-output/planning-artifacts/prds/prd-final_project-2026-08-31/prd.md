@@ -16,9 +16,9 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
 
 **Giá trị cốt lõi:**
 
-- **Gia sư**: Nhận lớp, quản lý Khung chương trình (Roadmap Master Plan), quản lý **Buổi học thực tế (Daily Lesson Sessions & Log Work)** minh bạch 3 bên, và giao bài tập cá nhân hóa dựa trên **Student Knowledge Profile (SKP)** gắn tại từng Buổi học qua **AI Split-Screen Workspace** (Direct AI Generation hoặc Import File 0 Token Cost).
-- **Học sinh**: Mở từng Buổi học xem tài liệu đính kèm, làm bài tập trực tuyến, nhận chấm điểm tức thì kèm lời giải thích AI chi tiết và được hệ thống tự động nhắc ôn lại các kiến thức sắp quên theo thuật toán **Spaced Repetition (SM-2)** mà **không tốn chi phí LLM (Zero LLM Overhead)** khi nộp bài.
-- **Phụ huynh**: Tìm gia sư nhanh qua Form trực quan, đăng ký học thử đơn giản, và theo dõi nhật ký bài học thực tế từng buổi (Public Log Work) cùng sự tiến bộ của con bằng biểu đồ định lượng.
+- **Gia sư**: Nhận lớp, quản lý Khung chương trình (Roadmap Master Plan), quản lý **Buổi học thực tế (Daily Lesson Sessions & Log Work)** minh bạch 3 bên, và giao bài tập cá nhân hóa phù hợp với context bài học và học sinh (bao gồm **Student Knowledge Profile - SKP**) gắn tại từng Buổi học qua **AI Split-Screen Workspace** (Direct AI Generation hoặc Import File 0 Token Cost).
+- **Học sinh**: Mở từng Buổi học xem tài liệu đính kèm, làm bài tập trực tuyến, nhận chấm điểm tức thì kèm lời giải thích AI chi tiết và được hệ thống tự động nhắc ôn lại các kiến thức sắp quên theo thuật toán **Spaced Repetition (SM-2)**.
+- **Phụ huynh**: Tìm gia sư nhanh qua Form tìm gia sư, đăng ký học thử đơn giản, và theo dõi nhật ký bài học thực tế từng buổi (Public Log Work) cùng sự tiến bộ của con bằng biểu đồ định lượng.
 - **Admin**: Ghép lớp, duyệt phí nhận lớp (sau 1 tháng dạy), quản lý lễ tân, xử lý khiếu nại (`REMATCH`, `REFUND`) và đối soát tài chính trung tâm tại một nơi.
 - **Lễ tân**: Hỗ trợ Admin xử lý yêu cầu ghép lớp, duyệt thanh toán, quản lý gia sư & học sinh, tiếp nhận và ghi nhận khiếu nại trực tiếp tại trung tâm.
 
@@ -69,7 +69,7 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
   * **Path**:
     1. Minh nhận thông báo đề xuất nhận lớp Nam (10 tuổi). Minh bấm "Chấp nhận" ➔ Hệ thống tự động **Mở khóa SĐT & Địa chỉ Phụ huynh**.
     2. Minh chốt ngày giờ học thử thành công, nhập lịch dạy cố định và kích hoạt lớp chính thức (`ACTIVE`).
-    3. Minh khởi tạo **Khung chương trình học (Curriculum Roadmap Master Plan)** cho lớp Nam bằng **Dual-Mode AI Curriculum Generation**.
+    3. Minh khởi tạo **Khung chương trình học (Curriculum Roadmap Master Plan)** cho lớp Nam bằng cách nhập thủ công hoặc chọn mẫu lộ trình có sẵn.
     4. **Quản lý Buổi học N & Viết Nhật ký dạy học**: 
        - Minh mở **Buổi học thực tế N** (độc lập với Roadmap master plan).
        - Minh upload tài liệu bài học (file PDF/Slides) và gõ 1-2 câu vào ô **Nhật ký dạy học (Public Class Log Work)** để báo cáo nội dung hôm nay đã dạy.
@@ -89,7 +89,7 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
   * **Path**:
     1. Nam mở **Buổi học N**, xem tài liệu học tập và làm 5 câu bài tập về nhà do thầy Minh giao.
     2. Nam bấm "Nộp bài", hệ thống **tự động chấm điểm tức thì** và hiển thị **Lời giải thích AI chi tiết** cho từng câu làm sai.
-    3. Backend lấy metadata sinh sẵn của bài tập để tự động cập nhật điểm `mastery_score` trong **SKP** theo **Thuật toán Elo Rating** và lập lịch **Spaced Repetition (SM-2)** mà **không gọi LLM (Zero LLM Overhead)**.
+    3. Backend lấy metadata sinh sẵn của bài tập để tự động cập nhật điểm `mastery_score` trong **SKP** theo **Thuật toán Elo Rating** và lập lịch **Spaced Repetition (SM-2)**.
     4. Hàng ngày, Nam vào mục **"Ôn tập ngắt quãng"** hoàn thành các câu hỏi đến hạn ôn tập (`next_review`).
   * **Climax**: Nam hiểu sâu lý do sai và tự củng cố lại kiến thức sắp quên mà không thấy áp lực.
   * **Resolution**: SKP và lịch trình SM-2 của Nam được cập nhật liên tục, đảm bảo năng lực tăng trưởng bền vững.
@@ -114,11 +114,11 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
 * **Student Knowledge Profile (SKP - Hồ sơ tri thức người học)**: Bộ nhớ dài hạn lưu trữ trạng thái học tập có cấu trúc của học sinh theo thời gian, gồm: Skill Mastery (0-100), Confidence Score, Error Patterns, Strengths & Weaknesses (Top 5), và Goals. SKP là đầu vào bắt buộc cho mọi quyết định cá nhân hóa.
 * **Elo Rating System trong Giáo dục**: Thuật toán cập nhật điểm `mastery_score` của học sinh và điểm `difficulty` của câu hỏi theo thời gian thực dựa trên kết quả trả lời đúng/sai ($\text{Expected} = \frac{1}{1 + 10^{\frac{\text{difficulty} - \text{mastery}}{400}}}$).
 * **Spaced Repetition (SM-2 Algorithm)**: Tính năng gợi ý và lập lịch ôn tập ngắt quãng các kiến thức/câu hỏi đến hạn (`next_review`) nhằm giúp học sinh ghi nhớ dài hạn theo đường cong quên lãng Ebbinghaus.
-* **Curriculum Roadmap (Khung chương trình học)**: Lộ trình bài học tĩnh 2 cấp (*Chủ đề/Chương ➔ Bài học*) đóng vai trò là Kế hoạch tổng quan (Master Plan) định hướng dài hạn cho liên kết lớp học.
+* **Curriculum Roadmap (Khung chương trình học)**: Lộ trình bài học 2 cấp (*Chủ đề/Chương ➔ Bài học*) đóng vai trò là Kế hoạch tổng quan (Master Plan) định hướng cho liên kết lớp học.
 * **Daily Lesson Sessions & Log Work (Buổi học thực tế & Nhật ký dạy học)**: Dòng thời gian thực tế (Dynamic Timeline) của từng ngày dạy, **tách biệt kiến trúc hoàn toàn** với Roadmap. Bao gồm: Tiêu đề & Ngày giờ, Tài liệu đính kèm (Session Attachments) và Báo cáo Nội dung Buổi học (Public Class Log Work) – 1 ô văn bản tự do minh bạch 3 bên (Gia sư, Học sinh, Phụ huynh), thiết kế tinh gọn frictionless.
 * **AI Split-Screen Workspace**: Giao diện soạn và tinh chỉnh bài tập cá nhân hóa dựa trên SKP gắn tại Chi tiết Buổi học N (Left Canvas 65% inline edit, Right Dock 35% Tab 1 Form Config auto-load context & Tab 2 Chat Freestyle Co-pilot).
-* **Zero LLM Overhead on Submission**: Cơ chế pre-generate metadata (đáp án, AI Explanation, Elo difficulty, micro_skill_tags) khi tạo bài tập, giúp hệ thống tự động chấm điểm và cập nhật SKP / SM-2 mà không cần gọi LLM khi học sinh nộp bài.
-* **Form Tìm Gia Sư & Đăng ký Học thử**: Form tìm gia sư trực quan dành cho phụ huynh tại trang chủ, gửi yêu cầu ghép lớp tới Admin.
+* **Chấm điểm & Cập nhật SKP tự động**: Cơ chế pre-generate metadata (đáp án, AI Explanation, Elo difficulty, micro_skill_tags) khi tạo bài tập, giúp hệ thống tự động chấm điểm và cập nhật SKP / SM-2 khi học sinh nộp bài.
+* **Form Tìm Gia Sư & Đăng ký Học thử**: Form tìm gia sư dành cho phụ huynh tại trang chủ, gửi yêu cầu ghép lớp tới Admin.
 * **AI Explanation (Lời giải thích chi tiết AI)**: Đoạn văn bản giải thích kiến thức và lý do đáp án đúng/sai do AI tự động sinh sẵn cho từng câu hỏi, hiển thị ngay cho học sinh sau khi nộp bài.
 * **Enrollment (Liên kết lớp học)**: Thực thể dữ liệu liên kết một gia sư với một học sinh cụ thể, làm cơ sở phân quyền bảo mật dữ liệu ở Backend (Row-level security).
 
@@ -128,12 +128,12 @@ Nền tảng Web **single-tenant** hỗ trợ vận hành và nâng cao chất l
 
 ### 4.1 Parent Portal & Smart Registration Form
 
-**Description:** Cung cấp giao diện công khai cho phụ huynh tìm gia sư qua Form trực quan, tra cứu danh sách gia sư phù hợp, gửi đăng ký học thử và xem Nhật ký bài học của con. (Thực hiện UJ-1)
+**Description:** Cung cấp giao diện công khai cho phụ huynh tìm gia sư qua Form, tra cứu danh sách gia sư phù hợp, gửi đăng ký học thử và xem Nhật ký bài học của con. (Thực hiện UJ-1)
 
 **Functional Requirements:**
 
 #### FR-1: Form tìm gia sư (Smart-Match Form 4 bước)
-Phụ huynh chưa đăng nhập có thể thực hiện tìm gia sư qua Form trực quan đa bước trên trang chủ.
+Phụ huynh chưa đăng nhập có thể thực hiện tìm gia sư qua Form đa bước trên trang chủ.
 * **Consequences (testable):**
   * *Bước 1 - Mục tiêu & Trình độ học sinh:* Nhập tên con (tùy chọn), chọn/gõ Khối lớp/Độ tuổi, Trình độ hiện tại, Mục tiêu học tập ưu tiên.
   * *Bước 2 - Yêu cầu gia sư & Học phí:* Chọn/gõ Mức học phí mong muốn/buổi, Giới tính gia sư, Phong cách/tính cách gia sư.
@@ -158,12 +158,11 @@ Phụ huynh đăng nhập tài khoản có thể truy cập danh sách Buổi h�
 
 **Functional Requirements:**
 
-#### FR-30: Quản lý Khung chương trình học master plan bằng AI Dual-Mode (Curriculum Roadmap Dual-Mode)
-Gia sư khởi tạo và quản lý khung chương trình học tinh gọn 2 cấp (*Chủ đề/Chương ➔ Bài học*) đóng vai trò là Kế hoạch tổng quan (Master Plan) tĩnh mang tính định hướng dài hạn.
+#### FR-30: Quản lý Khung chương trình học master plan (Curriculum Roadmap)
+Gia sư khởi tạo và quản lý khung chương trình học tinh gọn 2 cấp (*Chủ đề/Chương ➔ Bài học*) đóng vai trò là Kế hoạch tổng quan (Master Plan) định hướng giảng dạy.
 * **Consequences (testable):**
-  * **Option A (Direct AI Generation):** Gia sư nhập thông tin lớp/trình độ ➔ AI tự động sinh nháp khung chương trình 2 cấp tinh gọn trong dưới 5 giây.
-  * **Option B (Import Structured File):** Upload file JSON/Text trích xuất từ Prompt Mẫu trên ChatGPT/Claude ngoài (0 Token Cost).
-  * **Tạo & Chỉnh sửa thủ công:** Thêm/xóa/sửa các Chủ đề/Chương và Bài học.
+  * Gia sư khởi tạo khung chương trình bằng cách **nhập thủ công** các Chủ đề/Chương và Bài học hoặc **lựa chọn các mẫu lộ trình học tập có sẵn** trong hệ thống.
+  * Hỗ trợ chỉnh sửa, thêm, xóa các Chủ đề/Chương và Bài học linh hoạt.
 
 #### FR-40: Quản lý Buổi học thực tế & Nhật ký dạy học (Daily Lesson Session & Log Work)
 Gia sư tạo và quản lý Dòng thời gian thực tế (Dynamic Timeline) của từng buổi dạy học.
@@ -173,13 +172,13 @@ Gia sư tạo và quản lý Dòng thời gian thực tế (Dynamic Timeline) c�
     1. *Thông tin chung:* Tiêu đề buổi học (VD: *Buổi 5 - Grammar & Listening*), Số thứ tự buổi và Ngày giờ học.
     2. *Tài liệu & Bài tập đính kèm (Session Attachments):* Upload file PDF/Word/Slides hoặc đường dẫn liên kết dùng cho buổi học đó.
     3. *Báo cáo Nội dung Buổi học (Public Class Log Work):* 01 ô văn bản tự do (Text/Markdown Area) duy nhất cho gia sư viết báo cáo ngắn gọn hôm nay đã dạy gì và dặn dò bài tập. Quyền xem minh bạch 3 bên: Gia sư, Phụ huynh và Học sinh.
-    4. *Thiết kế tối giản (Frictionless):* Loại bỏ các ghi chú riêng phức tạp và loại bỏ nút bấm thả icon hay nút xác nhận "Đã xem" từ phụ huynh.
+    4. *Thiết kế tối giản (Frictionless):* Giữ giao diện nhật ký báo cáo bài học tinh gọn.
 
 #### FR-6: Tiếp nhận và phản hồi lời mời nhận lớp
 Gia sư xem danh sách lớp được đề xuất và thực hiện Chấp nhận ➔ Hệ thống tự động **mở khóa (Unlock) SĐT & Địa chỉ Phụ huynh**.
 
-#### FR-8: Tự động soạn bài tập cá nhân hóa dựa trên SKP qua AI Split-Screen Workspace tại Chi tiết Buổi học
-Hỗ trợ gia sư soạn bài tập cá nhân hóa dựa trên SKP gắn trực tiếp tại Chi tiết Buổi học N:
+#### FR-8: Tự động soạn bài tập cá nhân hóa phù hợp với context học sinh qua AI Split-Screen Workspace tại Chi tiết Buổi học
+Hỗ trợ gia sư soạn bài tập cá nhân hóa tích hợp context bài học và thông tin học sinh (bao gồm SKP) gắn trực tiếp tại Chi tiết Buổi học N:
 * **Consequences (testable):**
   * **Luồng khởi tạo:** `[Danh sách Buổi học] ➔ [Chi tiết Buổi học N] ➔ [Bấm "Tạo bài tập với AI"] ➔ [Mở Split-Screen Workspace]`
   * **Bố cục Màn hình Workspace (Split-Screen):**
@@ -187,7 +186,7 @@ Hỗ trợ gia sư soạn bài tập cá nhân hóa dựa trên SKP gắn trực
     - **Cột PHẢI (Right Assistance Dock - 35% màn hình)** với 2 Tabs:
       - **TAB 1: Form / Content (Cấu hình & Tạo ban đầu):** Auto-load context của Buổi N (Tài liệu đính kèm & Log Work) có nút `(X)` gỡ nhãn context; cấu hình số câu, dạng bài, độ khó; nút `⚡ Sinh bài tập với AI` (**Option A Direct AI Gen 3-5s** và **Option B Import Structured File 0 Token Cost**).
       - **TAB 2: Chat Freestyle (AI Co-pilot Tinh chỉnh):** Khung chat ngôn ngữ tự nhiên với AI Co-pilot. Gia sư chat yêu cầu AI chỉnh sửa câu hỏi/tăng độ khó... AI phản hồi và tự động cập nhật Live Update lên Main Canvas bên trái.
-  * **Sinh Metadata & Zero LLM Overhead khi nộp bài:** AI sinh sẵn metadata (đáp án đúng, AI Explanation chi tiết, `difficulty` 1-100, `micro_skill_tags`). Backend dùng dữ liệu này để tính toán Elo rating và lập lịch Spaced Repetition (SM-2) mà **không gọi LLM** khi học sinh nộp bài.
+  * **Sinh Metadata & Tự động chấm điểm:** AI sinh sẵn metadata (đáp án đúng, AI Explanation chi tiết, `difficulty` 1-100, `micro_skill_tags`). Backend dùng dữ liệu này để tính toán Elo rating và lập lịch Spaced Repetition (SM-2) khi học sinh nộp bài.
 
 #### FR-9: Duyệt và Giao bài tập
 Gia sư rà soát bài tập trên Canvas và bấm nút **"Giao bài"** (chuyển sang Cổng Học sinh trong dưới 1s).
@@ -218,8 +217,8 @@ Gia sư cấu hình bảng giá học phí theo khối lớp/chương trình h�
 #### FR-11: Mở Buổi học N, Làm bài tập online và Lưu lịch sử bài làm
 Học sinh truy cập **Buổi học N**, xem tài liệu đính kèm, làm bài tập trực tuyến (trắc nghiệm, điền từ, sửa lỗi, viết lại câu) và lưu kết quả bài làm.
 
-#### FR-12: Tự động chấm điểm tức thì (Zero LLM Overhead)
-Hệ thống tự động chấm điểm bài làm ngay khi nhấn "Nộp bài", hiển thị tỷ lệ đúng/sai tức thì bằng metadata lưu sẵn mà không tốn chi phí gọi LLM.
+#### FR-12: Tự động chấm điểm tức thì
+Hệ thống tự động chấm điểm bài làm ngay khi nhấn "Nộp bài", hiển thị tỷ lệ đúng/sai tức thì bằng metadata lưu sẵn.
 
 #### FR-13: Cấu hình và Hiển thị Lời giải thích chi tiết AI (AI Explanation)
 Hỗ trợ 2 chế độ hiển thị:
@@ -301,11 +300,11 @@ Lễ tân tiếp nhận và ghi nhận khiếu nại từ phụ huynh hoặc gia
 ## 5. Non-Goals (Explicit)
 
 * **Không tự động ràng buộc cứng (hard binding) giữa Buổi học thực tế và Bài học trong Roadmap**: Đảm bảo gia sư hoàn toàn linh hoạt dạy nhanh/chậm tiến độ so với kế hoạch master plan ban đầu.
-* **Không xây dựng các tính năng tương tác rườm rà trong Nhật ký buổi học**: Loại bỏ nút thả icon, nút xác nhận "Đã xem" từ phụ huynh hay các ghi chú riêng tư rắc rối để giữ trải nghiệm frictionless.
+* **Tập trung tính tinh gọn trong Nhật ký buổi học**: Giữ giao diện báo cáo bài học đơn giản, không thêm các tính năng tương tác dư thừa.
 * **Không xây dựng tính năng Đánh giá Gia sư sau buổi Học thử**: Tạm thời chưa triển khai đánh giá sao sau học thử.
 * **Không hỗ trợ Khung chương trình học đa cấp**: Chỉ thiết kế tinh gọn 2 cấp (*Chủ đề/Chương ➔ Bài học*).
 * **Không xây dựng Gamification cồng kềnh (EXP, Streak, Bảng xếp hạng)**: Tập trung vào sự tiến bộ cá nhân và tương tác thực chất giữa Gia sư - Học sinh - Phụ huynh.
-* **Không AI Chatbot tư vấn trên trang chủ**: Thay thế chatbot bằng Form tìm gia sư trực quan.
+* **Không AI Chatbot tư vấn trên trang chủ**: Thay thế chatbot bằng Form tìm gia sư.
 * **Không Admin Live Chat Monitor & Takeover Mode**.
 * **Không Student Socratic Chatbot**: Thay bằng tính năng tự động chấm điểm và hiển thị Lời giải thích AI cho từng câu.
 * **Không dạy học trực tuyến tích hợp**: Học qua Zoom/Meet bên ngoài.
@@ -317,17 +316,17 @@ Lễ tân tiếp nhận và ghi nhận khiếu nại từ phụ huynh hoặc gia
 
 ### 6.1 In Scope
 
-* Parent Portal: Landing Page, Form tìm gia sư trực quan, Nút Đăng ký học thử, Xem Báo cáo Nhật ký bài học từng buổi (Public Class Log Work).
+* Parent Portal: Landing Page, Form tìm gia sư, Nút Đăng ký học thử, Xem Báo cáo Nhật ký bài học từng buổi (Public Class Log Work).
 * Admin Dashboard: Match Request Management, Phê duyệt ghép lớp, Duyệt phí nhận lớp (QR proof), Quản lý lễ tân, Xử lý khiếu nại & Đối soát tài chính, Báo cáo vận hành.
 * Receptionist Portal: Yêu cầu ghép lớp, Duyệt thanh toán, Quản lý gia sư & học sinh, Thông báo, Xử lý khiếu nại (Hoàn tiền / Ghép lại lớp).
-* Tutor Portal: Quản lý lớp, Khung chương trình tĩnh (Curriculum Roadmap Master Plan 2 cấp), **Quản lý Buổi học thực tế & Nhật ký dạy học (FR-40)**, **Tutor Assistant AI Split-Screen Workspace (FR-8)** tại Chi tiết Buổi học (sinh bài tập cá nhân hóa dựa trên SKP, auto-load context buổi N, zero-LLM submission), Giao bài tức thì, Upload tài liệu S3.
-* Student Portal: Xem Buổi học N & tài liệu đính kèm, Làm bài tập online, Tự động chấm điểm (Zero LLM Overhead), Xem lời giải thích AI từng câu, **Student Knowledge Profile (SKP) với Elo Rating**, **Ôn tập ngắt quãng Spaced Repetition (SM-2)**, Báo cáo tiến bộ cá nhân.
+* Tutor Portal: Quản lý lớp, Khung chương trình học (Curriculum Roadmap Master Plan 2 cấp), **Quản lý Buổi học thực tế & Nhật ký dạy học (FR-40)**, **Tutor Assistant AI Split-Screen Workspace (FR-8)** tại Chi tiết Buổi học (sinh bài tập cá nhân hóa dựa trên SKP, auto-load context buổi N, zero-LLM submission), Giao bài tức thì, Upload tài liệu S3.
+* Student Portal: Xem Buổi học N & tài liệu đính kèm, Làm bài tập online, Tự động chấm điểm, Xem lời giải thích AI từng câu, **Student Knowledge Profile (SKP) với Elo Rating**, **Ôn tập ngắt quãng Spaced Repetition (SM-2)**, Báo cáo tiến bộ cá nhân.
 * Backend Spring Boot RBAC theo `Enrollment`, Postgres DB, Docker deployment.
 
 ### 6.2 Out of Scope for MVP
 
 * Tự động ràng buộc cứng (hard binding) giữa Buổi học thực tế và Bài học trong Roadmap.
-* Nút bấm xác nhận "Đã xem" / thả icon reaction trong Nhật ký buổi học.
+* Các tính năng tương tác dư thừa (thả reaction, ghi chú rắc rối) trong Nhật ký buổi học.
 * Đánh giá định kỳ sau mỗi buổi học chính thức hoặc học thử.
 * Khung chương trình đa cấp phức tạp >2 cấp.
 * AI Advisor Chatbot & Live Chat Takeover.
@@ -353,7 +352,7 @@ Lễ tân tiếp nhận và ghi nhận khiếu nại từ phụ huynh hoặc gia
 
 ### 7.3 Counter-metrics (Chỉ số kiểm soát rủi ro)
 
-* **SM-C1 (API Cost per Homework - Chi phí API trên mỗi bài tập)**: Chi phí API gọi LLM (`gpt-4o-mini` / `Gemini Flash`) cho tính năng Tutor Assistant không vượt quá **$0.005 / bài tập** (~100 VNĐ) nhờ cơ chế Zero LLM Overhead khi học sinh nộp bài.
+* **SM-C1 (API Cost per Homework - Chi phí API trên mỗi bài tập)**: Chi phí API gọi LLM (`gpt-4o-mini` / `Gemini Flash`) cho tính năng Tutor Assistant không vượt quá **$0.005 / bài tập** (~100 VNĐ) nhờ sử dụng metadata sinh sẵn khi học sinh nộp bài.
 * **SM-C2 (Tutor Question Modification Rate - Tỷ lệ sửa đổi câu hỏi)**: Ít nhất **85%** số câu hỏi do AI Tutor Assistant tạo ra được gia sư giữ nguyên hoặc chỉ sửa đổi nhỏ (dưới 10% ký tự) trên Canvas.
 
 ---
