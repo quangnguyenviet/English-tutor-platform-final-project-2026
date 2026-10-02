@@ -48,8 +48,7 @@ Bản ghi `Match Offer` chuyển sang trạng thái `ACCEPTED` (hoặc `REJECTED
 2. Hệ thống hiển thị danh sách các thẻ `Match Offer` đang ở trạng thái chờ phản hồi (`PENDING`), mỗi thẻ bao gồm:
    - Tên/biệt danh học sinh và Khối lớp.
    - Trình độ hiện tại & Mục tiêu học tập ưu tiên.
-   - Mức học phí/buổi và Số buổi học mong muốn/tuần.
-   - Khung giờ rảnh đề xuất từ phía phụ huynh.
+   - Mức học phí/buổi và lịch học mong muốn.
    - Ghi chú thêm từ phụ huynh/trung tâm.
 3. Gia sư nhấp nút **"Xem chi tiết đề nghị"**.
 4. Hệ thống mở cửa sổ Modal hiển thị chi tiết hồ sơ yêu cầu ghép lớp.
@@ -326,10 +325,11 @@ UC-T06
 Soạn & Giao Quiz trắc nghiệm
 
 **Mô tả**  
-Tính năng đòn bẩy trung tâm của hệ thống, tích hợp trực tiếp tại màn hình Chi tiết Buổi học N. Màn hình làm việc dạng chia đôi độc đáo (**AI Split-Screen Workspace**):
-- **Main Canvas (Trái - 65%):** Hiển thị danh sách các câu hỏi Quiz trắc nghiệm (Multiple Choice Questions - MCQ) do AI sinh ra hoặc import vào. Hỗ trợ tính năng Inline Edit trực tiếp câu hỏi, các phương án đáp án (A/B/C/D), đáp án đúng và Lời giải thích AI chi tiết trước khi bấm giao bài.
-- **Assistance Dock (Phải - 35%):** Gồm Tab 1 (**Form Config:** tự động nạp bối cảnh Buổi học N & thông số SKP học sinh như Elo rating, các lỗi hay mắc) và Tab 2 (**Chat Freestyle Co-pilot:** cho phép gia sư ra lệnh cho AI tinh chỉnh Quiz trắc nghiệm như *"làm khó hơn câu 3"*, *"thêm 2 câu trắc nghiệm về quá khứ đơn"*).
-Ngoài ra Workspace hỗ trợ **Dual-Mode** (Option A sinh direct AI & Option B Import File từ bên ngoài). Tính năng này tập trung chuyên sâu hỗ trợ sinh Quiz trắc nghiệm (4 phương án lựa chọn A/B/C/D) nhằm tối ưu cho việc kiểm tra đánh giá kiến thức nhanh và tự động chấm điểm. Sau khi duyệt, gia sư bấm **"Duyệt & Giao Quiz"**, toàn bộ câu hỏi trắc nghiệm, đáp án chuẩn và lời giải thích được lưu vào PostgreSQL để phục vụ việc tự động chấm điểm khi học sinh nộp bài.
+Tích hợp trực tiếp tại màn hình Chi tiết Buổi học N với giao diện làm việc chia đôi (**AI Split-Screen Workspace**):
+- **Main Canvas (Trái - 65%):** Hiển thị danh sách các câu hỏi Quiz trắc nghiệm (Multiple Choice Questions - MCQ) do AI sinh ra hoặc import vào. Hỗ trợ tính năng Inline Edit trực tiếp câu hỏi, các phương án đáp án (A/B/C/D), đáp án đúng, nhãn kỹ năng (skill tag) và Lời giải thích AI chi tiết trước khi bấm giao bài.
+- **Assistance Dock (Phải - 35%):** Gồm Tab 1 (**Form Config:** biểu mẫu thiết lập các tham số sinh Quiz như số lượng câu hỏi, mô tả yêu cầu bổ sung và đính kèm tài liệu) và Tab 2 (**Chat Freestyle Co-pilot:** cho phép gia sư ra lệnh cho AI tinh chỉnh Quiz trắc nghiệm như *"làm khó hơn câu 3"*, *"thêm 2 câu trắc nghiệm về quá khứ đơn"*).
+
+Khi sinh Quiz qua AI (Option A), hệ thống tự động tổng hợp bối cảnh đầu vào (AI Input Context) bao gồm: thông số hồ sơ SKP học sinh (điểm Elo rating, các dạng lỗi sai hay mắc) kết hợp với cấu hình từ Form Config. Đối với Option B (0 Token Cost), sau khi điền Form Config, gia sư nhấp nút **"Sao chép Prompt"** để nhận đoạn Prompt đã đóng gói sẵn bối cảnh + JSON Schema chuẩn, dán vào công cụ AI bên ngoài (ChatGPT/Claude), rồi dán đoạn kết quả thu được về hệ thống để Import. Tính năng này tập trung chuyên sâu hỗ trợ sinh Quiz trắc nghiệm (4 phương án lựa chọn A/B/C/D) nhằm tối ưu cho việc kiểm tra đánh giá kiến thức nhanh và tự động chấm điểm. Sau khi duyệt, gia sư bấm **"Duyệt & Giao Quiz"**, toàn bộ câu hỏi trắc nghiệm, đáp án chuẩn và lời giải thích được lưu vào PostgreSQL để phục vụ việc tự động chấm điểm khi học sinh nộp bài.
 
 **Tác nhân**  
 Gia sư
@@ -341,10 +341,10 @@ Rất cao (Core Feature)
 Gia sư nhấp nút "Soạn Quiz AI" (hoặc "Giao Quiz AI") tại màn hình Chi tiết Buổi học N.
 
 **Tiền điều kiện**  
-Gia sư đang ở màn hình Chi tiết Buổi học N và học sinh đã có dữ liệu hồ sơ SKP trong hệ thống.
+Gia sư đang ở màn hình Chi tiết Buổi học N
 
 **Hậu điều kiện**  
-Bộ câu hỏi Quiz trắc nghiệm cá nhân hóa được tạo hoàn chỉnh ở trạng thái `assigned`; câu hỏi kèm metadata (đáp án đúng A/B/C/D, độ khó `difficulty`, nhãn `skill_tags`, giải thích AI) được lưu trữ hoàn chỉnh để phục vụ chấm điểm tự động.
+Bộ câu hỏi Quiz trắc nghiệm được lưu vào PostgreSQL ở một trong hai trạng thái: `draft` (gia sư lưu nháp, chưa giao) hoặc `assigned` (đã giao cho học sinh); câu hỏi kèm metadata (đáp án đúng A/B/C/D, độ khó `difficulty`, nhãn `skill_tags`, giải thích AI) được lưu trữ hoàn chỉnh để phục vụ chấm điểm tự động khi bài ở trạng thái `assigned`.
 
 **Luồng chính**  
 1. Tại màn hình Chi tiết Buổi học N, gia sư nhấp nút **"Soạn & Giao AI Quiz Workspace"**.
@@ -352,38 +352,47 @@ Bộ câu hỏi Quiz trắc nghiệm cá nhân hóa được tạo hoàn chỉnh
    - **Cột Trái (Main Canvas - 65%):** Màn hình xem trước bộ câu hỏi Quiz trắc nghiệm (hiện tại trống).
    - **Cột Phải (Assistance Dock - 35%):** Tab 1 (Form Config tham số) đang kích hoạt.
 3. Hệ thống tự động kiểm tra và nạp bối cảnh (Auto-load context):
-   - *Bối cảnh Buổi học N:* Tên bài giảng, tài liệu học tập/bài giảng liên quan đính kèm tại Buổi học N.
    - *Hồ sơ tri thức SKP học sinh:* Điểm mạnh, yếu, các kiến thức đã học, mục tiêu học tập, các lỗi học sinh hay mắc gần đây, trình độ.
 4. Gia sư lựa chọn chế độ sinh Quiz trắc nghiệm trên Assistance Dock (Cột Phải):
    - **Trường hợp Option A (Sinh trực tiếp qua AI Agent):**
-     - Gia sư chọn các thông số cấu hình cơ bản: Số lượng câu hỏi Quiz, Mức độ khó (Dễ / Trung bình / Khó).
-     - *(Lưu ý: Tính năng tập trung sinh 100% dạng bài **Quiz trắc nghiệm 4 lựa chọn (MCQ A/B/C/D)** có 1 đáp án đúng duy nhất, tối ưu cho việc kiểm tra phản xạ và chấm điểm tự động).*
-     - Gia sư nhập mô tả yêu cầu nội dung Quiz mong muốn tại ô Input (ví dụ: *"Tập trung vào 10 câu trắc nghiệm cấu trúc đảo ngữ và từ vựng chủ đề Du lịch"* hoặc *"Cho Quiz trắc nghiệm kiểm tra thì quá khứ đơn"*).
+     - Gia sư chọn số lượng câu hỏi Quiz cần sinh.
+     - Gia sư nhập mô tả yêu cầu nội dung Quiz mong muốn tại ô Input (ví dụ: *"Tập trung vào cấu trúc đảo ngữ và từ vựng chủ đề Du lịch"* hoặc *"Cho Quiz trắc nghiệm kiểm tra thì quá khứ đơn"*).
      - Gia sư có thể tải lên thêm tài liệu đính kèm (tệp PDF, Word hoặc ảnh chụp bài tập/tài liệu tham khảo bổ sung) để AI phân tích làm căn cứ sinh câu hỏi trắc nghiệm.
      - Gia sư nhấp nút **"Sinh AI Quiz (Option A)"**.
      - Hệ thống gọi AI Service (Python FastAPI / LangGraph Agent) kết hợp bối cảnh Buổi học N + dữ liệu SKP học sinh + yêu cầu nhập & tài liệu đính kèm của gia sư để sinh bộ câu hỏi Quiz trắc nghiệm.
      - Bộ câu hỏi Quiz trắc nghiệm hiển thị trực tiếp lên Main Canvas (Cột Trái).
-   - **Trường hợp Option B (Import File từ bên ngoài):**
-     - Gia sư chuyển sang Tab Import File từ bên ngoài.
-     - Gia sư dán văn bản JSON hoặc đoạn text Quiz trắc nghiệm đã tạo sẵn từ ChatGPT ngoài.
-     - Gia sư nhấp **"Kiểm tra & Import"**.
-     - Bộ Parser kiểm định cấu trúc Quiz trắc nghiệm và đẩy câu hỏi lên Main Canvas.
+   - **Trường hợp Option B (Copy Prompt & Import từ AI bên ngoài - 0 Token Cost):**
+     - Gia sư điền các thông số trên Form Config (số lượng câu hỏi, mô tả yêu cầu nội dung, đính kèm tài liệu).
+     - Gia sư nhấp nút **"Sao chép Prompt chuẩn hóa"**.
+     - Hệ thống tự động đóng gói bối cảnh + thông số Form Config + định dạng JSON Schema chuẩn thành đoạn Prompt hoàn chỉnh và lưu vào bộ nhớ tạm (Clipboard).
+     - Gia sư mở công cụ AI bên ngoài (ChatGPT / Claude / Gemini...), dán Prompt để sinh bộ Quiz trắc nghiệm.
+     - Gia sư dán văn bản kết quả (dạng JSON hoặc đoạn text Quiz chuẩn) vào ô nhập Import trên hệ thống và nhấp **"Kiểm tra & Import"**.
+     - Bộ Parser kiểm định cấu trúc Quiz trắc nghiệm và đẩy toàn bộ câu hỏi lên Main Canvas.
 5. Gia sư xem trước toàn bộ danh sách câu hỏi Quiz trắc nghiệm trên Main Canvas (Cột Trái):
    - Mỗi thẻ câu hỏi hiển thị: Nội dung câu hỏi trắc nghiệm, 4 phương án đáp án (A/B/C/D), Đáp án đúng, Nhãn kỹ năng, Độ khó difficulty và Lời giải thích AI chi tiết.
 6. Gia sư tinh chỉnh Quiz qua 2 cách linh hoạt:
    - *Cách 1 (Chỉnh sửa trực tiếp Inline Edit):* Gia sư nhấp đúp vào văn bản câu hỏi hoặc phương án đáp án bất kỳ trên Canvas để gõ chỉnh sửa văn bản trực tiếp.
    - *Cách 2 (Sử dụng Chat Co-pilot tại Dock Phải):* Gia sư chuyển sang Tab 2 (Chat Freestyle Co-pilot) và gõ lệnh điều chỉnh (ví dụ: *"Đổi câu 2 sang chủ đề từ vựng Du lịch"*, *"Cho câu 4 khó hơn nữa"*). AI Agent thực hiện tinh chỉnh và cập nhật lại câu hỏi trắc nghiệm tương ứng trên Canvas.
-7. Sau khi hài lòng với bộ câu hỏi Quiz, gia sư thiết lập Hạn nộp bài và nhấp nút **"Duyệt & Giao Quiz cho Học sinh"**.
-8. Hệ thống thực hiện:
-   - Lưu bộ câu hỏi Quiz trắc nghiệm, đáp án chuẩn, nhãn `skill_tags`, độ khó câu hỏi và lời giải thích AI chi tiết vào PostgreSQL.
-   - Tạo bản ghi bài tập `Quiz` (hoặc `Homework`) gán cho Học sinh ở trạng thái `assigned`.
-9. Hệ thống hiển thị thông báo thành công: *"Đã giao Quiz trắc nghiệm cá nhân hóa thành công cho học sinh [Tên HS] tại Buổi học N."* Use Case kết thúc.
+7. Gia sư chọn một trong hai hành động:
+   - Nhấp nút **"Lưu nháp"** để lưu bộ Quiz tạm thời mà chưa giao cho học sinh (xem Luồng thay thế 7a).
+   - Nhấp nút **"Duyệt & Giao Quiz cho Học sinh"** để tiến hành giao bài ngay.
+8. Khi gia sư nhấp **"Duyệt & Giao Quiz cho Học sinh"**, hệ thống yêu cầu gia sư xác nhận Hạn nộp bài (`deadline`) và hiển thị hộp thoại xác nhận: *"Bạn có chắc muốn giao bộ Quiz này cho [Tên HS]?"*.
+9. Gia sư xác nhận. Hệ thống thực hiện:
+   - Lưu (hoặc cập nhật) bộ câu hỏi Quiz trắc nghiệm, đáp án chuẩn, nhãn `skill_tags`, độ khó câu hỏi và lời giải thích AI chi tiết vào PostgreSQL.
+   - Tạo (hoặc chuyển trạng thái) bản ghi bài tập `Quiz` gán cho Học sinh sang trạng thái `assigned`.
+10. Hệ thống hiển thị thông báo thành công: *"Đã giao Quiz trắc nghiệm cá nhân hóa thành công cho học sinh [Tên HS] tại Buổi học N."* Use Case kết thúc.
 
 **Luồng thay thế**  
 6a. Gia sư muốn xóa bớt một câu hỏi trắc nghiệm không ưng ý khỏi Quiz:  
 6a1. Gia sư nhấp vào biểu tượng Thùng rác trên thẻ câu hỏi tại Main Canvas.  
 6a2. Hệ thống loại bỏ câu hỏi đó khỏi danh sách xem trước và cập nhật lại tổng số câu.  
 Use Case tiếp tục bước 6.
+
+7a. Gia sư chưa muốn giao ngay và nhấp nút **"Lưu nháp"**:  
+7a1. Hệ thống lưu toàn bộ bộ câu hỏi Quiz hiện tại (bao gồm đáp án, `skill_tags`, độ khó, lời giải thích AI) vào PostgreSQL ở trạng thái `draft`.  
+7a2. Hệ thống hiển thị thông báo: *"Đã lưu nháp Quiz thành công. Bạn có thể mở lại và chỉnh sửa hoặc giao bài sau."*  
+7a3. Bộ Quiz nháp xuất hiện trong danh sách **"Quiz đang soạn thảo (Nháp)"** tại màn hình Chi tiết Buổi học N, với nhãn trạng thái `Nháp` và nút **"Tiếp tục chỉnh sửa / Giao bài"**.  
+Use Case kết thúc.
 
 **Luồng ngoại lệ**  
 4a1. AI Service gặp sự cố quá tải hoặc phản hồi chậm quá 5 giây:  
