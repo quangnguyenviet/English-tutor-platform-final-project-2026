@@ -297,15 +297,15 @@ Thông tin Buổi học N, tài liệu đính kèm và nội dung Public Log Wor
 7. Gia sư điền vùng văn bản **Public Class Log Work**:
    - *Kiến thức đã hoàn thành trong buổi:* Các cấu trúc ngữ pháp/từ vựng đã giảng.
    - *Dặn dò về nhà:* Bài tập cần làm, yêu cầu học từ vựng.
-8. Gia sư nhấp nút **"Lưu & Xuất bản Nhật ký bài học"**.
-9. Hệ thống lưu dữ liệu vào CSDL PostgreSQL và cập nhật báo cáo Public Log Work.
+8. Gia sư nhấp nút **"Lưu nhật ký bài học"**.
+9. Hệ thống lưu dữ liệu vào CSDL PostgreSQL và cập nhật báo cáo Public Log Work (Học sinh và Phụ huynh có thể xem nội dung ngay).
 10. Hệ thống hiển thị thông báo: *"Đã lưu nhật ký Buổi học N. Phụ huynh và Học sinh đã có thể xem báo cáo này."* Use Case kết thúc.
 
 **Luồng thay thế**  
-7a. Gia sư muốn lưu nháp nhật ký buổi học để chỉnh sửa sau trước khi xuất bản cho phụ huynh xem:  
-7a1. Gia sư điền nội dung và nhấp nút "Lưu bản nháp".  
-7a2. Hệ thống lưu bản ghi ở trạng thái `DRAFT` (chỉ gia sư xem được).  
-7a3. Khi kết thúc buổi học, gia sư mở lại và bấm "Xuất bản".  
+7a. Gia sư muốn tạm ẩn buổi học (không cho Phụ huynh & Học sinh thấy):  
+7a1. Gia sư nhấp nút **"Ẩn buổi học"**.  
+7a2. Hệ thống chuyển trạng thái buổi học sang `HIDDEN` (thẻ buổi học bị làm mờ, chỉ riêng Gia sư xem và chỉnh sửa được).  
+7a3. Khi muốn công khai lại, gia sư nhấp **"Hiện buổi học"**.  
 Use Case tiếp tục bước 9.
 
 **Luồng ngoại lệ**  
@@ -514,7 +514,7 @@ Bảng tổng hợp đối chiếu toàn bộ Use Case Phân hệ Gia sư với 
 | **UC-T02** | Nhập lịch học thử & Chốt lịch dạy cố định hàng tuần | Gia sư | **FR-25, FR-29**: Schedule setup & Fixed ACTIVE status | UJ-2 |
 | **UC-T03** | Nộp minh chứng phí QR Proof sau 30 ngày dạy | Gia sư | **FR-23**: Payment proof submission after 30 days | UJ-2 |
 | **UC-T04** | Quản lý Khung chương trình học 2 cấp (Master Plan) | Gia sư | **FR-30**: Roadmap Master Plan (Dual-Mode Option A/B) | UJ-2 |
-| **UC-T05** | Quản lý Buổi học thực tế & Nhật ký dạy học 3 bên | Gia sư | **FR-40**: Daily Sessions & Public Class Log Work (S3) | UJ-2 |
+| **UC-T05** | Quản lý Buổi học thực tế & Nhật ký dạy học | Gia sư | **FR-40**: Daily Sessions & Public Class Log Work (S3) | UJ-2 |
 | **UC-T06** | Soạn & Giao Quiz trắc nghiệm | Gia sư | **FR-8, FR-9**: AI Split-Screen Workspace & Dual-Mode | UJ-2 (Core AI) |
 | **UC-T07** | Xem báo cáo Student Knowledge Profile (SKP) & Private Notes | Gia sư | **FR-38, FR-21**: SKP Elo Rating & Private Notes | UJ-2, Glossary |
 | **UC-T08** | Quản lý Thời khóa biểu cố định & Thẻ Rate Card gia sư | Gia sư | **FR-21, FR-25, FR-27**: Tutor Profile & Rate Card | UJ-2 |

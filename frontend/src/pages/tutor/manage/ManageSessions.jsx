@@ -23,6 +23,8 @@ import {
   Search,
   BookOpen,
   ArrowRight,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import Card from "../../../components/ui/Card";
 import Badge from "../../../components/ui/Badge";
@@ -61,15 +63,16 @@ export default function ManageSessions({
     skills: ["Ngữ pháp", "Từ vựng"],
   });
 
-  // Filtered session list
+  // Filtered session list based on search and visibility filter
   const filteredSessions = useMemo(() => {
     return dailySessions.filter((s) => {
       const matchSearch =
         s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         `buổi ${s.sessionNumber}`.includes(searchQuery.toLowerCase());
-      const matchStatus =
-        statusFilter === "all" || s.status === statusFilter;
-      return matchSearch && matchStatus;
+      const isHidden = s.isHidden === true || s.status === "hidden";
+      if (statusFilter === "visible") return matchSearch && !isHidden;
+      if (statusFilter === "hidden") return matchSearch && isHidden;
+      return matchSearch;
     });
   }, [dailySessions, searchQuery, statusFilter]);
 
@@ -114,17 +117,9 @@ export default function ManageSessions({
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // Helper to save session changes
-  const saveSession = (targetStatus) => {
+  // Helper to save log work content
+  const handleSaveLogWork = () => {
     if (!selectedSession) return;
-    const nowStr = new Date().toLocaleString("vi-VN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
     const updated = dailySessions.map((s) => {
       if (s.id === selectedSession.id) {
         return {
@@ -132,12 +127,11 @@ export default function ManageSessions({
           title: editForm.title.trim() || s.title,
           date: editForm.date || s.date,
           duration: editForm.duration || s.duration,
-          status: targetStatus,
           publicLogWork: {
+            ...s.publicLogWork,
             knowledgeTaught: editForm.knowledgeTaught,
             homeworkAssigned: editForm.homeworkAssigned,
             parentNote: editForm.parentNote,
-            publishedAt: targetStatus === "published" ? (s.publicLogWork?.publishedAt || nowStr) : null,
           },
         };
       }
@@ -145,19 +139,32 @@ export default function ManageSessions({
     });
 
     setDailySessions(updated);
-    setEditForm((prev) => ({ ...prev, status: targetStatus }));
+    showToast(`Đã lưu nhật ký Buổi học ${selectedSession.sessionNumber}.`);
+  };
 
-    if (targetStatus === "published") {
-      showToast(
-        `Đã lưu & xuất bản nhật ký Buổi học ${selectedSession.sessionNumber}. Phụ huynh và Học sinh đã có thể xem báo cáo này!`,
-        "success"
-      );
-    } else {
-      showToast(
-        `Đã lưu bản nháp nhật ký Buổi học ${selectedSession.sessionNumber}. Nội dung này chỉ gia sư mới xem được.`,
-        "info"
-      );
-    }
+  // Helper to toggle Hide / Show session for students/parents
+  const handleToggleHideSession = () => {
+    if (!selectedSession) return;
+    const currentlyHidden = selectedSession.isHidden === true || selectedSession.status === "hidden";
+    const nextHidden = !currentlyHidden;
+
+    const updated = dailySessions.map((s) => {
+      if (s.id === selectedSession.id) {
+        return {
+          ...s,
+          isHidden: nextHidden,
+          status: nextHidden ? "hidden" : "visible",
+        };
+      }
+      return s;
+    });
+
+    setDailySessions(updated);
+    showToast(
+      nextHidden
+        ? `Đã ẩn Buổi học ${selectedSession.sessionNumber} với Học sinh & Phụ huynh.`
+        : `Đã hiện Buổi học ${selectedSession.sessionNumber} cho Học sinh & Phụ huynh.`
+    );
   };
 
   // File Upload handler with validation & UC-T05 exception flow 6a/6a1/6a2
@@ -299,8 +306,8 @@ export default function ManageSessions({
 
   // Statistics
   const totalCount = dailySessions.length;
-  const publishedCount = dailySessions.filter((s) => s.status === "published").length;
-  const draftCount = dailySessions.filter((s) => s.status === "draft").length;
+  const visibleCount = dailySessions.filter((s) => !s.isHidden && s.status !== "hidden").length;
+  const hiddenCount = dailySessions.filter((s) => s.isHidden === true || s.status === "hidden").length;
   const totalAttachments = dailySessions.reduce((acc, s) => acc + (s.attachments?.length || 0), 0);
 
   return (
@@ -334,52 +341,12 @@ export default function ManageSessions({
             <Badge tone="indigo">UC-T05</Badge>
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Nhật ký bài học 3 bên (Gia sư, Học sinh, Phụ huynh) & đính kèm tài liệu giảng dạy cho {student?.name}
+            Nhật ký bài học (Gia sư, Học sinh, Phụ huynh) & đính kèm tài liệu giảng dạy cho {student?.name}
           </p>
         </div>
         <Button onClick={() => setShowAddModal(true)} className="shrink-0 gap-2">
           <Plus size={16} /> Thêm buổi học mới
         </Button>
-      </div>
-
-      {/* Summary KPI cards */}
-      <div className="grid gap-3 sm:grid-cols-4">
-        <Card className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
-            <CalendarDays size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-400">Tổng buổi học</p>
-            <p className="text-lg font-bold text-slate-900 dark:text-slate-50">{totalCount} buổi</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
-            <Globe size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-400">Đã xuất bản 3 bên</p>
-            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{publishedCount} nhật ký</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
-            <Lock size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-400">Bản nháp (Gia sư)</p>
-            <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{draftCount} bản nháp</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
-            <FileText size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-400">Tài liệu đính kèm</p>
-            <p className="text-lg font-bold text-slate-900 dark:text-slate-50">{totalAttachments} tệp</p>
-          </div>
-        </Card>
       </div>
 
       {/* Workspace Grid Layout: Left Session List (35%) & Right Session Workspace (65%) */}
@@ -403,9 +370,8 @@ export default function ManageSessions({
             <div className="flex flex-wrap gap-1 border-b border-slate-100 pb-2 dark:border-slate-800">
               {[
                 { id: "all", label: "Tất cả" },
-                { id: "published", label: "Đã xuất bản" },
-                { id: "draft", label: "Bản nháp" },
-                { id: "upcoming", label: "Sắp tới" },
+                { id: "visible", label: "Đang hiện" },
+                { id: "hidden", label: "Đang ẩn" },
               ].map((f) => (
                 <button
                   key={f.id}
@@ -429,8 +395,7 @@ export default function ManageSessions({
               ) : (
                 filteredSessions.map((session) => {
                   const isSelected = selectedSession?.id === session.id;
-                  const isPublished = session.status === "published";
-                  const isDraft = session.status === "draft";
+                  const isHidden = session.isHidden === true || session.status === "hidden";
 
                   return (
                     <div
@@ -440,7 +405,8 @@ export default function ManageSessions({
                         "group flex cursor-pointer flex-col gap-2 rounded-xl border p-3.5 transition-all duration-150",
                         isSelected
                           ? "border-blue-500 bg-blue-50/70 shadow-sm dark:border-blue-700 dark:bg-blue-950/40"
-                          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800/60"
+                          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800/60",
+                        isHidden && "opacity-60 bg-slate-100/70 dark:bg-slate-900/40 border-dashed"
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -450,17 +416,9 @@ export default function ManageSessions({
                           </span>
                           Buổi {session.sessionNumber}
                         </span>
-                        {isPublished ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
-                            <Globe size={11} /> Đã xuất bản
-                          </span>
-                        ) : isDraft ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-                            <Lock size={11} /> Bản nháp
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                            <Clock size={11} /> Chưa học
+                        {isHidden && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                            <EyeOff size={11} /> Đang ẩn
                           </span>
                         )}
                       </div>
@@ -505,13 +463,13 @@ export default function ManageSessions({
                     <span className="rounded-lg bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
                       Buổi học {selectedSession.sessionNumber}
                     </span>
-                    {editForm.status === "published" ? (
-                      <Badge tone="emerald">
-                        <Globe size={12} className="mr-1 inline" /> Xuất bản (Công khai 3 bên)
+                    {selectedSession.isHidden || selectedSession.status === "hidden" ? (
+                      <Badge tone="amber">
+                        <EyeOff size={12} className="mr-1 inline" /> Buổi học đang ẩn (Học sinh & Phụ huynh không thấy)
                       </Badge>
                     ) : (
-                      <Badge tone="amber">
-                        <Lock size={12} className="mr-1 inline" /> Bản nháp (Chỉ gia sư)
+                      <Badge tone="emerald">
+                        <Eye size={12} className="mr-1 inline" /> Buổi học đang hiện
                       </Badge>
                     )}
                   </div>
@@ -520,17 +478,28 @@ export default function ManageSessions({
                   </h3>
                 </div>
 
-                {/* Main Action Buttons (UC-T05 Main Flow Step 8 & Alternative Flow 7a) */}
+                {/* Main Action Buttons */}
                 <div className="flex flex-wrap items-center gap-2">
                   <button
-                    onClick={() => saveSession("draft")}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition"
+                    type="button"
+                    onClick={handleToggleHideSession}
+                    className={clsx(
+                      "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition",
+                      selectedSession.isHidden || selectedSession.status === "hidden"
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                        : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                    )}
                   >
-                    <Lock size={14} /> Lưu bản nháp
+                    {selectedSession.isHidden || selectedSession.status === "hidden" ? (
+                      <>
+                        <Eye size={14} /> Hiện buổi học
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff size={14} /> Ẩn buổi học
+                      </>
+                    )}
                   </button>
-                  <Button onClick={() => saveSession("published")} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
-                    <Globe size={14} /> Lưu & Xuất bản Nhật ký
-                  </Button>
                 </div>
               </div>
 
@@ -575,16 +544,16 @@ export default function ManageSessions({
                     </div>
                     <div>
                       <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                        Public Class Log Work (Nhật ký dạy học 3 bên)
+                        Public Class Log Work (Nhật ký dạy học)
                       </h4>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Vùng văn bản hiển thị công khai cho Gia sư, Học sinh ({student?.name}) và Phụ huynh cùng xem
+                        Vùng văn bản nhật ký bài học & dặn dò. Học sinh ({student?.name}) và Phụ huynh sẽ xem được nội dung này (trừ khi bị ẩn).
                       </p>
                     </div>
                   </div>
                   {selectedSession.publicLogWork?.publishedAt && (
                     <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                      Đã xuất bản: {selectedSession.publicLogWork.publishedAt}
+                      Đã gửi: {selectedSession.publicLogWork.publishedAt}
                     </span>
                   )}
                 </div>
@@ -596,20 +565,6 @@ export default function ManageSessions({
                       <CheckCircle2 size={14} className="text-emerald-500" />
                       Kiến thức đã hoàn thành trong buổi học
                     </label>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditForm((f) => ({
-                          ...f,
-                          knowledgeTaught:
-                            f.knowledgeTaught +
-                            "\n1. Ôn tập ngữ pháp thì...\n2. 15 từ vựng mới chủ đề...\n3. Kỹ năng thực hành nói...",
-                        }))
-                      }
-                      className="text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400"
-                    >
-                      + Chèn mẫu gợi ý
-                    </button>
                   </div>
                   <textarea
                     rows={4}
@@ -627,20 +582,6 @@ export default function ManageSessions({
                       <BookOpen size={14} className="text-amber-500" />
                       Dặn dò về nhà & Bài tập cần nộp
                     </label>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditForm((f) => ({
-                          ...f,
-                          homeworkAssigned:
-                            f.homeworkAssigned +
-                            "\n1. Hoàn thành Bài tập 01 trên hệ thống trước hạn.\n2. Học thuộc 15 từ vựng mới và thu âm 1 đoạn nói ngắn.",
-                        }))
-                      }
-                      className="text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400"
-                    >
-                      + Chèn mẫu dặn dò
-                    </button>
                   </div>
                   <textarea
                     rows={3}
@@ -651,19 +592,11 @@ export default function ManageSessions({
                   />
                 </div>
 
-                {/* Input Area 3: Lời nhắn tới Phụ huynh */}
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                    <Send size={14} className="text-indigo-500" />
-                    Nhận xét & Lời nhắn gửi Phụ huynh ({student?.parentName || "Phụ huynh"})
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.parentNote}
-                    onChange={(e) => setEditForm((f) => ({ ...f, parentNote: e.target.value }))}
-                    placeholder="Nhận xét ngắn về thái độ học tập, mức độ tiếp thu của bé trong buổi học này..."
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  />
+                {/* Save Log Work Action Button */}
+                <div className="flex justify-end pt-1">
+                  <Button onClick={handleSaveLogWork} className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-5">
+                    <FileText size={14} /> Lưu
+                  </Button>
                 </div>
               </div>
 
