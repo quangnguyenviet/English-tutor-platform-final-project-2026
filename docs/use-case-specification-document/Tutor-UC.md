@@ -158,7 +158,7 @@ Lớp học chính thức `ACTIVE` cán mốc 30 ngày kể từ ngày bắt đ�
 Lớp học đang ở trạng thái `ACTIVE` và đã hoạt động đủ 30 ngày; bản ghi thanh toán `Payment` khởi tạo ở trạng thái `PENDING_PROOF`.
 
 **Hậu điều kiện**  
-Ảnh biên lai VietQR proof được tải lên Amazon S3 và lưu vào hệ thống; trạng thái khoản phí chuyển sang `WAITING_APPROVAL` (Chờ Admin/Lễ tân duyệt).
+Ảnh biên lai VietQR proof được tải lên hệ thống và lưu vào hệ thống; trạng thái khoản phí chuyển sang `WAITING_APPROVAL` (Chờ Admin/Lễ tân duyệt).
 
 **Luồng chính**  
 1. Gia sư nhấp vào thông báo "Đến hạn nộp phí nhận lớp 30 ngày" hoặc chọn mục "Thanh toán & Phí nhận lớp" (`/tutor/payments`).
@@ -171,7 +171,7 @@ Lớp học đang ở trạng thái `ACTIVE` và đã hoạt động đủ 30 ng
 4. Gia sư nhấp nút **"Tải lên ảnh chụp biên lai (QR Proof)"**.
 5. Hệ thống mở bộ chọn file ảnh (hỗ trợ định dạng `.png, .jpg, .jpeg`, dung lượng < 5MB).
 6. Gia sư chọn tệp ảnh biên lai và bấm **"Gửi minh chứng thanh toán"**.
-7. Hệ thống tải ảnh lên lưu trữ S3 và cập nhật bản ghi thanh toán sang trạng thái `WAITING_APPROVAL`.
+7. Hệ thống tải ảnh lên hệ thống và cập nhật bản ghi thanh toán sang trạng thái `WAITING_APPROVAL`.
 8. Hệ thống hiển thị thông báo: *"Đã tải minh chứng thành công. Lễ tân / Admin sẽ kiểm tra và đối soát trong vòng 24 giờ làm việc."* Use Case kết thúc.
 
 **Luồng thay thế**  
@@ -255,16 +255,16 @@ Use Case tiếp tục bước 5.
 
 ---
 
-### 5. UC - T05. Quản lý Buổi học thực tế & Nhật ký dạy học 3 bên minh bạch (Daily Lesson Sessions & Public Class Log Work)
+### 5. UC - T05. Quản lý Buổi học thực tế & Nhật ký dạy học (Daily Lesson Sessions & Public Class Log Work)
 
 **Mã Use Case**  
 UC-T05
 
 **Tên Use Case**  
-Quản lý Buổi học thực tế & Nhật ký dạy học 3 bên minh bạch (Daily Lesson Sessions & Public Class Log Work)
+Quản lý Buổi học thực tế & Nhật ký dạy học (Daily Lesson Sessions & Public Class Log Work)
 
 **Mô tả**  
-Cho phép gia sư quản lý dòng thời gian từng buổi học thực tế độc lập với Khung chương trình tổng thể (`Daily Lesson Sessions`). Tại màn hình làm việc của Buổi học N, gia sư ghi nhận thông tin bài giảng, đính kèm bài giảng/tài liệu ôn tập (.pdf, .docx) lên Amazon S3, và điền 1 vùng văn bản **Public Class Log Work**. Vùng văn bản này hiển thị công khai và dùng chung minh bạch giữa 3 bên (Gia sư, Học sinh, Phụ huynh) để ghi lại dặn dò, kiến thức trọng tâm đã học và đánh giá thái độ học tập buổi đó mà không làm ảnh hưởng đến giờ dạy.
+Cho phép gia sư quản lý dòng thời gian từng buổi học thực tế độc lập với Khung chương trình tổng thể (`Daily Lesson Sessions`). Tại màn hình làm việc của Buổi học N, gia sư ghi nhận thông tin bài giảng, đính kèm bài giảng/tài liệu ôn tập (.pdf, .docx) và điền vùng văn bản **Public Class Log Work** sau khi buổi học kết thúc. Vùng văn bản này hiển thị công khai cho cả Gia sư, Học sinh và Phụ huynh cùng xem, dùng để ghi lại kiến thức trọng tâm đã học và dặn dò bài tập về nhà.
 
 **Tác nhân**  
 Gia sư
@@ -279,23 +279,23 @@ Gia sư chọn tab "Buổi học thực tế" (`Daily Sessions`) trong lớp h�
 Lớp học đang ở trạng thái `ACTIVE`.
 
 **Hậu điều kiện**  
-Thông tin Buổi học N, tài liệu S3 đính kèm và nội dung Public Log Work được lưu trữ; Phụ huynh và Học sinh có thể truy cập xem báo cáo nhật ký bài học này ngay lập tức.
+Thông tin Buổi học N, tài liệu đính kèm và nội dung Public Log Work được lưu trữ; Phụ huynh và Học sinh có thể truy cập xem báo cáo nhật ký bài học này ngay lập tức.
 
 **Luồng chính**  
-1. Gia sư truy cập trang Quản lý Lớp học và chọn tab **"Dòng thời gian buổi học"** (`Daily Sessions`).
+1. Gia sư truy cập trang Quản lý Lớp học và chọn tab **"Buổi học thực tế"** (`Daily Sessions`).
 2. Hệ thống hiển thị danh sách các buổi học thực tế được đánh số thứ tự tăng dần (Buổi 1, Buổi 2... Buổi N) kèm ngày diễn ra và trạng thái hoàn thành.
 3. Gia sư nhấp chọn **"Buổi học N"** (hoặc nhấp "+ Tạo buổi học tiếp theo").
 4. Hệ thống hiển thị Màn hình Chi tiết Buổi học N bao gồm các khu vực:
    - **Thông tin chung buổi học:** Tiêu đề buổi học, Ngày dạy thực tế, Thời lượng.
-   - **Tài liệu học tập đính kèm (S3 Attachments):** Danh sách tệp đính kèm.
-   - **Nhật ký bài học 3 bên (Public Class Log Work):** Vùng nhập văn bản lớn (Rich-text editor).
+   - **Tài liệu học tập đính kèm (File Attachments):** Danh sách tệp đính kèm.
+   - **Quiz trắc nghiệm:** Bộ Quiz đã soạn/giao cho buổi học (nếu có), kèm nút "Soạn & Giao AI Quiz".
+   - **Nhật ký dạy học (Public Class Log Work):** Vùng nhập văn bản lớn (Rich-text editor).
 5. Gia sư điền thông tin tiêu đề và nội dung trọng tâm giảng dạy trong buổi học N.
-6. Gia sư nhấp nút **"Đính kèm tài liệu S3"** (nếu có tài liệu bài giảng PDF/Word/Audio):
+6. Gia sư nhấp nút **"Đính kèm tài liệu"** (nếu có tài liệu bài giảng PDF/Word/Audio):
    - Gia sư chọn tệp từ máy tính.
-   - Hệ thống tự động tải file lên Amazon S3 và gắn liên kết tải an toàn tại Buổi học N.
+   - Hệ thống tự động tải file lên hệ thống và gắn liên kết tải an toàn tại Buổi học N.
 7. Gia sư điền vùng văn bản **Public Class Log Work**:
    - *Kiến thức đã hoàn thành trong buổi:* Các cấu trúc ngữ pháp/từ vựng đã giảng.
-   - *Đánh giá thái độ học tập:* Mức độ tập trung và hăng hái của học sinh.
    - *Dặn dò về nhà:* Bài tập cần làm, yêu cầu học từ vựng.
 8. Gia sư nhấp nút **"Lưu & Xuất bản Nhật ký bài học"**.
 9. Hệ thống lưu dữ liệu vào CSDL PostgreSQL và cập nhật báo cáo Public Log Work.
@@ -309,8 +309,8 @@ Thông tin Buổi học N, tài liệu S3 đính kèm và nội dung Public Log 
 Use Case tiếp tục bước 9.
 
 **Luồng ngoại lệ**  
-6a. Tải file tài liệu đính kèm lên S3 thất bại do sự cố mạng:  
-6a1. Hệ thống hiển thị thông báo lỗi: "Không thể tải file lên S3. Vui lòng kiểm tra lại kết nối mạng và thử lại".  
+6a. Tải file tài liệu đính kèm thất bại do sự cố mạng:  
+6a1. Hệ thống hiển thị thông báo lỗi: "Không thể tải file lên hệ thống. Vui lòng kiểm tra lại kết nối mạng và thử lại".  
 6a2. Gia sư bấm nút "Tải lại file".  
 Use Case tiếp tục bước 6.
 
