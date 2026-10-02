@@ -7,11 +7,13 @@ export default function StudentDetail() {
   const student = getStudentById(studentId);
 
   const [pathItems, setPathItems] = useState(() => student?.learningPath ?? []);
+  const [dailySessions, setDailySessions] = useState(() => student?.dailySessions ?? []);
   const [exercisesList, setExercisesList] = useState(() => student?.exercises ?? []);
   const [materialsList, setMaterialsList] = useState(() => student?.materials ?? []);
 
   useEffect(() => {
     setPathItems(student?.learningPath ?? []);
+    setDailySessions(student?.dailySessions ?? []);
     setExercisesList(student?.exercises ?? []);
     setMaterialsList(student?.materials ?? []);
   }, [studentId]);
@@ -27,6 +29,8 @@ export default function StudentDetail() {
           student,
           pathItems,
           setPathItems,
+          dailySessions,
+          setDailySessions,
           exercisesList,
           setExercisesList,
           materialsList,

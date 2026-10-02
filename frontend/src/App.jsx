@@ -22,6 +22,7 @@ import StudentsList from "./pages/tutor/StudentsList";
 import StudentDetail from "./pages/tutor/StudentDetail";
 import ManageOverview from "./pages/tutor/manage/ManageOverview";
 import ManageLearningPathRoute from "./pages/tutor/manage/ManageLearningPathRoute";
+import ManageSessionsRoute from "./pages/tutor/manage/ManageSessionsRoute";
 import ManageAssignmentsRoute from "./pages/tutor/manage/ManageAssignmentsRoute";
 import AddAssignmentPage from "./pages/tutor/manage/AddAssignmentPage";
 import ManageMaterialsRoute from "./pages/tutor/manage/ManageMaterialsRoute";
@@ -148,6 +149,9 @@ export default function App() {
             </Route>
             <Route path="students/:studentId/path" element={<StudentDetail />}>
               <Route index element={<ManageLearningPathRoute />} />
+            </Route>
+            <Route path="students/:studentId/sessions" element={<StudentDetail />}>
+              <Route index element={<ManageSessionsRoute />} />
             </Route>
             <Route path="students/:studentId/exercises" element={<StudentDetail />}>
               <Route index element={<ManageAssignmentsRoute />} />
