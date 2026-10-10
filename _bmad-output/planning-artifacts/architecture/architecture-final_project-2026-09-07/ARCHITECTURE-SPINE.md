@@ -7,11 +7,12 @@ paradigm: Modular Monolith + Dịch vụ AI Python chuyên trách
 scope: Toàn bộ Kiến trúc Hệ thống Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition
 status: final
 created: '2026-09-07'
-updated: '2026-09-27'
+updated: '2026-10-10'
 binds:
   - FR-1
   - FR-2
   - FR-3
+  - FR-4
   - FR-5
   - FR-6
   - FR-8
@@ -26,7 +27,9 @@ binds:
   - FR-21
   - FR-22
   - FR-23
+  - FR-24
   - FR-25
+  - FR-26
   - FR-27
   - FR-28
   - FR-29
@@ -43,6 +46,7 @@ binds:
   - FR-40
 sources:
   - file:///d:/code/do-an/_bmad-output/planning-artifacts/prds/prd-final_project-2026-08-31/prd.md
+  - file:///d:/code/do-an/_bmad-output/planning-artifacts/briefs/brief-final_project-2026-08-30/brief.md
 companions: []
 ---
 
@@ -50,34 +54,34 @@ companions: []
 
 ## Mô hình Thiết kế (Design Paradigm)
 
-Hệ thống áp dụng mô hình kiến trúc **Modular Monolith** cho các nghiệp vụ cốt lõi, kết hợp cùng một **Dịch vụ AI Subsystem (Python FastAPI)** chuyên trách cho các tác vụ sinh nội dung thông minh, hỗ trợ AI Co-pilot và trích xuất dữ liệu bài tập/lộ trình dựa trên Hồ sơ tri thức người học (SKP).
+Hệ thống áp dụng mô hình kiến trúc **Modular Monolith** cho các nghiệp vụ cốt lõi, kết hợp cùng một **Dịch vụ AI Subsystem (Python FastAPI)** chuyên trách cho các tác vụ sinh Quiz ôn tập thông minh (AI Revision Quiz Generator), hỗ trợ AI Co-pilot và trích xuất cấu trúc dữ liệu bám sát Hồ sơ tri thức người học (SKP).
 
-- **Giao diện (Frontend)**: Ứng dụng React 19 Single Page Application (SPA) phục vụ 5 cổng thông tin người dùng (Phụ huynh, Gia sư, Học sinh, Quản trị viên - Admin, Lễ tân - Receptionist) với cơ chế bảo mật tuyến đường (Route Guard) dựa trên vai trò. Cổng Gia sư tích hợp giao diện **AI Split-Screen Workspace** tương tác trực tiếp tại màn hình Chi tiết Buổi học.
+- **Giao diện (Frontend)**: Ứng dụng React 19 Single Page Application (SPA) phục vụ **5 cổng người dùng (Phụ huynh, Gia sư, Học sinh, Lễ tân, Quản trị viên - Admin)** với cơ chế bảo mật tuyến đường (Route Guard) dựa trên vai trò. Cổng Gia sư tích hợp giao diện **AI Workspace (Split-Screen)** tại màn hình Chi tiết Buổi học.
 - **Lõi Backend**: Ứng dụng Java Spring Boot 3.4.x cấu trúc theo 8 gói nghiệp vụ (domain packages) rõ ràng (`auth`, `matching`, `enrollment`, `curriculum`, `homework`, `payment`, `personalization`, `complaint`).
-  - Gói `curriculum` quản lý cả **Khung chương trình (Curriculum Roadmap Master Plan tĩnh)** và **Buổi học thực tế (Daily Lesson Sessions Dynamic Timeline & Public Class Log Work)** với sự **tách biệt kiến trúc hoàn toàn**.
-  - Gói `homework` quản lý bài tập cá nhân hóa sinh ra từ AI Workspace và tự động chấm điểm mà không tốn chi phí gọi LLM khi học sinh nộp bài (**Zero LLM Overhead**).
-- **Phân hệ AI (AI Subsystem)**: Dịch vụ Python 3.12 FastAPI xử lý tích hợp LLM (OpenAI `gpt-4o-mini` / Google Gemini Flash), quản lý Prompt Engineering, Co-pilot chat refiner và trích xuất cấu trúc dữ liệu JSON cho tính năng Dual-Mode (Khung chương trình & AI Workspace bài tập cá nhân hóa nhúng SKP Context).
-- **Tầng Dữ liệu**: Cơ sở dữ liệu quan hệ PostgreSQL 16 quản lý dữ liệu nghiệp vụ (bao gồm SKP, Elo Rating, Spaced Repetition Schedule, Daily Lesson Sessions và Public Log Work), kết hợp cùng MinIO / S3-compatible Object Storage lưu trữ tài liệu truyền thông (video bài giảng, tài liệu đính kèm buổi học, ảnh biên lai nộp phí QR proof).
+  - Gói `curriculum` quản lý cả **Khung chương trình (Curriculum Roadmap Master Plan 2 cấp tĩnh)** và **Buổi học thực tế (Daily Lesson Sessions Dynamic Timeline, Public Class Log Work & Uploaded Attachments)** với sự **tách biệt kiến trúc hoàn toàn**. Các bài tập tự luận, viết lại câu, đọc hiểu... do gia sư giao bằng cách upload trực tiếp file đính kèm (Word/PDF/Slides).
+  - Gói `homework` quản lý Quiz ôn tập cá nhân hóa sinh ra từ AI Workspace và tự động chấm điểm mà không tốn chi phí gọi LLM khi học sinh nộp bài (**Zero LLM Overhead**).
+- **Phân hệ AI (AI Subsystem)**: Dịch vụ Python 3.12 FastAPI xử lý tích hợp LLM (OpenAI `gpt-4o-mini` / Google Gemini Flash), quản lý Prompt Engineering nhúng bối cảnh Buổi N (Log Work & Attachments) và SKP học sinh, hỗ trợ AI Co-pilot chat refiner và trích xuất cấu trúc JSON cho tính năng Dual-Mode (Option A Direct AI Gen & Option B Import Structured File 0 Token Cost).
+- **Tầng Dữ liệu**: Cơ sở dữ liệu quan hệ PostgreSQL 16 quản lý dữ liệu nghiệp vụ (bao gồm SKP, Student Elo Rating CEFR A1-C2, Spaced Repetition Wrong Question Review Bank, Daily Lesson Sessions, Log Work và Uploaded Attachments), kết hợp cùng MinIO / S3-compatible Object Storage lưu trữ tài liệu truyền thông (video bài giảng, file đính kèm buổi học, ảnh biên lai nộp phí QR proof).
 
 ```mermaid
 graph TD
     subgraph Clients["Tầng Ứng dụng Client"]
-        ParentPortal["Cổng Phụ huynh (Web - Xem Log Work)"]
-        TutorPortal["Cổng Gia sư (Split-Screen AI Workspace)"]
-        StudentPortal["Cổng Học sinh (Làm bài & Spaced Repetition)"]
-        AdminDashboard["Màn hình Admin (Web)"]
-        ReceptionistPortal["Cổng Lễ tân (Web)"]
+        ParentPortal["Cổng Phụ huynh (Web - Xem Log Work & File đính kèm)"]
+        TutorPortal["Cổng Gia sư (Split-Screen AI Workspace & Attachments)"]
+        StudentPortal["Cổng Học sinh (Tải bài tập & Làm Quiz Spaced Repetition)"]
+        AdminDashboard["Màn hình Admin (Duyệt QR Proof & Phí nhận lớp)"]
+        ReceptionistPortal["Cổng Lễ tân (Match Offer & Duyệt QR Proof)"]
     end
 
     subgraph BackendGateway["Lõi Spring Boot API Gateway"]
         AuthModule["Gói auth"]
         MatchingModule["Gói matching"]
         EnrollmentModule["Gói enrollment"]
-        CurriculumModule["Gói curriculum (Roadmap & Sessions/LogWork)"]
-        HomeworkModule["Gói homework (Metadata & Auto-grade)"]
-        PaymentModule["Gói payment"]
-        PersonalizationModule["Gói personalization (SKP Elo & SM-2)"]
-        ComplaintModule["Gói complaint"]
+        CurriculumModule["Gói curriculum (Roadmap & Sessions/LogWork/Attachments)"]
+        HomeworkModule["Gói homework (Quiz Metadata & Zero-LLM Auto-grade)"]
+        PaymentModule["Gói payment (QR Proof Verification & Contact Unlocking)"]
+        PersonalizationModule["Gói personalization (SKP CEFR Elo & Spaced Repetition)"]
+        ComplaintModule["Gói complaint (REFUND / REMATCH)"]
     end
 
     subgraph AIService["Phân hệ AI Python"]
@@ -119,14 +123,14 @@ graph LR
 ### AD-1 — Mô hình Kiến trúc Modular Monolith cho Backend
 
 - **Ràng buộc:** `all` (Tất cả gói nghiệp vụ Backend)
-- **Ngăn chặn:** Tình trạng over-engineering phân rã microservices cồng kềnh, độ trễ mạng phát sinh và rủi ro bất đồng bộ giao dịch giữa phê duyệt phí & mở khóa thông tin liên hệ.
+- **Ngăn chặn:** Tình trạng over-engineering phân rã microservices cồng kềnh, độ trễ mạng phát sinh và rủi ro bất đồng bộ giao dịch giữa phê duyệt phí QR proof & mở khóa thông tin liên hệ.
 - **Quy tắc:** Backend chính phải là một ứng dụng Java Spring Boot duy nhất được tổ chức thành 8 gói nghiệp vụ phân tách rõ ràng (`com.englishtutor.backend.domain.*`: `auth`, `matching`, `enrollment`, `curriculum`, `homework`, `payment`, `personalization`, `complaint`). Tương tác giữa các domain trong Spring Boot phải thực hiện thông qua Spring Service Interface bên trong ranh giới giao dịch `@Transactional`. Nghiêm cấm việc gọi trực tiếp Repository qua ranh giới gói khác.
 
-### AD-2 — Dịch vụ AI Python FastAPI Chuyên trách
+### AD-2 — Dịch vụ AI Python FastAPI Chuyên trách cho AI Revision Quiz Generator
 
 - **Ràng buộc:** `FR-8`, `FR-30`, `Vận hành Dual-Mode AI`
 - **Ngăn chặn:** Việc làm cồng kềnh mã nguồn Java Backend bởi các thư viện prompt engineering/SDK LLM phức tạp; giúp linh hoạt nâng cấp prompt và hỗ trợ parse file 0-token cost.
-- **Quy tắc:** Java Spring Boot đóng vai trò API Gateway duy nhất tiếp nhận request từ client. Spring Boot ủy quyền các tác vụ AI (Option A sinh trực tiếp & Option B trích xuất file cấu trúc JSON) sang dịch vụ Python FastAPI nội bộ qua REST API riêng tư trong VPC (`http://ai-service:8000/api/v1/ai/*`). Dịch vụ Python trực tiếp gọi LLM (`gpt-4o-mini` / `Gemini Flash`) và xác thực cấu trúc dữ liệu qua Pydantic.
+- **Quy tắc:** Java Spring Boot đóng vai trò API Gateway duy nhất tiếp nhận request từ client. Spring Boot ủy quyền các tác vụ AI (Option A sinh Quiz ôn tập trực tiếp & Option B trích xuất file cấu trúc JSON) sang dịch vụ Python FastAPI nội bộ qua REST API riêng tư trong VPC (`http://ai-service:8000/api/v1/ai/*`). Dịch vụ Python trực tiếp gọi LLM (`gpt-4o-mini` / `Gemini Flash`) và xác thực cấu trúc dữ liệu qua Pydantic.
 
 ### AD-3 — Phân quyền RBAC theo Enrollment & Bảo vệ Ghi chú Riêng tư
 
@@ -137,20 +141,20 @@ graph LR
 ### AD-4 — Chuẩn hóa Cấu trúc Dữ liệu Dual-Mode (Option A & Option B)
 
 - **Ràng buộc:** `FR-8`, `FR-30`
-- **Ngăn chặn:** Sự sai lệch cấu trúc dữ liệu giữa bài tập/chương trình do AI sinh ra và file JSON/Text do người dùng upload từ ChatGPT/Claude bên ngoài.
-- **Quy tắc:** Cả Option A (Sinh trực tiếp) và Option B (Import File) đều phải tuân thủ chuẩn JSON Schema v1.0 chung (`CurriculumDraftSchema` và `HomeworkDraftSchema`). Mọi file upload Option B phải gửi tới endpoint `/api/v1/ai/parse-file` trên Dịch vụ Python AI để kiểm duyệt và chuyển đổi trước khi lưu vào PostgreSQL.
+- **Ngăn chặn:** Sự sai lệch cấu trúc dữ liệu giữa Quiz/Chương trình do AI sinh ra và file JSON/Text do người dùng upload từ ChatGPT/Claude bên ngoài.
+- **Quy tắc:** Cả Option A (Sinh trực tiếp) và Option B (Import File) đều phải tuân thủ chuẩn JSON Schema v1.0 chung (`CurriculumDraftSchema` và `HomeworkQuizDraftSchema`). Mọi file upload Option B phải gửi tới endpoint `/api/v1/ai/parse-file` trên Dịch vụ Python AI để kiểm duyệt và chuyển đổi trước khi lưu vào PostgreSQL.
 
-### AD-5 — Quy trình Duyệt Biên lai Phí & Ẩn/Hiện Thông tin Liên hệ
+### AD-5 — Quy trình Duyệt Biên lai Phí QR Proof & Mở khóa Thông tin Liên hệ
 
-- **Ràng buộc:** `FR-16`, `FR-23`, `FR-34`
-- **Ngăn chặn:** Việc rò rỉ thông tin liên hệ (SĐT, Địa chỉ) của Phụ huynh cho Gia sư trước khi Admin hoặc Lễ tân xác nhận biên lai nộp phí.
-- **Quy tắc:** Thông tin liên hệ trong kết quả trả về cho Gia sư luôn ở trạng thái ẩn (`masked: true`) cho đến khi `FeePayment.status == 'PAID'`. Việc chuyển trạng thái sang `PAID` chỉ được kích hoạt duy nhất bởi hành động bấm duyệt của Admin/Lễ tân trong một database transaction, đồng thời tự động ghi nhận nhật ký hệ thống Audit Log (`FR-20`).
+- **Ràng buộc:** `FR-6`, `FR-16`, `FR-23`, `FR-34`
+- **Ngăn chặn:** Việc rò rỉ thông tin liên hệ (SĐT, Địa chỉ) của Phụ huynh cho Gia sư trước khi Lễ tân hoặc Admin xác nhận biên lai nộp phí.
+- **Quy tắc:** Thông tin liên hệ phụ huynh trong kết quả trả về cho Gia sư luôn ở trạng thái ẩn (`masked: true`) cho đến khi `FeePayment.status == 'PAID'`. Việc chuyển trạng thái sang `PAID` chỉ được kích hoạt duy nhất bởi hành động bấm duyệt của Admin/Lễ tân sau khi kiểm tra ảnh biên lai QR proof trong một database transaction, đồng thời tự động mở khóa thông tin liên hệ và ghi nhận Audit Log (`FR-20`).
 
 ### AD-6 — Chiến lược Lưu trữ File Truyền thông qua S3 Presigned URL
 
 - **Ràng buộc:** `FR-21`, `FR-23`, `FR-40`
-- **Ngăn chặn:** Việc lưu tệp tin dung lượng lớn directly vào DB PostgreSQL hoặc công khai URL bucket S3 không an toàn.
-- **Quy tắc:** Video bài giảng, tài liệu đính kèm buổi học (PDF/Word/Slides) và ảnh biên lai chuyển khoản QR proof phải được lưu trữ tại Object Storage tương thích S3 (MinIO ở môi trường dev, AWS S3 / Cloudflare R2 trên prod). Client tải lên và tải xuống tệp tin trực tiếp qua Presigned URLs do Spring Boot khởi tạo với thời gian hết hạn ngắn (15 phút).
+- **Ngăn chặn:** Việc lưu tệp tin dung lượng lớn (video bài giảng, file đính kèm PDF/Word/Slides, ảnh biên lai QR proof) directly vào DB PostgreSQL hoặc công khai URL bucket S3 không an toàn.
+- **Quy tắc:** Video bài giảng, tài liệu & bài tập đính kèm buổi học (Uploaded Attachments) và ảnh biên lai chuyển khoản QR proof phải được lưu trữ tại Object Storage tương thích S3 (MinIO ở môi trường dev, AWS S3 / Cloudflare R2 trên prod). Client tải lên và tải xuống tệp tin trực tiếp qua Presigned URLs do Spring Boot khởi tạo với thời gian hết hạn ngắn (15 phút).
 
 ### AD-7 — Cấu trúc React SPA với Bảo mật Tuyến đường dựa trên Vai trò
 
@@ -158,37 +162,37 @@ graph LR
 - **Ngăn chặn:** Truy cập trái phép vào các màn hình chức năng và rò rỉ state giữa 5 vai trò người dùng (`ROLE_PARENT`, `ROLE_TUTOR`, `ROLE_STUDENT`, `ROLE_ADMIN`, `ROLE_RECEPTIONIST`).
 - **Quy tắc:** Frontend là một ứng dụng React 19 SPA duy nhất xây dựng bằng Vite và React Router DOM v7. Phân quyền tuyến đường sử dụng thành phần `<ProtectedRoute allowedRoles={['ROLE_TUTOR']}>` để kiểm tra quyền hạn trong JWT Token. State dữ liệu server được quản lý thống nhất qua TanStack Query để đảm bảo tính nhất quán dữ liệu và tự động làm mới cache.
 
-### AD-8 — Quản lý State SKP & Thuật toán Elo Rating tại Backend Java
+### AD-8 — Quản lý State SKP, Student Elo Rating (CEFR A1-C2) & Tags separation tại Backend Java
 
 - **Ràng buộc:** `FR-38`, `FR-8`
-- **Ngăn chặn:** Race condition khi gọi nhiều lượt sinh bài AI song song; lộ thông tin định danh học sinh cho LLM bên thứ 3; hoặc tính toán lại năng lực sai lệch giữa các bài tập. `[ASSUMPTION]`
-- **Quy tắc:** Mọi biến động điểm Elo rating ($\text{Expected}$, $\text{mastery}_{\text{new}}$) và lưu vết trạng thái `Student Knowledge Profile (SKP)` được quản lý tập trung và thực thi duy nhất bên trong DB transaction của Java Spring Boot (`com.englishtutor.backend.domain.personalization`). Phân hệ AI Python (`ai-service`) đóng vai trò hoàn toàn **stateless**, tiếp nhận vỏ bọc dữ liệu `SKPContextDTO` (chứa micro-skill, Elo rating, Top 5 lỗi hay mắc dạng ẩn danh) từ Spring Boot để làm **Adaptive Input Context** khi gọi LLM sinh bài tập cá nhân hóa.
+- **Ngăn chặn:** Race condition khi gọi nhiều lượt sinh bài AI song song; lộ thông tin định danh học sinh cho LLM bên thứ 3; hoặc tính toán sai lệch điểm Elo trùng lặp khi 1 câu có nhiều tags.
+- **Quy tắc:** Mọi biến động điểm **Student Elo Rating** dựa trên cấp độ CEFR của câu hỏi (A1-C2) và lưu vết trạng thái `Student Knowledge Profile (SKP)` được thực thi duy nhất bên trong DB transaction của Java Spring Boot (`com.englishtutor.backend.domain.personalization`). **Điểm Elo được tính toán độc lập hoàn toàn với Tags/chủ điểm**. Các Tags/chủ điểm câu hỏi được lưu trữ độc lập để phục vụ thống kê báo cáo (các dạng lỗi sai hay mắc trong 2 tuần qua). Phân hệ AI Python (`ai-service`) đóng vai trò hoàn toàn **stateless**, tiếp nhận vỏ bọc dữ liệu `SKPContextDTO` từ Spring Boot làm **Adaptive Input Context** khi gọi LLM sinh Quiz ôn tập.
 
-### AD-9 — Thuật toán Ôn tập Ngắt quãng Spaced Repetition (SM-2) & Lập lịch Hàng ngày
+### AD-9 — Thuật toán Ôn tập Ngắt quãng Spaced Repetition tinh gọn (Wrong Question Review Bank)
 
 - **Ràng buộc:** `FR-39`
-- **Ngăn chặn:** Độ trễ query tính toán lớn (CPU heavy) mỗi khi học sinh đăng nhập; trễ lịch gợi ý câu hỏi ôn tập theo đường cong quên lãng Ebbinghaus. `[ASSUMPTION]`
-- **Quy tắc:** Thuật toán SM-2 cập nhật các thông số `next_review`, `interval`, và `ease_factor` đồng bộ ngay tại thời điểm học sinh nộp câu trả lời. Tầng Backend lưu trữ trạng thái ôn tập vào bảng `spaced_repetition_schedules` và duy trì Composite Index `(student_id, next_review)` để trả về danh sách câu hỏi cần ôn tập hàng ngày trên Cổng Học sinh với độ trễ < 100ms.
+- **Ngăn chặn:** Độ trễ query tính toán lớn mỗi khi học sinh đăng nhập; trễ lịch gợi ý câu hỏi ôn tập theo đường cong quên lãng Ebbinghaus.
+- **Quy tắc:** Khi học sinh nộp Quiz, hệ thống tự động lưu tất cả các câu hỏi trả lời sai vào bảng `wrong_question_review_bank`. Tầng Backend duy trì Composite Index `(student_id, reviewed_status, created_at)` để trả về danh sách câu hỏi cần ôn tập hàng ngày trên Cổng Học sinh với độ trễ < 100ms. Kết quả ôn tập lại thành công sẽ cập nhật trạng thái đã thành thạo trong ngân hàng câu sai.
 
 ### AD-10 — Quy trình Xử lý Khiếu nại (REFUND / REMATCH) & Phân quyền Lễ tân
 
 - **Ràng buộc:** `FR-31`, `FR-32`, `FR-33`, `FR-34`, `FR-37`
-- **Ngăn chặn:** Lễ tân tự ý duyệt hoàn tiền làm thất thoát ngân sách trung tâm; mất vết thông tin khiếu nại của phụ huynh/gia sư. `[ASSUMPTION]`
-- **Quy tắc:** Cổng Lễ tân được cấp quyền `ROLE_RECEPTIONIST` để tiếp nhận và ghi nhận các đơn khiếu nại (`COMPLAINT`) ở trạng thái `PENDING`. Lễ tân được quyền xử lý các khiếu nại loại `REMATCH` (ghép lại lớp). Tuy nhiên, các đơn khiếu nại loại `REFUND` (hoàn tiền) bắt buộc phải do Admin duyệt phê duyệt chuyển trạng thái `RESOLVED` trong database transaction và tự động kích hoạt ghi Audit Log (`FR-20`).
+- **Ngăn chặn:** Lễ tân tự ý duyệt hoàn tiền làm thất thoát ngân sách trung tâm; mất vết thông tin khiếu nại của phụ huynh/gia sư.
+- **Quy tắc:** Cổng Lễ tân được cấp quyền `ROLE_RECEPTIONIST` để tiếp nhận và ghi nhận các đơn khiếu nại (`COMPLAINT`) ở trạng thái `PENDING`. Lễ tân được quyền hỗ trợ xử lý các khiếu nại loại `REMATCH` (ghép lại lớp). Tuy nhiên, các đơn khiếu nại loại `REFUND` (hoàn tiền) bắt buộc phải do Admin phê duyệt chuyển trạng thái `RESOLVED` trong database transaction và tự động kích hoạt ghi Audit Log (`FR-20`).
 
-### AD-11 — Tách biệt Kiến trúc Roadmap Master Plan & Buổi học thực tế (Daily Lesson Sessions & Log Work)
+### AD-11 — Tách biệt Kiến trúc Roadmap Master Plan & Buổi học thực tế (Daily Lesson Sessions, Log Work & Attachments)
 
 - **Ràng buộc:** `FR-40`, `FR-8`, `FR-5`
 - **Ngăn chặn:** Tình trạng tự động ràng buộc cứng (hard binding) giữa các bài học trong Khung chương trình (Roadmap) và Buổi học thực tế, khiến gia sư bị gò ép tiến độ dạy.
-- **Quy tắc:** `CurriculumRoadmap` (master plan tĩnh) và `DailyLessonSession` (dòng thời gian thực tế) là 2 thực thể cơ sở dữ liệu riêng biệt kết nối độc lập qua `Enrollment`. Mỗi `DailyLessonSession` chứa duy nhất 1 bản ghi `ClassLogWork` (01 ô văn bản tự do minh bạch 3 bên: Gia sư, Phụ huynh, Học sinh) và danh sách `SessionAttachment`. Không yêu cầu khóa ngoại tự động ràng buộc cứng giữa Session và Roadmap Lesson.
+- **Quy tắc:** `CurriculumRoadmap` (master plan tĩnh) và `DailyLessonSession` (dòng thời gian thực tế) là 2 thực thể cơ sở dữ liệu riêng biệt kết nối độc lập qua `Enrollment`. Mỗi `DailyLessonSession` chứa duy nhất 1 bản ghi `ClassLogWork` (01 ô văn bản tự do minh bạch 3 bên: Gia sư, Phụ huynh, Học sinh) và danh sách `SessionAttachment` (file PDF/Word/Slides bài tập tự luận/viết lại câu/đọc hiểu...). Không yêu cầu khóa ngoại tự động ràng buộc cứng giữa Session và Roadmap Lesson.
 
-### AD-12 — AI Split-Screen Workspace & Zero-LLM Submission Architecture
+### AD-12 — AI Split-Screen Workspace & Zero-LLM Submission Architecture cho Quiz Ôn Tập
 
 - **Ràng buộc:** `FR-8`, `FR-11`, `FR-12`, `FR-38`, `FR-39`
 - **Ngăn chặn:** Chi phí API LLM tăng vọt và độ trễ phản hồi kéo dài khi học sinh nộp bài tập; giật lag trải nghiệm soạn bài của gia sư.
 - **Quy tắc:** 
   1. **Workspace UI (Frontend)**: Màn hình Chi tiết Buổi học N mở giao diện chia đôi màn hình **Split-Screen Workspace** (Cột trái Canvas 65% inline edit, Cột phải Dock 35% gồm Tab 1 Form Config auto-load context & Tab 2 Chat Freestyle Co-pilot live-update).
-  2. **Zero-LLM Submission (Backend)**: Khi gia sư duyệt bài, toàn bộ metadata (`correct_answers`, `ai_explanation`, `elo_difficulty_score`, `micro_skill_tags`) được pre-generate và lưu trữ đầy đủ trong bảng `questions`. Khi học sinh nộp bài tập, Backend Spring Boot (`homework` & `personalization`) tự động chấm điểm, cập nhật điểm Elo Rating trong SKP và lập lịch Spaced Repetition (SM-2) **thuần túy bằng logic Java/Postgres mà không gọi API LLM**.
+  2. **Zero-LLM Submission (Backend)**: Khi gia sư duyệt giao Quiz, toàn bộ metadata (`correct_answers`, `ai_explanation`, `cefr_difficulty_level`, `micro_skill_tags`) được pre-generate và lưu trữ đầy đủ trong bảng `questions`. Khi học sinh nộp Quiz, Backend Spring Boot (`homework` & `personalization`) tự động chấm điểm, cập nhật điểm Student Elo Rating trong SKP, lưu câu sai vào `wrong_question_review_bank` **thuần túy bằng logic Java/Postgres mà không gọi API LLM**.
 
 ---
 
@@ -196,7 +200,7 @@ graph LR
 
 | Hạng mục | Quy ước |
 | --- | --- |
-| Quy cách đặt tên (Entity, File, Interface) | Entity: PascalCase (`MatchRequest`, `Enrollment`, `DailyLessonSession`, `ClassLogWork`, `StudentKnowledgeProfile`, `Complaint`). Bảng DB: snake_case số nhiều (`match_requests`, `enrollments`, `daily_lesson_sessions`, `class_log_works`, `student_knowledge_profiles`, `complaints`). REST URI: kebab-case (`/api/v1/match-requests`, `/api/v1/enrollments/{id}/sessions`). DTO: Hậu tố `*Request`, `*Response`. |
+| Quy cách đặt tên (Entity, File, Interface) | Entity: PascalCase (`MatchRequest`, `Enrollment`, `DailyLessonSession`, `ClassLogWork`, `SessionAttachment`, `StudentKnowledgeProfile`, `WrongQuestionReviewBank`, `Complaint`). Bảng DB: snake_case số nhiều (`match_requests`, `enrollments`, `daily_lesson_sessions`, `class_log_works`, `session_attachments`, `student_knowledge_profiles`, `wrong_question_review_bank`, `complaints`). REST URI: kebab-case (`/api/v1/match-requests`, `/api/v1/enrollments/{id}/sessions`). DTO: Hậu tố `*Request`, `*Response`. |
 | Định dạng Dữ liệu (ID, Ngày tháng, Lỗi) | Khóa chính: UUID v4 (`id`). Thời gian: ISO-8601 UTC (`yyyy-MM-dd'T'HH:mm:ss'Z'`). Chuẩn vỏ bọc lỗi (Error Envelope): `{ "code": "RESOURCE_NOT_FOUND", "message": "...", "timestamp": "...", "errors": [] }`. |
 | Quản lý Trạng thái & Xử lý Lỗi | Chuyển đổi trạng thái phải dùng động từ rõ ràng (`/accept`, `/approve-fee`, `/resolve-complaint`). Lỗi được map tương ứng với HTTP Status Code (400, 401, 403, 404, 409, 500) qua `@ControllerAdvice`. |
 
@@ -240,18 +244,18 @@ graph LR
         matching/    # MatchRequest, Thuật toán SmartMatch, RateCard
         enrollment/  # Entity Enrollment, Lịch dạy Calendar, PrivateNotes
         curriculum/  # Entity CurriculumTopic, CurriculumLesson, DailyLessonSession, ClassLogWork, SessionAttachment
-        homework/    # Entity Homework, Question, Submission, Bộ chấm điểm Zero-LLM
-        payment/     # FeePayment, Xử lý minh chứng VietQR Proof
-        personalization/ # StudentKnowledgeProfile, Elo Rating Engine, SpacedRepetitionSchedule (SM-2)
+        homework/    # Entity Homework, Question, Submission, Bộ chấm điểm Zero-LLM (Quiz Ôn Tập)
+        payment/     # FeePayment, Xử lý minh chứng VietQR Proof & Mở khóa SĐT/Địa chỉ Phụ huynh
+        personalization/ # StudentKnowledgeProfile, CEFR Elo Rating Engine, WrongQuestionReviewBank (Spaced Repetition)
         complaint/   # Entity Complaint (REFUND / REMATCH), Quy trình xử lý của Lễ tân & Admin
       common/        # Xử lý ngoại lệ, AuditLog, Security Utils
   ai-service/
     app/
       main.py        # Điểm đầu vào FastAPI
-      routers/       # /generate-homework, /refine-homework, /generate-curriculum, /parse-file
+      routers/       # /generate-quiz, /refine-quiz, /generate-curriculum, /parse-file
       services/      # Tích hợp LLM Client (OpenAI / Gemini wrapper)
       schemas/       # Pydantic Schemas xác thực Dual-Mode & SKP Context
-      prompts/       # Quản lý System Prompts nhúng SKP
+      prompts/       # Quản lý System Prompts nhúng SKP & Session Context
   docker-compose.yml
 ```
 
@@ -267,7 +271,7 @@ erDiagram
     TUTOR_PROFILE ||--o{ RATE_CARD : "cấu hình bảng giá"
     MATCH_REQUEST ||--o| MATCH_OFFER : "tạo ra"
     MATCH_OFFER ||--o| FEE_PAYMENT : "yêu cầu đóng phí"
-    FEE_PAYMENT ||--o| ENROLLMENT : "mở khóa & kích hoạt"
+    FEE_PAYMENT ||--o| ENROLLMENT : "mở khóa SĐT/Địa chỉ & kích hoạt"
     FEE_PAYMENT ||--o| COMPLAINT : "liên quan khiếu nại refund"
     
     ENROLLMENT ||--o{ CURRICULUM_TOPIC : "định hướng master plan tĩnh"
@@ -275,18 +279,18 @@ erDiagram
     
     ENROLLMENT ||--o{ DAILY_LESSON_SESSION : "dòng thời gian thực tế"
     DAILY_LESSON_SESSION ||--o| CLASS_LOG_WORK : "báo cáo 3 bên (Public Log Work)"
-    DAILY_LESSON_SESSION ||--o{ SESSION_ATTACHMENT : "đính kèm tài liệu"
-    DAILY_LESSON_SESSION ||--o{ HOMEWORK : "gắn bài tập cá nhân hóa AI"
+    DAILY_LESSON_SESSION ||--o{ SESSION_ATTACHMENT : "đính kèm file bài tập/tài liệu"
+    DAILY_LESSON_SESSION ||--o{ HOMEWORK : "gắn Quiz ôn tập AI"
     
-    HOMEWORK ||--o{ QUESTION : "chứa câu hỏi (kèm AI metadata)"
-    HOMEWORK ||--o{ SUBMISSION : "bài nộp của học sinh"
+    HOMEWORK ||--o{ QUESTION : "chứa câu hỏi Quiz (kèm AI metadata CEFR)"
+    HOMEWORK ||--o{ SUBMISSION : "bài nộp Quiz của học sinh"
     SUBMISSION ||--o{ SUBMISSION_ANSWER : "chứa chi tiết câu trả lời"
     ENROLLMENT ||--o{ PRIVATE_NOTE : "ghi chú riêng của gia sư"
 
     USER ||--o| STUDENT_KNOWLEDGE_PROFILE : "sở hữu SKP (Học sinh)"
-    STUDENT_KNOWLEDGE_PROFILE ||--o{ ERROR_PATTERN : "ghi nhận mẫu lỗi"
-    ENROLLMENT ||--o{ SPACED_REPETITION_SCHEDULE : "lập lịch ôn tập SM-2"
-    QUESTION ||--o{ SPACED_REPETITION_SCHEDULE : "gán câu hỏi ôn tập"
+    STUDENT_KNOWLEDGE_PROFILE ||--o{ ERROR_PATTERN : "ghi nhận lỗi theo tags"
+    USER ||--o{ WRONG_QUESTION_REVIEW_BANK : "ngân hàng câu sai (Spaced Repetition)"
+    QUESTION ||--o{ WRONG_QUESTION_REVIEW_BANK : "gán câu hỏi làm sai"
 ```
 
 ---
@@ -297,16 +301,16 @@ erDiagram
 | --- | --- | --- |
 | Form Tìm Gia sư & Đăng ký Học thử (`FR-1`, `FR-2`, `FR-3`) | `backend/domain/matching`, `frontend/pages/parent` | `AD-1`, `AD-5`, Standard Error Envelope |
 | Tạo Khung chương trình AI Dual-Mode (`FR-30`) | `ai-service/routers`, `backend/domain/curriculum` | `AD-2`, `AD-4` |
-| Quản lý Buổi học thực tế & Nhật ký dạy học (`FR-40`, `FR-5`) | `backend/domain/curriculum`, `frontend/pages/tutor`, `frontend/pages/parent` | `AD-11`, `AD-6` |
-| Sinh bài tập AI Dual-Mode qua Split-Screen Workspace (`FR-8`, `FR-9`) | `ai-service/routers`, `backend/domain/homework`, `frontend/pages/tutor` | `AD-2`, `AD-4`, `AD-8`, `AD-12` |
-| Tự động Chấm điểm & Giải thích AI Zero-LLM (`FR-12`, `FR-13`) | `backend/domain/homework`, `backend/domain/personalization` | `AD-12`, Zero-LLM Submission |
-| Hồ sơ Tri thức Học sinh SKP & Elo Rating (`FR-38`) | `backend/domain/personalization` | `AD-8` |
-| Ôn tập ngắt quãng Spaced Repetition SM-2 (`FR-39`) | `backend/domain/personalization`, `frontend/pages/student` | `AD-9` |
+| Quản lý Buổi học thực tế, Log Work & Attachments (`FR-40`, `FR-5`) | `backend/domain/curriculum`, `frontend/pages/tutor`, `frontend/pages/parent` | `AD-11`, `AD-6` |
+| Sinh Quiz Ôn Tập AI Dual-Mode qua Split-Screen Workspace (`FR-8`, `FR-9`) | `ai-service/routers`, `backend/domain/homework`, `frontend/pages/tutor` | `AD-2`, `AD-4`, `AD-8`, `AD-12` |
+| Tự động Chấm điểm Quiz & Giải thích AI Zero-LLM (`FR-12`, `FR-13`) | `backend/domain/homework`, `backend/domain/personalization` | `AD-12`, Zero-LLM Submission |
+| Hồ sơ Tri thức Học sinh SKP & CEFR Elo Rating (`FR-38`) | `backend/domain/personalization` | `AD-8` |
+| Ôn tập ngắt quãng Spaced Repetition tinh gọn (`FR-39`) | `backend/domain/personalization`, `frontend/pages/student` | `AD-9` |
 | Phân quyền Lễ tân & Quản lý Khiếu nại (`FR-31`, `FR-33`..`FR-37`) | `frontend/pages/receptionist`, `backend/domain/complaint` | `AD-10`, `AD-7` |
 | Admin Xử lý Khiếu nại & Đối soát Doanh thu (`FR-32`) | `frontend/pages/admin`, `backend/domain/complaint` | `AD-10`, `AD-5`, Audit Log |
 | Bảo mật Enrollment & Ghi chú Riêng tư (`FR-19`, `FR-25`) | `backend/domain/enrollment`, `backend/config` | `AD-3` |
-| Phê duyệt Phí Chuyển khoản & Mở khóa SĐT (`FR-16`, `FR-23`, `FR-34`) | `backend/domain/payment`, `frontend/pages/admin`, `frontend/pages/receptionist` | `AD-5`, Presigned S3 URLs |
-| Quản lý Tài liệu Bài giảng & Buổi học S3 (`FR-21`, `FR-40`) | `backend/domain/curriculum`, MinIO/S3 | `AD-6` |
+| Phê duyệt Phí Chuyển khoản QR Proof & Mở khóa SĐT (`FR-6`, `FR-16`, `FR-23`, `FR-34`) | `backend/domain/payment`, `frontend/pages/admin`, `frontend/pages/receptionist` | `AD-5`, Presigned S3 URLs |
+| Quản lý Tài liệu Bài giảng & Uploaded Attachments S3 (`FR-21`, `FR-40`) | `backend/domain/curriculum`, MinIO/S3 | `AD-6` |
 
 ---
 
