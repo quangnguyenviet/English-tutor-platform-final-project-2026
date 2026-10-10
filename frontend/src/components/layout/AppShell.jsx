@@ -151,7 +151,7 @@ function AppShellInner() {
   } else if (isTutor) {
     items = [
       { to: "/tutor", label: "Tổng quan", icon: LayoutDashboard, end: true },
-      { to: "/tutor/available-classes", label: "Sàn tìm lớp", icon: Search },
+      { to: "/tutor/available-classes", label: "Lớp cần gia sư", icon: Search },
       { to: "/tutor/requests", label: "Yêu cầu lớp", icon: ClipboardList, badge: () => classRequests.filter((r) => r.status === "pending_response").length },
       { to: "/tutor/students", label: "Học sinh", icon: Users },
       { to: "/tutor/schedule", label: "Lịch dạy", icon: CalendarDays },

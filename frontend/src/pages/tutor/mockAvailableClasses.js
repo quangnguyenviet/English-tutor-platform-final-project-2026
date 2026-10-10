@@ -1,5 +1,6 @@
-// Data store cho Sàn Lớp Học Cần Gia Sư (Tutor Available Classes)
-const STORAGE_KEY = "available_tutor_classes_v2";
+// Data store cho Bảng tin Lớp cần Gia sư (UC-T02: Xem danh sách & Ứng tuyển Lớp cần gia sư)
+const STORAGE_KEY = "available_tutor_classes_v3";
+const PROFILE_STATUS_KEY = "gsa_tutor_profile_status";
 
 export const locationData = {
   "Hà Nội": ["Cầu Giấy", "Đống Đa", "Thanh Xuân", "Ba Đình", "Hai Bà Trưng", "Hoàn Kiếm", "Nam Từ Liêm", "Bắc Từ Liêm"],
@@ -7,11 +8,29 @@ export const locationData = {
   "Đà Nẵng": ["Hải Châu", "Thanh Khê", "Sơn Trà", "Ngũ Hành Sơn", "Cẩm Lệ"],
 };
 
+export function getTutorProfileStatus() {
+  try {
+    const status = localStorage.getItem(PROFILE_STATUS_KEY);
+    return status || "APPROVED";
+  } catch {
+    return "APPROVED";
+  }
+}
+
+export function setTutorProfileStatus(status) {
+  try {
+    localStorage.setItem(PROFILE_STATUS_KEY, status);
+  } catch (e) {
+    console.error("Failed to set profile status", e);
+  }
+  return status;
+}
+
 const initialAvailableClasses = [
   {
     id: "LH-1029",
     title: "Tiếng Anh Lớp 8 - Luyện Thi HSG & Củng Cố Ngữ Pháp",
-    subject: "Tiếng Anh",
+    subject: "Tiếng Anh Phổ thông",
     gradeCategory: "Lớp 8",
     city: "Hà Nội",
     district: "Cầu Giấy",
@@ -34,6 +53,7 @@ const initialAvailableClasses = [
     classFeeRate: "30% học phí tháng đầu (Hạn đóng 30 ngày)",
     postedAt: "10 phút trước",
     badges: ["urgent", "high_tuition"],
+    status: "OPEN", // OPEN | FILLED | CLOSED
     applied: false,
   },
   {
@@ -43,7 +63,7 @@ const initialAvailableClasses = [
     gradeCategory: "IELTS",
     city: "TP. Hồ Chí Minh",
     district: "Quận 10",
-    addressDetail: "Học Online qua Zoom / Meet",
+    addressDetail: "Học Online qua Zoom / Google Meet",
     teachingMode: "Online",
     sessionsPerWeek: 3,
     durationPerSession: "120 phút",
@@ -62,12 +82,16 @@ const initialAvailableClasses = [
     classFeeRate: "30% học phí tháng đầu (Hạn đóng 30 ngày)",
     postedAt: "30 phút trước",
     badges: ["high_tuition"],
-    applied: false,
+    status: "OPEN",
+    applied: true,
+    appliedAt: "2026-10-10 09:30",
+    userNote: "Em có chứng chỉ IELTS 8.0 (Speaking 8.0). Em đã kèm 3 sinh viên đạt target 6.5+ thành công.",
+    scheduleConfirmed: true,
   },
   {
     id: "LH-1031",
-    title: "Tiếng Anh Tiểu Học - Phát Âm Chuẩn IPA Lớp 3",
-    subject: "Tiếng Anh",
+    title: "Tiếng Anh Giao Tiếp - Phát Âm Chuẩn IPA & Phản Xạ Lớp 3",
+    subject: "Tiếng Anh Giao tiếp",
     gradeCategory: "Lớp 3",
     city: "TP. Hồ Chí Minh",
     district: "Quận 7",
@@ -90,11 +114,12 @@ const initialAvailableClasses = [
     classFeeRate: "30% học phí tháng đầu (Hạn đóng 30 ngày)",
     postedAt: "2 giờ trước",
     badges: [],
+    status: "OPEN",
     applied: false,
   },
   {
     id: "LH-1032",
-    title: "Luyện Thi TOEIC 700+ Cho Người Đi Làm",
+    title: "Luyện Thi TOEIC 700+ Cấp Tốc Cho Người Đi Làm",
     subject: "TOEIC",
     gradeCategory: "TOEIC",
     city: "Đà Nẵng",
@@ -118,12 +143,13 @@ const initialAvailableClasses = [
     classFeeRate: "30% học phí tháng đầu (Hạn đóng 30 ngày)",
     postedAt: "5 giờ trước",
     badges: ["urgent"],
+    status: "FILLED", // Đã chốt gia sư khác (Dùng để kiểm thử Luồng ngoại lệ 7b)
     applied: false,
   },
   {
     id: "LH-1033",
-    title: "Tiếng Anh Lớp 1 - Làm Quần Từ Vựng & Song Ngữ",
-    subject: "Tiếng Anh",
+    title: "Tiếng Anh Lớp 1 - Làm Quen Từ Vựng & Song Ngữ Qua Trò Chơi",
+    subject: "Tiếng Anh Phổ thông",
     gradeCategory: "Lớp 1",
     city: "Hà Nội",
     district: "Đống Đa",
@@ -146,6 +172,36 @@ const initialAvailableClasses = [
     classFeeRate: "30% học phí tháng đầu (Hạn đóng 30 ngày)",
     postedAt: "1 ngày trước",
     badges: [],
+    status: "OPEN",
+    applied: false,
+  },
+  {
+    id: "LH-1034",
+    title: "Tiếng Anh Giao Tiếp Phỏng Vấn Doanh Nghiệp & Thuyết Trình",
+    subject: "Tiếng Anh Giao tiếp",
+    gradeCategory: "Người đi làm",
+    city: "Hà Nội",
+    district: "Thanh Xuân",
+    addressDetail: "Học Online qua Zoom",
+    teachingMode: "Online",
+    sessionsPerWeek: 2,
+    durationPerSession: "90 phút",
+    scheduleType: "fixed",
+    schedule: "Thứ 2 & Thứ 6 (20:30 - 22:00)",
+    studentAge: 27,
+    studentGender: "Nam",
+    studentLevel: "Nghe hiểu 60%, giao tiếp phản xạ còn chậm",
+    studentGoal: "Luyện phản xạ phỏng vấn xin việc công ty đa quốc gia và viết Email thương mại chuẩn.",
+    tutorTypeRequirement: "Giáo viên",
+    tutorGenderRequirement: "Không yêu cầu",
+    requirements: "Có chứng chỉ IELTS >= 7.5 hoặc kinh nghiệm làm việc môi trường Quốc tế.",
+    additionalNotes: "Học viên bận đột xuất sẽ báo trước 4 tiếng.",
+    tuitionType: "fixed",
+    tuition: 300000,
+    classFeeRate: "30% học phí tháng đầu (Hạn đóng 30 ngày)",
+    postedAt: "1 ngày trước",
+    badges: ["high_tuition"],
+    status: "OPEN",
     applied: false,
   }
 ];
@@ -168,16 +224,18 @@ export function getClassById(classId) {
   return classes.find((c) => c.id === classId) || null;
 }
 
-export function applyForClass(classId, { proposedSchedule, proposedTuition }) {
+export function applyForClass(classId, { proposedSchedule, proposedTuition, note, scheduleConfirmed }) {
   const classes = getAvailableClasses();
   const updated = classes.map((c) => {
     if (c.id === classId) {
       return {
         ...c,
         applied: true,
+        appliedAt: new Date().toLocaleString("vi-VN"),
         userProposedSchedule: proposedSchedule || c.schedule,
         userProposedTuition: proposedTuition ? parseInt(proposedTuition) : c.tuition,
-        appliedAt: new Date().toISOString(),
+        userNote: note || "",
+        scheduleConfirmed: scheduleConfirmed !== undefined ? scheduleConfirmed : true,
       };
     }
     return c;
@@ -185,3 +243,25 @@ export function applyForClass(classId, { proposedSchedule, proposedTuition }) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   return updated;
 }
+
+export function cancelApplication(classId) {
+  const classes = getAvailableClasses();
+  const updated = classes.map((c) => {
+    if (c.id === classId) {
+      const { applied, appliedAt, userProposedSchedule, userProposedTuition, userNote, scheduleConfirmed, ...rest } = c;
+      return {
+        ...rest,
+        applied: false,
+      };
+    }
+    return c;
+  });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  return updated;
+}
+
+export function resetAvailableClasses() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(initialAvailableClasses));
+  return initialAvailableClasses;
+}
+

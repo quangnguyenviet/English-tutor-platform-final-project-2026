@@ -26,7 +26,7 @@ UC-T01
 Thiết lập Hồ sơ Gia sư
 
 **Mô tả**  
-Cho phép Gia sư lần đầu đăng ký/đăng nhập vào hệ thống thực hiện khai báo và hoàn thiện Hồ sơ năng lực cá nhân. Hồ sơ bao gồm: thông tin cá nhân, trình độ học vấn, chứng chỉ tiếng Anh (IELTS/TOEIC/VSTEP... kèm tệp minh chứng), kinh nghiệm giảng dạy, video giới thiệu bản thân (đường dẫn Youtube/Vimeo hoặc tải tệp video), môn/khối lớp nhận dạy, thiết lập Bảng giá học phí mong muốn (theo giờ/buổi phân loại theo hình thức Online/Tại nhà), hình thức dạy và khung thời gian rảnh dự kiến. Sau khi gửi, hồ sơ sẽ chuyển sang trạng thái Chờ duyệt (`PENDING_APPROVAL`) để Admin/Lễ tân xác thực trước khi Gia sư chính thức được ghép lớp.
+Cho phép Gia sư lần đầu đăng ký/đăng nhập vào hệ thống thực hiện khai báo và hoàn thiện Hồ sơ năng lực cá nhân. Hồ sơ bao gồm: thông tin cá nhân, trình độ học vấn, chứng chỉ tiếng Anh (IELTS/TOEIC/VSTEP... kèm tệp minh chứng), kinh nghiệm giảng dạy, video giới thiệu bản thân (đường dẫn Youtube/Vimeo hoặc tải tệp video), môn/khối lớp nhận dạy, thiết lập Bảng giá học phí mong muốn (theo giờ phân loại theo hình thức Online/Tại nhà), hình thức dạy và khung thời gian rảnh dự kiến. Sau khi gửi, hồ sơ sẽ chuyển sang trạng thái Chờ duyệt (`PENDING_APPROVAL`) để Admin/Lễ tân xác thực trước khi Gia sư chính thức được ghép lớp.
 
 **Tác nhân**  
 Gia sư mới (Tác nhân chính), Admin / Lễ tân (Tác nhân phụ)
@@ -52,7 +52,7 @@ Gia sư hoàn tất đăng ký tài khoản / đăng nhập lần đầu tiên v
    - **Bước 2: Trình độ học vấn & Chứng chỉ:** Trường đại học/chuyên ngành, Trạng thái (Sinh viên/Đã tốt nghiệp/Giảng viên), Loại chứng chỉ Tiếng Anh (IELTS, TOEIC, VSTEP...), Điểm số/Overall, Ngày cấp và Nút tải tệp đính kèm bản chụp/scan Chứng chỉ (PDF, JPG, PNG).
    - **Bước 3: Năng lực, Kinh nghiệm & Video giới thiệu:** Số năm kinh nghiệm gia sư, Thế mạnh giảng dạy (IELTS Speaking, Ngữ pháp THPT, Tiếng Anh Giao tiếp...), Bài giới thiệu bản thân (Bio), Video giới thiệu bản thân (Nhập đường dẫn Youtube/Vimeo hoặc tải tệp video ngắn .mp4/.mov).
    - **Bước 4: Thiết lập Bảng giá học phí & Hình thức dạy:** 
-     * Mức học phí mong muốn (đơn vị: VNĐ/giờ hoặc VNĐ/buổi 90 phút) thiết lập riêng cho từng hình thức dạy (*Online* và *Tại nhà / Offline*) hoặc theo nhóm chương trình (luyện thi IELTS/TOEIC, Tiếng Anh Giao tiếp, Tiếng Anh Phổ thông...).
+     * Mức học phí mong muốn (đơn vị: VNĐ/giờ) thiết lập riêng cho từng hình thức dạy (*Online* và *Tại nhà / Offline*) hoặc theo nhóm chương trình (luyện thi IELTS/TOEIC, Tiếng Anh Giao tiếp, Tiếng Anh Phổ thông...).
      * Hình thức dạy nhận lớp (*Online*, *Tại nhà*, hoặc *Cả hai*), Khu vực nhận dạy (danh sách Quận/Huyện chọn nếu dạy Tại nhà).
    - **Bước 5: Thiết lập Khung thời gian rảnh:** Đăng ký các ca dạy rảnh cố định trong tuần (Sáng/Chiều/Tối các Thứ) để hệ thống/Admin sử dụng làm căn cứ gợi ý ghép lớp.
 3. Gia sư điền đầy đủ thông tin, tải tệp minh chứng chứng chỉ, nhập/tải video giới thiệu và cấu hình Bảng giá học phí đề xuất tại từng bước.

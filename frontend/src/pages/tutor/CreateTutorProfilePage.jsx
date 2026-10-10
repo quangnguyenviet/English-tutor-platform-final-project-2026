@@ -709,7 +709,7 @@ export default function CreateTutorProfilePage() {
                   <tr className="border-b border-border bg-muted/50 text-xs uppercase font-bold text-muted-foreground">
                     <th className="py-2.5 px-3 rounded-l-xl">Môn học</th>
                     <th className="py-2.5 px-3">Lớp</th>
-                    <th className="py-2.5 px-3">Học phí / buổi</th>
+                    <th className="py-2.5 px-3">Học phí (VNĐ/giờ)</th>
                     <th className="py-2.5 px-3 text-center rounded-r-xl">Xóa</th>
                   </tr>
                 </thead>
@@ -752,7 +752,7 @@ export default function CreateTutorProfilePage() {
                             onChange={(e) => handleSubjectRowChange(row.id, "fee", e.target.value)}
                             className="w-20 sm:w-24 px-2.5 py-2 rounded-lg border border-border bg-background text-xs sm:text-sm text-foreground font-semibold text-right focus:outline-none focus:ring-2 focus:ring-primary"
                           />
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">nghìn đồng</span>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">nghìn đ/giờ</span>
                         </div>
                       </td>
                       <td className="py-2 px-2 sm:px-3 text-center">
