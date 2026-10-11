@@ -1,327 +1,699 @@
-import React, { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  AlertTriangle,
-  Award,
-  CheckCircle2,
-  TrendingUp,
-  Sparkles,
-  User,
-  Target,
-  BarChart3,
-  Calendar,
-  Map,
-  Clock,
-  Lock,
-  PlayCircle,
-  ArrowRight,
-  BookOpen,
-  FileText,
-  ChevronRight,
-  Check,
-  Bot,
-  Zap,
-  Brain,
-  Flame,
   AlertCircle,
-  ShieldCheck,
+  ArrowRight,
+  Award,
+  BarChart3,
+  BookOpen,
+  Brain,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  CalendarDays,
+  Lightbulb,
+  Lock,
+  Map,
+  MessageCircle,
+  Sparkles,
+  Target,
+  TrendingUp,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useLessonSessions } from "../../context/LessonSessionContext";
 import { getStudentById } from "../../data/mockData";
-import { useStudentMatching } from "../../context/StudentMatchingContext";
-import PageHeader from "../../components/ui/PageHeader";
-import Card from "../../components/ui/Card";
+import { getProgressSummary } from "../../lib/studentLearningViewModel";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
+import Card from "../../components/ui/Card";
+import PageHeader from "../../components/ui/PageHeader";
 import ProgressBar from "../../components/ui/ProgressBar";
 import ProgressChart from "../../components/charts/ProgressChart";
-import SessionDetailModal from "../../components/student/SessionDetailModal";
+import LessonSessionDetail from "../../components/student/LessonSessionDetail";
+
+const VIEW_OPTIONS = [
+  {
+    id: "overview",
+    label: "Tổng quan",
+    description: "Xu hướng & kết quả",
+    icon: BarChart3,
+  },
+  {
+    id: "skills",
+    label: "Năng lực",
+    description: "Điểm mạnh & điểm yếu",
+    icon: Brain,
+  },
+  {
+    id: "roadmap",
+    label: "Lộ trình",
+    description: "Mục tiêu & chặng học",
+    icon: Map,
+  },
+];
+
+function SummaryMetric({ icon: Icon, label, value, hint, tone = "blue" }) {
+  const toneClasses = {
+    blue: "bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400",
+    emerald:
+      "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400",
+    amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400",
+    rose: "bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400",
+  };
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+          <p className="mt-1 font-mono text-2xl font-bold text-slate-900 dark:text-white">
+            {value}
+          </p>
+          <p className="mt-1 truncate text-[11px] text-slate-400 dark:text-slate-500">{hint}</p>
+        </div>
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${toneClasses[tone]}`}>
+          <Icon size={18} strokeWidth={1.75} />
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+function EmptyState({ icon: Icon = BookOpen, title, description }) {
+  return (
+    <Card className="flex flex-col items-center px-5 py-12 text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800">
+        <Icon size={23} strokeWidth={1.75} />
+      </span>
+      <h3 className="mt-3 text-sm font-semibold text-slate-800 dark:text-slate-200">{title}</h3>
+      <p className="mt-1 max-w-md text-xs text-slate-500 dark:text-slate-400">{description}</p>
+    </Card>
+  );
+}
+
+function RoadmapScore({ label, value, active }) {
+  return (
+    <div className="min-w-0 text-center">
+      <p className="text-[10px] uppercase tracking-wider text-slate-400">{label}</p>
+      <p
+        className={`mt-1 font-mono text-sm font-bold ${
+          active ? "text-blue-600 dark:text-blue-400" : "text-slate-800 dark:text-slate-200"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
 
 export default function StudentProgress() {
   const { session } = useAuth();
-  const { placementTestResult } = useStudentMatching();
+  const { sessions } = useLessonSessions();
   const student = getStudentById(session?.studentId || "s1");
-
-  // State management: "roadmap" | "skp" | "scores"
-  const [mainViewMode, setMainViewMode] = useState("roadmap");
-  const [selectedTutorId, setSelectedTutorId] = useState("t1"); // "t1" | "t2" | "t3"
-  const [activeScoreTutorTab, setActiveScoreTutorTab] = useState("all");
+  const [mainViewMode, setMainViewMode] = useState("overview");
+  const [selectedTutorId, setSelectedTutorId] = useState("t1");
+  const [overviewTutorId, setOverviewTutorId] = useState("all");
   const [selectedSessionForModal, setSelectedSessionForModal] = useState(null);
 
-  const gradedExercises = student?.exercises?.filter((e) => e.status === "graded") || [];
+  const summary = useMemo(() => getProgressSummary(student), [student]);
   const tutorBreakdowns = student?.tutorProgressBreakdown || [];
-  const aiRoadmaps = student?.aiRoadmaps || [];
-  const skp = student?.studentKnowledgeProfile;
-
-  const selectedRoadmap =
-    aiRoadmaps.find((r) => r.tutorId === selectedTutorId) || aiRoadmaps[0];
-
-  const filteredGraded = gradedExercises.filter(
-    (ex) => activeScoreTutorTab === "all" || ex.tutorId === activeScoreTutorTab
+  const roadmaps = student?.aiRoadmaps || [];
+  const knowledgeProfile = student?.studentKnowledgeProfile;
+  const studentSessions = sessions.filter((item) => item.studentId === (session?.studentId || "s1"));
+  const completedLessons = studentSessions.filter((item) => item.status === "completed");
+  const latestLesson = [...completedLessons].sort((left, right) =>
+    (right.fullDate || "").localeCompare(left.fullDate || "")
+  )[0];
+  const openQuestions = studentSessions.reduce(
+    (count, item) => count + (item.questions || []).filter((question) => !question.reply).length,
+    0
   );
+  const selectedRoadmap =
+    roadmaps.find((roadmap) => roadmap.tutorId === selectedTutorId) || roadmaps[0] || null;
+  const visibleTutorBreakdowns = tutorBreakdowns.filter(
+    (tutor) => overviewTutorId === "all" || tutor.tutorId === overviewTutorId
+  );
+  const visibleResults = summary.gradedExercises.filter(
+    (exercise) => overviewTutorId === "all" || exercise.tutorId === overviewTutorId
+  );
+
+  function openSessionDetails(roadmap, roadmapSession) {
+    const scheduleSession = studentSessions.find(
+      (item) => item.tutorId === roadmap.tutorId && item.topic === roadmapSession.topic
+    );
+    if (scheduleSession) setSelectedSessionForModal(scheduleSession.id);
+  }
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Page Header */}
       <PageHeader
-        title="Lộ trình AI, Hồ sơ Tri thức & Báo cáo Tiến bộ"
-        description="Theo dõi Lộ trình Học cá nhân hóa, Hồ sơ tri thức SKP với Elo rating và các chỉ số tăng trưởng năng lực thực chất."
+        className="mb-0"
+        eyebrow="Kết quả học tập"
+        title="Kết quả & Tiến bộ"
+        description="Xem xu hướng học tập, điểm cần cải thiện và chặng tiếp theo trong lộ trình."
+        actions={
+          <Button as={Link} to="/student/exercises" size="sm">
+            Tiếp tục làm bài
+            <ArrowRight size={16} />
+          </Button>
+        }
       />
 
-      {/* Main View Mode Selector Tabs */}
-      <div className="flex items-center gap-2 bg-slate-200/70 dark:bg-slate-800/80 p-1.5 rounded-2xl w-fit text-xs font-bold shadow-inner flex-wrap">
-        <button
-          onClick={() => setMainViewMode("roadmap")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
-            mainViewMode === "roadmap"
-              ? "bg-white text-blue-600 dark:bg-slate-900 dark:text-blue-400 shadow-md"
-              : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-          }`}
-        >
-          <Bot size={16} className="text-amber-500" />
-          🤖 AI Lộ trình Học Cá nhân hóa
-        </button>
-        <button
-          onClick={() => setMainViewMode("skp")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
-            mainViewMode === "skp"
-              ? "bg-white text-purple-600 dark:bg-slate-900 dark:text-purple-400 shadow-md"
-              : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-          }`}
-        >
-          <Brain size={16} className="text-purple-500" />
-          🧠 Hồ sơ Tri thức (SKP) & Elo Rating
-        </button>
-        <button
-          onClick={() => setMainViewMode("scores")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all cursor-pointer ${
-            mainViewMode === "scores"
-              ? "bg-white text-blue-600 dark:bg-slate-900 dark:text-blue-400 shadow-md"
-              : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-          }`}
-        >
-          <BarChart3 size={16} className="text-blue-500" />
-          📈 Báo cáo Tiến bộ (Chăm chỉ vs Năng lực)
-        </button>
+      <div
+        role="tablist"
+        aria-label="Nội dung kết quả và tiến bộ"
+        className="grid w-full sm:w-auto grid-cols-1 gap-1 rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900 sm:inline-grid sm:grid-cols-3"
+      >
+        {VIEW_OPTIONS.map((option) => {
+          const Icon = option.icon;
+          const isActive = mainViewMode === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setMainViewMode(option.id)}
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
+                isActive
+                  ? "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              }`}
+            >
+              <Icon size={16} strokeWidth={1.75} />
+              <span>
+                <span className="block text-xs font-semibold">{option.label}</span>
+                <span className="hidden text-[10px] font-normal opacity-75 lg:block">{option.description}</span>
+              </span>
+            </button>
+          );
+        })}
       </div>
 
+      {mainViewMode === "overview" && (
+        <div className="space-y-6">
+          <section aria-label="Chỉ số tiến bộ" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <SummaryMetric
+              icon={Brain}
+              label="Mức tinh thông"
+              value={`${summary.overallElo}/100`}
+              hint="Hồ sơ năng lực hiện tại"
+              tone="blue"
+            />
+            <SummaryMetric
+              icon={Award}
+              label="Điểm trung bình"
+              value={`${summary.averageScore}%`}
+              hint={`${summary.gradedExercises.length} bài đã chấm`}
+              tone="emerald"
+            />
+            <SummaryMetric
+              icon={CheckCircle2}
+              label="Nộp bài đúng hạn"
+              value={`${summary.onTimeSubmissionRate}%`}
+              hint="Duy trì nhịp học ổn định"
+              tone="amber"
+            />
+            <SummaryMetric
+              icon={CalendarDays}
+              label="Buổi đã học"
+              value={completedLessons.length}
+              hint="Từ trạng thái buổi học"
+              tone="blue"
+            />
+          </section>
 
-      {/* VIEW MODE 1: AI LEARNING ROADMAP PER TUTOR */}
-      {mainViewMode === "roadmap" && (
-        <div className="space-y-6 animate-fadeIn">
-          {/* Tutor Selector Bar */}
-          <Card className="p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-                <span className="text-xs font-semibold text-slate-500 mr-1 shrink-0">
-                  Chọn Lộ trình Gia sư:
-                </span>
-                {tutorBreakdowns.map((tb) => {
-                  const isSelected = selectedTutorId === tb.tutorId;
-                  return (
-                    <button
-                      key={tb.tutorId}
-                      onClick={() => setSelectedTutorId(tb.tutorId)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
-                        isSelected
-                          ? "bg-foreground text-background"
-                          : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                      }`}
-                    >
-                      <span>
-                        {tb.tutorName} ({tb.subject})
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0 font-medium italic">
-                💡 Lộ trình tự động điều chỉnh theo tốc độ tiếp thu thực tế.
-              </div>
-            </div>
-          </Card>
-
-          {/* AI Overview Header Card */}
-          {selectedRoadmap && (
-            <Card className="p-5 border border-border bg-card space-y-4">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border pb-4">
-                {/* Tutor Info & Target */}
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="text-sm font-semibold text-foreground">
-                      {selectedRoadmap.tutorName}
-                    </span>
-                    <Badge tone="neutral" size="xs">
-                      {selectedRoadmap.subject}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">&middot;</span>
-                    <span className="text-xs text-muted-foreground">
-                      Cập nhật: {selectedRoadmap.generatedAt}
+          {latestLesson && (
+            <Card className="border-blue-200 bg-blue-50/50 p-5 dark:border-blue-900/60 dark:bg-blue-950/20">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone="emerald" size="xs">Buổi gần nhất đã học</Badge>
+                    <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                      {latestLesson.dateStr} · {latestLesson.tutorName}
                     </span>
                   </div>
-                  <h3 className="text-lg font-bold text-foreground">
-                    Lộ trình học cá nhân hóa ({selectedRoadmap.baselineScore} ➔ {selectedRoadmap.targetScore})
-                  </h3>
+                  <h2 className="mt-2 text-sm font-bold text-slate-900 dark:text-white">{latestLesson.topic}</h2>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                    {latestLesson.report?.publishedAt
+                      ? latestLesson.report.achievement || latestLesson.report.summary
+                      : "Đang chờ gia sư cập nhật ghi nhận sau buổi học."}
+                  </p>
+                  {openQuestions > 0 && (
+                    <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                      <MessageCircle size={13} /> {openQuestions} câu hỏi đang chờ gia sư trả lời
+                    </p>
+                  )}
                 </div>
-
-                {/* Score Milestones Pills */}
-                <div className="flex items-center gap-3 bg-white/90 dark:bg-slate-900/90 p-3 rounded-2xl border border-blue-100 dark:border-slate-800 shadow-xs shrink-0">
-                  <div className="text-center px-3 border-r border-slate-100 dark:border-slate-800">
-                    <span className="text-[10px] text-slate-400 block font-medium">Khởi điểm</span>
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                      {selectedRoadmap.baselineScore}
-                    </span>
-                  </div>
-                  <div className="text-center px-3 border-r border-slate-100 dark:border-slate-800">
-                    <span className="text-[10px] text-slate-400 block font-medium">Hiện tại</span>
-                    <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
-                      {selectedRoadmap.currentScore}
-                    </span>
-                  </div>
-                  <div className="text-center px-3">
-                    <span className="text-[10px] text-slate-400 block font-medium">Mục tiêu</span>
-                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                      {selectedRoadmap.targetScore}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* AI Rationale Rationale Box */}
-              <div className="p-4 bg-white/80 dark:bg-slate-900/80 rounded-2xl border border-blue-100/80 dark:border-slate-800 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
-                  <Sparkles size={16} className="text-amber-500" /> Phân tích cá nhân hóa bởi AI Assistant & Gia sư
-                </div>
-                <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed italic">
-                  &quot;{selectedRoadmap.aiRationale}&quot;
-                </p>
-              </div>
-
-              {/* Phase Progress Bar */}
-              <div className="space-y-1.5 pt-1">
-                <div className="flex justify-between text-xs font-semibold">
-                  <span className="text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <Zap size={14} className="text-amber-500" /> Tiến độ hoàn thành lộ trình:
-                  </span>
-                  <span className="font-extrabold text-blue-600 dark:text-blue-400">
-                    Đã xong {selectedRoadmap.completedPhasesCount}/{selectedRoadmap.totalPhases} Giai đoạn ({selectedRoadmap.overallPercent}%)
-                  </span>
-                </div>
-                <ProgressBar value={selectedRoadmap.overallPercent} size="md" />
+                <Button as={Link} to={`/student/schedule?lesson=${latestLesson.id}`} variant="outline" size="sm">
+                  Xem trao đổi buổi học <ArrowRight size={14} />
+                </Button>
               </div>
             </Card>
           )}
 
-          {/* Interactive Phase Timeline List */}
-          {selectedRoadmap && (
-            <div className="space-y-6">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Map size={18} className="text-blue-500" /> Trục Thời Gian Giai Đoạn Học Tập ({selectedRoadmap.phases.length} Phases)
-              </h3>
+          <section className="grid grid-cols-1 gap-5 lg:grid-cols-5" aria-label="Bức tranh tiến bộ">
+            <Card className="min-w-0 p-5 lg:col-span-3">
+              <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                    <TrendingUp size={17} className="text-blue-500" />
+                    Xu hướng kỹ năng
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Điểm theo từng kỹ năng trong 5 tuần gần nhất.
+                  </p>
+                </div>
+                <Badge tone="emerald">Đang tiến bộ</Badge>
+              </div>
+              {(student?.progressHistory || []).length > 0 ? (
+                <ProgressChart data={student.progressHistory} height={260} />
+              ) : (
+                <p className="py-16 text-center text-xs text-slate-400">Chưa đủ dữ liệu để vẽ biểu đồ.</p>
+              )}
+            </Card>
 
-              <div className="space-y-4">
-                {selectedRoadmap.phases.map((phase) => {
+            <Card className="p-5 lg:col-span-2">
+              <div className="flex items-center gap-2">
+                <Target size={17} className="text-amber-500" />
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">Nên tập trung tuần này</h2>
+              </div>
+
+              {summary.focusSkill ? (
+                <div className="mt-4 space-y-4">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-900/60 dark:bg-amber-950/20">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                          Kỹ năng ưu tiên
+                        </p>
+                        <h3 className="mt-1 text-sm font-bold text-slate-900 dark:text-white">
+                          {summary.focusSkill.name}
+                        </h3>
+                      </div>
+                      <span className="font-mono text-lg font-bold text-amber-700 dark:text-amber-400">
+                        {summary.focusSkill.masteryElo}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                      {summary.focusSkill.suggestion}
+                    </p>
+                  </div>
+
+                  {summary.strongestSkill && (
+                    <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+                      <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-emerald-500" />
+                      <div>
+                        <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Điểm mạnh đang duy trì</p>
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          {summary.strongestSkill.name} · {summary.strongestSkill.masteryElo}/100
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <Button as={Link} to="/student/exercises" className="w-full" size="sm">
+                    Luyện kỹ năng ưu tiên
+                    <ArrowRight size={15} />
+                  </Button>
+                </div>
+              ) : (
+                <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
+                  Chưa đủ dữ liệu để đề xuất kỹ năng cần ưu tiên.
+                </p>
+              )}
+            </Card>
+          </section>
+
+          <section className="space-y-4" aria-labelledby="tutor-progress-heading">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 id="tutor-progress-heading" className="text-base font-bold text-slate-900 dark:text-white">
+                  Tiến độ theo gia sư
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  So sánh điểm hiện tại với mục tiêu của từng lớp.
+                </p>
+              </div>
+              <label className="w-full sm:w-auto">
+                <span className="sr-only">Lọc tiến độ theo gia sư</span>
+                <select
+                  value={overviewTutorId}
+                  onChange={(event) => setOverviewTutorId(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 sm:w-auto"
+                >
+                  <option value="all">Tất cả gia sư</option>
+                  {tutorBreakdowns.map((tutor) => (
+                    <option key={tutor.tutorId} value={tutor.tutorId}>
+                      {tutor.tutorName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {visibleTutorBreakdowns.length > 0 ? (
+              <Card padded={false} className="overflow-hidden">
+                <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                  {visibleTutorBreakdowns.map((tutor) => {
+                    const tutorSessions = studentSessions.filter((item) => item.tutorId === tutor.tutorId);
+                    const completedCount = tutorSessions.filter((item) => item.status === "completed").length;
+                    const upcomingCount = tutorSessions.filter((item) => item.status === "upcoming" || item.status === "confirmed" || item.status === "live").length;
+                    return (
+                      <div key={tutor.tutorId} className="grid grid-cols-1 gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.8fr)] lg:items-center">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{tutor.tutorName}</h3>
+                            <Badge tone="blue" size="xs">{completedCount} buổi đã học</Badge>
+                          </div>
+                          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{tutor.subject}</p>
+                          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                            {upcomingCount} buổi đang lên lịch · {tutorSessions.filter((item) => item.status === "reschedule_requested" || item.status === "rescheduled" || item.status === "cancelled").length} buổi cần cập nhật lịch
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-3 divide-x divide-slate-200 rounded-xl bg-slate-50 p-3 dark:divide-slate-700 dark:bg-slate-800/60">
+                          <RoadmapScore label="Khởi điểm" value={tutor.baselineScore} />
+                          <RoadmapScore label="Hiện tại" value={tutor.currentScore} active />
+                          <RoadmapScore label="Mục tiêu" value={tutor.targetScore} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            ) : (
+              <EmptyState
+                icon={TrendingUp}
+                title="Chưa có tiến độ theo gia sư"
+                description="Dữ liệu sẽ xuất hiện khi bạn bắt đầu lộ trình học."
+              />
+            )}
+          </section>
+
+          <Card padded={false} className="overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800 sm:px-5">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">Kết quả gần đây</h2>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Bài tập và kiểm tra đã được chấm.</p>
+              </div>
+              <span className="font-mono text-xs text-slate-400">{visibleResults.length} bài</span>
+            </div>
+            {visibleResults.length > 0 ? (
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {visibleResults.map((exercise) => (
+                  <Link
+                    key={exercise.id}
+                    to={`/student/exercises/${exercise.id}`}
+                    className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 sm:px-5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">{exercise.title}</p>
+                      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                        {exercise.tutorName} · {exercise.skill}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="font-mono text-sm font-bold text-slate-900 dark:text-white">
+                        {exercise.score}/{exercise.maxScore}
+                      </span>
+                      <ChevronRight size={15} className="text-slate-400" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="px-5 py-8 text-center text-xs text-slate-400">Chưa có bài đã chấm trong bộ lọc này.</p>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {mainViewMode === "skills" && (
+        <div className="space-y-6">
+          {knowledgeProfile ? (
+            <>
+              <section className="grid grid-cols-1 gap-5 lg:grid-cols-5">
+                <Card className="border-blue-200 bg-blue-50/60 p-5 dark:border-blue-900/60 dark:bg-blue-950/20 lg:col-span-3">
+                  <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+                        <Brain size={22} strokeWidth={1.75} />
+                      </span>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300">Hồ sơ năng lực</p>
+                        <h2 className="mt-1 text-base font-bold text-slate-900 dark:text-white">Mức tinh thông tổng thể</h2>
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Cập nhật sau mỗi câu trả lời bằng thang điểm Elo.</p>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-left sm:text-right">
+                      <p className="font-mono text-3xl font-bold text-slate-900 dark:text-white">
+                        {knowledgeProfile.overallElo}<span className="text-sm font-medium text-slate-400">/100</span>
+                      </p>
+                      <Badge tone="blue">Đang phát triển</Badge>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-5 lg:col-span-2">
+                  <div className="flex items-center gap-2">
+                    <Lightbulb size={17} className="text-amber-500" />
+                    <h2 className="text-sm font-bold text-slate-900 dark:text-white">Gợi ý hành động</h2>
+                  </div>
+                  <p className="mt-3 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    {summary.focusSkill?.name || "Chưa có kỹ năng ưu tiên"}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                    {summary.focusSkill?.suggestion || "Hoàn thành thêm bài tập để nhận đề xuất cá nhân hóa."}
+                  </p>
+                  <Button as={Link} to="/student/exercises" variant="outline" size="sm" className="mt-4 w-full">
+                    Mở bài luyện tập
+                    <ArrowRight size={14} />
+                  </Button>
+                </Card>
+              </section>
+
+              <section aria-labelledby="micro-skills-heading" className="space-y-3">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <h2 id="micro-skills-heading" className="text-base font-bold text-slate-900 dark:text-white">Kỹ năng chi tiết</h2>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Theo dõi mức tinh thông và độ tin cậy của từng kỹ năng.</p>
+                  </div>
+                  <span className="font-mono text-xs text-slate-400">{knowledgeProfile.microSkills?.length || 0} kỹ năng</span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {(knowledgeProfile.microSkills || []).map((skill) => {
+                    const isMastered = skill.status === "mastered";
+                    const isWeak = skill.status === "weak";
+                    return (
+                      <Card key={skill.id} className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <Badge tone={isMastered ? "emerald" : isWeak ? "rose" : "blue"} size="xs">
+                            {isMastered ? "Vững" : isWeak ? "Cần ưu tiên" : "Đang học"}
+                          </Badge>
+                          <span className="font-mono text-lg font-bold text-slate-900 dark:text-white">{skill.masteryElo}</span>
+                        </div>
+                        <h3 className="mt-3 min-h-10 text-sm font-semibold leading-snug text-slate-800 dark:text-slate-200">{skill.name}</h3>
+                        <p className="mt-1 text-xs text-slate-400">{skill.category}</p>
+                        <div className="mt-3 space-y-1.5">
+                          <ProgressBar value={skill.masteryElo} size="sm" tone={isMastered ? "emerald" : isWeak ? "rose" : "blue"} />
+                          <div className="flex justify-between text-[11px] text-slate-400">
+                            <span>Độ tin cậy</span>
+                            <span className="font-mono">{skill.confidence}%</span>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                <Card className="p-5">
+                  <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle2 size={18} />
+                    <h2 className="text-sm font-bold">Điểm mạnh</h2>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {(knowledgeProfile.strengths || []).map((skill, index) => (
+                      <div key={skill.name} className="flex items-center justify-between gap-3 rounded-xl bg-emerald-50/60 p-3 dark:bg-emerald-950/20">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 font-mono text-[10px] font-bold text-white">{index + 1}</span>
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">{skill.name}</p>
+                            <p className="text-[10px] text-slate-500">{skill.category}</p>
+                          </div>
+                        </div>
+                        <span className="shrink-0 font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400">{skill.masteryElo}/100</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card className="p-5">
+                  <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                    <Target size={18} />
+                    <h2 className="text-sm font-bold">Cần cải thiện</h2>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {(knowledgeProfile.weaknesses || []).map((skill, index) => (
+                      <div key={skill.name} className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{index + 1}. {skill.name}</p>
+                            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{skill.suggestion}</p>
+                          </div>
+                          <span className="shrink-0 font-mono text-xs font-bold text-amber-700 dark:text-amber-400">{skill.masteryElo}/100</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </section>
+
+              <Card className="p-5">
+                <div>
+                  <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                    <AlertCircle size={17} className="text-rose-500" />
+                    Lỗi thường gặp
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Các dạng lỗi lặp lại và cách khắc phục được đề xuất.</p>
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {(knowledgeProfile.errorPatterns || []).map((pattern) => (
+                    <div key={pattern.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-800/40">
+                      <div className="flex items-start justify-between gap-3">
+                        <h3 className="text-xs font-semibold leading-relaxed text-slate-800 dark:text-slate-200">{pattern.title}</h3>
+                        <Badge tone="rose" size="xs">{pattern.count} lần</Badge>
+                      </div>
+                      <p className="mt-2 rounded-lg bg-white p-2 font-mono text-[11px] text-slate-500 dark:bg-slate-900 dark:text-slate-400">{pattern.example}</p>
+                      <p className="mt-2 flex items-start gap-1.5 text-[11px] text-blue-700 dark:text-blue-400">
+                        <Lightbulb size={12} className="mt-0.5 shrink-0" />
+                        {pattern.remedy}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </>
+          ) : (
+            <EmptyState
+              icon={Brain}
+              title="Chưa có hồ sơ năng lực"
+              description="Hãy hoàn thành thêm bài tập để hệ thống phân tích điểm mạnh và điểm cần cải thiện."
+            />
+          )}
+        </div>
+      )}
+
+      {mainViewMode === "roadmap" && (
+        <div className="space-y-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Lộ trình theo gia sư</h2>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Mỗi lớp có mục tiêu và chặng học riêng.</p>
+            </div>
+            <label className="w-full sm:w-auto">
+              <span className="sr-only">Chọn gia sư để xem lộ trình</span>
+              <select
+                value={selectedRoadmap?.tutorId || ""}
+                onChange={(event) => setSelectedTutorId(event.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 sm:w-auto"
+              >
+                {roadmaps.map((roadmap) => (
+                  <option key={roadmap.tutorId} value={roadmap.tutorId}>{roadmap.tutorName} · {roadmap.subject}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {selectedRoadmap ? (
+            <>
+              <Card className="p-5">
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.7fr)] lg:items-center">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone="blue">{selectedRoadmap.subject}</Badge>
+                      <span className="font-mono text-[11px] text-slate-400">Cập nhật {selectedRoadmap.generatedAt}</span>
+                    </div>
+                    <h2 className="mt-3 text-lg font-bold text-slate-900 dark:text-white">Lộ trình cùng {selectedRoadmap.tutorName}</h2>
+                    <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{selectedRoadmap.aiRationale}</p>
+                  </div>
+
+                  <div className="space-y-4 rounded-xl bg-slate-50 p-4 dark:bg-slate-800/60">
+                    <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-700">
+                      <RoadmapScore label="Khởi điểm" value={selectedRoadmap.baselineScore} />
+                      <RoadmapScore label="Hiện tại" value={selectedRoadmap.currentScore} active />
+                      <RoadmapScore label="Mục tiêu" value={selectedRoadmap.targetScore} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-500 dark:text-slate-400">Lộ trình dự kiến</span>
+                        <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">{selectedRoadmap.overallPercent}%</span>
+                      </div>
+                      <ProgressBar value={selectedRoadmap.overallPercent} size="md" />
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <div className="space-y-3">
+                {(selectedRoadmap.phases || []).map((phase) => {
                   const isCompleted = phase.status === "completed";
-                  const isInProgress = phase.status === "in_progress";
-                  const isUpcoming = phase.status === "upcoming";
-
+                  const isCurrent = phase.status === "in_progress";
                   return (
-                    <Card
-                      key={phase.id}
-                      className={`p-6 border-l-4 transition-all ${
-                        isCompleted
-                          ? "border-l-emerald-500 bg-white dark:bg-slate-900"
-                          : isInProgress
-                          ? "border-l-blue-600 bg-blue-50/30 dark:bg-blue-950/20 shadow-md ring-1 ring-blue-200 dark:ring-blue-900/40"
-                          : "border-l-slate-300 dark:border-l-slate-700 opacity-80"
-                      }`}
-                    >
-                      {/* Phase Header */}
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-9 h-9 rounded-2xl font-black text-sm flex items-center justify-center shrink-0 ${
-                              isCompleted
-                                ? "bg-emerald-600 text-white shadow-xs"
-                                : isInProgress
-                                ? "bg-blue-600 text-white shadow-md animate-pulse"
-                                : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                            }`}
-                          >
-                            {isCompleted ? <Check size={18} /> : phase.phaseIndex}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-base font-extrabold text-slate-900 dark:text-white">
-                                {phase.title}
-                              </h4>
-                              {isCompleted && <Badge tone="emerald">✓ Đã hoàn thành</Badge>}
-                              {isInProgress && (
-                                <span className="inline-flex items-center gap-1 bg-blue-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs">
-                                  🔥 ĐANG HỌC CỦNG CỐ
-                                </span>
-                              )}
-                              {isUpcoming && <Badge tone="slate">🔒 Sắp tới</Badge>}
-                            </div>
-                            <p className="text-xs text-slate-500 font-medium mt-0.5">
-                              Thời lượng: {phase.duration} &middot; Mục tiêu: <strong className="text-slate-800 dark:text-slate-200">{phase.targetGoal}</strong>
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* AI Strategy Note */}
-                      <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-xs flex items-start gap-2 text-slate-700 dark:text-slate-300">
-                        <Sparkles size={15} className="text-amber-500 shrink-0 mt-0.5" />
-                        <div>
-                          <strong className="text-slate-900 dark:text-white">Chiến thuật AI tư vấn:</strong> {phase.aiNote}
-                        </div>
-                      </div>
-
-                      {/* Sessions List in Phase */}
-                      <div className="mt-4 space-y-2">
-                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-2">
-                          📚 Danh sách buổi học & Chặng bài tập thuộc Giai đoạn này:
+                    <Card key={phase.id} className={`p-0 overflow-hidden ${isCurrent ? "border-blue-300 dark:border-blue-800" : ""}`}>
+                      <div className="grid grid-cols-1 gap-4 p-4 sm:p-5 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-start">
+                        <span className={`flex h-9 w-9 items-center justify-center rounded-xl font-mono text-sm font-bold ${isCompleted ? "bg-emerald-600 text-white" : isCurrent ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"}`}>
+                          {isCompleted ? <Check size={17} /> : phase.phaseIndex}
                         </span>
-                        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                          {phase.sessions.map((sess, idx) => {
-                            const isSessDone = sess.status === "completed";
-                            const isSessLive = sess.status === "live";
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-white">{phase.title}</h3>
+                            <Badge tone={isCompleted ? "emerald" : isCurrent ? "blue" : "slate"} size="xs">
+                              {isCompleted ? "Đã hoàn thành" : isCurrent ? "Đang học" : "Sắp tới"}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{phase.duration} · {phase.targetGoal}</p>
+                          <div className="mt-3 flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
+                            <Sparkles size={14} className="mt-0.5 shrink-0 text-amber-500" />
+                            <span>{phase.aiNote}</span>
+                          </div>
+                        </div>
+                        {!isCompleted && !isCurrent && <Lock size={16} className="hidden text-slate-400 lg:block" />}
+                      </div>
 
+                      <div className="border-t border-slate-200 bg-slate-50/60 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/20 sm:px-5">
+                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Các buổi trong chặng</p>
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                          {(phase.sessions || []).map((roadmapSession) => {
+                            const hasDetails = studentSessions.some(
+                              (item) => item.tutorId === selectedRoadmap.tutorId && item.topic === roadmapSession.topic
+                            );
+                            const isSessionDone = roadmapSession.status === "completed";
+                            const isSessionLive = roadmapSession.status === "live";
                             return (
-                              <div
-                                key={idx}
-                                className={`p-3 rounded-xl border transition-all text-xs space-y-1.5 ${
-                                  isSessDone
-                                    ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/40"
-                                    : isSessLive
-                                    ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-200/80 dark:border-rose-900/60 ring-2 ring-rose-400"
-                                    : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800"
-                                }`}
+                              <button
+                                key={`${phase.id}-${roadmapSession.num}`}
+                                type="button"
+                                disabled={!hasDetails}
+                                onClick={() => openSessionDetails(selectedRoadmap, roadmapSession)}
+                                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left transition-colors enabled:hover:border-blue-300 enabled:hover:bg-blue-50/50 disabled:cursor-default dark:border-slate-800 dark:bg-slate-900 dark:enabled:hover:border-blue-800 dark:enabled:hover:bg-blue-950/20"
                               >
-                                <div className="flex items-center justify-between">
-                                  <span className="font-bold text-slate-900 dark:text-white">
-                                    Buổi #{sess.num} ({sess.date})
-                                  </span>
-                                  {isSessDone ? (
-                                    <Badge tone="emerald" size="xs">
-                                      ✓ Quiz: {sess.quizScore}
-                                    </Badge>
-                                  ) : isSessLive ? (
-                                    <span className="bg-rose-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-                                      LIVE
-                                    </span>
-                                  ) : (
-                                    <Badge tone="slate" size="xs">
-                                      Chờ học
-                                    </Badge>
-                                  )}
+                                <div className="min-w-0">
+                                  <p className="text-[11px] text-slate-400">Buổi {roadmapSession.num} · {roadmapSession.date}</p>
+                                  <p className="mt-0.5 line-clamp-2 text-xs font-semibold text-slate-800 dark:text-slate-200">{roadmapSession.topic}</p>
                                 </div>
-                                <p className="text-xs text-slate-800 dark:text-slate-200 font-medium line-clamp-2">
-                                  {sess.topic}
-                                </p>
-                              </div>
+                                {isSessionDone ? (
+                                  <Badge tone="emerald" size="xs">{roadmapSession.quizScore}</Badge>
+                                ) : isSessionLive ? (
+                                  <Badge tone="rose" size="xs">Đang diễn ra</Badge>
+                                ) : (
+                                  <Clock3 size={14} className="shrink-0 text-slate-400" />
+                                )}
+                              </button>
                             );
                           })}
                         </div>
@@ -330,404 +702,20 @@ export default function StudentProgress() {
                   );
                 })}
               </div>
-            </div>
+            </>
+          ) : (
+            <EmptyState
+              icon={Map}
+              title="Chưa có lộ trình học"
+              description="Lộ trình sẽ xuất hiện sau khi gia sư hoàn tất đánh giá đầu vào và đặt mục tiêu học tập."
+            />
           )}
         </div>
       )}
 
-      {/* VIEW MODE 2: STUDENT KNOWLEDGE PROFILE (SKP) & ELO RATING (FR-38) */}
-      {mainViewMode === "skp" && (
-        <div className="space-y-6 animate-fadeIn">
-          {/* SKP Overview Banner */}
-          <Card className="p-6 bg-gradient-to-r from-purple-50/90 via-indigo-50/70 to-blue-50/60 dark:from-purple-950/40 dark:via-indigo-950/30 dark:to-blue-950/20 border-purple-200/80 dark:border-purple-900/60 shadow-md space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-black text-2xl shadow-lg shrink-0">
-                  <Brain size={32} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300">
-                      Student Knowledge Profile (SKP) Engine
-                    </span>
-                    <Badge tone="purple">Thuật toán Elo Rating</Badge>
-                  </div>
-                  <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                    Hồ Sơ Tri Thức Người Học & Độ Tinh Thông Micro-Skills
-                  </h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                    Điểm số được cập nhật theo thời gian thực sau mỗi câu trả lời đúng/sai bằng công thức Elo Rating.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 bg-white/90 dark:bg-slate-900/90 p-3 rounded-2xl border border-purple-100 dark:border-purple-900 shadow-xs shrink-0">
-                <div className="text-center px-4 border-r border-slate-100 dark:border-slate-800">
-                  <span className="text-[10px] text-slate-400 block font-medium">Chỉ số Tinh thông (Overall Elo)</span>
-                  <span className="text-2xl font-black text-purple-600 dark:text-purple-400">
-                    {skp?.overallElo || 74}/100
-                  </span>
-                </div>
-                <div className="text-center px-2">
-                  <span className="text-[10px] text-slate-400 block font-medium">Trạng thái</span>
-                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">
-                    Bứt phá nhanh
-                  </span>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Micro-skills Grid with Elo Rating Bars */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Target size={18} className="text-blue-500" /> Bảng Theo Dõi Micro-Skills (Elo Rating 0 - 100)
-              </h3>
-              <span className="text-xs text-slate-400">8 Kỹ năng vi mô cốt lõi</span>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {skp?.microSkills?.map((skill) => {
-                const isMastered = skill.status === "mastered";
-                const isLearning = skill.status === "learning";
-
-                return (
-                  <Card key={skill.id} className="p-4 space-y-3 border-slate-200 dark:border-slate-800">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                          {skill.category}
-                        </span>
-                        <h4 className="text-xs font-bold text-slate-900 dark:text-white mt-0.5">
-                          {skill.name}
-                        </h4>
-                      </div>
-                      <Badge tone={isMastered ? "emerald" : isLearning ? "blue" : "rose"} size="xs">
-                        {isMastered ? "Thành thạo" : isLearning ? "Đang luyện" : "Yếu"}
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs font-semibold">
-                        <span className="text-slate-500">Elo Mastery:</span>
-                        <span className="font-extrabold text-slate-900 dark:text-white">
-                          {skill.masteryElo}/100
-                        </span>
-                      </div>
-                      <ProgressBar
-                        value={skill.masteryElo}
-                        size="sm"
-                        tone={isMastered ? "emerald" : isLearning ? "blue" : "rose"}
-                      />
-                    </div>
-
-                    <div className="flex justify-between text-[11px] text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2">
-                      <span>Độ tự tin:</span>
-                      <span className="font-bold text-slate-600 dark:text-slate-300">{skill.confidence}%</span>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Top 5 Strengths & Top 5 Weaknesses Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Top 5 Strengths */}
-            <Card className="p-5 space-y-3 border-emerald-200 dark:border-emerald-950">
-              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold text-sm">
-                <CheckCircle2 size={18} />
-                <span>Top 5 Điểm Mạnh Nhất (Strengths)</span>
-              </div>
-              <div className="space-y-2">
-                {skp?.strengths?.map((st, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-emerald-500 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
-                        {i + 1}
-                      </span>
-                      <div>
-                        <p className="font-bold text-slate-900 dark:text-white">{st.name}</p>
-                        <p className="text-[10px] text-slate-500">{st.category}</p>
-                      </div>
-                    </div>
-                    <span className="font-black text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg shadow-xs">
-                      {st.masteryElo} Elo
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            {/* Top 5 Weaknesses */}
-            <Card className="p-5 space-y-3 border-rose-200 dark:border-rose-950">
-              <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400 font-bold text-sm">
-                <AlertCircle size={18} />
-                <span>Top 5 Điểm Yếu Cần Cải Thiện (Weaknesses)</span>
-              </div>
-              <div className="space-y-2">
-                {skp?.weaknesses?.map((wk, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-rose-500 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
-                        {i + 1}
-                      </span>
-                      <div>
-                        <p className="font-bold text-slate-900 dark:text-white">{wk.name}</p>
-                        <p className="text-[10px] text-slate-500">{wk.suggestion}</p>
-                      </div>
-                    </div>
-                    <span className="font-black text-rose-600 dark:text-rose-400 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg shadow-xs shrink-0">
-                      {wk.masteryElo} Elo
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-
-          {/* Error Pattern Catalog (FR-38) */}
-          <Card className="p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                  <AlertCircle size={18} className="text-amber-500" />
-                  Danh Mục Dạng Lỗi Thường Gặp (Error Pattern Catalog)
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Tự động phân loại các lỗi sai trong bài tập và đề xuất giải pháp xử lý triệt để.
-                </p>
-              </div>
-              <span className="text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/60 px-2.5 py-1 rounded-lg">
-                4 Dạng lỗi phổ biến
-              </span>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {skp?.errorPatterns?.map((ep) => (
-                <div key={ep.id} className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-900 dark:text-white">{ep.title}</span>
-                    <span className="text-[11px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950 px-2 py-0.5 rounded-full">
-                      Mắc {ep.count} lần
-                    </span>
-                  </div>
-                  <p className="text-slate-600 dark:text-slate-300 italic p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800 font-mono text-[11px]">
-                    Ví dụ: {ep.example}
-                  </p>
-                  <p className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
-                    🎯 Giải pháp khắc phục: {ep.remedy}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* VIEW MODE 3: ORIGINAL SCORES & EFFORT METRICS REPORT (FR-15) */}
-      {mainViewMode === "scores" && (
-        <div className="space-y-6 animate-fadeIn">
-          {/* FR-15: EFFORT METRICS CARD (Chỉ số chăm chỉ) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Card className="p-4 border-l-4 border-l-amber-500">
-              <span className="text-[11px] text-slate-500 font-medium block">Tỷ lệ nộp bài đúng hạn</span>
-              <p className="text-xl font-black text-amber-600 mt-1">
-                {student?.effortMetrics?.onTimeSubmissionRate || 90}%
-              </p>
-              <span className="text-[10px] text-emerald-600 font-semibold">✓ Đạt chuẩn chuyên cần</span>
-            </Card>
-
-            <Card className="p-4 border-l-4 border-l-emerald-500">
-              <span className="text-[11px] text-slate-500 font-medium block">Chuỗi Spaced Repetition</span>
-              <p className="text-xl font-black text-emerald-600 mt-1 flex items-center gap-1">
-                <Flame size={18} className="fill-amber-500 text-amber-500" />
-                {student?.effortMetrics?.currentStreak || 5} Ngày
-              </p>
-              <span className="text-[10px] text-slate-500">Ôn tập 5p mỗi ngày</span>
-            </Card>
-
-            <Card className="p-4 border-l-4 border-l-blue-500">
-              <span className="text-[11px] text-slate-500 font-medium block">Tỷ lệ xong bài Practice</span>
-              <p className="text-xl font-black text-blue-600 mt-1">
-                {student?.effortMetrics?.practiceCompletionRate || 94}%
-              </p>
-              <span className="text-[10px] text-slate-500">18/19 bài tập</span>
-            </Card>
-
-            <Card className="p-4 border-l-4 border-l-purple-500">
-              <span className="text-[11px] text-slate-500 font-medium block">Thời gian học tích lũy</span>
-              <p className="text-xl font-black text-purple-600 mt-1">
-                {student?.effortMetrics?.totalHoursLearned || "32.5h"}
-              </p>
-              <span className="text-[10px] text-slate-500">Qua 18 buổi học & tự ôn</span>
-            </Card>
-          </div>
-
-          {/* 1. Placement Baseline Card */}
-          {placementTestResult && (
-            <Card className="border-blue-200 bg-gradient-to-r from-blue-50/90 via-indigo-50/70 to-purple-50/50 dark:border-blue-900/60 dark:from-blue-950/50 dark:via-indigo-950/40 dark:to-purple-950/30 p-5 shadow-sm">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="mb-1 inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
-                    <Sparkles size={16} className="text-amber-500" /> Baseline Placement Assessment
-                  </div>
-                  <h3 className="text-lg font-black text-slate-900 dark:text-slate-50">
-                    Điểm khởi điểm khảo sát: {placementTestResult.score}/100 ({placementTestResult.recommendedLevel})
-                  </h3>
-                  <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
-                    Ghi nhận ngày {placementTestResult.completedAt} &middot; Lời nhắn Gia sư: <em>&quot;{placementTestResult.tutorComment}&quot;</em>
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Badge tone="emerald">Lộ trình Adaptive Multi-Tutor Active</Badge>
-                </div>
-              </div>
-
-              {/* Baseline skill score list */}
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-6 border-t border-blue-100 dark:border-blue-900/50 pt-3">
-                {Object.entries(placementTestResult.skillBreakdown || {}).map(([skill, score]) => (
-                  <div key={skill} className="rounded-xl bg-white/90 p-2.5 text-center shadow-xs dark:bg-slate-900/80 border border-blue-100/50 dark:border-slate-800">
-                    <span className="block text-[10px] font-medium text-slate-400">Baseline {skill}</span>
-                    <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{score}%</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-
-          {/* 2. Tutor Breakdown Tabs */}
-          <Card className="p-4">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              <span className="text-xs font-semibold text-slate-500 mr-2 shrink-0">Xem tiến độ theo:</span>
-              <button
-                onClick={() => setActiveScoreTutorTab("all")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                  activeScoreTutorTab === "all"
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
-                    : "bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                }`}
-              >
-                🌟 Tất cả 3 Gia sư
-              </button>
-              {tutorBreakdowns.map((tb) => (
-                <button
-                  key={tb.tutorId}
-                  onClick={() => setActiveScoreTutorTab(tb.tutorId)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
-                    activeScoreTutorTab === tb.tutorId
-                      ? "bg-foreground text-background"
-                      : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                  }`}
-                >
-                  {tb.tutorName} ({tb.subject})
-                </button>
-              ))}
-            </div>
-          </Card>
-
-          {/* 3. Target vs Current Band Cards Grid */}
-          <div className="grid gap-4 md:grid-cols-3">
-            {tutorBreakdowns
-              .filter((tb) => activeScoreTutorTab === "all" || tb.tutorId === activeScoreTutorTab)
-              .map((tb) => (
-                <Card key={tb.tutorId} className="p-4 space-y-3 border border-border bg-card hover:border-primary/40 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-semibold text-foreground">{tb.tutorName}</h3>
-                      <p className="text-xs text-muted-foreground">{tb.subject}</p>
-                    </div>
-                    <Badge tone="neutral" size="xs">
-                      {tb.growthPercentage}
-                    </Badge>
-                  </div>
-
-                  {/* Score Milestones */}
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl grid grid-cols-3 gap-2 text-center text-xs">
-                    <div>
-                      <span className="text-[10px] text-slate-400 block font-medium">Khởi điểm</span>
-                      <span className="font-bold text-slate-600 dark:text-slate-300">{tb.baselineScore}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block font-medium">Hiện tại</span>
-                      <span className="font-extrabold text-emerald-600 dark:text-emerald-400">{tb.currentScore}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block font-medium">Mục tiêu</span>
-                      <span className="font-bold text-blue-600 dark:text-blue-400">{tb.targetScore}</span>
-                    </div>
-                  </div>
-
-                  {/* Skills Breakdown */}
-                  <div className="space-y-2 pt-1">
-                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                      <Target size={14} className="text-blue-500" /> Chi tiết các kỹ năng chính:
-                    </p>
-                    {tb.skills.map((sk) => (
-                      <div key={sk.name} className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-600 dark:text-slate-400">{sk.name}</span>
-                          <span className="font-bold text-slate-900 dark:text-white">{sk.current}%</span>
-                        </div>
-                        <ProgressBar value={sk.current} size="xs" />
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              ))}
-          </div>
-
-          {/* 4. Overall Progress History Chart */}
-          <Card className="p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50 flex items-center gap-2">
-                  <BarChart3 size={18} className="text-blue-500" /> Tiến trình tăng trưởng kỹ năng qua các tuần (Thang điểm 10)
-                </h3>
-                <p className="text-xs text-slate-500">So sánh sự bứt phá từ Tuần 1 đến Tuần 5.</p>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1.5 rounded-xl">
-                <TrendingUp size={16} /> +24% Tăng trưởng tổng thể
-              </div>
-            </div>
-            <ProgressChart data={student?.progressHistory} />
-          </Card>
-
-          {/* 5. Graded Exercises History */}
-          <Card padded={false}>
-            <div className="border-b border-slate-200 p-4 dark:border-slate-800 flex items-center justify-between">
-              <h3 className="font-bold text-slate-900 dark:text-slate-50 text-sm flex items-center gap-2">
-                <Award size={18} className="text-amber-500" /> Lịch sử điểm bài tập & kiểm tra đã chấm ({filteredGraded.length})
-              </h3>
-            </div>
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredGraded.map((ex) => (
-                <div key={ex.id} className="flex items-center justify-between gap-3 p-4 hover:bg-muted/30 transition-colors">
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-foreground truncate">{ex.title}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Gia sư {ex.tutorName} &middot; {ex.skill} &middot; Chấm ngày {ex.submittedAt}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-xs font-semibold text-foreground bg-muted px-2.5 py-1 rounded-md">
-                    {ex.score}/{ex.maxScore}
-                  </span>
-                </div>
-              ))}
-              {filteredGraded.length === 0 && (
-                <p className="p-6 text-center text-xs text-slate-400">Chưa có bài kiểm tra nào được chấm thuộc bộ lọc này.</p>
-              )}
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Detail Session Modal */}
       {selectedSessionForModal && (
-        <SessionDetailModal
-          sessionItem={selectedSessionForModal}
+        <LessonSessionDetail
+          sessionId={selectedSessionForModal}
           onClose={() => setSelectedSessionForModal(null)}
         />
       )}

@@ -8,7 +8,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState("minhanh");
   const [password, setPassword] = useState("123456");
   const [error, setError] = useState("");
-  const { loginAsStudent, loginAsTutor, loginAsAdmin, loginAsReceptionist } = useAuth();
+  const { loginAsStudent, loginAsTutor, loginAsAdmin, loginAsReceptionist, loginAsParent } = useAuth();
   const navigate = useNavigate();
 
   const handleLogin = (e) => {
@@ -42,6 +42,11 @@ export default function LoginPage() {
     navigate("/receptionist");
   };
 
+  const handleQuickParentLogin = () => {
+    loginAsParent("s1");
+    navigate("/parent");
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col justify-between p-4 sm:p-6 select-none">
       {/* Top Header */}
@@ -61,7 +66,7 @@ export default function LoginPage() {
             <div className="w-12 h-12 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center mx-auto shadow-md">
               <GraduationCap className="w-6 h-6" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">Đăng nhập Học sinh</h1>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Đăng nhập EnglishPath</h1>
 
           </div>
 
@@ -130,7 +135,14 @@ export default function LoginPage() {
               <CheckCircle2 className="w-4 h-4" />
               <span>Vào nhanh: Học sinh (Demo Nguyễn Minh Anh)</span>
             </button>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleQuickParentLogin}
+                className="rounded-xl border border-border bg-muted/50 px-3 py-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                Phụ huynh
+              </button>
               <button
                 type="button"
                 onClick={handleQuickTutorLogin}
@@ -159,7 +171,7 @@ export default function LoginPage() {
 
       {/* Footer copyright */}
       <footer className="text-center text-xs text-muted-foreground pb-4">
-        © 2026 EnglishPath. Phụ huynh tham quan trang chủ không cần đăng nhập.
+        © 2026 EnglishPath. Dùng tài khoản demo để xem tiến độ học tập của con.
       </footer>
     </div>
   );

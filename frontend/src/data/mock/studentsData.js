@@ -6,6 +6,13 @@ export const students = [
     level: "B1",
     grade: "Lớp 8",
     goal: "Thi chứng chỉ IELTS 6.0",
+    // Mục tiêu học tập hiển thị trên Tổng quan — UC-ST-18
+    learningGoal: {
+      title: "Thi chứng chỉ IELTS 6.0",
+      targetBand: "6.0",
+      deadline: "2026-12-20",
+      weeklySelfStudyHours: 6,
+    },
     note: "Bé mất gốc phát âm, cần gia sư kiên nhẫn, luyện thi IELTS 6.0.",
     schedule: "Thứ 3 - 5 - 7, 19:00-20:30",
     parentName: "Chị Nguyễn Hải Yến",
@@ -235,7 +242,7 @@ export const students = [
         tutorId: "t1",
         tutorName: "Cô Lan Anh",
         tutorAvatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=120&q=80",
-        colorTheme: "indigo",
+        colorTheme: "slate",
         subject: "Luyện thi IELTS 6.5+",
         questions: [
           {
@@ -327,7 +334,7 @@ export const students = [
         tutorId: "t2",
         tutorName: "Thầy Minh Quân",
         tutorAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80",
-        colorTheme: "blue",
+        colorTheme: "slate",
         subject: "IELTS Writing Task 2"
       },
       {
@@ -483,7 +490,7 @@ export const students = [
         tutorId: "t2",
         tutorName: "Thầy Minh Quân",
         tutorAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80",
-        colorTheme: "blue",
+        colorTheme: "slate",
         subject: "IELTS Writing Task 2"
       }
     ],
@@ -830,3 +837,52 @@ export const students = [
 export const mockSKP = students[0]?.studentKnowledgeProfile;
 export const mockSpacedRepetitionDeck = students[0]?.spacedRepetitionDeck;
 export const mockEffortMetrics = students[0]?.effortMetrics;
+// Thông báo cho học sinh — UC-ST-17: bài tập mới, nhắc hạn nộp, kết quả bài làm, nhắc ôn tập, học liệu mới.
+export const studentNotifications = [
+  {
+    id: "sn-1",
+    type: "assignment",
+    title: "Bài tập mới được giao",
+    body: "Cô Lan Anh vừa giao “Reading – Matching Headings” cho lớp Luyện thi IELTS 6.5+. Hạn nộp 08/08/2026.",
+    createdAt: "2026-08-04T08:15:00+07:00",
+    read: false,
+    link: "/student/exercises",
+  },
+  {
+    id: "sn-2",
+    type: "deadline",
+    title: "Sắp đến hạn nộp bài",
+    body: "“Writing Task 2 – Body Paragraph” sẽ đến hạn trong 24 giờ tới.",
+    createdAt: "2026-08-04T07:00:00+07:00",
+    read: false,
+    link: "/student/exercises",
+  },
+  {
+    id: "sn-3",
+    type: "review",
+    title: "5 kiến thức đến hạn ôn tập",
+    body: "Theo lịch ôn tập ngắt quãng SM-2, bạn có 5 thẻ cần ôn hôm nay — chỉ mất khoảng 5 phút.",
+    createdAt: "2026-08-04T06:30:00+07:00",
+    read: false,
+    link: "/student/spaced-repetition",
+  },
+  {
+    id: "sn-4",
+    type: "result",
+    title: "Gia sư đã chấm bài Grammar – Câu bị động",
+    body: "Kết quả 8.5/10. Thầy Minh Quân đã để lại nhận xét cho bài làm của bạn.",
+    createdAt: "2026-08-02T20:10:00+07:00",
+    read: true,
+    link: "/student/progress",
+  },
+  {
+    id: "sn-5",
+    type: "material",
+    title: "Học liệu mới trong kho",
+    body: "Cô Nguyễn Lan Anh vừa thêm “Reading Matching Headings – Worksheet” (PDF, 12 trang).",
+    createdAt: "2026-08-01T09:05:00+07:00",
+    read: true,
+    link: "/student/materials",
+  },
+];
+

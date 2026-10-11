@@ -1,5 +1,36 @@
 import { useState } from "react";
-import { X, SlidersHorizontal, BookOpen, User, Award } from "lucide-react";
+import { X, SlidersHorizontal, BookOpen, User, Award, MapPin, GraduationCap, Laptop } from "lucide-react";
+
+export const PROVINCES_DATA = {
+  "Tất cả": [],
+  "Hà Nội": [
+    "Tất cả quận/huyện",
+    "Cầu Giấy",
+    "Đống Đa",
+    "Ba Đình",
+    "Hai Bà Trưng",
+    "Thanh Xuân",
+    "Hoàng Mai",
+    "Nam Từ Liêm",
+    "Bắc Từ Liêm",
+    "Tây Hồ",
+    "Hà Đông",
+    "Long Biên"
+  ],
+  "TP. Hồ Chí Minh": [
+    "Tất cả quận/huyện",
+    "Quận 1",
+    "Quận 3",
+    "Quận 5",
+    "Quận 7",
+    "Quận 10",
+    "Bình Thạnh",
+    "Phú Nhuận",
+    "Tân Bình",
+    "Gò Vấp",
+    "TP. Thủ Đức"
+  ]
+};
 
 export const SUBJECTS = [
   "IELTS",
@@ -7,11 +38,25 @@ export const SUBJECTS = [
   "Tiếng Anh Giao tiếp",
   "Tiếng Anh THCS",
   "Tiếng Anh THPT",
-  "Tiếng Anh Tiểu học",
   "Luyện thi Chuyên Anh",
   "Ngữ pháp & Từ vựng",
   "Phát âm chuẩn IPA",
   "Tiếng Anh Mất gốc / Foundation"
+];
+
+export const GRADE_LEVELS = [
+  "Tất cả cấp lớp",
+  "Tiểu học (Lớp 1 - 5)",
+  "THCS (Lớp 6 - 9)",
+  "THPT (Lớp 10 - 12)",
+  "Luyện thi Đại học",
+  "Người đi làm / Sinh viên"
+];
+
+export const LEARNING_MODES = [
+  "Tất cả",
+  "Online",
+  "Tại nhà"
 ];
 
 export const GENDERS = ["Tất cả", "Nam", "Nữ"];
@@ -20,27 +65,30 @@ export const HIGHLIGHT_OPTIONS = [
   "Học sinh giỏi Quốc Gia",
   "Học sinh trường chuyên (Cấp 3)",
   "Học sinh giỏi Tỉnh/TP",
-  "Huy chương vàng Quốc Tế",
   "Du học sinh",
   "Thủ khoa",
-  "Á khoa",
-  "Học bổng",
+  "IELTS 8.0+",
   "Chuyên dạy học sinh mất gốc",
   "Chuyên luyện thi Đại học"
 ];
 
 export const DEFAULT_FILTERS = {
   search: "",
+  province: "Tất cả",
+  district: "",
   subjects: [],
-  highlights: [],
+  gradeLevel: "Tất cả cấp lớp",
+  learningMode: "Tất cả",
   gender: "",
+  highlights: [],
+  sortBy: "relevant" // "relevant" | "price_asc" | "price_desc" | "newest"
 };
 
 function FilterSection({ title, icon: Icon, children }) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-        {Icon && <Icon className="w-3.5 h-3.5 text-primary" />}
+      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+        {Icon && <Icon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />}
         <span>{title}</span>
       </div>
       {children}
@@ -62,8 +110,8 @@ function PillGroup({ options, selected, onToggle, multi = true }) {
             onClick={() => onToggle(val)}
             className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all cursor-pointer ${
               isActive
-                ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                : "bg-muted/60 text-muted-foreground border-border hover:border-primary/50 hover:text-foreground hover:bg-muted"
+                ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                : "bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400 hover:text-slate-900 dark:hover:text-white"
             }`}
           >
             {label}
@@ -80,6 +128,10 @@ export function TutorFilterSidebar({ onFilterChange, initialFilters = DEFAULT_FI
 
   function update(key, value) {
     const next = { ...filters, [key]: value };
+    // Nếu đổi province thì reset district
+    if (key === "province") {
+      next.district = "";
+    }
     setFilters(next);
     onFilterChange?.(next);
   }
@@ -104,19 +156,25 @@ export function TutorFilterSidebar({ onFilterChange, initialFilters = DEFAULT_FI
   }
 
   const activeCount =
+    (filters.province && filters.province !== "Tất cả" ? 1 : 0) +
+    (filters.district && filters.district !== "Tất cả quận/huyện" ? 1 : 0) +
+    (filters.gradeLevel && filters.gradeLevel !== "Tất cả cấp lớp" ? 1 : 0) +
+    (filters.learningMode && filters.learningMode !== "Tất cả" ? 1 : 0) +
     (filters.gender && filters.gender !== "Tất cả" ? 1 : 0) +
     filters.subjects.length +
     filters.highlights.length +
     (filters.search ? 1 : 0);
 
+  const availableDistricts = PROVINCES_DATA[filters.province] || [];
+
   const SidebarContent = (
     <div className="flex flex-col gap-5 h-full">
       {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-border">
+      <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-2">
-          <span className="font-bold text-sm text-foreground">Bộ lọc tìm gia sư</span>
+          <span className="font-bold text-sm text-slate-900 dark:text-white">Bộ lọc tìm gia sư</span>
           {activeCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+            <span className="px-1.5 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold">
               {activeCount}
             </span>
           )}
@@ -125,21 +183,62 @@ export function TutorFilterSidebar({ onFilterChange, initialFilters = DEFAULT_FI
           <button
             type="button"
             onClick={reset}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+            className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
           >
             <X className="w-3 h-3" />
-            Xóa bộ lọc
+            Đặt lại bộ lọc
           </button>
         )}
       </div>
 
-      {/* 1. Chuyên môn Tiếng Anh */}
-      <FilterSection title="Chuyên môn" icon={BookOpen}>
+      {/* 1. Địa điểm động 2 cấp: Tỉnh/Thành phố -> Quận/Huyện */}
+      <FilterSection title="Địa điểm hoạt động" icon={MapPin}>
+        <div className="space-y-2">
+          <div>
+            <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1 block">
+              Tỉnh / Thành phố:
+            </label>
+            <select
+              value={filters.province}
+              onChange={(e) => update("province", e.target.value)}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white cursor-pointer focus:border-blue-500 outline-none"
+            >
+              {Object.keys(PROVINCES_DATA).map((prov) => (
+                <option key={prov} value={prov}>
+                  {prov}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {availableDistricts.length > 0 && (
+            <div>
+              <label className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1 block">
+                Quận / Huyện:
+              </label>
+              <select
+                value={filters.district}
+                onChange={(e) => update("district", e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white cursor-pointer focus:border-blue-500 outline-none"
+              >
+                {availableDistricts.map((dist) => (
+                  <option key={dist} value={dist}>
+                    {dist}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      </FilterSection>
+
+      {/* 2. Chuyên môn Tiếng Anh */}
+      <FilterSection title="Chuyên môn Tiếng Anh" icon={BookOpen}>
         <div className="space-y-2">
           <select
             value={filters.subjects[0] || ""}
             onChange={(e) => update("subjects", e.target.value ? [e.target.value] : [])}
-            className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-card text-foreground cursor-pointer focus:border-primary outline-none"
+            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white cursor-pointer focus:border-blue-500 outline-none"
           >
             <option value="">Tất cả chuyên môn</option>
             {SUBJECTS.map((sub) => (
@@ -156,30 +255,45 @@ export function TutorFilterSidebar({ onFilterChange, initialFilters = DEFAULT_FI
         </div>
       </FilterSection>
 
-      {/* 2. Thành tích nổi bật */}
-      <FilterSection title="Thành tích nổi bật" icon={Award}>
-        <div className="space-y-2">
-          <select
-            value={filters.highlights[0] || ""}
-            onChange={(e) => update("highlights", e.target.value ? [e.target.value] : [])}
-            className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-card text-foreground cursor-pointer focus:border-primary outline-none"
-          >
-            <option value="">Tất cả thành tích</option>
-            {HIGHLIGHT_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-          <PillGroup
-            options={HIGHLIGHT_OPTIONS.slice(0, 4)}
-            selected={filters.highlights}
-            onToggle={(val) => toggleMulti("highlights", val)}
-          />
+      {/* 3. Cấp lớp học */}
+      <FilterSection title="Cấp lớp học" icon={GraduationCap}>
+        <select
+          value={filters.gradeLevel}
+          onChange={(e) => update("gradeLevel", e.target.value)}
+          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white cursor-pointer focus:border-blue-500 outline-none"
+        >
+          {GRADE_LEVELS.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
+      </FilterSection>
+
+      {/* 4. Hình thức học (Online / Tại nhà) */}
+      <FilterSection title="Hình thức học" icon={Laptop}>
+        <div className="flex gap-1.5">
+          {LEARNING_MODES.map((mode) => {
+            const isSelected = filters.learningMode === mode;
+            return (
+              <button
+                type="button"
+                key={mode}
+                onClick={() => update("learningMode", mode)}
+                className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-medium border text-center transition-all cursor-pointer ${
+                  isSelected
+                    ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+                }`}
+              >
+                {mode}
+              </button>
+            );
+          })}
         </div>
       </FilterSection>
 
-      {/* 3. Giới tính */}
+      {/* 5. Giới tính gia sư */}
       <FilterSection title="Giới tính" icon={User}>
         <div className="flex gap-2">
           {GENDERS.map((g) => {
@@ -191,14 +305,25 @@ export function TutorFilterSidebar({ onFilterChange, initialFilters = DEFAULT_FI
                 onClick={() => toggleSingle("gender", g)}
                 className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-medium border text-center transition-all cursor-pointer ${
                   isSelected
-                    ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                    : "bg-card text-foreground border-border hover:bg-muted"
+                    ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
                 }`}
               >
-                {g === "Tất cả" ? "Tất cả" : g}
+                {g}
               </button>
             );
           })}
+        </div>
+      </FilterSection>
+
+      {/* 6. Thành tích nổi bật */}
+      <FilterSection title="Thành tích nổi bật" icon={Award}>
+        <div className="space-y-2">
+          <PillGroup
+            options={HIGHLIGHT_OPTIONS.slice(0, 5)}
+            selected={filters.highlights}
+            onToggle={(val) => toggleMulti("highlights", val)}
+          />
         </div>
       </FilterSection>
     </div>
@@ -209,14 +334,14 @@ export function TutorFilterSidebar({ onFilterChange, initialFilters = DEFAULT_FI
       {/* Mobile toggle button */}
       <button
         type="button"
-        className="lg:hidden flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-card text-sm font-medium text-foreground cursor-pointer hover:border-primary/50 transition-colors"
+        className="lg:hidden flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-slate-900 dark:text-white cursor-pointer hover:border-blue-500 transition-colors"
         onClick={() => setMobileOpen(true)}
         id="filter-mobile-toggle"
       >
-        <SlidersHorizontal className="w-4 h-4 text-primary" />
-        <span>Bộ lọc (3 tiêu chí)</span>
+        <SlidersHorizontal className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+        <span>Bộ lọc nâng cao</span>
         {activeCount > 0 && (
-          <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+          <span className="ml-1 px-1.5 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold">
             {activeCount}
           </span>
         )}
@@ -229,13 +354,13 @@ export function TutorFilterSidebar({ onFilterChange, initialFilters = DEFAULT_FI
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="absolute left-0 top-0 bottom-0 w-80 sm:w-96 max-w-[90vw] bg-card border-r border-border p-5 overflow-y-auto slide-in-left z-10">
-            <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
-              <h3 className="font-bold text-foreground text-sm">Bộ lọc tìm kiếm gia sư</h3>
+          <div className="absolute left-0 top-0 bottom-0 w-80 sm:w-96 max-w-[90vw] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-5 overflow-y-auto slide-in-left z-10">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="font-bold text-slate-900 dark:text-white text-sm">Bộ lọc tìm kiếm gia sư</h3>
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
-                className="cursor-pointer text-muted-foreground hover:text-foreground"
+                className="cursor-pointer text-slate-400 hover:text-slate-900 dark:hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -246,7 +371,7 @@ export function TutorFilterSidebar({ onFilterChange, initialFilters = DEFAULT_FI
       )}
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:block rounded-2xl border border-border bg-card p-5 sticky top-20 shadow-xs">
+      <div className="hidden lg:block rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sticky top-20 shadow-xs">
         {SidebarContent}
       </div>
     </>

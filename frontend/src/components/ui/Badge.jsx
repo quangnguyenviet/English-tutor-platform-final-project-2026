@@ -13,13 +13,19 @@ const tones = {
   violet: "bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
 };
 
+const sizes = {
+  xs: "px-2 py-0.5 text-[11px]",
+  sm: "px-2.5 py-1 text-xs",
+};
+
 // Pass `skill` (e.g. "Viết") instead of `tone` to color-code by skill rather
 // than by status — keeps the two kinds of badge visually distinct.
-export default function Badge({ tone = "neutral", skill, children, className }) {
+export default function Badge({ tone = "neutral", skill, size = "sm", children, className }) {
   return (
     <span
       className={clsx(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
+        "inline-flex items-center gap-1 rounded-full font-medium",
+        sizes[size] || sizes.sm,
         skill ? skillToneClass(skill) : tones[tone],
         className
       )}

@@ -5,27 +5,28 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Send,
   Sparkles,
-  AlertTriangle,
-  RotateCcw,
-  Award,
-  Zap,
-  BookOpen,
   ChevronDown,
   ChevronUp,
-  Brain,
-  HelpCircle,
-  TrendingUp
+  TrendingUp,
+  AlertTriangle,
+  PencilLine,
+  Info,
+  BookOpen,
+  FileCheck
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { getStudentById } from "../../data/mockData";
 import { useStudentMatching } from "../../context/StudentMatchingContext";
-import PageHeader from "../../components/ui/PageHeader";
-import Card from "../../components/ui/Card";
-import Badge from "../../components/ui/Badge";
-import Button from "../../components/ui/Button";
-import clsx from "clsx";
+
+/**
+ * Giao diện làm bài trực tuyến — UC-S02 / UC-S03
+ * UC-ST-04 (làm bài), UC-ST-05 (nộp bài), UC-ST-06 (xem kết quả), UC-ST-07 (giải thích AI)
+ *
+ * Hai chế độ:
+ *   practice   → kiểm tra & giải thích từng câu (Per-question mode)
+ *   assessment → đồng hồ đếm ngược, nộp toàn bài (Submit-all mode)
+ */
 
 export default function ExerciseTaking() {
   const { exerciseId } = useParams();
@@ -39,8 +40,8 @@ export default function ExerciseTaking() {
   const exercise = isPlacementTest
     ? {
         id: "placement-test",
-        title: "Bài Quiz Placement Test - Đánh giá Năng lực Đầu vào",
-        skill: "Tổng hợp (Nghe, Đọc, Viết, Từ vựng, Ngữ pháp)",
+        title: "Bài Kiểm Tra Khảo Sát Năng Lực Đầu Vào (Placement Test)",
+        skill: "Đánh giá tổng hợp 5 kỹ năng",
         difficulty: "Phân loại trình độ",
         mode: "assessment",
         type: "4 Dạng Chuẩn PRD",
@@ -48,84 +49,95 @@ export default function ExerciseTaking() {
       }
     : student?.exercises?.find((e) => e.id === exerciseId) || student?.exercises?.[0];
 
-  const mode = exercise?.mode || "practice"; // "practice" (per-question) vs "assessment" (submit-all)
+  const mode = exercise?.mode || "practice"; // "practice" | "assessment"
 
-  // Question bank fallback if not directly in exercise object
+  // Ngân hàng 4 câu hỏi đại diện cho 4 định dạng chuẩn
   const questions = useMemo(() => {
     if (exercise?.questions && exercise.questions.length > 0) {
       return exercise.questions;
     }
 
-    // Default 4 standard questions
     return [
       {
         id: "q1",
         kind: "mcq",
-        prompt: "The scientist ______ invented the new clean energy technology was awarded the Nobel Prize.",
+        title: "Câu 1: Trắc nghiệm khách quan (MCQ)",
+        prompt: "The scientist ______ invented the new clean energy technology was awarded the prestigious prize.",
         options: ["A. who", "B. which", "C. whose", "D. whom"],
         correct: "A. who",
         aiExplanation: {
-          rule: "Đại từ quan hệ 'who' thay thế cho danh từ chỉ người đóng vai trò chủ ngữ trong mệnh đề quan hệ.",
-          whyCorrect: "'The scientist' là người, phía sau là động từ 'invented' cần chủ ngữ ➔ Dùng 'who'.",
-          distractors: "'Which' dùng cho vật; 'Whose' chỉ sở hữu; 'Whom' chỉ làm tân ngữ."
+          rule: "Đại từ quan hệ 'who' thay thế cho danh từ chỉ người làm chủ ngữ trong mệnh đề quan hệ.",
+          whyCorrect: "'The scientist' là danh từ chỉ người, phía sau là động từ vị ngữ 'invented' nên cần đại từ làm chủ ngữ 'who'.",
+          distractors: "'Which' dùng cho vật; 'Whose' chỉ quyền sở hữu; 'Whom' chỉ đóng vai trò tân ngữ."
         }
       },
       {
         id: "q2",
         kind: "fill",
-        prompt: "Điền từ thích hợp vào chỗ trống để tạo collocation chuẩn:",
-        sentence: "The municipal government decided to ______ measures to tackle air pollution.",
+        title: "Câu 2: Điền từ vào chỗ trống (Fill-in the blank)",
+        prompt: "Điền một động từ thích hợp vào chỗ trống để tạo cụm collocation học thuật chuẩn:",
+        sentence: "The municipal government decided to ______ measures to tackle air pollution in urban areas.",
         correct: "take",
         aiExplanation: {
-          rule: "Collocation học thuật cố định: 'take measures' = thực hiện các biện pháp.",
-          whyCorrect: "Trong văn cảnh giải quyết vấn đề, động từ đi với 'measures' bắt buộc là 'take'.",
-          distractors: "Không dùng 'make' hay 'do' vì không tự nhiên trong văn phong Anh ngữ."
+          rule: "Collocation học thuật cố định: 'take measures' = thực hiện các biện pháp quyết liệt.",
+          whyCorrect: "Trong ngữ cảnh xử lý vấn đề, động từ chuẩn đi cùng với 'measures' bắt buộc là 'take'.",
+          distractors: "Không sử dụng 'make' hay 'do' vì vi phạm quy ước tự nhiên của văn phong Anh ngữ."
         }
       },
       {
         id: "q3",
         kind: "error_correction",
-        prompt: "Tìm và sửa 1 từ bị dùng sai trong câu:",
-        sentence: "She was deeply interested on exploring modern Vietnamese literature.",
+        title: "Câu 3: Sửa lỗi sai trong câu (Error Correction)",
+        prompt: "Tìm và gõ từ thay thế chính xác cho giới từ bị dùng sai trong câu dưới đây:",
+        sentence: "She was deeply interested on exploring modern Vietnamese literature and poetry.",
         wrongPart: "on",
         correct: "in",
         aiExplanation: {
-          rule: "Cụm tính từ đi với giới từ cố định: 'interested IN something'.",
-          whyCorrect: "'interested on' là lỗi dịch thô từ tiếng Việt. Đúng phải là 'interested in'.",
-          distractors: "Không kết hợp với 'on', 'at' hay 'for'."
+          rule: "Cụm tính từ đi kèm giới từ cố định: 'interested IN something / doing something'.",
+          whyCorrect: "'interested on' là lỗi sai phổ biến do dịch nghĩa thô từ tiếng Việt. Giới từ chuẩn xác duy nhất là 'in'.",
+          distractors: "Không kết hợp tính từ 'interested' với giới từ 'on', 'at' hoặc 'for'."
         }
       },
       {
         id: "q4",
         kind: "sentence_transformation",
-        prompt: "Viết lại câu sau với từ gợi ý 'Although':",
-        originalSentence: "Despite the heavy rain, the football match continued.",
+        title: "Câu 4: Viết lại câu không đổi nghĩa (Sentence Transformation)",
+        prompt: "Viết lại câu sau sử dụng từ liên từ gợi ý 'Although':",
+        originalSentence: "Despite the heavy rain, the outdoor football match continued until sunset.",
         givenStart: "Although",
-        correct: "Although it rained heavily, the football match continued.",
+        correct: "Although it rained heavily, the outdoor football match continued until sunset.",
         aiExplanation: {
-          rule: "'Despite + Noun phrase' tương đương với 'Although + S + V'.",
-          whyCorrect: "'heavy rain' chuyển thành mệnh đề 'it rained heavily' hoặc 'it was raining heavily'.",
-          distractors: "Không dùng 'Although the heavy rain' vì Although phải đi cùng mệnh đề có động từ vị ngữ."
+          rule: "Cấu trúc chuyển đổi tương đương: 'Despite + Noun Phrase' → 'Although + Mệnh đề (S + V)'.",
+          whyCorrect: "Cụm danh từ 'the heavy rain' chuyển thành mệnh đề có vị ngữ 'it rained heavily' giữ nguyên thì quá khứ đơn.",
+          distractors: "Không viết 'Although the heavy rain' vì liên từ 'Although' bắt buộc phải đi cùng một mệnh đề hoàn chỉnh."
         }
       }
     ];
   }, [exercise]);
 
-  // State management
+  // State
   const [answers, setAnswers] = useState({});
-  const [checkedQuestions, setCheckedQuestions] = useState({}); // For practice mode
+  const [checkedQuestions, setCheckedQuestions] = useState({}); // Dùng cho Practice mode
   const [expandedExplanation, setExpandedExplanation] = useState({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [timeLeftSeconds, setTimeLeftSeconds] = useState(mode === "assessment" ? 15 * 60 : 0);
+  const [answerWarning, setAnswerWarning] = useState(null);
 
   const backUrl = exercise?.tutorId ? `/student/exercises?tutor=${exercise.tutorId}` : "/student/exercises";
 
-  // Timer for assessment mode
+  // Đồng hồ đếm ngược cho Assessment Mode
   useEffect(() => {
     if (mode !== "assessment" || isSubmitted) return;
     const timer = setInterval(() => {
-      setTimeLeftSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+      setTimeLeftSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleSubmitAll(); // Tự động nộp khi hết giờ
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
     return () => clearInterval(timer);
   }, [mode, isSubmitted]);
@@ -136,18 +148,24 @@ export default function ExerciseTaking() {
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  // Check single question in PRACTICE mode (Per-question mode)
+  // Kiểm tra câu đơn lẻ trong PRACTICE MODE (Per-question mode)
   const handleCheckQuestion = (index) => {
-    const currentAns = (answers[index] || "").trim().toLowerCase();
     const q = questions[index];
-    let isRight = false;
+    const userAns = (answers[index] || "").trim().toLowerCase();
 
+    if (!userAns) {
+      setAnswerWarning(index);
+      return;
+    }
+    setAnswerWarning(null);
+
+    let isRight = false;
     if (q.kind === "mcq") {
       isRight = answers[index] === q.correct;
     } else if (q.kind === "fill" || q.kind === "error_correction") {
-      isRight = currentAns === q.correct.toLowerCase();
+      isRight = userAns === q.correct.toLowerCase();
     } else if (q.kind === "sentence_transformation") {
-      isRight = currentAns.length > 10; // Lenient checking for prototype
+      isRight = userAns.length > 10;
     }
 
     setCheckedQuestions((prev) => ({
@@ -155,183 +173,207 @@ export default function ExerciseTaking() {
       [index]: { checked: true, isRight }
     }));
 
-    // Auto expand AI explanation when checked
+    // Tự động bung Lời giải thích AI khi vừa kiểm tra
     setExpandedExplanation((prev) => ({
       ...prev,
       [index]: true
     }));
   };
 
-  // Submit all in ASSESSMENT mode
+  // Nộp toàn bài trong ASSESSMENT MODE (Submit-all mode)
   const handleSubmitAll = () => {
+    setShowConfirmModal(false);
     setIsSubmitted(true);
-    // Auto check all
+
     const allChecked = {};
     const allExpanded = {};
+
     questions.forEach((q, i) => {
-      const currentAns = (answers[i] || "").trim().toLowerCase();
+      const userAns = (answers[i] || "").trim().toLowerCase();
       let isRight = false;
       if (q.kind === "mcq") {
         isRight = answers[i] === q.correct;
       } else if (q.kind === "fill" || q.kind === "error_correction") {
-        isRight = currentAns === q.correct.toLowerCase();
+        isRight = userAns === q.correct.toLowerCase();
       } else {
-        isRight = currentAns.length > 5;
+        isRight = userAns.length > 5;
       }
       allChecked[i] = { checked: true, isRight };
       allExpanded[i] = true;
     });
+
     setCheckedQuestions(allChecked);
     setExpandedExplanation(allExpanded);
 
+    // Xử lý Placement test đầu vào
     if (isPlacementTest) {
       setTimeout(() => {
-        submitPlacementTest({
+        submitPlacementTest?.({
           score: 85,
           totalScore: 100,
           skillBreakdown: { Nghe: 85, Đọc: 90, Viết: 75, "Từ vựng": 88, "Ngữ pháp": 82 },
           recommendedLevel: "B1+ (Foundation IELTS)",
-          tutorComment: "Nền tảng tốt. Cần rèn kỹ năng viết lại câu và bẫy nghe Section 3."
+          tutorComment: "Nền tảng khá tốt. Cần rèn thêm kỹ năng viết lại câu và khắc phục bẫy ngữ pháp collocation."
         });
         navigate("/student/chat");
-      }, 2000);
+      }, 3000);
     }
   };
 
-  // Calculate score in assessment mode
+  // Tính điểm tổng kết
+  const answeredCount = Object.keys(answers).filter((k) => (answers[k] || "").trim().length > 0).length;
   const correctCount = Object.values(checkedQuestions).filter((c) => c.isRight).length;
   const scoreOver10 = Math.round((correctCount / (questions.length || 1)) * 10);
 
   return (
-    <div className="space-y-6 pb-16 max-w-4xl mx-auto">
-      {/* Top Breadcrumb */}
-      <Link
-        to={backUrl}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
-      >
-        <ArrowLeft size={16} /> Quay lại danh sách bài tập {exercise?.tutorName ? `của ${exercise.tutorName}` : ""}
-      </Link>
+    <div className="space-y-6 pb-24 max-w-4xl mx-auto">
+      {/* ══════════════════════════════════════════════════
+          TOP NAVIGATION
+      ══════════════════════════════════════════════════ */}
+      <div className="flex items-center justify-between">
+        <Link
+          to={backUrl}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+        >
+          <ArrowLeft size={16} />
+          <span>Quay lại danh sách bài tập</span>
+        </Link>
 
-      {/* Tutor Attribution Banner - Clean, Minimal, No Photo */}
-      {exercise?.tutorName && (
-        <div className="p-3.5 rounded-xl border border-border bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-foreground">
-                Gia sư phụ trách: <strong>{exercise.tutorName}</strong>
-              </span>
-              <span>&middot;</span>
-              <span className="px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-medium text-[11px]">
-                {exercise.subject}
-              </span>
-            </div>
-            {exercise.tutorNote && (
-              <p className="text-muted-foreground italic pt-0.5">
-                💡 Dặn dò: &ldquo;{exercise.tutorNote}&rdquo;
-              </p>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+            {mode === "practice" ? (
+              <>
+                <PencilLine size={13} strokeWidth={1.75} /> Chế độ Luyện tập
+              </>
+            ) : (
+              <>
+                <FileCheck size={13} strokeWidth={1.75} /> Chế độ Kiểm tra
+              </>
             )}
-          </div>
-          <Link
-            to={backUrl}
-            className="text-xs font-semibold text-primary hover:underline shrink-0"
-          >
-            Quay lại bài tập của {exercise.tutorName} →
-          </Link>
-        </div>
-      )}
-
-      {/* Page Header */}
-      <PageHeader
-        title={exercise?.title || "Luyện tập"}
-        description={`${exercise?.skill || "Kỹ năng"} · ${exercise?.difficulty || "Cơ bản"} · Chế độ: ${
-          mode === "practice" ? "Luyện tập (Xem giải thích AI tức thì)" : "Kiểm tra (Nộp toàn bài)"
-        }`}
-        actions={
-          <div className="flex items-center gap-2">
-            <span
-              className={clsx(
-                "px-3 py-1 rounded-full text-xs font-bold",
-                mode === "practice"
-                  ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                  : "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
-              )}
-            >
-              {mode === "practice" ? "PRACTICE MODE" : "ASSESSMENT MODE"}
-            </span>
-            {mode === "assessment" && !isSubmitted && (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold">
-                <Clock size={14} />
-                <span>{formatTimer(timeLeftSeconds)}</span>
-              </div>
-            )}
-          </div>
-        }
-      />
-
-      {/* Practice Mode Banner */}
-      {mode === "practice" && (
-        <div className="p-3.5 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-2xl flex items-center gap-3 text-xs text-blue-900 dark:text-blue-200">
-          <Sparkles size={18} className="text-amber-500 shrink-0" />
-          <span>
-            <strong>Chế độ Luyện tập (Per-question mode):</strong> Bạn có thể kiểm tra từng câu hỏi ngay lập tức và xem <strong>Lời giải thích chi tiết AI</strong> để nắm vững kiến thức trước khi sang câu tiếp theo.
           </span>
-        </div>
-      )}
 
-      {/* Assessment Mode Result Card (When submitted) */}
+          {mode === "assessment" && !isSubmitted && (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold font-mono">
+              <Clock size={14} />
+              <span>{formatTimer(timeLeftSeconds)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Thông tin bài tập */}
+      <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div>
+          <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+            {exercise?.title || "Bài luyện tập"}
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
+            <span>Kỹ năng: <strong>{exercise?.skill || "Ngữ pháp & Từ vựng"}</strong></span>
+            <span>•</span>
+            <span>Gia sư giao: <strong>{exercise?.tutorName || "Nguyễn Lan Anh"}</strong></span>
+            <span>•</span>
+            <span>Độ khó: <strong>{exercise?.difficulty || "Cơ bản"}</strong></span>
+          </p>
+        </div>
+
+        {mode === "practice" && (
+          <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs flex items-start gap-2">
+            <Info size={14} className="mt-0.5 shrink-0" strokeWidth={1.75} />
+            <span>
+              <strong className="font-semibold">Chế độ Luyện tập:</strong> Làm từng câu và nhận lời giải thích AI tức thì.
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Thanh tiến độ làm bài — học sinh luôn biết mình đang ở đâu */}
+      <div className="flex items-center gap-3">
+        <div className="flex flex-1 items-center gap-1.5">
+          {questions.map((q, i) => {
+            const done = (answers[i] || "").trim().length > 0;
+            const checked = !!checkedQuestions[i]?.checked;
+            return (
+              <span
+                key={q.id || i}
+                className={`h-1.5 flex-1 rounded-full transition-colors ${
+                  checked
+                    ? checkedQuestions[i].isRight
+                      ? "bg-emerald-500"
+                      : "bg-rose-500"
+                    : done
+                    ? "bg-blue-500"
+                    : "bg-slate-200 dark:bg-slate-700"
+                }`}
+              />
+            );
+          })}
+        </div>
+        <span className="shrink-0 font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+          {answeredCount}/{questions.length}
+        </span>
+      </div>
+
+      {/* ══════════════════════════════════════════════════
+          ASSESSMENT SCORECARD (Khi đã nộp bài kiểm tra)
+      ══════════════════════════════════════════════════ */}
       {mode === "assessment" && isSubmitted && (
-        <Card className="p-6 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border-purple-200 dark:border-purple-900 space-y-4 shadow-md animate-fade-in">
+        <div className="p-6 rounded-2xl bg-blue-50/60 border border-blue-200 dark:border-blue-900/60 dark:bg-blue-950/20 space-y-4 animate-fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-purple-600 text-white flex items-center justify-center text-xl font-black shadow-md">
+              <div className="w-16 h-16 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-2xl font-bold shadow-sm font-mono">
                 {scoreOver10}/10
               </div>
               <div>
-                <span className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
-                  Kết quả Kiểm tra Năng lực
+                <span className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">
+                  Bảng kết quả đánh giá năng lực
                 </span>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                   Đúng {correctCount}/{questions.length} câu ({Math.round((correctCount / questions.length) * 100)}%)
                 </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Thời gian hoàn thành: {formatTimer(15 * 60 - timeLeftSeconds)}
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
-                <span className="text-[10px] text-slate-400 block font-semibold">Cập nhật Elo Rating</span>
-                <span className="text-sm font-black text-emerald-600 flex items-center gap-1 justify-center">
-                  <TrendingUp size={14} /> +6 Điểm Elo
-                </span>
-              </div>
+            <div className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-center">
+              <span className="text-[11px] text-slate-400 block font-semibold">Biến động Elo Rating</span>
+              <span className="text-sm font-bold font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1 justify-center mt-0.5">
+                <TrendingUp size={15} strokeWidth={1.75} /> +6 điểm
+              </span>
             </div>
           </div>
-          <p className="text-xs text-slate-600 dark:text-slate-400 border-t border-purple-100 dark:border-purple-900/60 pt-3">
-            💡 Dưới đây là phân tích chi tiết và Lời giải thích AI cho từng câu hỏi trong bài kiểm tra của bạn.
+
+          <p className="text-xs text-slate-600 dark:text-slate-300 border-t border-blue-100 dark:border-blue-900/60 pt-3">
+            Dưới đây là bảng phân tích chi tiết từng câu hỏi kèm <strong>lời giải thích chi tiết AI</strong>.
           </p>
 
-          <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-purple-200 dark:border-purple-900/60">
-            <div className="text-xs text-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-1.5">
-              <CheckCircle2 size={16} /> Đã gửi kết quả bài làm đến {exercise?.tutorName || "Gia sư"} để theo dõi sự tiến bộ.
+          <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-blue-200 dark:border-blue-900/60">
+            <div className="text-xs text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1.5">
+              <CheckCircle2 size={15} strokeWidth={1.75} />
+              <span>Đã tự động gửi kết quả đến gia sư {exercise?.tutorName || "phụ trách"}.</span>
             </div>
             <div className="flex items-center gap-2">
               <Link
                 to={backUrl}
-                className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-xs"
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-all active:scale-[0.98]"
               >
-                Về bài tập của {exercise?.tutorName || "Gia sư"}
+                Về danh sách bài tập
               </Link>
               <Link
                 to="/student/progress"
-                className="px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition-all"
+                className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
               >
-                Xem Hồ sơ Tri thức (SKP)
+                Xem hồ sơ năng lực
               </Link>
             </div>
           </div>
-        </Card>
+        </div>
       )}
 
-      {/* Questions Stream */}
+      {/* ══════════════════════════════════════════════════
+          DANH SÁCH CÂU HỎI
+      ══════════════════════════════════════════════════ */}
       <div className="space-y-6">
         {questions.map((q, idx) => {
           const checkStatus = checkedQuestions[idx];
@@ -340,278 +382,283 @@ export default function ExerciseTaking() {
           const isExp = !!expandedExplanation[idx];
 
           return (
-            <Card
-              key={idx}
-              className={clsx(
-                "p-6 transition-all space-y-4 border",
+            <div
+              key={q.id || idx}
+              className={`p-5 sm:p-6 rounded-3xl border transition-all space-y-4 ${
                 hasChecked
                   ? isRight
                     ? "border-emerald-300 dark:border-emerald-800 bg-emerald-50/20"
                     : "border-rose-300 dark:border-rose-800 bg-rose-50/20"
-                  : "border-slate-200 dark:border-slate-800"
-              )}
+                  : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs"
+              }`}
             >
               {/* Question Header */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">
-                    {idx + 1}
-                  </span>
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    {q.kind === "mcq" && "Trắc nghiệm"}
-                    {q.kind === "fill" && "Điền từ vào chỗ trống"}
-                    {q.kind === "error_correction" && "Tìm & Sửa lỗi sai"}
-                    {q.kind === "sentence_transformation" && "Viết lại câu"}
-                  </span>
-                </div>
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  {q.title}
+                </span>
 
                 {hasChecked && (
-                  <span
-                    className={clsx(
-                      "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold",
-                      isRight
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                        : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
-                    )}
-                  >
+                  <div className="flex items-center gap-1.5 text-xs font-bold">
                     {isRight ? (
-                      <>
-                        <CheckCircle2 size={14} /> Chính xác
-                      </>
+                      <span className="text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 size={16} /> Chính xác
+                      </span>
                     ) : (
-                      <>
-                        <XCircle size={14} /> Chưa chính xác
-                      </>
+                      <span className="text-rose-600 flex items-center gap-1">
+                        <XCircle size={16} /> Chưa chính xác
+                      </span>
                     )}
-                  </span>
+                  </div>
                 )}
               </div>
 
-              {/* Question Body */}
-              <p className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-relaxed">
-                {q.prompt}
-              </p>
+              {/* Prompt */}
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white leading-relaxed">
+                  {q.prompt}
+                </p>
 
-              {/* 1. MCQ */}
-              {q.kind === "mcq" && q.options && (
-                <div className="space-y-2 pt-1">
-                  {q.options.map((opt) => {
-                    const isSelected = answers[idx] === opt;
-                    return (
-                      <label
-                        key={opt}
-                        className={clsx(
-                          "flex items-center gap-3 p-3.5 rounded-xl border text-xs sm:text-sm font-medium transition-all cursor-pointer",
-                          isSelected
-                            ? "border-blue-600 bg-blue-50/80 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200 ring-2 ring-blue-400"
-                            : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300"
-                        )}
-                      >
-                        <input
-                          type="radio"
-                          name={`mcq-${idx}`}
-                          checked={isSelected}
-                          onChange={() => setAnswers((prev) => ({ ...prev, [idx]: opt }))}
-                          className="accent-blue-600"
-                        />
-                        <span>{opt}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
+                {/* DẠNG 1: MCQ */}
+                {q.kind === "mcq" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                    {q.options.map((opt) => {
+                      const isSelected = answers[idx] === opt;
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          disabled={hasChecked && mode === "practice"}
+                          onClick={() => setAnswers({ ...answers, [idx]: opt })}
+                          className={`p-3.5 rounded-2xl border text-xs sm:text-sm font-medium text-left transition-all cursor-pointer ${
+                            isSelected
+                              ? "border-blue-600 bg-blue-50 text-blue-900 dark:bg-blue-950/60 dark:text-blue-200 font-bold ring-2 ring-blue-500/20"
+                              : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+                          } ${hasChecked && opt === q.correct ? "border-emerald-500 bg-emerald-50 text-emerald-900 font-bold" : ""}`}
+                        >
+                          {opt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
-              {/* 2. FILL */}
-              {q.kind === "fill" && (
-                <div className="space-y-2 pt-1">
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 italic p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
-                    &quot;{q.sentence}&quot;
-                  </p>
-                  <input
-                    type="text"
-                    placeholder="Nhập từ chính xác vào đây..."
-                    value={answers[idx] || ""}
-                    onChange={(e) => setAnswers((prev) => ({ ...prev, [idx]: e.target.value }))}
-                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm outline-none focus:border-blue-500 text-slate-900 dark:text-white"
-                  />
-                </div>
-              )}
-
-              {/* 3. ERROR CORRECTION */}
-              {q.kind === "error_correction" && (
-                <div className="space-y-2 pt-1">
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 italic p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl">
-                    &quot;{q.sentence}&quot;
-                  </p>
-                  <div className="flex gap-3">
+                {/* DẠNG 2: FILL-IN */}
+                {q.kind === "fill" && (
+                  <div className="space-y-2 pt-2">
+                    <p className="text-sm p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white">
+                      {q.sentence}
+                    </p>
                     <input
                       type="text"
-                      placeholder="Nhập từ sửa đúng (Correct word)..."
+                      disabled={hasChecked && mode === "practice"}
                       value={answers[idx] || ""}
-                      onChange={(e) => setAnswers((prev) => ({ ...prev, [idx]: e.target.value }))}
-                      className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm outline-none focus:border-blue-500 text-slate-900 dark:text-white"
+                      onChange={(e) => setAnswers({ ...answers, [idx]: e.target.value })}
+                      placeholder="Nhập từ chính xác vào đây..."
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:border-blue-500 text-slate-900 dark:text-white"
                     />
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* 4. SENTENCE TRANSFORMATION */}
-              {q.kind === "sentence_transformation" && (
-                <div className="space-y-2 pt-1">
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-xs space-y-1">
-                    <p className="text-slate-500">Câu gốc:</p>
-                    <p className="font-semibold text-slate-800 dark:text-slate-200 italic">
-                      &quot;{q.originalSentence}&quot;
+                {/* DẠNG 3: ERROR CORRECTION */}
+                {q.kind === "error_correction" && (
+                  <div className="space-y-2 pt-2">
+                    <p className="text-sm italic p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-medium">
+                      &quot;{q.sentence}&quot;
                     </p>
-                    <p className="text-blue-600 dark:text-blue-400 font-bold pt-1">
-                      Bắt đầu bằng: {q.givenStart} ...
-                    </p>
+                    <input
+                      type="text"
+                      disabled={hasChecked && mode === "practice"}
+                      value={answers[idx] || ""}
+                      onChange={(e) => setAnswers({ ...answers, [idx]: e.target.value })}
+                      placeholder="Gõ từ sửa lại đúng (thay thế cho từ bị sai)..."
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:border-blue-500 text-slate-900 dark:text-white"
+                    />
                   </div>
-                  <textarea
-                    rows={2}
-                    placeholder="Viết lại câu hoàn chỉnh..."
-                    value={answers[idx] || ""}
-                    onChange={(e) => setAnswers((prev) => ({ ...prev, [idx]: e.target.value }))}
-                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm outline-none focus:border-blue-500 text-slate-900 dark:text-white resize-none"
-                  />
-                </div>
-              )}
+                )}
 
-              {/* Action Button for PRACTICE MODE */}
+                {/* DẠNG 4: SENTENCE TRANSFORMATION */}
+                {q.kind === "sentence_transformation" && (
+                  <div className="space-y-2 pt-2">
+                    <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-1">
+                      <p className="text-xs text-slate-500">Câu gốc:</p>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                        {q.originalSentence}
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-bold pt-1">
+                        Từ gợi ý bắt đầu: {q.givenStart} ...
+                      </p>
+                    </div>
+                    <textarea
+                      rows={2}
+                      disabled={hasChecked && mode === "practice"}
+                      value={answers[idx] || ""}
+                      onChange={(e) => setAnswers({ ...answers, [idx]: e.target.value })}
+                      placeholder="Gõ lại câu hoàn chỉnh bắt đầu bằng từ gợi ý..."
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm outline-none focus:border-blue-500 text-slate-900 dark:text-white resize-none"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Nút Kiểm tra câu này trong Chế độ Luyện tập */}
               {mode === "practice" && !hasChecked && (
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => handleCheckQuestion(idx)}
-                    disabled={!answers[idx]}
-                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Sparkles size={14} className="text-amber-300" />
-                    Kiểm tra câu này & Xem giải thích AI
-                  </button>
+                <div className="pt-2 space-y-2">
+                  {answerWarning === idx && (
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-rose-600 dark:text-rose-400">
+                      <AlertTriangle size={13} strokeWidth={1.75} />
+                      Vui lòng chọn hoặc nhập câu trả lời trước khi kiểm tra.
+                    </p>
+                  )}
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handleCheckQuestion(idx)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                    >
+                      <Sparkles size={14} strokeWidth={1.75} />
+                      <span>Kiểm tra câu này &amp; xem giải thích AI</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* AI EXPLANATION BOX (FR-13) */}
-              {hasChecked && q.aiExplanation && (
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
+              {/* HỘP THOẠI LỜI GIẢI THÍCH CHI TIẾT AI (AI EXPLANATION ACCORDION) */}
+              {hasChecked && (
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
                   <button
                     type="button"
-                    onClick={() => setExpandedExplanation((prev) => ({ ...prev, [idx]: !isExp }))}
-                    className="flex items-center justify-between w-full text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                    onClick={() =>
+                      setExpandedExplanation((prev) => ({
+                        ...prev,
+                        [idx]: !prev[idx]
+                      }))
+                    }
+                    className="w-full p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-950/60 border border-blue-200 dark:border-blue-900 flex items-center justify-between text-xs font-bold text-blue-900 dark:text-blue-200 transition-colors cursor-pointer"
                   >
-                    <span className="flex items-center gap-1.5">
-                      <Brain size={14} className="text-purple-500" />
-                      Lời Giải Thích Chi Tiết AI (AI Explanation)
+                    <span className="flex items-center gap-2">
+                      <Sparkles size={15} className="text-amber-500" />
+                      <span>Lời Giải Thích Chi Tiết AI (AI Explanation)</span>
                     </span>
                     {isExp ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   </button>
 
-                  {isExp && (
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 text-xs space-y-2.5 animate-fade-in">
-                      <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200">
-                        <strong className="text-emerald-700 dark:text-emerald-400">Đáp án chuẩn:</strong>
-                        <span className="px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 font-bold text-emerald-800 dark:text-emerald-300">
-                          {q.correct}
-                        </span>
+                  {isExp && q.aiExplanation && (
+                    <div className="mt-2 p-4 rounded-xl bg-white dark:bg-slate-900 border border-blue-100 dark:border-blue-900/60 text-xs space-y-3 text-slate-700 dark:text-slate-300 animate-fade-in leading-relaxed">
+                      <div className="flex items-start gap-2">
+                        <BookOpen size={14} className="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" strokeWidth={1.75} />
+                        <div>
+                          <strong className="text-blue-900 dark:text-blue-300 block mb-0.5">
+                            Quy tắc ngữ pháp / Kiến thức trọng tâm
+                          </strong>
+                          <p>{q.aiExplanation.rule}</p>
+                        </div>
                       </div>
 
-                      <div className="space-y-1">
-                        <span className="font-bold text-slate-900 dark:text-white block">
-                          💡 Quy tắc ngữ pháp / Kiến thức trọng tâm:
-                        </span>
-                        <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                          {q.aiExplanation.rule}
-                        </p>
-                      </div>
-
-                      <div className="space-y-1">
-                        <span className="font-bold text-slate-900 dark:text-white block">
-                          🎯 Vì sao đáp án này đúng:
-                        </span>
-                        <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                          {q.aiExplanation.whyCorrect}
-                        </p>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
+                        <div>
+                          <strong className="text-emerald-800 dark:text-emerald-300 block mb-0.5">
+                            Vì sao đáp án này đúng
+                          </strong>
+                          <p>{q.aiExplanation.whyCorrect}</p>
+                        </div>
                       </div>
 
                       {q.aiExplanation.distractors && (
-                        <div className="p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/60 text-amber-900 dark:text-amber-200 space-y-0.5">
-                          <span className="font-bold block">⚠️ Phân tích bẫy sai học sinh hay mắc:</span>
-                          <p>{q.aiExplanation.distractors}</p>
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-500" strokeWidth={1.75} />
+                          <div>
+                            <strong className="text-amber-800 dark:text-amber-300 block mb-0.5">
+                              Phân tích bẫy sai thường gặp
+                            </strong>
+                            <p className="text-slate-500 dark:text-slate-400">{q.aiExplanation.distractors}</p>
+                          </div>
                         </div>
                       )}
                     </div>
                   )}
                 </div>
               )}
-            </Card>
+            </div>
           );
         })}
       </div>
 
-      {/* Bottom Submit Bar for ASSESSMENT MODE or Overall Practice Done */}
+      {/* ══════════════════════════════════════════════════
+          THANH ĐIỀU KHIỂN GHIM ĐÁY (BOTTOM BAR)
+      ══════════════════════════════════════════════════ */}
       {mode === "assessment" && !isSubmitted && (
-        <div className="sticky bottom-4 z-20 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl flex items-center justify-between gap-4">
-          <div className="text-xs text-slate-600 dark:text-slate-400">
-            Đã làm <strong className="text-slate-900 dark:text-white">{Object.keys(answers).length}/{questions.length}</strong> câu
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-4 shadow-xl">
+          <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+            <div className="text-xs">
+              <span className="text-slate-500 dark:text-slate-400">Tiến độ bài làm: </span>
+              <strong className="text-slate-900 dark:text-white font-mono">
+                {answeredCount}/{questions.length} câu đã trả lời
+              </strong>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowConfirmModal(true)}
+              className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+            >
+              Nộp toàn bộ bài kiểm tra
+            </button>
+
+            {answeredCount < questions.length && (
+              <span className="hidden items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 sm:flex">
+                <AlertTriangle size={12} /> Còn {questions.length - answeredCount} câu chưa trả lời
+              </span>
+            )}
           </div>
-          <Button
-            variant="primary"
-            onClick={() => setShowConfirmModal(true)}
-            className="px-6 py-2.5 text-xs sm:text-sm font-bold shadow-md bg-purple-600 hover:bg-purple-700"
-          >
-            <Send size={15} /> Nộp Toàn Bộ Bài Kiểm Tra
-          </Button>
         </div>
       )}
 
-      {/* Confirmation Modal before Submit All */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
-          <Card className="max-w-md w-full p-6 space-y-4 shadow-2xl animate-scale-in border-slate-300 dark:border-slate-700">
-            <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 flex items-center justify-center">
-              <Send size={24} />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                Xác nhận nộp toàn bộ bài kiểm tra?
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                Bạn đã hoàn thành <strong>{Object.keys(answers).length}/{questions.length}</strong> câu hỏi. Sau khi nộp, hệ thống sẽ tự động chấm điểm tức thì và cập nhật chỉ số biến động năng lực Elo Rating của bạn.
-              </p>
-            </div>
-            <div className="flex items-center justify-end gap-2.5 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowConfirmModal(false)}
-              >
-                Tiếp tục làm bài
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setShowConfirmModal(false);
-                  handleSubmitAll();
-                }}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                Nộp bài ngay
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
-
+      {/* Nút Hoàn tất buổi luyện tập trong Practice Mode */}
       {mode === "practice" && (
-        <div className="text-center pt-4">
+        <div className="pt-6 flex justify-center">
           <Link
             to={backUrl}
-            className="px-6 py-2.5 bg-slate-900 text-white dark:bg-white dark:text-slate-900 rounded-xl font-bold text-xs sm:text-sm hover:opacity-90 transition-all inline-flex items-center gap-1.5"
+            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all active:scale-95 flex items-center gap-2"
           >
-            Hoàn tất buổi luyện tập & Trở về {exercise?.tutorName ? `bài tập của ${exercise.tutorName}` : ""} <ArrowRight size={15} />
+            <CheckCircle2 size={18} />
+            <span>Hoàn tất buổi luyện tập & Trở về</span>
           </Link>
+        </div>
+      )}
+
+      {/* MODAL XÁC NHẬN NỘP BÀI KIỂM TRA */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xl text-slate-900 dark:text-white space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <FileCheck size={24} strokeWidth={1.75} />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+              Xác nhận nộp bài kiểm tra?
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Bạn đã làm <strong>{answeredCount}/{questions.length}</strong> câu hỏi. Hệ thống sẽ tự động chấm điểm tức thì và cập nhật điểm Elo Rating của bạn.
+            </p>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                Tiếp tục làm bài
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitAll}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-sm"
+              >
+                Xác nhận nộp bài ngay
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

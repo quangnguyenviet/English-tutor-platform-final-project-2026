@@ -1,49 +1,53 @@
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Calendar,
   Clock,
-  Video,
-  PlayCircle,
   CheckCircle2,
   AlertCircle,
   Filter,
-  Grid,
+  LayoutGrid,
   List,
   User,
-  BookOpen,
-  FileText,
+  MapPin,
   Send,
   X,
-  ExternalLink,
-  PlusCircle,
   RefreshCw,
   Sparkles,
   ChevronLeft,
   ChevronRight,
-  Copy,
   Eye,
-  Key,
-  Layers,
   CalendarDays,
+  Radio,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { getStudentById } from "../../data/mockData";
+import { useLessonSessions } from "../../context/LessonSessionContext";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
-import SessionDetailModal from "../../components/student/SessionDetailModal";
+import LessonSessionDetail from "../../components/student/LessonSessionDetail";
+
+/**
+ * Lịch học & trạng thái lớp học — UC-S01 (lịch học cá nhân)
+ * Hai chế độ xem: lưới tuần (desktop) và nhật ký buổi học (mọi kích thước).
+ */
 
 export default function StudentSchedule() {
   const { session } = useAuth();
-  const student = getStudentById(session?.studentId || "s1");
+  const { sessions, requestReschedule } = useLessonSessions();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // Raw schedule items
-  const rawSchedule = student?.multiTutorSchedule || [];
+  const rawSchedule = sessions.filter((item) => item.studentId === (session?.studentId || "s1"));
 
   // State management
   const [selectedTutorId, setSelectedTutorId] = useState("all");
-  const [viewMode, setViewMode] = useState("grid"); // "grid" | "agenda"
+  // Lưới tuần cần tối thiểu 900px → dưới ngưỡng lg chỉ hiển thị dạng nhật ký,
+  // tránh buộc người dùng cuộn ngang.
+  const [isDesktop] = useState(
+    () => typeof window !== "undefined" && window.innerWidth >= 1024
+  );
+  const [viewMode, setViewMode] = useState("agenda"); // "grid" | "agenda"
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0); // -1 (prev), 0 (current), 1, 2 (future)
   const [agendaCategory, setAgendaCategory] = useState("all"); // "all" | "upcoming" | "completed"
   const [rescheduleModalSession, setRescheduleModalSession] = useState(null);
@@ -53,13 +57,36 @@ export default function StudentSchedule() {
   const [notification, setNotification] = useState(null);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
 
+  useEffect(() => {
+    const lessonId = searchParams.get("lesson");
+    if (lessonId && sessions.some((item) => item.id === lessonId && item.studentId === (session?.studentId || "s1"))) {
+      setSelectedDetailSession({ id: lessonId });
+    }
+  }, [searchParams, session?.studentId, sessions]);
+
+  function closeLessonDetail() {
+    setSelectedDetailSession(null);
+    if (searchParams.has("lesson")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("lesson");
+      setSearchParams(next);
+    }
+  }
+
   // Extract unique tutors from schedule
   const tutorList = [
-    { id: "all", name: "Tất cả gia sư", color: "slate" },
-    { id: "t1", name: "Nguyễn Lan Anh (IELTS)", color: "indigo" },
-    { id: "t2", name: "Trần Minh Quân (Writing)", color: "blue" },
-    { id: "t3", name: "Phạm Thu Hà (Giao tiếp)", color: "emerald" },
+    { id: "all", name: "Tất cả gia sư" },
+    { id: "t1", name: "Nguyễn Lan Anh (IELTS)" },
+    { id: "t2", name: "Trần Minh Quân (Writing)" },
+    { id: "t3", name: "Phạm Thu Hà (Giao tiếp)" },
   ];
+
+  function getOfflineLocation(item) {
+    if (item?.learningMode === "online" || /online|jitsi|zoom|meet/i.test(item?.location || "")) {
+      return "Tại lớp / Trung tâm EnglishPath";
+    }
+    return item?.location || "Tại lớp / Trung tâm EnglishPath";
+  }
 
   // Helper calculation for Days of Week & Date Headers based on Week Offset
   const getDaysOfWeekForOffset = (offset) => {
@@ -69,7 +96,7 @@ export default function StudentSchedule() {
       "1": { title: "Tuần 10/08 - 16/08/2026 (Tuần sau)", dates: ["10/08", "11/08", "12/08", "13/08", "14/08", "15/08", "16/08"] },
       "2": { title: "Tuần 17/08 - 23/08/2026 (Tuần tiếp theo)", dates: ["17/08", "18/08", "19/08", "20/08", "21/08", "22/08", "23/08"] }
     };
-    
+
     const weekInfo = weekLabels[offset] || {
       title: `Tuần ${offset > 0 ? '+' : ''}${offset}`,
       dates: ["03/08", "04/08", "05/08", "06/08", "07/08", "08/08", "09/08"]
@@ -83,7 +110,7 @@ export default function StudentSchedule() {
         name,
         date: weekInfo.dates[idx],
         dayIndex: idx + 1,
-        isToday: offset === 0 && idx === 1 // Tuesday 04/08 is today
+        isToday: offset === 0 && idx === 1 // Ngày tham chiếu của dữ liệu mẫu: 04/08/2026.
       }))
     };
   };
@@ -105,7 +132,7 @@ export default function StudentSchedule() {
 
   // Group Agenda items: Live/Upcoming at TOP, Completed at BOTTOM
   const upcomingAndLiveSessions = agendaTutorFilteredSchedule.filter(
-    (s) => s.status === "live" || s.status === "upcoming" || s.status === "rescheduled"
+    (s) => s.status === "live" || s.status === "upcoming" || s.status === "reschedule_requested" || s.status === "rescheduled"
   );
   const completedJournalSessions = agendaTutorFilteredSchedule.filter(
     (s) => s.status === "completed"
@@ -115,240 +142,180 @@ export default function StudentSchedule() {
   const totalSessions = currentWeekRawSchedule.length;
   const completedSessions = currentWeekRawSchedule.filter((s) => s.status === "completed").length;
   const liveSessions = rawSchedule.filter((s) => s.status === "live").length;
-  const upcomingSessions = currentWeekRawSchedule.filter((s) => s.status === "upcoming").length;
-
-  // Color helper functions
-  const getThemeClasses = (colorTheme) => {
-    switch (colorTheme) {
-      case "indigo":
-        return {
-          badgeTone: "indigo",
-          border: "border-indigo-200 dark:border-indigo-800/60",
-          bg: "bg-indigo-50/70 dark:bg-indigo-950/30",
-          accentBg: "bg-indigo-600 text-white",
-          text: "text-indigo-700 dark:text-indigo-300",
-          ring: "ring-indigo-500",
-          dotBg: "bg-indigo-500",
-        };
-      case "blue":
-        return {
-          badgeTone: "blue",
-          border: "border-blue-200 dark:border-blue-800/60",
-          bg: "bg-blue-50/70 dark:bg-blue-950/30",
-          accentBg: "bg-blue-600 text-white",
-          text: "text-blue-700 dark:text-blue-300",
-          ring: "ring-blue-500",
-          dotBg: "bg-blue-500",
-        };
-      case "emerald":
-        return {
-          badgeTone: "emerald",
-          border: "border-emerald-200 dark:border-emerald-800/60",
-          bg: "bg-emerald-50/70 dark:bg-emerald-950/30",
-          accentBg: "bg-emerald-600 text-white",
-          text: "text-emerald-700 dark:text-emerald-300",
-          ring: "ring-emerald-500",
-          dotBg: "bg-emerald-500",
-        };
-      default:
-        return {
-          badgeTone: "slate",
-          border: "border-slate-200 dark:border-slate-700",
-          bg: "bg-slate-50 dark:bg-slate-800/50",
-          accentBg: "bg-slate-700 text-white",
-          text: "text-slate-700 dark:text-slate-300",
-          ring: "ring-slate-400",
-          dotBg: "bg-slate-400",
-        };
-    }
-  };
 
   const handleRescheduleSubmit = (e) => {
     e.preventDefault();
     if (!rescheduleReason) return;
-    setNotification(
-      `Đã gửi yêu cầu đổi lịch buổi "${rescheduleModalSession.topic}" tới ${rescheduleModalSession.tutorName} thành công!`
+    const success = requestReschedule(
+      rescheduleModalSession.id,
+      rescheduleReason,
+      preferredSlots.trim() ? [preferredSlots.trim()] : []
     );
+    setNotification(success
+      ? `Đã ghi nhận yêu cầu đổi lịch buổi "${rescheduleModalSession.topic}" để trung tâm và gia sư theo dõi.`
+      : "Không thể gửi yêu cầu ở trạng thái hiện tại. Hãy tải lại lịch học và thử lại.");
+    if (!success) return;
     setRescheduleModalSession(null);
     setRescheduleReason("");
     setPreferredSlots("");
     setTimeout(() => setNotification(null), 4000);
   };
 
-  // Days of week mapping for Grid View
-  const daysOfWeek = [
-    { name: "Thứ 2", date: "03/08", dayIndex: 1 },
-    { name: "Thứ 3", date: "04/08", dayIndex: 2 },
-    { name: "Thứ 4", date: "05/08", dayIndex: 3 },
-    { name: "Thứ 5", date: "06/08", dayIndex: 4 },
-    { name: "Thứ 6", date: "07/08", dayIndex: 5 },
-    { name: "Thứ 7", date: "08/08", dayIndex: 6 },
-    { name: "Chủ Nhật", date: "09/08", dayIndex: 7 },
-  ];
-
   return (
     <div className="space-y-6 pb-12">
       {/* Toast Notification */}
       {notification && (
-        <div className="fixed top-5 right-5 z-50 flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl animate-bounce">
-          <CheckCircle2 size={22} />
-          <span className="text-sm font-medium">{notification}</span>
-          <button onClick={() => setNotification(null)} className="ml-2 hover:opacity-80">
-            <X size={18} />
+        <div className="fade-slide-in fixed right-5 top-5 z-50 flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+          <CheckCircle2 size={18} className="text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
+          <span className="text-xs font-medium text-slate-800 dark:text-slate-200">{notification}</span>
+          <button
+            onClick={() => setNotification(null)}
+            className="ml-2 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-white"
+          >
+            <X size={16} />
           </button>
         </div>
       )}
 
       {/* Page Header */}
       <PageHeader
-        title="Lịch học & Phòng học Trực tuyến"
-        description="Hệ thống Lịch trình Cá nhân hóa Multi-Tutor: Đồng bộ thời gian học với các Gia sư của bạn."
+        className="mb-0"
+        eyebrow="Theo dõi lịch trình"
+        title="Lịch học & Trạng thái Lớp học"
+        description="Theo dõi lịch trình và trao đổi theo từng buổi học. Lịch minh họa dùng ngày tham chiếu 04/08/2026."
       />
 
       {/* 1. Metrics Overview Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="p-4 flex items-center gap-3 border-l-4 border-l-blue-500">
-          <div className="p-3 bg-blue-50 dark:bg-blue-950/50 text-blue-600 rounded-xl">
-            <Calendar size={22} />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Card className="p-4">
+          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-950/40">
+            <Calendar size={18} className="text-blue-600 dark:text-blue-400" strokeWidth={1.75} />
           </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Buổi học tuần này</p>
-            <p className="text-xl font-bold text-slate-900 dark:text-white">
-              {totalSessions} <span className="text-xs font-normal text-slate-400">buổi</span>
-            </p>
-          </div>
+          <p className="font-mono text-2xl font-bold leading-none text-slate-900 dark:text-white">
+            {totalSessions}
+          </p>
+          <p className="mt-1 text-xs leading-tight text-slate-500 dark:text-slate-400">Buổi trong tuần đang xem</p>
         </Card>
 
-        <Card className="p-4 flex items-center gap-3 border-l-4 border-l-emerald-500">
-          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 rounded-xl">
-            <Clock size={22} />
+        <Card className="p-4">
+          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-950/40">
+            <CheckCircle2 size={18} className="text-blue-600 dark:text-blue-400" strokeWidth={1.75} />
           </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Đã hoàn thành</p>
-            <p className="text-xl font-bold text-slate-900 dark:text-white">
-              {completedSessions}/{totalSessions} <span className="text-xs font-normal text-slate-400">buổi</span>
-            </p>
-          </div>
+          <p className="font-mono text-2xl font-bold leading-none text-slate-900 dark:text-white">
+            {completedSessions}
+            <span className="text-sm font-normal text-slate-400">/{totalSessions}</span>
+          </p>
+          <p className="mt-1 text-xs leading-tight text-slate-500 dark:text-slate-400">Đã hoàn thành</p>
         </Card>
 
-        <Card className="p-4 flex items-center gap-3 border-l-4 border-l-rose-500">
-          <div className="p-3 bg-rose-50 dark:bg-rose-950/50 text-rose-600 rounded-xl relative">
-            <Video size={22} />
-            {liveSessions > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
-              </span>
-            )}
+        <Card
+          className={`p-4 ${
+            liveSessions > 0 ? "border-emerald-200 dark:border-emerald-900/60" : ""
+          }`}
+        >
+          <div
+            className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${
+              liveSessions > 0 ? "bg-emerald-50 dark:bg-emerald-950/40" : "bg-blue-50 dark:bg-blue-950/40"
+            }`}
+          >
+            <Radio
+              size={18}
+              strokeWidth={1.75}
+              className={liveSessions > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-blue-600 dark:text-blue-400"}
+            />
           </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Đang diễn ra (LIVE)</p>
-            <p className="text-xl font-bold text-rose-600 dark:text-rose-400">
-              {liveSessions} <span className="text-xs font-normal text-slate-400">phòng học</span>
-            </p>
-          </div>
+          <p className="font-mono text-2xl font-bold leading-none text-slate-900 dark:text-white">
+            {liveSessions}
+          </p>
+          <p className="mt-1 text-xs leading-tight text-slate-500 dark:text-slate-400">Đang diễn ra</p>
         </Card>
 
-        <Card className="p-4 flex items-center gap-3 border-l-4 border-l-indigo-500">
-          <div className="p-3 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 rounded-xl">
-            <User size={22} />
+        <Card className="p-4">
+          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-950/40">
+            <User size={18} className="text-blue-600 dark:text-blue-400" strokeWidth={1.75} />
           </div>
-          <div>
-            <p className="text-xs text-slate-500 font-medium">Gia sư cá nhân</p>
-            <p className="text-xl font-bold text-slate-900 dark:text-white">
-              3 <span className="text-xs font-normal text-slate-400">Gia sư</span>
-            </p>
-          </div>
+          <p className="font-mono text-2xl font-bold leading-none text-slate-900 dark:text-white">
+            {tutorList.length - 1}
+          </p>
+          <p className="mt-1 text-xs leading-tight text-slate-500 dark:text-slate-400">Gia sư cá nhân</p>
         </Card>
       </div>
 
       {/* 2. Control Toolbar & Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          {/* Tutor Filter Buttons */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-slate-500 flex items-center gap-1 mr-1">
-              <Filter size={14} /> Lọc Gia sư:
-            </span>
-            {tutorList.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setSelectedTutorId(t.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  selectedTutorId === t.id
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
-                    : "bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                }`}
-              >
-                {t.name}
-              </button>
-            ))}
+      <Card className="p-4 border border-slate-200 dark:border-slate-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {/* Tutor Filter Dropdown (Dropbox) */}
+          <div className="flex items-center gap-2.5">
+            <label htmlFor="tutor-select-dropdown" className="text-xs font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1.5 shrink-0">
+              <Filter size={14} /> Gia sư:
+            </label>
+            <select
+              id="tutor-select-dropdown"
+              value={selectedTutorId}
+              onChange={(e) => setSelectedTutorId(e.target.value)}
+              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400 cursor-pointer min-w-[200px]"
+            >
+              {tutorList.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* View Switcher & Quick Actions */}
-          <div className="flex items-center gap-2 self-end lg:self-auto">
-            {/* View Switch Buttons */}
+          <div className="flex items-center gap-2 self-end sm:self-auto">
             <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl flex items-center">
               <button
                 onClick={() => setViewMode("grid")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  viewMode === "grid"
-                    ? "bg-white text-slate-900 dark:bg-slate-700 dark:text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-900 dark:text-slate-400"
-                }`}
+                className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${viewMode === "grid"
+                  ? "bg-white text-slate-900 dark:bg-slate-700 dark:text-white shadow-xs font-semibold"
+                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400"
+                  }`}
               >
-                <Grid size={14} /> Xem theo Tuần
+                <LayoutGrid size={14} /> Xem theo Tuần
               </button>
               <button
                 onClick={() => setViewMode("agenda")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  viewMode === "agenda"
-                    ? "bg-white text-slate-900 dark:bg-slate-700 dark:text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-900 dark:text-slate-400"
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${viewMode === "agenda" || !isDesktop
+                  ? "bg-white text-slate-900 dark:bg-slate-700 dark:text-white shadow-xs font-semibold"
+                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400"
+                  }`}
               >
                 <List size={14} /> Nhật ký Buổi học
               </button>
             </div>
 
-            {/* Sync Calendar Button */}
             <Button
               variant="outline"
               size="sm"
               onClick={() => setIsSyncModalOpen(true)}
               className="flex items-center gap-1.5 text-xs"
             >
-              <RefreshCw size={14} /> Đồng bộ Calendar
+              <RefreshCw size={13} /> Đồng bộ Calendar
             </Button>
           </div>
         </div>
       </Card>
 
-      {/* 3. Weekly Grid View */}
-      {viewMode === "grid" && (
-        <Card className="p-4 overflow-x-auto">
+      {/* 3. Weekly Grid View — chỉ hiển thị trên màn hình lớn */}
+      {viewMode === "grid" && isDesktop && (
+        <Card className="p-4 border border-slate-200 dark:border-slate-800 overflow-x-auto">
           <div className="min-w-[900px]">
             {/* Week Navigator Bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between bg-slate-50 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 mb-4 gap-3">
+            <div className="flex flex-col sm:flex-row items-center justify-between bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/80 mb-4 gap-3">
               <button
                 type="button"
                 onClick={() => setCurrentWeekOffset((prev) => Math.max(-1, prev - 1))}
                 disabled={currentWeekOffset <= -1}
-                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronLeft size={16} /> Tuần trước
               </button>
 
               <div className="text-center">
-                <span className="text-xs font-extrabold text-blue-600 dark:text-blue-400 uppercase tracking-wide flex items-center justify-center gap-1.5">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide flex items-center justify-center gap-1.5">
                   <CalendarDays size={15} /> {currentWeekInfo.title}
-                </span>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 block">
-                  {currentWeekOffset === 0
-                    ? "📍 Đang hiển thị Tuần hiện tại (03/08 - 09/08/2026)"
-                    : currentWeekOffset < 0
-                    ? "⏪ Nhật ký Lịch học các tuần quá khứ"
-                    : "⏩ Lịch học các tuần tương lai"}
                 </span>
               </div>
 
@@ -356,7 +323,7 @@ export default function StudentSchedule() {
                 type="button"
                 onClick={() => setCurrentWeekOffset((prev) => Math.min(2, prev + 1))}
                 disabled={currentWeekOffset >= 2}
-                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs"
+                className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 Tuần sau <ChevronRight size={16} />
               </button>
@@ -368,16 +335,15 @@ export default function StudentSchedule() {
                 return (
                   <div
                     key={day.dayIndex}
-                    className={`py-2 px-1 rounded-xl transition-all ${
-                      day.isToday
-                        ? "bg-blue-600 text-white font-semibold shadow-md shadow-blue-500/20"
-                        : "bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300"
-                    }`}
+                    className={`py-2 px-1 rounded-xl transition-all ${day.isToday
+                      ? "bg-slate-800 text-white font-semibold dark:bg-slate-100 dark:text-slate-900"
+                      : "bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300"
+                      }`}
                   >
                     <p className="text-xs uppercase tracking-wider">{day.name}</p>
                     <p className="text-sm font-bold mt-0.5">{day.date}</p>
                     {day.isToday && (
-                      <span className="inline-block mt-1 text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-full font-normal">
+                      <span className="inline-block mt-1 text-[10px] bg-white/20 dark:bg-slate-900/20 px-2 py-0.5 rounded-full font-normal">
                         Hôm nay
                       </span>
                     )}
@@ -389,7 +355,6 @@ export default function StudentSchedule() {
             {/* Grid Columns */}
             <div className="grid grid-cols-7 gap-2 min-h-[420px]">
               {currentWeekInfo.days.map((day) => {
-                // Get sessions for this day
                 const daySessions = gridFilteredSchedule.filter((s) => s.dayIndex === day.dayIndex);
 
                 return (
@@ -403,126 +368,68 @@ export default function StudentSchedule() {
                       </div>
                     ) : (
                       daySessions.map((sessionItem) => {
-                        const theme = getThemeClasses(sessionItem.colorTheme);
                         const isLive = sessionItem.status === "live";
                         const isCompleted = sessionItem.status === "completed";
-                        const isRescheduled = sessionItem.status === "rescheduled";
+                        const isRescheduled = sessionItem.status === "rescheduled" || sessionItem.status === "reschedule_requested";
 
                         return (
                           <div
                             key={sessionItem.id}
-                            className={`p-3 rounded-xl border ${theme.border} ${theme.bg} relative transition-all hover:shadow-md group`}
+                            className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/70 relative transition-all hover:border-slate-400 dark:hover:border-slate-600 shadow-2xs space-y-2"
                           >
-                            {/* Live Badge Pulsing */}
+                            {/* Live Indicator */}
                             {isLive && (
-                              <div className="absolute -top-2 -right-2 flex items-center gap-1 bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md animate-pulse">
-                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
-                                LIVE
+                              <div className="absolute -top-2 -right-2 flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                                <span className="h-1.5 w-1.5 animate-ping rounded-full bg-white"></span>
+                                ĐANG DIỄN RA
                               </div>
                             )}
 
-                            {/* Status Tag */}
-                            <div className="flex items-center justify-between gap-1 mb-1.5">
-                              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1">
-                                <Clock size={12} className={theme.text} />
+                            {/* Status & Mode Row */}
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                                <Clock size={12} className="text-slate-500" />
                                 {sessionItem.startTime} - {sessionItem.endTime}
                               </span>
-                              <div className="flex items-center gap-1">
-                                <Badge tone={sessionItem.learningMode === "offline" ? "amber" : "blue"} size="xs">
-                                  {sessionItem.learningMode === "offline" ? "🏠 Off" : "💻 On"}
-                                </Badge>
-                                {isCompleted && (
-                                  <Badge tone="emerald" size="xs">
-                                    ✓ Xong
-                                  </Badge>
-                                )}
-                                {isRescheduled && (
-                                  <Badge tone="amber" size="xs">
-                                    ⏳ Chờ đổi
-                                  </Badge>
-                                )}
-                              </div>
+                              {/* Removed Mode Badge */}
                             </div>
 
                             {/* Subject & Tutor */}
-                            <div className="mb-2">
-                              <p className="text-xs font-semibold text-foreground truncate">
+                            <div>
+                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                                 {sessionItem.tutorName}
                               </p>
-                              <p className="text-[10px] text-muted-foreground truncate">{sessionItem.subject}</p>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{sessionItem.subject}</p>
                             </div>
 
-                            {/* Topic Title */}
-                            <p className="text-xs text-slate-800 dark:text-slate-200 font-medium line-clamp-2 mb-1.5">
+                            {/* Topic Title - Clean concise preview */}
+                            <p className="text-xs text-slate-700 dark:text-slate-300 font-medium line-clamp-2">
                               {sessionItem.topic}
                             </p>
 
-                            {/* Online Room Info Preview */}
-                            {sessionItem.learningMode === "online" && sessionItem.classCode && (
-                              <div className="mb-2 p-1.5 bg-white/80 dark:bg-slate-900/80 rounded-lg text-[10px] space-y-0.5 border border-slate-200/50 dark:border-slate-800">
-                                <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
-                                  <span>🔑 Mã: <strong className="font-mono text-blue-600 dark:text-blue-400">{sessionItem.classCode}</strong></span>
-                                  <span>🔒 <strong className="font-mono text-emerald-600 dark:text-emerald-400">{sessionItem.passcode}</strong></span>
-                                </div>
-                              </div>
-                            )}
+                            {/* Status indicator badge */}
+                            <div className="flex items-center justify-between text-[10px] pt-1 border-t border-slate-100 dark:border-slate-700/60">
+                              {isCompleted ? (
+                                <span className="flex items-center gap-1 font-medium text-emerald-600 dark:text-emerald-400">
+                                  <CheckCircle2 size={11} strokeWidth={1.75} /> Đã hoàn thành
+                                </span>
+                              ) : isRescheduled ? (
+                                <span className="font-medium text-amber-600 dark:text-amber-400">{sessionItem.status === "reschedule_requested" ? "Chờ xác nhận lịch mới" : "Đã dời lịch"}</span>
+                              ) : isLive ? (
+                                <span className="flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
+                                  <Radio size={11} strokeWidth={1.75} /> Đang diễn ra
+                                </span>
+                              ) : (
+                                <span className="text-slate-500">Sắp diễn ra</span>
+                              )}
 
-                            {/* Action Buttons */}
-                            {isLive ? (
-                              <div className="space-y-1">
-                                {sessionItem.learningMode === "offline" ? (
-                                  <div className="w-full text-center py-1 px-2 bg-amber-500 text-white rounded-lg text-[10px] font-bold shadow-sm truncate">
-                                    📍 Offline: {sessionItem.location}
-                                  </div>
-                                ) : (
-                                  <a
-                                    href={sessionItem.meetingLink}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors"
-                                  >
-                                    <Video size={13} /> Vào học ngay
-                                  </a>
-                                )}
-                                <button
-                                  onClick={() => setSelectedDetailSession(sessionItem)}
-                                  className="w-full text-center text-[10px] font-bold text-slate-600 hover:text-blue-600 dark:text-slate-300 underline pt-0.5"
-                                >
-                                  Xem chi tiết ➔
-                                </button>
-                              </div>
-                            ) : isCompleted ? (
                               <button
                                 onClick={() => setSelectedDetailSession(sessionItem)}
-                                className="w-full flex items-center justify-between text-[11px] text-slate-600 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-300 pt-1 border-t border-slate-200/60 dark:border-slate-700/60 font-medium transition-colors"
+                                className="flex items-center gap-0.5 font-semibold text-blue-600 hover:underline dark:text-blue-400"
                               >
-                                {sessionItem.learningMode === "offline" ? (
-                                  <span className="flex items-center gap-1 text-slate-500 font-medium text-[10px]">
-                                    🏠 Offline
-                                  </span>
-                                ) : (
-                                  <span className="flex items-center gap-1 text-emerald-600 font-semibold">
-                                    <PlayCircle size={12} /> {sessionItem.recordDuration || "Rec"}
-                                  </span>
-                                )}
-                                <span className="font-bold underline text-[10px]">Chi tiết ➔</span>
+                                <Eye size={11} strokeWidth={1.75} /> Xem chi tiết
                               </button>
-                            ) : (
-                              <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
-                                <button
-                                  onClick={() => setSelectedDetailSession(sessionItem)}
-                                  className="text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline flex items-center gap-0.5"
-                                >
-                                  <Eye size={11} /> Chi tiết
-                                </button>
-                                <button
-                                  onClick={() => setRescheduleModalSession(sessionItem)}
-                                  className="text-[10px] text-slate-500 hover:text-slate-900 dark:hover:text-white underline shrink-0"
-                                >
-                                  Đổi lịch
-                                </button>
-                              </div>
-                            )}
+                            </div>
                           </div>
                         );
                       })
@@ -535,176 +442,119 @@ export default function StudentSchedule() {
         </Card>
       )}
 
-      {/* 4. Agenda Stream View (Nhật ký Buổi học) */}
-      {viewMode === "agenda" && (
+      {/* 4. Agenda Stream View (Nhật ký Buổi học) — mặc định trên mobile */}
+      {(viewMode === "agenda" || !isDesktop) && (
         <div className="space-y-6">
           {/* Agenda Category Filters */}
-          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl w-fit text-xs font-semibold">
+          <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl w-fit text-xs font-semibold">
             <button
               type="button"
               onClick={() => setAgendaCategory("all")}
-              className={`px-3 py-1.5 rounded-xl transition-all ${
-                agendaCategory === "all"
-                  ? "bg-white text-slate-900 dark:bg-slate-700 dark:text-white shadow-xs font-bold"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400"
-              }`}
+              className={`px-3 py-1.5 rounded-lg transition-all ${agendaCategory === "all"
+                ? "bg-white text-slate-900 dark:bg-slate-700 dark:text-white shadow-xs font-bold"
+                : "text-slate-500 hover:text-slate-900 dark:text-slate-400"
+                }`}
             >
-              Tất cả nhật ký ({agendaTutorFilteredSchedule.length})
+              Tất cả ({agendaTutorFilteredSchedule.length})
             </button>
             <button
               type="button"
               onClick={() => setAgendaCategory("upcoming")}
-              className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
-                agendaCategory === "upcoming"
-                  ? "bg-white text-blue-600 dark:bg-slate-700 dark:text-blue-300 shadow-xs font-bold"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400"
-              }`}
+              className={`px-3 py-1.5 rounded-lg transition-all ${agendaCategory === "upcoming"
+                ? "bg-white text-slate-900 dark:bg-slate-700 dark:text-white shadow-xs font-bold"
+                : "text-slate-500 hover:text-slate-900 dark:text-slate-400"
+                }`}
             >
-              📌 Lịch tuần này & tới ({upcomingAndLiveSessions.length})
+              Sắp học / cần xử lý ({upcomingAndLiveSessions.length})
             </button>
             <button
               type="button"
               onClick={() => setAgendaCategory("completed")}
-              className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 ${
-                agendaCategory === "completed"
-                  ? "bg-white text-emerald-600 dark:bg-slate-700 dark:text-emerald-300 shadow-xs font-bold"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400"
-              }`}
+              className={`px-3 py-1.5 rounded-lg transition-all ${agendaCategory === "completed"
+                ? "bg-white text-slate-900 dark:bg-slate-700 dark:text-white shadow-xs font-bold"
+                : "text-slate-500 hover:text-slate-900 dark:text-slate-400"
+                }`}
             >
-              📚 Đã hoàn thành ({completedJournalSessions.length})
+              Đã hoàn thành ({completedJournalSessions.length})
             </button>
           </div>
 
-          {/* SECTION 1: BUỔI HỌC SẮP DIỄN RA & KẾ HOẠCH TỚI (LÊN ĐẦU) */}
+          {/* SECTION 1: BUỔI HỌC SẮP DIỄN RA */}
           {(agendaCategory === "all" || agendaCategory === "upcoming") && (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white pb-1 border-b border-slate-200 dark:border-slate-800">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
-                <span>📌 LỊCH HỌC TUẦN NÀY & KẾ HOẠCH TỚI ({upcomingAndLiveSessions.length} buổi)</span>
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200 pb-1 border-b border-slate-200 dark:border-slate-800">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                <span>LỊCH HỌC & YÊU CẦU ĐỔI LỊCH ({upcomingAndLiveSessions.length} buổi)</span>
               </div>
 
               {upcomingAndLiveSessions.length === 0 ? (
-                <Card className="p-6 text-center text-xs text-slate-400 italic">
+                <Card className="p-6 text-center text-xs text-slate-400 italic border border-slate-200 dark:border-slate-800">
                   Không có buổi học nào sắp diễn ra.
                 </Card>
               ) : (
                 upcomingAndLiveSessions.map((item) => {
-                  const theme = getThemeClasses(item.colorTheme);
                   const isLive = item.status === "live";
-                  const isOffline = item.learningMode === "offline";
 
                   return (
-                    <Card key={item.id} className="p-5 border border-border bg-card hover:border-primary/40 transition-colors">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <Card key={item.id} className="p-4 transition-colors hover:border-blue-300 dark:hover:border-blue-800">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         {/* Left Column: Date, Time & Tutor */}
-                        <div className="min-w-[220px]">
+                        <div className="min-w-[200px]">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wide">
                               {item.dayOfWeek} ({item.dateStr})
                             </span>
-                            <span className="text-xs text-muted-foreground">•</span>
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <span className="text-xs text-slate-400">•</span>
+                            <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1 font-medium">
                               <Clock size={12} /> {item.startTime} - {item.endTime}
                             </span>
                           </div>
-                          <h4 className="text-sm font-semibold text-foreground mt-1">
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-white mt-1">
                             {item.tutorName}
                           </h4>
-                          <p className="text-xs text-muted-foreground">{item.subject}</p>
+                          <p className="text-xs text-slate-500">{item.subject}</p>
                         </div>
 
-                        {/* Middle Column: Topic, Online Room Info & Prep Note */}
-                        <div className="flex-1 min-w-0 bg-slate-50 dark:bg-slate-800/40 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <Badge tone={isOffline ? "amber" : "blue"} size="xs">
-                              {isOffline ? "🏠 Offline Tại nhà/Trung tâm" : "💻 Online Trực tuyến"}
-                            </Badge>
+                        {/* Middle Column: Topic & Location */}
+                        <div className="flex-1 min-w-0 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl border border-slate-100 dark:border-slate-800 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                              {/* Removed Mode Badge */}
                             {isLive && (
-                              <span className="inline-flex items-center gap-1 bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-                                <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
-                                ĐANG DIỄN RA (LIVE)
-                              </span>
+                              <Badge tone="emerald" size="xs">
+                                <Radio size={10} /> ĐANG DIỄN RA
+                              </Badge>
                             )}
-                            {item.status === "upcoming" && (
-                              (item.weekOffset ?? 0) === 0 ? (
-                                <Badge tone="blue">Sắp diễn ra (Tuần này)</Badge>
-                              ) : (
-                                <Badge tone="slate">Theo kế hoạch (Tuần tới)</Badge>
-                              )
-                            )}
-                            {item.status === "rescheduled" && <Badge tone="amber">Chờ duyệt đổi lịch</Badge>}
-
-                            <div className="flex flex-wrap gap-1">
-                              {item.skills.map((sk) => (
-                                <Badge key={sk} tone={theme.badgeTone} size="xs">
-                                  {sk}
-                                </Badge>
-                              ))}
-                            </div>
+                            {item.status === "reschedule_requested" && <Badge tone="amber" size="xs">Chờ trung tâm xác nhận lịch mới</Badge>}
+                            {item.status === "rescheduled" && <Badge tone="amber" size="xs">Đã dời lịch</Badge>}
                           </div>
 
-                          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                          <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                             {item.topic}
                           </p>
 
-                          {/* Online Credentials Banner */}
-                          {!isOffline && item.classCode && (
-                            <div className="mt-2 p-2 bg-white dark:bg-slate-900 rounded-lg text-xs space-y-1 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap">
-                              <span className="text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1">
-                                🔑 Mã lớp: <strong className="font-mono text-blue-600 dark:text-blue-400">{item.classCode}</strong>
-                              </span>
-                              <span className="text-slate-600 dark:text-slate-300 font-medium flex items-center gap-1">
-                                🔒 Mật khẩu: <strong className="font-mono text-emerald-600 dark:text-emerald-400">{item.passcode}</strong>
-                              </span>
-                            </div>
-                          )}
-
-                          {isOffline && (
-                            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1">
-                              📍 <strong>Địa điểm:</strong> {item.location}
-                            </p>
-                          )}
-                          <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                            <Sparkles size={13} className="text-amber-500 shrink-0" />
-                            <span className="font-medium text-slate-700 dark:text-slate-300">Ghi chú chuẩn bị:</span> {item.prepNote}
+                          <p className="text-xs text-slate-600 dark:text-slate-400 truncate flex items-center gap-1">
+                            <MapPin size={11} className="shrink-0 text-slate-400" /> Địa điểm: {getOfflineLocation(item)}
                           </p>
                         </div>
 
                         {/* Right Column: Actions */}
-                        <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
-                          {isLive ? (
-                            isOffline ? (
-                              <div className="px-4 py-2.5 bg-amber-600 text-white rounded-xl text-xs font-bold shadow-sm">
-                                📍 Học Offline tại nhà
-                              </div>
-                            ) : (
-                              <a
-                                href={item.meetingLink}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-500/20 transition-all hover:scale-105"
-                              >
-                                <Video size={16} /> Vào phòng học ngay
-                              </a>
-                            )
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => setSelectedDetailSession(item)}
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs"
-                              >
-                                <Eye size={14} /> Chi tiết lịch học
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setRescheduleModalSession(item)}
-                                className="text-xs text-slate-600 dark:text-slate-400"
-                              >
-                                Xin đổi lịch
-                              </Button>
-                            </div>
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                          <Button
+                            size="sm"
+                            onClick={() => setSelectedDetailSession(item)}
+                            className="text-xs font-semibold flex items-center gap-1.5"
+                          >
+                            <Eye size={13} strokeWidth={1.75} /> Xem chi tiết
+                          </Button>
+                          {(item.status === "upcoming" || item.status === "live") && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setRescheduleModalSession(item)}
+                              className="text-xs text-slate-600 dark:text-slate-400"
+                            >
+                              Đổi lịch
+                            </Button>
                           )}
                         </div>
                       </div>
@@ -715,93 +565,68 @@ export default function StudentSchedule() {
             </div>
           )}
 
-          {/* SECTION 2: NHẬT KÝ BUỔI HỌC ĐÃ HOÀN THÀNH (XUỐNG CUỐI) */}
+          {/* SECTION 2: NHẬT KÝ BUỔI HỌC ĐÃ HOÀN THÀNH */}
           {(agendaCategory === "all" || agendaCategory === "completed") && (
-            <div className="space-y-3 pt-4">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white pb-1 border-b border-slate-200 dark:border-slate-800">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                <span>📚 NHẬT KÝ BUỔI HỌC ĐÃ HOÀN THÀNH ({completedJournalSessions.length} buổi)</span>
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200 pb-1 border-b border-slate-200 dark:border-slate-800">
+                <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                <span>NHẬT KÝ BUỔI HỌC ĐÃ HOÀN THÀNH ({completedJournalSessions.length} buổi)</span>
               </div>
 
               {completedJournalSessions.length === 0 ? (
-                <Card className="p-6 text-center text-xs text-slate-400 italic">
+                <Card className="p-6 text-center text-xs text-slate-400 italic border border-slate-200 dark:border-slate-800">
                   Chưa có nhật ký buổi học nào đã hoàn thành.
                 </Card>
               ) : (
                 completedJournalSessions.map((item) => {
-                  const theme = getThemeClasses(item.colorTheme);
-                  const isOffline = item.learningMode === "offline";
 
                   return (
-                    <Card key={item.id} className="p-5 border border-border bg-card hover:border-primary/40 transition-colors">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <Card key={item.id} className="p-4 transition-colors hover:border-blue-300 dark:hover:border-blue-800">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         {/* Left Column: Date, Time & Tutor */}
-                        <div className="min-w-[220px]">
+                        <div className="min-w-[200px]">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wide">
                               {item.dayOfWeek} ({item.dateStr})
                             </span>
-                            <span className="text-xs text-muted-foreground">•</span>
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <span className="text-xs text-slate-400">•</span>
+                            <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1 font-medium">
                               <Clock size={12} /> {item.startTime} - {item.endTime}
                             </span>
                           </div>
-                          <h4 className="text-sm font-semibold text-foreground mt-1">
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-white mt-1">
                             {item.tutorName}
                           </h4>
-                          <p className="text-xs text-muted-foreground">{item.subject}</p>
+                          <p className="text-xs text-slate-500">{item.subject}</p>
                         </div>
 
-                        {/* Middle Column: Lesson Takeaways Summary & Tutor Eval */}
-                        <div className="flex-1 min-w-0 bg-slate-50 dark:bg-slate-800/40 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 space-y-1.5">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <Badge tone="emerald" size="xs">✓ Đã hoàn thành</Badge>
-                            <Badge tone={isOffline ? "amber" : "blue"} size="xs">
-                              {isOffline ? "🏠 Offline" : "💻 Online"}
+                        {/* Middle Column: Topic & Location */}
+                        <div className="flex-1 min-w-0 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl border border-slate-100 dark:border-slate-800 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <Badge tone="emerald" size="xs">
+                              <CheckCircle2 size={10} /> Hoàn thành
                             </Badge>
-                            {item.hasRecord && (
-                              <Badge tone="emerald" size="xs">
-                                📹 Record ({item.recordDuration})
-                              </Badge>
-                            )}
+                            {/* Removed Mode Badge */}
                           </div>
 
-                          <p className="text-sm font-bold text-slate-900 dark:text-white">
+                          <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                             {item.topic}
                           </p>
 
-                          {item.lessonSummary?.takeaways && (
-                            <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-1 italic">
-                              💡 <strong>Tóm tắt:</strong> {item.lessonSummary.takeaways[0]}
-                            </p>
-                          )}
-
-                          {item.tutorEvaluation?.comment && (
-                            <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium italic line-clamp-1">
-                              💬 Gia sư nhận xét: &quot;{item.tutorEvaluation.comment}&quot;
-                            </p>
-                          )}
+                          <p className="text-xs text-slate-600 dark:text-slate-400 truncate flex items-center gap-1">
+                            <MapPin size={11} className="shrink-0 text-slate-400" /> Địa điểm: {getOfflineLocation(item)}
+                          </p>
                         </div>
 
                         {/* Right Column: Actions */}
-                        <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                           <Button
                             size="sm"
                             onClick={() => setSelectedDetailSession(item)}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
+                            className="text-xs font-semibold flex items-center gap-1.5"
                           >
-                            <Sparkles size={14} /> Chi tiết & Feedback
+                            <Sparkles size={13} strokeWidth={1.75} /> Xem chi tiết &amp; nhận xét
                           </Button>
-                          {!isOffline && item.hasRecord && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedDetailSession(item)}
-                              className="text-xs flex items-center gap-1.5"
-                            >
-                              <PlayCircle size={14} className="text-emerald-500" /> Video Record
-                            </Button>
-                          )}
                         </div>
                       </div>
                     </Card>
@@ -815,11 +640,11 @@ export default function StudentSchedule() {
 
       {/* 5. Modal: Xin nghỉ / Đổi lịch */}
       {rescheduleModalSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-amber-50 dark:bg-amber-950/50 text-amber-600 rounded-xl">
+                <div className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl">
                   <AlertCircle size={20} />
                 </div>
                 <div>
@@ -839,11 +664,11 @@ export default function StudentSchedule() {
 
             <form onSubmit={handleRescheduleSubmit} className="space-y-4 mt-4">
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl text-xs space-y-1">
-                <p className="font-semibold text-slate-900 dark:text-white">
+                <p className="font-bold text-slate-900 dark:text-white">
                   Buổi học: {rescheduleModalSession.topic}
                 </p>
                 <p className="text-slate-500">
-                  Thời gian gốc: {rescheduleModalSession.dayOfWeek} ({rescheduleModalSession.startTime} - {rescheduleModalSession.endTime})
+                  Thời gian: {rescheduleModalSession.dayOfWeek} ({rescheduleModalSession.startTime} - {rescheduleModalSession.endTime})
                 </p>
               </div>
 
@@ -855,13 +680,13 @@ export default function StudentSchedule() {
                   value={rescheduleReason}
                   onChange={(e) => setRescheduleReason(e.target.value)}
                   required
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-slate-400"
                 >
                   <option value="">-- Chọn lý do --</option>
-                  <option value="school">Trùng lịch kiểm tra tại trường</option>
-                  <option value="family">Bận việc gia đình xuất thần</option>
-                  <option value="health">Sức khỏe không tốt</option>
-                  <option value="other">Lý do cá nhân khác</option>
+                  <option value="Trùng lịch kiểm tra tại trường">Trùng lịch kiểm tra tại trường</option>
+                  <option value="Bận việc gia đình đột xuất">Bận việc gia đình đột xuất</option>
+                  <option value="Sức khỏe không tốt">Sức khỏe không tốt</option>
+                  <option value="Lý do cá nhân khác">Lý do cá nhân khác</option>
                 </select>
               </div>
 
@@ -874,7 +699,7 @@ export default function StudentSchedule() {
                   value={preferredSlots}
                   onChange={(e) => setPreferredSlots(e.target.value)}
                   placeholder="Ví dụ: Tối Thứ 5 (19:30 - 21:00) hoặc Sáng Chủ Nhật (09:00 - 10:30)..."
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-slate-400"
                 />
               </div>
 
@@ -887,8 +712,8 @@ export default function StudentSchedule() {
                 >
                   Hủy
                 </Button>
-                <Button type="submit" size="sm" className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white">
-                  <Send size={14} /> Gửi yêu cầu qua Chat
+                <Button type="submit" size="sm" className="flex items-center gap-1.5 font-semibold">
+                  <Send size={13} strokeWidth={1.75} /> Gửi yêu cầu đổi lịch
                 </Button>
               </div>
             </form>
@@ -898,11 +723,11 @@ export default function StudentSchedule() {
 
       {/* 6. Modal: Sync Google Calendar */}
       {isSyncModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 dark:border-slate-800 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <RefreshCw size={18} className="text-blue-500" /> Đồng bộ Google / Apple Calendar
+                <RefreshCw size={18} className="text-slate-600 dark:text-slate-400" /> Đồng bộ Calendar
               </h3>
               <button
                 onClick={() => setIsSyncModalOpen(false)}
@@ -913,7 +738,7 @@ export default function StudentSchedule() {
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Bạn có thể đồng bộ toàn bộ lịch học của 3 Gia sư vào ứng dụng Lịch cá nhân trên Điện thoại hoặc Máy tính để nhận thông báo tự động trước 15 phút.
+              Bạn có thể đồng bộ toàn bộ lịch học vào ứng dụng Lịch cá nhân trên Điện thoại hoặc Máy tính để nhận thông báo tự động.
             </p>
 
             <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 font-mono text-[11px] text-slate-700 dark:text-slate-300 break-all select-all">
@@ -932,11 +757,11 @@ export default function StudentSchedule() {
                 size="sm"
                 onClick={() => {
                   navigator.clipboard.writeText("https://edtech.platform/api/calendar/v1/student_s1_feed.ics");
-                  setNotification("Đã sao chép đường dẫn Lịch iCal/Google Calendar vào Khay nhớ tạm!");
+                  setNotification("Đã sao chép đường dẫn Lịch iCal vào Khay nhớ tạm!");
                   setIsSyncModalOpen(false);
                   setTimeout(() => setNotification(null), 3000);
                 }}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="font-semibold"
               >
                 Sao chép Link .iCal
               </Button>
@@ -947,9 +772,9 @@ export default function StudentSchedule() {
 
       {/* 7. Modal: Session Detail & Feedback */}
       {selectedDetailSession && (
-        <SessionDetailModal
-          sessionItem={selectedDetailSession}
-          onClose={() => setSelectedDetailSession(null)}
+        <LessonSessionDetail
+          sessionId={selectedDetailSession.id}
+          onClose={closeLessonDetail}
         />
       )}
     </div>
