@@ -284,20 +284,16 @@ Use Case tiếp tục bước 6.
 
 ---
 
-### UC - T06. Soạn & Giao Quiz ôn tập
+### UC - T06. Soạn & Giao Quiz ôn tập qua Trợ lý AI
 
 **Mã Use Case**  
 UC-T06
 
 **Tên Use Case**  
-Soạn & Giao Quiz ôn tập
+Soạn & Giao Quiz ôn tập qua Trợ lý AI
 
 **Mô tả**  
-Tích hợp trực tiếp tại màn hình Chi tiết Buổi học N với giao diện làm việc chia đôi tích hợp Trợ lý AI (**Giao diện làm việc chia đôi AI**):
-- **Khu vực làm việc chính (Bên trái - 65%):** Hiển thị danh sách các câu hỏi trắc nghiệm nhiều lựa chọn (MCQ) do AI tạo ra hoặc nhập từ bên ngoài vào. Hỗ trợ tính năng Chỉnh sửa trực tiếp trên giao diện câu hỏi, các phương án đáp án (A/B/C/D), đáp án đúng, thẻ kỹ năng và lời giải thích chi tiết từ AI trước khi bấm giao bài.
-- **Khu vực hỗ trợ (Bên phải - 35%):** Gồm Thẻ 1 (**Cấu hình biểu mẫu:** thiết lập các tham số tạo bài trắc nghiệm như số lượng câu hỏi, mức độ khó do Gia sư chọn, mô tả yêu cầu bổ sung và tệp đính kèm) và Thẻ 2 (**Trợ lý AI hội thoại linh hoạt:** cho phép gia sư ra lệnh cho AI tinh chỉnh bài trắc nghiệm như *"làm khó hơn câu 3"*, *"thêm 2 câu trắc nghiệm về thì quá khứ đơn"*).
-
-Khi tạo bài trắc nghiệm tự động qua AI (Lựa chọn A), tại màn hình Cấu hình biểu mẫu (Cột bên phải), hệ thống tự động hiển thị **Bảng Thống kê Phân tích Hồ sơ Học sinh (Chế độ chỉ đọc)** gồm: 5 kỹ năng chi tiết có tần suất làm sai cao nhất trong 14 ngày gần nhất (tính trên tỷ lệ câu sai / tổng số câu đã làm) và 5 kỹ năng chi tiết lâu nhất chưa ôn tập lại (dựa trên thời điểm luyện tập gần nhất) để gợi ý cho Gia sư tham khảo khi thiết lập yêu cầu tạo bài trắc nghiệm. Ngữ cảnh đầu vào nạp cho AI bao gồm: các tham số độ khó, số lượng câu, **nội dung yêu cầu do Gia sư thiết lập tại khung nhập câu lệnh** và tài liệu đính kèm (nếu có). Ngoài ra, hệ thống hỗ trợ tính năng Nhập dữ liệu từ AI bên ngoài (Lựa chọn B - Không tốn chi phí Token) thông qua Luồng thay thế. Sau khi duyệt, gia sư bấm **"Duyệt & Giao bài trắc nghiệm"**, toàn bộ câu hỏi trắc nghiệm, đáp án chuẩn và lời giải thích được lưu vào cơ sở dữ liệu để phục vụ việc tự động chấm điểm khi học sinh nộp bài.
+Cho phép Gia sư tạo và giao bài trắc nghiệm ôn tập cho học sinh tại buổi học cụ thể. Thông qua tương tác hội thoại với Trợ lý AI kết hợp dữ liệu hồ sơ kỹ năng của học sinh, gia sư có thể nhanh chóng sinh bộ câu hỏi bám sát chuẩn CEFR, đính kèm tài liệu tham khảo, tinh chỉnh trực tiếp nội dung và thiết lập hạn nộp bài.
 
 **Tác nhân**  
 Gia sư
@@ -306,70 +302,83 @@ Gia sư
 Rất cao (Tính năng cốt lõi)
 
 **Sự kiện kích hoạt**  
-Gia sư nhấp nút "Soạn Quiz" tại màn hình Chi tiết Buổi học N.
+Gia sư nhấp nút **"Soạn Quiz"** tại màn hình Chi tiết Buổi học N.
 
 **Tiền điều kiện**  
-Gia sư đang ở màn hình Chi tiết Buổi học N
+- Gia sư đã đăng nhập và đang ở màn hình Chi tiết Buổi học N của lớp học đang hoạt động (`ACTIVE`).
 
 **Hậu điều kiện**  
-Bộ câu hỏi trắc nghiệm được lưu vào cơ sở dữ liệu ở một trong hai trạng thái: Bản nháp (`draft` - gia sư lưu nháp, chưa giao) hoặc Đã giao (`assigned` - đã giao cho học sinh); câu hỏi kèm thông tin bổ sung (đáp án đúng A/B/C/D, độ khó `difficulty`, thẻ kỹ năng `skill_tags`, lời giải thích) được lưu trữ hoàn chỉnh để phục vụ chấm điểm tự động khi bài tập ở trạng thái Đã giao (`assigned`).
+- Bộ câu hỏi trắc nghiệm, đáp án chuẩn, độ khó chuẩn CEFR (A1 - C2), thẻ kỹ năng và giải thích được lưu trữ ở trạng thái Bản nháp (`draft`) hoặc Đã giao (`assigned`) kèm hạn nộp (`deadline`).
 
 **Luồng chính**  
 1. Tại màn hình Chi tiết Buổi học N, gia sư nhấp nút **"Soạn Quiz"**.
-2. Hệ thống mở giao diện **Không gian làm việc chia đôi AI** toàn màn hình:
-   - **Cột bên trái (Khu vực làm việc chính - 65%):** Màn hình xem trước bộ câu hỏi (hiện tại trống).
-   - **Cột bên phải (Khu vực hỗ trợ - 35%):** Thẻ 1 (Cấu hình biểu mẫu tham số) đang kích hoạt.
-3. Hệ thống tự động nạp và hiển thị thông tin hỗ trợ:
-   - *Bảng Thống kê Phân tích Hồ sơ Học sinh (Chế độ chỉ đọc):* Hiển thị danh sách 5 kỹ năng chi tiết có tần suất làm sai cao nhất trong 14 ngày qua và 5 kỹ năng chi tiết lâu nhất chưa ôn tập lại của học sinh để gợi ý cho Gia sư.
-4. Gia sư thiết lập tham số và tạo bài trắc nghiệm qua AI (Lựa chọn A - Luồng chính):
-   - Gia sư xem thông tin thống kê gợi ý, chọn số lượng câu hỏi, mức độ khó mong muốn và nhập mô tả yêu cầu nội dung bài trắc nghiệm tại khung nhập câu lệnh.
-   - Gia sư có thể tải lên thêm tài liệu đính kèm (tệp PDF, Word hoặc ảnh chụp bài tập/tài liệu tham khảo bổ sung) để AI phân tích làm căn cứ tạo câu hỏi trắc nghiệm (hệ thống tự động trích xuất nội dung văn bản từ tệp đính kèm).
-   - Gia sư nhấp nút **"Tạo bài trắc nghiệm AI (Lựa chọn A)"** *(Nếu muốn dùng công cụ AI bên ngoài, xem Luồng thay thế 4b)*.
-   - Hệ thống gọi Dịch vụ AI kết hợp yêu cầu do Gia sư nhập cùng cấu hình biểu mẫu để tạo bộ câu hỏi trắc nghiệm.
-   - Bộ câu hỏi trắc nghiệm hiển thị trực tiếp lên Khu vực làm việc chính (Cột bên trái).
-5. Gia sư xem trước toàn bộ danh sách câu hỏi trắc nghiệm trên Khu vực làm việc chính (Cột bên trái):
-   - Mỗi thẻ câu hỏi hiển thị: Nội dung câu hỏi trắc nghiệm, 4 phương án đáp án (A/B/C/D), Đáp án đúng, Thẻ kỹ năng chi tiết (`micro_skill_tag`), Độ khó (`difficulty`) và Lời giải thích chi tiết từ AI.
-6. Gia sư tinh chỉnh bài trắc nghiệm qua 2 cách linh hoạt:
-   - *Cách 1 (Chỉnh sửa văn bản trực tiếp):* Gia sư nhấp đúp vào văn bản câu hỏi hoặc phương án đáp án bất kỳ trên khung làm việc để gõ chỉnh sửa văn bản trực tiếp.
-   - *Cách 2 (Sử dụng Trợ lý AI hội thoại tại Cột bên phải):* Gia sư chuyển sang Thẻ 2 (Trợ lý AI hội thoại linh hoạt) và gõ lệnh điều chỉnh (ví dụ: *"Đổi câu 2 sang chủ đề từ vựng Du lịch"*, *"Cho câu 4 khó hơn nữa"*). Dịch vụ AI thực hiện tinh chỉnh và cập nhật lại câu hỏi trắc nghiệm tương ứng trên khung làm việc.
-7. Gia sư chọn một trong hai hành động:
-   - Nhấp nút **"Lưu nháp"** để lưu bộ bài trắc nghiệm tạm thời mà chưa giao cho học sinh (xem Luồng thay thế 7a).
-   - Nhấp nút **"Giao bài"** để tiến hành giao bài ngay.
-8. Khi gia sư nhấp **"Giao bài"**, hệ thống yêu cầu gia sư xác nhận Hạn nộp bài (`deadline`) và hiển thị hộp thoại xác nhận: *"Bạn có chắc chắn muốn giao bộ bài trắc nghiệm này cho [Tên HS]?"*.
-9. Gia sư xác nhận. Hệ thống thực hiện:
-   - Lưu (hoặc cập nhật) bộ câu hỏi trắc nghiệm, đáp án chuẩn, thẻ kỹ năng (`skill_tags`), độ khó câu hỏi và lời giải thích chi tiết từ AI vào cơ sở dữ liệu.
-   - Tạo (hoặc chuyển trạng thái) bản ghi bài tập trắc nghiệm gán cho Học sinh sang trạng thái Đã giao (`assigned`).
-10. Hệ thống hiển thị thông báo thành công: *"Đã giao bài trắc nghiệm cá nhân hóa thành công cho học sinh [Tên HS] tại Buổi học N."* Use Case kết thúc.
+2. Hệ thống hiển thị không gian làm việc chia đôi:
+   - *Khu vực bên trái:* Khung xem trước danh sách câu hỏi trắc nghiệm (ban đầu trống).
+   - *Khu vực bên phải:* Khung Chatbot AI tích hợp ô nhập lệnh và nút đính kèm tài liệu.
+   - *Thanh phụ trợ:* Nút mở/ngăn kéo xem **"Bảng Thống kê Hồ sơ Học sinh"** hiển thị toàn bộ kỹ năng học sinh đã học, mặc định sắp xếp theo tỷ lệ sai từ cao xuống thấp và thời gian chưa ôn tập.
+3. Gia sư tham khảo bảng kỹ năng, nhập yêu cầu vào khung Chat (ví dụ: *"Tạo 5 câu trắc nghiệm tập trung vào các thì quá khứ mà học sinh hay sai, độ khó cấp độ B1"*), có thể đính kèm tài liệu bài học (PDF/ảnh) và gửi cho AI.
+4. AI tiếp nhận yêu cầu cùng hồ sơ năng lực học sinh, sinh bộ câu hỏi và tự động hiển thị trực tiếp lên khu vực bên trái.
+5. Gia sư kiểm tra các câu hỏi ở khu vực bên trái (nội dung, phương án A/B/C/D, đáp án đúng, thẻ kỹ năng, độ khó CEFR A1 - C2, giải thích).
+6. Gia sư có thể tinh chỉnh bài quiz:
+   - *Cách 1:* Nhấp trực tiếp vào câu hỏi/đáp án/độ khó ở bên trái để sửa văn bản.
+   - *Cách 2:* Chat tiếp với AI ở bên phải để yêu cầu sửa đổi (ví dụ: *"Nâng câu 3 lên B2"*, *"Đổi câu 1 sang câu hỏi tình huống"*).
+7. Gia sư chọn **"Giao bài"** (hoặc chọn **"Lưu nháp"** nếu chưa muốn giao ngay).
+8. Hệ thống hiển thị hộp thoại xác nhận và yêu cầu chọn Hạn nộp bài (`deadline`).
+9. Gia sư thiết lập hạn nộp và xác nhận.
+10. Hệ thống lưu bộ câu hỏi vào cơ sở dữ liệu, kích hoạt trạng thái Đã giao (`assigned`) cho học sinh và thông báo thành công. Use Case kết thúc.
 
 **Luồng thay thế**  
-4b. Gia sư chọn chế độ Sao chép câu lệnh & Nhập dữ liệu từ AI bên ngoài (Lựa chọn B - Không tốn chi phí Token):  
-4b1. Gia sư điền các thông số trên Cấu hình biểu mẫu (số lượng câu hỏi, mô tả yêu cầu nội dung).  
-4b2. Gia sư nhấp nút **"Sao chép câu lệnh chuẩn hóa"**.  
-4b3. Hệ thống tự động đóng gói Yêu cầu nội dung do gia sư nhập kết hợp với các thông số cấu hình biểu mẫu, danh mục thẻ kỹ năng hợp lệ và cấu hình định dạng JSON chuẩn thành một đoạn câu lệnh hoàn chỉnh và lưu vào bộ nhớ tạm.  
-4b4. Hệ thống hiển thị hướng dẫn: *"Đã sao chép câu lệnh! Bạn chỉ cần dán câu lệnh này vào ChatGPT/Claude và đính kèm tệp/ảnh tài liệu của bạn (nếu có) để tạo bài trắc nghiệm."*  
-4b5. Gia sư mở công cụ AI bên ngoài (ChatGPT, Claude, Gemini...), dán câu lệnh (và tải tệp/ảnh lên nếu có) để tạo bộ bài trắc nghiệm.  
-4b6. Gia sư dán văn bản kết quả (dạng JSON hoặc đoạn văn bản bài trắc nghiệm chuẩn) vào ô nhập trên hệ thống và nhấp **"Kiểm tra & Nhập dữ liệu"**.  
-4b7. Hệ thống kiểm định cấu trúc bài trắc nghiệm và hiển thị toàn bộ câu hỏi lên Khu vực làm việc chính.  
-Use Case tiếp tục bước 5.
-
-6a. Gia sư muốn xóa bớt một câu hỏi trắc nghiệm không ưng ý khỏi bài trắc nghiệm:  
-6a1. Gia sư nhấp vào biểu tượng Thùng rác trên thẻ câu hỏi tại Khu vực làm việc chính.  
-6a2. Hệ thống loại bỏ câu hỏi đó khỏi danh sách xem trước và cập nhật lại tổng số câu.  
-Use Case tiếp tục bước 6.
-
-7a. Gia sư chưa muốn giao ngay và nhấp nút **"Lưu nháp"**:  
-7a1. Hệ thống lưu toàn bộ bộ câu hỏi trắc nghiệm hiện tại (bao gồm đáp án, thẻ kỹ năng `skill_tags`, độ khó, lời giải thích AI) vào cơ sở dữ liệu ở trạng thái Bản nháp (`draft`).  
-7a2. Hệ thống hiển thị thông báo: *"Đã lưu nháp bài trắc nghiệm thành công. Bạn có thể mở lại để chỉnh sửa hoặc giao bài sau."*  
-7a3. Bài trắc nghiệm nháp xuất hiện trong danh sách **"Bài trắc nghiệm đang soạn thảo (Nháp)"** tại màn hình Chi tiết Buổi học N, với nhãn trạng thái `Nháp` và nút **"Tiếp tục chỉnh sửa / Giao bài"**.  
-Use Case kết thúc.
+- **2a. Sắp xếp lại Bảng Thống kê Hồ sơ Học sinh:** Gia sư đổi tiêu chí sắp xếp (theo thời gian chưa ôn tập, theo bảng chữ cái A-Z, theo nhóm chủ điểm). Hệ thống cập nhật lại thứ tự hiển thị. Use Case tiếp tục bước 3.
+- **5a. Xóa câu hỏi:** Gia sư bấm biểu tượng Thùng rác để loại bỏ câu hỏi không ưng ý. Use Case tiếp tục bước 6.
+- **7a. Lưu nháp:** Gia sư nhấp "Lưu nháp", hệ thống lưu bộ quiz với trạng thái `draft` tại Buổi học N để chỉnh sửa hoặc giao sau. Use Case kết thúc.
 
 **Luồng ngoại lệ**  
-4a1. Dịch vụ AI gặp sự cố quá tải hoặc phản hồi chậm quá 15 giây:  
-4a2. Hệ thống hiển thị thông báo: "Hệ thống AI đang bận. Bạn có thể chuyển sang chế độ Nhập tệp từ AI bên ngoài (Lựa chọn B) hoặc bấm Thử lại".  
-4a3. Gia sư chọn thử lại hoặc chuyển sang Lựa chọn B.  
-Use Case quay lại bước 4.
+- **4a. Dịch vụ AI gặp lỗi kết nối hoặc phản hồi quá 15 giây:** Hệ thống báo lỗi và gợi ý gia sư bấm "Thử lại".
 
 ---
+
+### UC - T06b. Import Quiz từ công cụ ngoài
+
+**Mã Use Case**  
+UC-T06b
+
+**Tên Use Case**  
+Import Quiz từ công cụ ngoài
+
+**Mô tả**  
+Cho phép gia sư sử dụng các công cụ AI bên ngoài (như ChatGPT, Claude, Gemini) để tạo bộ câu hỏi trắc nghiệm nhằm tiết kiệm chi phí token của hệ thống. Tính năng hỗ trợ trích xuất **câu lệnh chuẩn hóa (Prompt template)** đã tích hợp sẵn hồ sơ năng lực học sinh và thang đo CEFR (A1 - C2), sau đó cho phép gia sư dán kết quả trả về để hệ thống tự động kiểm định cấu trúc và nạp thành bài quiz cho buổi học.
+
+**Tác nhân**  
+Gia sư
+
+**Độ ưu tiên**  
+Trung bình - Cao
+
+**Sự kiện kích hoạt**  
+Gia sư nhấp nút **"Import Quiz"** tại màn hình Soạn Quiz hoặc Chi tiết Buổi học N.
+
+**Tiền điều kiện**  
+- Gia sư đang ở màn hình Chi tiết Buổi học N của lớp học đang hoạt động (`ACTIVE`).
+
+**Hậu điều kiện**  
+- Dữ liệu trắc nghiệm sau khi kiểm định hợp lệ được nạp thành bộ Quiz hoàn chỉnh trên hệ thống ở trạng thái Bản nháp (`draft`) hoặc Đã giao (`assigned`).
+
+**Luồng chính**  
+1. Tại Buổi học N, gia sư nhấp nút **"Import Quiz"**.
+2. Hệ thống hiển thị hộp thoại Import kèm nút **"Sao chép Prompt"** (đã tích hợp danh sách kỹ năng cần củng cố của học sinh và quy chuẩn định dạng JSON theo thang CEFR A1 - C2).
+3. Gia sư nhấp **"Sao chép Prompt"**; hệ thống lưu câu lệnh mẫu vào bộ nhớ tạm.
+4. Gia sư mở công cụ AI bên ngoài (ChatGPT / Claude / Gemini...), dán prompt để sinh bộ câu hỏi.
+5. Gia sư sao chép kết quả từ AI bên ngoài, quay lại hệ thống và dán vào khung **"Dán dữ liệu Quiz"**.
+6. Gia sư nhấp **"Kiểm tra & Nạp dữ liệu"**.
+7. Hệ thống kiểm định tính hợp lệ của cấu trúc (câu hỏi, phương án A/B/C/D, đáp án đúng, độ khó CEFR, thẻ kỹ năng).
+8. Dữ liệu hợp lệ được hiển thị trực tiếp lên không gian làm việc của Buổi học N để gia sư xem lại.
+9. Gia sư chọn **"Giao bài"** hoặc **"Lưu nháp"**. Use Case kết thúc.
+
+**Luồng ngoại lệ**  
+- **7a. Dữ liệu dán vào sai cấu trúc:** Hệ thống báo lỗi cụ thể (ví dụ: *"Định dạng JSON không hợp lệ hoặc thiếu đáp án đúng tại câu 2"*) và cho phép gia sư chỉnh sửa lại văn bản trước khi nạp lại.
+
+---
+
 
 ### UC - T07. Xem & Tra cứu Lịch dạy
 
@@ -489,7 +498,8 @@ Bảng tổng hợp đối chiếu Use Case Phân hệ Gia sư hiện có với 
 | **UC-T02** | Xem danh sách & Ứng tuyển Lớp cần gia sư | Gia sư | **FR-28**: Tìm lớp & Chấp nhận ghép lớp (Unlock SĐT) | UJ-2 |
 | **UC-T04** | Quản lý Khung chương trình | Gia sư | **FR-30**: Quản lý Khung chương trình (Mẫu & Thủ công) | UJ-2 |
 | **UC-T05** | Quản lý Buổi học thực tế & Nhật ký dạy học | Gia sư | **FR-40**: Quản lý Buổi học thực tế & Nhật ký dạy học (S3) | UJ-2 |
-| **UC-T06** | Soạn & Giao Bài trắc nghiệm | Gia sư | **FR-8, FR-9**: Không gian làm việc chia đôi màn hình AI & Chế độ kép | UJ-2 (AI Cốt lõi) |
+| **UC-T06** | Soạn & Giao Quiz ôn tập qua Trợ lý AI | Gia sư | **FR-8, FR-9**: Không gian làm việc chia đôi màn hình AI | UJ-2 (AI Cốt lõi) |
+| **UC-T06b** | Import Quiz từ công cụ ngoài | Gia sư | **FR-9**: Chế độ kép & Nhập dữ liệu BYO-AI | UJ-2 |
 | **UC-T07** | Xem & Tra cứu Lịch dạy | Gia sư | **FR-26**: Xem Lịch dạy (Thời khóa biểu cá nhân) | UJ-2 |
 | **UC-T08** | Cấu hình & Thiết lập Lịch dạy | Gia sư | **FR-29**: Cấu hình Lịch học thử & Chốt Lịch dạy cố định | UJ-2 |
 
