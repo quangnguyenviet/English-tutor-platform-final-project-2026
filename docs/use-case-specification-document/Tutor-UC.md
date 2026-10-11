@@ -223,16 +223,16 @@ Use Case quay lại bước 4.
 
 ---
 
-### UC - T05. Quản lý Buổi học thực tế & Nhật ký dạy học
+### UC - T05. Quản lý Nhật ký buổi học
 
 **Mã Use Case**  
 UC-T05
 
 **Tên Use Case**  
-Quản lý Buổi học thực tế & Nhật ký dạy học
+Quản lý Nhật ký buổi học
 
 **Mô tả**  
-Cho phép gia sư quản lý dòng thời gian từng buổi học thực tế độc lập với Khung chương trình tổng thể. Tại màn hình làm việc của Buổi học N, gia sư ghi nhận thông tin bài giảng, đính kèm bài giảng/tài liệu ôn tập (.pdf, .docx) và điền vùng văn bản **Nhật ký dạy học** sau khi buổi học kết thúc. Vùng văn bản này hiển thị công khai cho cả Gia sư, Học sinh và Phụ huynh cùng xem, dùng để ghi lại kiến thức trọng tâm đã học và dặn dò.
+Cho phép gia sư quản lý danh sách và nội dung chi tiết từng buổi học gắn liền với Lịch dạy cố định của lớp học. Tại màn hình làm việc của Buổi học N, gia sư ghi nhận thông tin bài giảng, đính kèm bài giảng/tài liệu ôn tập (.pdf, .docx), soạn/giao Quiz ôn tập qua AI và điền **Nhật ký buổi học** sau khi ca dạy kết thúc. Khi nhật ký được lưu, hệ thống tự động cập nhật trạng thái buổi học thành Hoàn thành và đồng bộ trạng thái trực tiếp lên Thời khóa biểu (UC-T07). Báo cáo nhật ký này hiển thị công khai cho cả Gia sư, Học sinh và Phụ huynh cùng theo dõi.
 
 **Tác nhân**  
 Gia sư
@@ -241,46 +241,56 @@ Gia sư
 Cao
 
 **Sự kiện kích hoạt**  
-Gia sư chọn thẻ "Buổi học thực tế" trong lớp học và nhấp vào "Buổi học N" hoặc bấm "+ Thêm buổi học mới".
+Gia sư điều hướng từ ca dạy trên Thời khóa biểu (UC-T07) HOẶC nhấp chọn thẻ "Nhật ký buổi học" trong trang Chi tiết Lớp học.
 
 **Tiền điều kiện**  
 Lớp học đang ở trạng thái Đang hoạt động (`ACTIVE`).
 
 **Hậu điều kiện**  
-Thông tin Buổi học N, tài liệu đính kèm và nội dung Nhật ký dạy học được lưu trữ; Phụ huynh và Học sinh có thể truy cập xem báo cáo nhật ký bài học này ngay lập tức.
+Thông tin Buổi học N, tài liệu đính kèm, bộ Quiz và Nhật ký buổi học được lưu trữ; trạng thái ca dạy trên Thời khóa biểu được đồng bộ thành Đã hoàn thành; Phụ huynh và Học sinh có thể xem báo cáo nhật ký ngay lập tức.
 
 **Luồng chính**  
-1. Gia sư truy cập trang Quản lý Lớp học và chọn thẻ **"Buổi học thực tế"**.
-2. Hệ thống hiển thị danh sách các buổi học thực tế được đánh số thứ tự tăng dần (Buổi 1, Buổi 2... Buổi N) kèm ngày diễn ra và trạng thái hoàn thành.
-3. Gia sư nhấp chọn **"Buổi học N"** (hoặc nhấp "+ Tạo buổi học tiếp theo").
-4. Hệ thống hiển thị Màn hình Chi tiết Buổi học N bao gồm các khu vực:
-   - **Thông tin chung buổi học:** Tiêu đề buổi học, Ngày dạy thực tế, Thời lượng.
-   - **Tài liệu học tập đính kèm:** Danh sách tệp đính kèm.
-   - **Bài Quiz:** Bộ bài trắc nghiệm đã soạn/giao cho buổi học (nếu có), kèm nút "Soạn & Giao bài Quiz".
-   - **Nhật ký dạy học:** Vùng nhập văn bản lớn.
-5. Gia sư điền thông tin tiêu đề và nội dung trọng tâm giảng dạy trong buổi học N.
-6. Gia sư nhấp nút **"Đính kèm tài liệu"** (nếu có tài liệu bài giảng PDF, Word hoặc âm thanh):
+1. Gia sư truy cập màn hình Chi tiết Buổi học N (thông qua nút "Vào chi tiết buổi học" từ Thời khóa biểu UC-T07 HOẶC nhấp chọn "Buổi học N" tại thẻ "Nhật ký buổi học").
+2. Hệ thống hiển thị Màn hình Chi tiết Buổi học N bao gồm:
+   - **Thông tin chung ca học:** Số thứ tự buổi học (Buổi N), Ngày dạy, Khung giờ theo lịch, Hình thức (Online/Tại nhà) và Trạng thái (*Sắp diễn ra / Hoàn thành*).
+   - **Tài liệu học tập đính kèm:** Danh sách tệp bài giảng đính kèm kèm nút tải lên.
+   - **Bài Quiz ôn tập:** Bộ bài trắc nghiệm gắn với buổi học (nếu có), kèm nút "Soạn & Giao bài Quiz" (UC-T06).
+   - **Nhật ký buổi học:** Vùng nhập văn bản ghi nhận kiến thức đã giảng và dặn dò.
+3. Gia sư điền/cập nhật tiêu đề và nội dung trọng tâm giảng dạy trong buổi học.
+4. Gia sư nhấp nút **"Đính kèm tài liệu"** (nếu có tài liệu bài giảng PDF, Word hoặc âm thanh):
    - Gia sư chọn tệp từ máy tính.
-   - Hệ thống tự động tải tệp lên hệ thống và gắn liên kết tải an toàn tại Buổi học N.
-7. Gia sư điền vùng văn bản **Nhật ký dạy học**:
-   - *Kiến thức đã hoàn thành trong buổi:* Các cấu trúc ngữ pháp/từ vựng đã giảng.
-   - *Dặn dò:* Bài tập cần làm, yêu cầu học từ vựng.
-8. Gia sư nhấp nút **"Lưu nhật ký bài học"**.
-9. Hệ thống lưu dữ liệu vào cơ sở dữ liệu và cập nhật báo cáo Nhật ký dạy học (Học sinh và Phụ huynh có thể xem nội dung ngay).
-10. Hệ thống hiển thị thông báo: *"Đã lưu nhật ký Buổi học N. Phụ huynh và Học sinh đã có thể xem báo cáo này."* Use Case kết thúc.
+   - Hệ thống tự động tải tệp lên và tạo liên kết tải an toàn tại Buổi học N.
+5. Sau khi kết thúc buổi dạy, gia sư điền vùng văn bản **Nhật ký buổi học**:
+   - *Kiến thức đã hoàn thành trong buổi:* Cấu trúc ngữ pháp, từ vựng hoặc kỹ năng đã giảng.
+   - *Dặn dò:* Bài tập cần làm, yêu cầu ôn tập.
+6. Gia sư nhấp nút **"Lưu nhật ký & Xác nhận hoàn thành buổi học"**.
+7. Hệ thống kiểm tra dữ liệu, lưu nội dung nhật ký, chuyển trạng thái buổi học sang Hoàn thành (`COMPLETED`).
+8. Hệ thống tự động đồng bộ trạng thái ca dạy tương ứng trên Thời khóa biểu cá nhân (UC-T07) sang màu xanh ("Đã hoàn thành") và cập nhật dữ liệu báo cáo cho Phụ huynh & Học sinh.
+9. Hệ thống hiển thị thông báo: *"Đã lưu nhật ký Buổi học N thành công. Phụ huynh và Học sinh đã có thể xem báo cáo này."* Use Case kết thúc.
 
 **Luồng thay thế**  
-7a. Gia sư muốn tạm ẩn buổi học (không cho Phụ huynh & Học sinh thấy):  
-7a1. Gia sư nhấp nút **"Ẩn buổi học"**.  
-7a2. Hệ thống chuyển trạng thái buổi học sang Trạng thái ẩn (`HIDDEN`) (thẻ buổi học bị làm mờ, chỉ riêng Gia sư xem và chỉnh sửa được).  
-7a3. Khi muốn công khai lại, gia sư nhấp **"Hiện buổi học"**.  
-Use Case tiếp tục bước 9.
+1a. Gia sư khởi tạo ca học tiếp theo trực tiếp từ thẻ "Nhật ký buổi học":  
+1a1. Tại thẻ "Nhật ký buổi học", gia sư nhấp nút **"+ Khởi tạo ca học tiếp theo theo lịch"**.  
+1a2. Hệ thống tự động xác định ngày của ca học cố định gần nhất tiếp theo, khởi tạo bản ghi `ClassSession` mới và mở giao diện Buổi học N.  
+Use Case tiếp tục bước 2.
+
+1b. Gia sư tạo buổi học phụ đạo/đột xuất ngoài lịch cố định (Ad-hoc Session):  
+1b1. Gia sư nhấp nút **"+ Thêm buổi học phát sinh"**.  
+1b2. Hệ thống hiển thị modal cho phép gia sư tự chọn Ngày dạy và Khung giờ phụ đạo.  
+1b3. Gia sư bấm xác nhận; hệ thống tạo buổi học phát sinh và mở giao diện Buổi học N.  
+Use Case tiếp tục bước 2.
+
+5a. Gia sư muốn tạm ẩn buổi học (không cho Phụ huynh & Học sinh thấy):  
+5a1. Gia sư nhấp nút **"Ẩn buổi học"**.  
+5a2. Hệ thống chuyển trạng thái buổi học sang Trạng thái ẩn (`HIDDEN`) (chỉ riêng Gia sư xem và chỉnh sửa được).  
+5a3. Khi muốn công khai lại, gia sư nhấp **"Hiện buổi học"**.  
+Use Case tiếp tục bước 6.
 
 **Luồng ngoại lệ**  
-6a. Tải tệp tài liệu đính kèm thất bại do sự cố mạng:  
-6a1. Hệ thống hiển thị thông báo lỗi: "Không thể tải tệp lên hệ thống. Vui lòng kiểm tra lại kết nối mạng và thử lại".  
-6a2. Gia sư bấm nút "Tải lại tệp".  
-Use Case tiếp tục bước 6.
+4a. Tải tệp tài liệu đính kèm thất bại do sự cố mạng:  
+4a1. Hệ thống hiển thị thông báo lỗi: "Không thể tải tệp lên hệ thống. Vui lòng kiểm tra lại kết nối mạng và thử lại".  
+4a2. Gia sư bấm nút "Tải lại tệp".  
+Use Case tiếp tục bước 4.
 
 ---
 
@@ -389,7 +399,7 @@ UC-T07
 Xem & Tra cứu Lịch dạy
 
 **Mô tả**  
-Cho phép Gia sư xem toàn bộ ca dạy của các lớp đang phụ trách theo dạng Thời khóa biểu trực quan (Lịch tuần / Lịch tháng). Gia sư có thể lọc lịch theo từng lớp học và xem thông tin chi tiết từng ca dạy (tên học sinh, lớp học, khung giờ, hình thức học Online/Tại nhà, địa chỉ dạy học hoặc liên kết phòng học trực tuyến Zoom/Meet).
+Cho phép Gia sư xem toàn bộ ca dạy của các lớp đang phụ trách dưới dạng Thời khóa biểu trực quan (Lịch tuần / Lịch tháng). Gia sư có thể lọc lịch theo từng lớp học, tra cứu thông tin phòng học/địa chỉ ca dạy, đồng thời truy cập hoặc khởi tạo nhật ký buổi học tương ứng.
 
 **Tác nhân**  
 Gia sư
@@ -404,15 +414,24 @@ Gia sư chọn mục "Lịch dạy" hoặc "Thời khóa biểu" trên thanh đi
 Gia sư đã đăng nhập thành công vào hệ thống.
 
 **Hậu điều kiện**  
-Giao diện Thời khóa biểu hiển thị chính xác toàn bộ ca dạy cố định của gia sư theo thời gian thực.
+- Giao diện Thời khóa biểu hiển thị chính xác toàn bộ ca dạy của gia sư theo thời gian thực.
+- Bản ghi buổi học chỉ được khởi tạo trong cơ sở dữ liệu khi gia sư chủ động bấm khởi tạo và xác nhận.
 
 **Luồng chính**  
 1. Gia sư truy cập Cổng Gia sư và chọn mục **"Lịch dạy"** (hoặc **"Thời khóa biểu"**).
-2. Hệ thống tải dữ liệu các ca dạy và hiển thị giao diện Thời khóa biểu cá nhân dưới dạng Lịch tuần (chế độ mặc định).
-3. Mỗi ca dạy trên thời khóa biểu hiển thị thông tin tóm tắt bao gồm: Tên lớp/Học sinh, Khung giờ dạy, Hình thức học (Online hoặc Tại nhà).
+2. Hệ thống tải dữ liệu các ca dạy theo khung thời gian cố định và hiển thị giao diện Thời khóa biểu cá nhân dưới dạng Lịch tuần (chế độ mặc định).
+3. Mỗi ca dạy trên thời khóa biểu hiển thị: Tên lớp/Học sinh, Khung giờ dạy và Hình thức học (*Online / Tại nhà*).
 4. Gia sư nhấp vào một ca dạy bất kỳ trên thời khóa biểu.
-5. Hệ thống hiển thị thẻ/hộp thoại Chi tiết ca dạy bao gồm: Tên học sinh, lớp học, khung giờ học, hình thức học (Online/Tại nhà), địa chỉ nhà học sinh (nếu học Tại nhà) hoặc liên kết phòng học trực tuyến (nếu học Online).
-6. Gia sư xem xong thông tin và đóng hộp thoại Chi tiết ca dạy. Use Case kết thúc.
+5. Hệ thống hiển thị hộp thoại Chi tiết ca dạy bao gồm: Tên học sinh, lớp học, ngày và khung giờ học, hình thức học (Online/Tại nhà), địa chỉ nhà học sinh (nếu học Tại nhà) hoặc liên kết phòng học trực tuyến Zoom/Meet (nếu học Online). Hệ thống kiểm tra tình trạng nhật ký của ca dạy này:
+   - **Trường hợp A (Đã có nhật ký buổi học):** Hiển thị nút **"Xem / Cập nhật nhật ký"**.
+   - **Trường hợp B (Chưa có nhật ký buổi học):** Hiển thị trạng thái *"Chưa khởi tạo nhật ký"* kèm nút **"+ Khởi tạo nhật ký buổi học"**.
+6. Gia sư thực hiện hành động:
+   - *Nếu là Trường hợp A:* Gia sư nhấp **"Xem / Cập nhật nhật ký"** $\rightarrow$ Hệ thống điều hướng trực tiếp đến màn hình Chi tiết Buổi học (UC-T05). Use Case kết thúc.
+   - *Nếu là Trường hợp B:* Gia sư nhấp nút **"+ Khởi tạo nhật ký buổi học"**.
+7. Hệ thống hiển thị hộp thoại xác nhận: *"Bạn có muốn khởi tạo nhật ký cho ca học ngày [DD/MM/YYYY] không?"*.
+8. Gia sư nhấp **"Xác nhận"**.
+9. Hệ thống khởi tạo bản ghi buổi học mới trong cơ sở dữ liệu (gán ngày dạy, khung giờ từ lịch, số thứ tự buổi tăng dần theo ngày).
+10. Hệ thống điều hướng gia sư đến màn hình Chi tiết Buổi học (UC-T05) để soạn Quiz AI, tải tài liệu hoặc chuẩn bị bài giảng. Use Case kết thúc.
 
 **Luồng thay thế**  
 2a. Gia sư chuyển đổi chế độ hiển thị lịch hoặc thời gian xem (tuần/tháng):  
@@ -425,6 +444,16 @@ Use Case tiếp tục bước 3.
 2b2. Hệ thống chỉ hiển thị các ca dạy của lớp đã chọn trên Thời khóa biểu.  
 Use Case tiếp tục bước 3.
 
+5a. Gia sư chỉ xem thông tin ca dạy rồi đóng:  
+5a1. Gia sư nhấp biểu tượng "Đóng" (hoặc nhấp ra ngoài hộp thoại chi tiết).  
+5a2. Hệ thống đóng hộp thoại. Không có bản ghi buổi học nào phát sinh vào cơ sở dữ liệu.  
+Use Case kết thúc.
+
+8a. Gia sư hủy thao tác khởi tạo nhật ký:  
+8a1. Tại hộp thoại xác nhận (bước 7), gia sư nhấp "Hủy" hoặc đóng hộp thoại.  
+8a2. Hệ thống hủy yêu cầu và giữ nguyên giao diện Chi tiết ca dạy, không phát sinh bất kỳ bản ghi nào trong cơ sở dữ liệu.  
+Use Case quay lại bước 5.
+
 **Luồng ngoại lệ**  
 2a1. Không có ca dạy nào trong khoảng thời gian được chọn:  
 2a1.1. Hệ thống hiển thị thông điệp: "Bạn không có ca dạy nào trong tuần/tháng này".  
@@ -432,16 +461,16 @@ Use Case kết thúc.
 
 ---
 
-### UC - T08. Cấu hình & Thiết lập Lịch dạy
+### UC - T08. Thiết lập Lịch dạy thử
 
 **Mã Use Case**  
 UC-T08
 
 **Tên Use Case**  
-Cấu hình & Thiết lập Lịch dạy
+Thiết lập Lịch dạy thử
 
 **Mô tả**  
-Cho phép Gia sư thiết lập khung thời gian dạy học cố định hàng tuần (gồm các Thứ trong tuần, khung giờ dạy, hình thức học Online/Tại nhà) cho lớp học sau khi đơn ghép lớp được Admin/Lễ tân phê duyệt. Buổi học đầu tiên diễn ra theo khung lịch cố định này sẽ đồng thời đóng vai trò là buổi học thử. Việc thiết lập lịch dạy giúp hệ thống kiểm tra xung đột trùng lịch ca dạy cá nhân của gia sư và hiển thị Thời khóa biểu cố định cho Gia sư, Học sinh và Phụ huynh.
+Cho phép Gia sư thiết lập thông tin cho 01 buổi dạy thử duy nhất (gồm ngày diễn ra cụ thể, khung giờ bắt đầu - kết thúc, hình thức học Online/Tại nhà) cho lớp học sau khi nhận lớp thành công và liên hệ trao đổi sơ bộ với Phụ huynh. Lớp học lúc này ở trạng thái Đang dạy thử (`TRIAL`). Việc thiết lập lịch dạy thử giúp hệ thống kiểm tra xung đột trùng ca dạy cá nhân của Gia sư tại mốc thời gian đó và tự động hiển thị 01 ca học thử trên Thời khóa biểu cá nhân (UC-T07) cho cả Gia sư, Học sinh và Phụ huynh cùng theo dõi.
 
 **Tác nhân**  
 Gia sư
@@ -450,41 +479,101 @@ Gia sư
 Cao
 
 **Sự kiện kích hoạt**  
-Gia sư nhấp nút "Thiết lập lịch dạy" tại trang Chi tiết Lớp học sau khi Admin/Lễ tân chuyển đơn ghép lớp sang trạng thái sẵn sàng xếp lịch.
+Gia sư nhấp nút "Thiết lập lịch dạy thử" tại trang Chi tiết Lớp học đang ở trạng thái Đang dạy thử (`TRIAL`).
 
 **Tiền điều kiện**  
 - Gia sư đã đăng nhập thành công vào Cổng Gia sư.
-- Đơn ghép lớp đã được Admin/Lễ tân phê duyệt và phân công cho Gia sư.
+- Lớp học đã được ghép cho Gia sư và đang ở trạng thái Đang dạy thử (`TRIAL`).
 
 **Hậu điều kiện**  
-- Khung thời gian dạy cố định hàng tuần được lưu vào cơ sở dữ liệu.
-- Thời khóa biểu cố định của Gia sư được đồng bộ tự động trên giao diện Lịch dạy (UC-T07).
+- Thông tin lịch dạy thử (ngày, giờ, hình thức) được lưu vào thông tin lớp học (trạng thái lớp vẫn giữ nguyên là `TRIAL`).
+- Hệ thống tự động tạo 01 ca học thử trên Thời khóa biểu cá nhân của Gia sư (UC-T07) kèm nhãn nhận diện `[Học thử]`.
 
 **Luồng chính**  
-1. Gia sư truy cập trang Quản lý Lớp học và chọn lớp học vừa được Admin/Lễ tân phê duyệt đơn ghép lớp.
-2. Gia sư nhấp nút **"Thiết lập lịch dạy"**.
-3. Hệ thống hiển thị biểu mẫu Thiết lập Khung lịch dạy cố định hàng tuần.
-4. Gia sư chọn các **Thứ trong tuần** (VD: Thứ 2, Thứ 5) và nhập **Khung giờ bắt đầu - kết thúc** cho từng ca dạy (VD: 19:30 - 21:00).
-5. Gia sư chọn **Hình thức học**: *Online* (nhập/gắn liên kết phòng học Zoom/Google Meet) hoặc *Tại nhà* (xác nhận địa chỉ dạy học).
-6. Gia sư nhấp nút **"Lưu & Thiết lập lịch dạy"**.
-7. Hệ thống kiểm tra xung đột/trùng lịch ca dạy cá nhân của Gia sư với các lớp học khác mà Gia sư đang đảm nhận.
-8. Hệ thống lưu dữ liệu khung thời khóa biểu cố định vào cơ sở dữ liệu và cập nhật trạng thái lớp học (buổi học diễn ra đầu tiên theo lịch này đóng vai trò là buổi học thử).
-9. Hệ thống hiển thị thông báo thành công: *"Đã thiết lập lịch dạy cố định thành công."* Use Case kết thúc.
+1. Gia sư truy cập trang Quản lý Lớp học và chọn lớp học đang ở trạng thái **Đang dạy thử (`TRIAL`)**.
+2. Gia sư nhấp nút **"Thiết lập lịch dạy thử"**.
+3. Hệ thống hiển thị biểu mẫu Thiết lập Lịch dạy thử bao gồm:
+   - **Ngày dạy thử:** Chọn ngày diễn ra buổi học thử (DatePicker: DD/MM/YYYY).
+   - **Khung giờ dạy:** Nhập giờ bắt đầu và giờ kết thúc (VD: 19:30 - 21:00).
+   - **Hình thức học:** Chọn *Online* (nhập/gắn liên kết phòng học Zoom/Google Meet) hoặc *Tại nhà* (xác nhận địa chỉ nhà học sinh).
+4. Gia sư nhấp nút **"Lưu lịch dạy thử"**.
+5. Hệ thống kiểm tra xung đột/trùng lịch ca dạy cá nhân của Gia sư với các ca dạy khác trong ngày và khung giờ đã chọn.
+6. Hệ thống lưu thông tin lịch dạy thử vào thuộc tính của lớp học (trạng thái lớp vẫn duy trì là `TRIAL`).
+7. Hệ thống tự động đẩy 01 ca học thử lên Thời khóa biểu cá nhân (UC-T07) với nhãn `[Học thử]` và hiển thị thông báo: *"Đã thiết lập lịch dạy thử thành công cho ngày [DD/MM/YYYY]."* Use Case kết thúc.
 
 **Luồng thay thế**  
-8a. Gia sư cập nhật/điều chỉnh lại khung lịch cố định của lớp đang hoạt động (`ACTIVE`):  
-8a1. Gia sư mở Cài đặt lớp học đang `ACTIVE`, chọn "Chỉnh sửa lịch cố định".  
-8a2. Gia sư điều chỉnh lại Thứ, Khung giờ hoặc Hình thức học và bấm "Cập nhật".  
-8a3. Hệ thống kiểm tra trùng lịch (bước 7) và lưu cấu hình lịch mới.  
-8a4. Hệ thống cập nhật thời khóa biểu và gửi thông báo thay đổi cho Phụ huynh & Học sinh.  
+4a. Gia sư điều chỉnh/dời lịch dạy thử (khi buổi dạy thử chưa diễn ra):  
+4a1. Tại trang Chi tiết Lớp học (`TRIAL`), Gia sư nhấp chọn "Chỉnh sửa lịch dạy thử".  
+4a2. Gia sư điều chỉnh lại Ngày học, Khung giờ hoặc Hình thức học và nhấp "Lưu thay đổi".  
+4a3. Hệ thống kiểm tra trùng lịch (bước 5) và cập nhật lại thông tin buổi học thử trên Thời khóa biểu (UC-T07).  
 Use Case kết thúc.
 
 **Luồng ngoại lệ**  
-7a. Trùng ca dạy cá nhân của Gia sư:  
-7a1. Hệ thống phát hiện khung giờ vừa chọn trùng với ca dạy của một lớp `ACTIVE` khác mà Gia sư đang dạy.  
-7a2. Hệ thống cảnh báo: *"Khung giờ Thứ 2 (19:30 - 21:00) bị trùng với ca dạy của học sinh [Tên HS]. Vui lòng chọn khung giờ khác."*  
-7a3. Gia sư điều chỉnh lại khung giờ hoặc Thứ học không bị xung đột.  
-Use Case quay lại bước 6.
+5a. Trùng ca dạy cá nhân của Gia sư:  
+5a1. Hệ thống phát hiện ngày và khung giờ vừa chọn bị trùng với một ca dạy khác của Gia sư.  
+5a2. Hệ thống cảnh báo: *"Khung giờ bạn chọn bị trùng với ca dạy khác vào ngày [DD/MM/YYYY]. Vui lòng chọn khung giờ khác."*  
+5a3. Gia sư điều chỉnh lại ngày hoặc giờ dạy không bị xung đột.  
+Use Case quay lại bước 4.
+
+---
+
+### UC - T09. Thiết lập Lịch học cố định
+
+**Mã Use Case**  
+UC-T09
+
+**Tên Use Case**  
+Thiết lập Lịch học cố định
+
+**Mô tả**  
+Cho phép Gia sư thiết lập khung thời khóa biểu lặp hàng tuần (gồm các Thứ trong tuần, khung giờ dạy từng ca, hình thức học Online/Tại nhà và ngày bắt đầu áp dụng) cho lớp học sau khi buổi dạy thử kết thúc thành công và hai bên thống nhất học chính thức lâu dài. Việc thiết lập lịch cố định giúp hệ thống kiểm tra xung đột trùng lịch tuần của gia sư, chuyển trạng thái lớp học sang Chính thức / Đang hoạt động (`ACTIVE`), đồng thời tự động sinh chuỗi thời khóa biểu lặp tuần trên giao diện Lịch dạy (UC-T07) cho Gia sư, Học sinh và Phụ huynh.
+
+**Tác nhân**  
+Gia sư
+
+**Độ ưu tiên**  
+Cao
+
+**Sự kiện kích hoạt**  
+Gia sư nhấp nút "Chốt lịch học cố định" tại trang Chi tiết Lớp học sau khi hoàn thành buổi học thử.
+
+**Tiền điều kiện**  
+- Gia sư đã đăng nhập thành công vào Cổng Gia sư.
+- Lớp học đã hoàn tất buổi học thử và sẵn sàng chốt lịch học chính thức.
+
+**Hậu điều kiện**  
+- Khung thời gian dạy cố định hàng tuần được lưu vào thông tin lớp học.
+- Trạng thái lớp học chuyển từ Đang dạy thử (`TRIAL`) sang Đang hoạt động (`ACTIVE`).
+- Chuỗi ca dạy lặp tuần được sinh tự động và đồng bộ trên giao diện Lịch dạy (UC-T07).
+
+**Luồng chính**  
+1. Gia sư truy cập trang Quản lý Lớp học và chọn lớp học đã hoàn thành buổi dạy thử.
+2. Gia sư nhấp nút **"Chốt lịch học cố định"**.
+3. Hệ thống hiển thị biểu mẫu Thiết lập Khung lịch dạy cố định hàng tuần:
+   - **Các Thứ trong tuần:** Chọn các ngày học trong tuần (VD: Thứ 2, Thứ 5).
+   - **Khung giờ dạy:** Nhập khung giờ bắt đầu - kết thúc cho từng ca dạy (VD: 19:30 - 21:00).
+   - **Hình thức học:** *Online* (nhập/gắn liên kết phòng học Zoom/Google Meet) hoặc *Tại nhà* (xác nhận địa chỉ dạy học).
+   - **Ngày bắt đầu áp dụng:** Chọn ngày bắt đầu khóa học chính thức.
+4. Gia sư nhấp nút **"Lưu & Kích hoạt lịch cố định"**.
+5. Hệ thống kiểm tra xung đột trùng lịch tuần của Gia sư với các lớp học khác đang hoạt động (`ACTIVE`).
+6. Hệ thống lưu cấu hình lịch cố định vào lớp học và chuyển trạng thái lớp học sang Đang hoạt động (`ACTIVE`).
+7. Hệ thống tự động sinh chuỗi ca dạy lặp tuần trên Thời khóa biểu cá nhân của Gia sư (UC-T07) và gửi thông báo lịch học chính thức tới Phụ huynh & Học sinh.
+8. Hệ thống hiển thị thông báo thành công: *"Đã chốt lịch học cố định thành công. Lớp học chuyển sang trạng thái Đang hoạt động."* Use Case kết thúc.
+
+**Luồng thay thế**  
+4a. Gia sư cập nhật/điều chỉnh lại khung lịch cố định của lớp đang hoạt động (`ACTIVE`):  
+4a1. Gia sư mở Cài đặt lớp học đang `ACTIVE`, chọn "Chỉnh sửa lịch cố định".  
+4a2. Gia sư điều chỉnh lại Thứ, Khung giờ hoặc Hình thức học và bấm "Cập nhật".  
+4a3. Hệ thống kiểm tra trùng lịch (bước 5) và lưu cấu hình lịch mới.  
+4a4. Hệ thống cập nhật thời khóa biểu và gửi thông báo thay đổi cho Phụ huynh & Học sinh.  
+Use Case kết thúc.
+
+**Luồng ngoại lệ**  
+5a. Trùng ca dạy trong tuần của Gia sư:  
+5a1. Hệ thống phát hiện một trong các khung giờ lặp tuần vừa chọn bị trùng với ca dạy của một lớp `ACTIVE` khác mà Gia sư đang dạy.  
+5a2. Hệ thống cảnh báo: *"Khung giờ Thứ 2 (19:30 - 21:00) bị trùng với ca dạy của học sinh [Tên HS]. Vui lòng chọn khung giờ khác."*  
+5a3. Gia sư điều chỉnh lại khung giờ hoặc Thứ học không bị xung đột.  
+Use Case quay lại bước 4.
 
 ---
 
@@ -493,15 +582,16 @@ Use Case quay lại bước 6.
 Bảng tổng hợp đối chiếu Use Case Phân hệ Gia sư hiện có với mã Yêu cầu Chức năng (PRD FR) và các Hành trình người dùng (User Journey):
 
 | Mã Use Case | Tên Use Case | Tác nhân chính | Yêu cầu PRD tương ứng | Hành trình người dùng |
-| :--- | :--- | :---: | :---: | :---: |
+| :--- | :--- | :--- | :---: | :---: |
 | **UC-T01** | Thiết lập Hồ sơ Gia sư | Gia sư | **FR-27**: Đăng ký & Thiết lập Hồ sơ Gia sư | UJ-1 |
 | **UC-T02** | Xem danh sách & Ứng tuyển Lớp cần gia sư | Gia sư | **FR-28**: Tìm lớp & Chấp nhận ghép lớp (Unlock SĐT) | UJ-2 |
 | **UC-T04** | Quản lý Khung chương trình | Gia sư | **FR-30**: Quản lý Khung chương trình (Mẫu & Thủ công) | UJ-2 |
-| **UC-T05** | Quản lý Buổi học thực tế & Nhật ký dạy học | Gia sư | **FR-40**: Quản lý Buổi học thực tế & Nhật ký dạy học (S3) | UJ-2 |
+| **UC-T05** | Quản lý Nhật ký buổi học | Gia sư | **FR-40**: Quản lý Nhật ký buổi học (S3) | UJ-2 |
 | **UC-T06** | Soạn & Giao Quiz ôn tập qua Trợ lý AI | Gia sư | **FR-8, FR-9**: Không gian làm việc chia đôi màn hình AI | UJ-2 (AI Cốt lõi) |
 | **UC-T06b** | Import Quiz từ công cụ ngoài | Gia sư | **FR-9**: Chế độ kép & Nhập dữ liệu BYO-AI | UJ-2 |
 | **UC-T07** | Xem & Tra cứu Lịch dạy | Gia sư | **FR-26**: Xem Lịch dạy (Thời khóa biểu cá nhân) | UJ-2 |
-| **UC-T08** | Cấu hình & Thiết lập Lịch dạy | Gia sư | **FR-29**: Cấu hình Lịch học thử & Chốt Lịch dạy cố định | UJ-2 |
+| **UC-T08** | Thiết lập Lịch dạy thử | Gia sư | **FR-29**: Cấu hình Lịch học thử | UJ-2 |
+| **UC-T09** | Thiết lập Lịch học cố định | Gia sư | **FR-29**: Chốt Lịch dạy cố định (`ACTIVE`) | UJ-2 |
 
 ---
 *Tài liệu Đặc tả Use Case Phân hệ Gia sư được biên soạn chuẩn hóa theo PRD v1.6 và Kế hoạch triển khai dự án Học viện Công nghệ Bưu chính Viễn thông (PTIT).*
