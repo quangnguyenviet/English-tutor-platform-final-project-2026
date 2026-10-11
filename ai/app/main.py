@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="English Tutor AI Service",
-    description="AI Service powered by Python & FastAPI for Curriculum & Homework Generation",
+    description="AI Service powered by Python & FastAPI for Quiz Generation and Validation",
     version="0.1.0",
 )
 
