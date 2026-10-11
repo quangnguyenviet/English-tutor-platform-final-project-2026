@@ -7,6 +7,7 @@ import { getStudentById } from "../../data/mockData";
 import ThemeSwitcher from "../ui/ThemeSwitcher";
 import Avatar from "../ui/Avatar";
 import Button from "../ui/Button";
+import StudentNotificationBell from "../student/StudentNotificationBell";
 
 const roleLabel = { admin: "Quản trị viên", tutor: "Gia sư", student: "Học sinh" };
 
@@ -210,6 +211,9 @@ export default function TopBar({ onMenuToggle }) {
             <Bot size={16} />
           </Button>
         )}
+
+        {/* Notification bell — students only (UC-ST-17) */}
+        {isStudent && <StudentNotificationBell />}
 
         {/* Theme switcher */}
         <ThemeSwitcher />

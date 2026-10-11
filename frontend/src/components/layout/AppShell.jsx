@@ -100,6 +100,7 @@ function AppShellInner() {
       },
       { to: "/admin/tutors", label: "Quản lý gia sư", icon: UserCog },
       { to: "/admin/students", label: "Quản lý học sinh", icon: Users },
+      { to: "/admin/lessons", label: "Theo dõi buổi học", icon: BookOpenCheck },
       { to: "/admin/receptionists", label: "Quản lý lễ tân", icon: HeadphonesIcon },
       { to: "/admin/complaints", label: "Xử lý khiếu nại", icon: FileWarning },
       { to: "/admin/analytics", label: "Báo cáo & Phân tích", icon: BarChart2 },
@@ -134,6 +135,7 @@ function AppShellInner() {
       },
       { to: "/receptionist/tutors", label: "Quản lý gia sư", icon: UserCog },
       { to: "/receptionist/students", label: "Quản lý học sinh", icon: Users },
+      { to: "/receptionist/lessons", label: "Theo dõi buổi học", icon: BookOpenCheck },
       {
         to: "/receptionist/complaints",
         label: "Xử lý khiếu nại",
@@ -155,6 +157,7 @@ function AppShellInner() {
       { to: "/tutor/requests", label: "Yêu cầu lớp", icon: ClipboardList, badge: () => classRequests.filter((r) => r.status === "pending_response").length },
       { to: "/tutor/students", label: "Học sinh", icon: Users },
       { to: "/tutor/schedule", label: "Lịch dạy", icon: CalendarDays },
+      { to: "/tutor/lessons", label: "Ghi nhận buổi học", icon: BookOpenCheck },
       { to: "/tutor/exercise-generator", label: "Soạn bài (AI)", icon: Sparkles },
       { to: "/tutor/profile", label: "Hồ sơ", icon: IdCard },
       { to: "/tutor/settings", label: "Cài đặt", icon: Settings },

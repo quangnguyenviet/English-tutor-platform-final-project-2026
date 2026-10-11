@@ -19,7 +19,7 @@ export default function TutorCard({ tutor, onViewDetail, onSelectTutor }) {
           </div>
           <div className="flex flex-col items-end gap-1 shrink-0">
             <Badge tone={tutor.learningMode === "offline" ? "amber" : "blue"} size="xs">
-              {tutor.learningMode === "offline" ? "🏠 Offline" : tutor.learningMode === "both" ? "🌐 Hybrid" : "💻 Online"}
+              {tutor.learningMode === "offline" ? "Offline" : tutor.learningMode === "both" ? "🌐 Hybrid" : "Online"}
             </Badge>
           </div>
         </div>

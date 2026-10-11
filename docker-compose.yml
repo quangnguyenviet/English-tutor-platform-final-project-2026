@@ -21,6 +21,28 @@ services:
     networks:
       - app-network
 
+  # Object Storage — MinIO (tương thích S3): chứng chỉ, tài liệu buổi học, minh chứng chuyển khoản
+  minio:
+    image: minio/minio:latest
+    container_name: tutor-minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minio_user}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minio_password_123}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
   # Backend Service — Spring Boot 3.x
   backend:
     build:
@@ -34,8 +56,16 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-tutor_db}
       POSTGRES_USER: ${POSTGRES_USER:-tutor_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tutor_password_123}
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: ${S3_BUCKET:-englishpath}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minio_user}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minio_password_123}
+      AI_SERVICE_URL: http://ai:8000
+      AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-60}
     depends_on:
       postgres:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/api/v1/health || exit 1"]
@@ -55,6 +85,11 @@ services:
     restart: always
     ports:
       - "${AI_PORT:-8000}:8000"
+    environment:
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MONTHLY_BUDGET_USD: ${LLM_MONTHLY_BUDGET_USD:-10}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 10s
@@ -81,6 +116,7 @@ services:
 
 volumes:
   postgres_data:
+  minio_data:
 
 networks:
   app-network:

@@ -1,7 +1,6 @@
-import { X, Award, Calendar, Clock, CheckCircle2, ArrowRight } from "lucide-react";
+import { X, Award, Calendar, Clock, CheckCircle2, ArrowRight, Trophy } from "lucide-react";
 import Button from "../../components/ui/Button";
 import Avatar from "../../components/ui/Avatar";
-import Badge from "../../components/ui/Badge";
 
 export default function TutorDetailModal({ tutor, onClose, onSelectTutor }) {
   if (!tutor) return null;
@@ -63,28 +62,30 @@ export default function TutorDetailModal({ tutor, onClose, onSelectTutor }) {
           <div className="grid gap-3 sm:grid-cols-2 text-xs">
             <div className="space-y-2">
               <p className="text-slate-600 dark:text-slate-400">
-                <span className="font-semibold text-slate-900 dark:text-slate-200">🎂 Năm sinh / Tuổi:</span> {tutor.birthYear || "2002"}
+                <span className="font-semibold text-slate-900 dark:text-slate-200">Năm sinh / Tuổi:</span> {tutor.birthYear || "2002"}
               </p>
               <p className="text-slate-600 dark:text-slate-400">
-                <span className="font-semibold text-slate-900 dark:text-slate-200">🏡 Quê quán:</span> {tutor.hometown || "TP.HCM"}
+                <span className="font-semibold text-slate-900 dark:text-slate-200">Quê quán:</span> {tutor.hometown || "TP.HCM"}
               </p>
               <p className="text-slate-600 dark:text-slate-400">
-                <span className="font-semibold text-slate-900 dark:text-slate-200">📍 Nơi ở hiện tại:</span> {tutor.currentAddress || "TP.HCM"}
+                <span className="font-semibold text-slate-900 dark:text-slate-200">Nơi ở hiện tại:</span> {tutor.currentAddress || "TP.HCM"}
               </p>
               <p className="text-slate-600 dark:text-slate-400">
-                <span className="font-semibold text-slate-900 dark:text-slate-200">🎒 Trường Cấp 3:</span> {tutor.highSchool || "THPT Chuyên"}
+                <span className="font-semibold text-slate-900 dark:text-slate-200">Trường Cấp 3:</span> {tutor.highSchool || "THPT Chuyên"}
               </p>
             </div>
 
             <div className="space-y-2">
               <p className="text-slate-600 dark:text-slate-400">
-                <span className="font-semibold text-slate-900 dark:text-slate-200">🎓 Đại học & Ngành:</span> {tutor.university || "Đại học Sư phạm"}
+                <span className="font-semibold text-slate-900 dark:text-slate-200">Đại học &amp; Ngành:</span> {tutor.university || "Đại học Sư phạm"}
               </p>
               <p className="text-slate-600 dark:text-slate-400">
-                <span className="font-semibold text-slate-900 dark:text-slate-200">💯 Điểm thi ĐH / THPT:</span> <strong className="text-blue-600 dark:text-blue-400">{tutor.graduationScore}</strong>
+                <span className="font-semibold text-slate-900 dark:text-slate-200">Điểm thi ĐH / THPT:</span>{" "}
+                <strong className="font-mono text-blue-600 dark:text-blue-400">{tutor.graduationScore}</strong>
               </p>
               <p className="text-slate-600 dark:text-slate-400">
-                <span className="font-semibold text-slate-900 dark:text-slate-200">📊 Xếp loại Học lực GPA:</span> <strong className="text-emerald-600 dark:text-emerald-400">{tutor.academicRank}</strong>
+                <span className="font-semibold text-slate-900 dark:text-slate-200">Xếp loại Học lực GPA:</span>{" "}
+                <strong className="font-mono text-emerald-600 dark:text-emerald-400">{tutor.academicRank}</strong>
               </p>
             </div>
           </div>
@@ -92,15 +93,15 @@ export default function TutorDetailModal({ tutor, onClose, onSelectTutor }) {
           {/* Awards List */}
           {tutor.awards && tutor.awards.length > 0 && (
             <div className="mt-4 border-t border-blue-200/60 pt-3 dark:border-blue-800/60">
-              <h5 className="mb-2 text-xs font-bold text-amber-800 dark:text-amber-400 flex items-center gap-1">
-                🏆 Giải thưởng & Thành tích Khen thưởng:
+              <h5 className="mb-2 flex items-center gap-1 text-xs font-bold text-amber-800 dark:text-amber-400">
+                <Trophy size={13} strokeWidth={1.75} /> Giải thưởng &amp; thành tích khen thưởng
               </h5>
               <div className="space-y-1.5">
                 {tutor.awards.map((aw, idx) => (
-                  <div key={idx} className="flex items-center gap-2 rounded-lg bg-white/80 p-2 text-xs shadow-2xs dark:bg-slate-800/80">
-                    <span className="font-bold text-amber-600 shrink-0">[{aw.year}]</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200 flex-1">{aw.title}</span>
-                    <span className="text-[11px] text-slate-500 italic">({aw.issuer})</span>
+                  <div key={idx} className="flex items-center gap-2 rounded-lg bg-white/80 p-2 text-xs dark:bg-slate-800/80">
+                    <span className="shrink-0 font-mono font-bold text-amber-600 dark:text-amber-400">[{aw.year}]</span>
+                    <span className="flex-1 font-medium text-slate-800 dark:text-slate-200">{aw.title}</span>
+                    <span className="text-[11px] text-slate-500">({aw.issuer})</span>
                   </div>
                 ))}
               </div>

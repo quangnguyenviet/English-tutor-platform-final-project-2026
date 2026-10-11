@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { LessonSessionProvider } from "./context/LessonSessionContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import LandingPage from "./pages/LandingPage";
 import StudentDashboard from "./pages/student/StudentDashboard";
@@ -37,6 +38,9 @@ import LibraryExercises from "./pages/tutor/LibraryExercises";
 import LibraryMaterials from "./pages/tutor/LibraryMaterials";
 import TutorProfile from "./pages/tutor/TutorProfile";
 import TutorSchedule from "./pages/tutor/TutorSchedule";
+import TutorLessonSessions from "./pages/tutor/TutorLessonSessions";
+import ParentLearningProgress from "./pages/parent/ParentLearningProgress";
+import LessonOperations from "./pages/operations/LessonOperations";
 
 import StudentMarketplace from "./pages/student/StudentMarketplace";
 import StudentOnboarding from "./pages/student/StudentOnboarding";
@@ -57,7 +61,6 @@ import GuestPricingPage from "./pages/guest/GuestPricingPage";
 import GuestFAQPage from "./pages/guest/GuestFAQPage";
 import GuestHowItWorksPage from "./pages/guest/GuestHowItWorksPage";
 import GuestContactPage from "./pages/guest/GuestContactPage";
-import ParentProgressViewPage from "./pages/guest/ParentProgressViewPage";
 
 import ReceptionistDashboard from "./pages/receptionist/ReceptionistDashboard";
 import ReceptionistMatchRequests from "./pages/receptionist/ReceptionistMatchRequests";
@@ -83,6 +86,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
+        <LessonSessionProvider>
         <Routes>
           {/* Landing Page & Guest Portal Routes (Không cần đăng nhập) */}
           <Route path="/" element={<LandingPage />} />
@@ -112,6 +116,15 @@ export default function App() {
 
           {/* Admin Routes */}
           <Route
+            path="/parent"
+            element={
+              <RequireRole role="parent">
+                <ParentLearningProgress />
+              </RequireRole>
+            }
+          />
+
+          <Route
             path="/admin"
             element={
               <RequireRole role="admin">
@@ -127,6 +140,7 @@ export default function App() {
             <Route path="receptionists" element={<ReceptionistManagement />} />
             <Route path="complaints" element={<ComplaintManagement />} />
             <Route path="analytics" element={<AdminAnalytics />} />
+            <Route path="lessons" element={<LessonOperations />} />
             <Route path="notifications" element={<AdminNotifications />} />
             <Route path="logs" element={<AdminLogs />} />
             <Route path="settings" element={<SettingsPage />} />
@@ -162,6 +176,7 @@ export default function App() {
             </Route>
             <Route path="students/:studentId/exercises/:exerciseId" element={<TutorExerciseDetail />} />
             <Route path="schedule" element={<TutorSchedule />} />
+            <Route path="lessons" element={<TutorLessonSessions />} />
             <Route path="exercise-generator" element={<ExerciseGenerator />} />
             <Route path="available-classes" element={<AvailableClasses />} />
             <Route path="available-classes/:classId" element={<AvailableClassDetail />} />
@@ -210,6 +225,7 @@ export default function App() {
             <Route path="payments" element={<ReceptionistPaymentApproval />} />
             <Route path="tutors" element={<ReceptionistTutorList />} />
             <Route path="students" element={<ReceptionistStudentList />} />
+            <Route path="lessons" element={<LessonOperations />} />
             <Route path="complaints" element={<ReceptionistComplaints />} />
             <Route path="notifications" element={<ReceptionistNotifications />} />
             <Route path="settings" element={<SettingsPage />} />
@@ -218,6 +234,7 @@ export default function App() {
           {/* Catch-all Wildcard Route */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </LessonSessionProvider>
       </AuthProvider>
     </ThemeProvider>
   );

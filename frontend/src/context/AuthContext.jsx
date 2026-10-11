@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { tutors, tutor, students, matchRequests, paymentProofs, receptionists, receptionist as receptionistData, complaints as complaintsData } from "../data/mockData";
+import { tutors, tutor, students, matchRequests, paymentProofs, receptionists, receptionist as receptionistData, complaints as complaintsData, studentNotifications as studentNotificationsData } from "../data/mockData";
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = "gsa_session";
@@ -102,6 +102,10 @@ export function AuthProvider({ children }) {
   const [complaintList, setComplaintList] = useState(() => [...complaintsData]);
   // Notification state for admin
   const [notificationList, setNotificationList] = useState(() => [...initialNotifications]);
+  // Thông báo dành riêng cho học sinh (UC-ST-17), tách khỏi luồng thông báo vận hành.
+  const [studentNotificationList, setStudentNotificationList] = useState(() => [
+    ...studentNotificationsData,
+  ]);
 
   useEffect(() => {
     if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
@@ -113,7 +117,7 @@ export function AuthProvider({ children }) {
   }
 
   function loginAsTutor() {
-    setSession({ role: "tutor", name: tutor.name, initials: tutor.initials });
+    setSession({ role: "tutor", tutorId: tutor.id, name: tutor.name, initials: tutor.initials });
   }
 
   function loginAsReceptionist() {
@@ -123,6 +127,20 @@ export function AuthProvider({ children }) {
   function loginAsStudent(studentId) {
     const s = students.find((x) => x.id === studentId) || { id: "s1", name: "Nguyễn Minh Anh", initials: "MA" };
     setSession({ role: "student", studentId: s.id, name: s.name, initials: s.initials });
+  }
+
+  function loginAsParent(studentId = "s1") {
+    const student = students.find((item) => item.id === studentId) || students[0];
+    const name = student?.parentName || "Phụ huynh học sinh";
+    const initials = name
+      .replace(/^(Anh|Chị|Bác)\s+/i, "")
+      .trim()
+      .split(/\s+/)
+      .slice(-2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase();
+    setSession({ role: "parent", studentId: student.id, name, initials });
   }
 
   function logout() {
@@ -398,6 +416,16 @@ export function AuthProvider({ children }) {
     setNotificationList((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 
+  function markStudentNotificationRead(id) {
+    setStudentNotificationList((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+  }
+
+  function markAllStudentNotificationsRead() {
+    setStudentNotificationList((prev) => prev.map((n) => ({ ...n, read: true })));
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -406,6 +434,7 @@ export function AuthProvider({ children }) {
         loginAsTutor,
         loginAsReceptionist,
         loginAsStudent,
+        loginAsParent,
         logout,
         tutorList,
         setTutorList,
@@ -444,6 +473,10 @@ export function AuthProvider({ children }) {
         setNotificationList,
         markNotificationRead,
         markAllNotificationsRead,
+        studentNotificationList,
+        setStudentNotificationList,
+        markStudentNotificationRead,
+        markAllStudentNotificationsRead,
       }}
     >
       {children}

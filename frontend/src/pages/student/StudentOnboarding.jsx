@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Target, Award, Calendar, Send, Sparkles } from "lucide-react";
+import { ArrowLeft, Target, Award, Calendar, Send, Sparkles, Laptop, Check, Plus } from "lucide-react";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import PageHeader from "../../components/ui/PageHeader";
@@ -50,8 +50,10 @@ export default function StudentOnboarding() {
       </button>
 
       <PageHeader
-        title="Khai báo Hồ sơ & Mục tiêu Học tập"
-        description={`Cung cấp thông tin để Gia sư ${selectedTutor?.name || ""} thiết kế Lộ trình cá nhân hóa cho bạn.`}
+        className="mb-0"
+        eyebrow="Bước 2/3 · Khai báo hồ sơ"
+        title="Mục tiêu & Nhu cầu Học tập"
+        description={`Cung cấp thông tin để Gia sư ${selectedTutor?.name || ""} thiết kế lộ trình cá nhân hóa cho bạn.`}
       />
 
       <Card>
@@ -105,16 +107,16 @@ export default function StudentOnboarding() {
           {/* Preferred Learning Mode */}
           <div>
             <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200">
-              <Sparkles size={14} className="text-purple-600" /> Hình thức học mong muốn
+              <Laptop size={14} className="text-slate-400" strokeWidth={1.75} /> Hình thức học mong muốn
             </label>
             <select
               value={formData.learningModePref}
               onChange={(e) => setFormData({ ...formData, learningModePref: e.target.value })}
               className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-sm font-medium outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900"
             >
-              <option value="online">💻 Học Online (Qua Zoom/Jitsi trực tuyến)</option>
-              <option value="offline_home">🏠 Học Offline Tại nhà học sinh</option>
-              <option value="offline_center">🏫 Học Offline Tại Trung tâm EdTech</option>
+              <option value="online">Học Online (qua Zoom / Jitsi)</option>
+              <option value="offline_home">Học trực tiếp tại nhà học sinh</option>
+              <option value="offline_center">Học trực tiếp tại trung tâm</option>
             </select>
           </div>
 
@@ -131,13 +133,17 @@ export default function StudentOnboarding() {
                     key={sk}
                     type="button"
                     onClick={() => handleSkillToggle(sk)}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${
                       selected
                         ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950 dark:text-blue-300"
                         : "border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-800 dark:text-slate-400"
                     }`}
                   >
-                    {selected ? "✓ " : "+ "}
+                    {selected ? (
+                      <Check size={12} strokeWidth={2.5} />
+                    ) : (
+                      <Plus size={12} strokeWidth={2.5} />
+                    )}
                     {sk}
                   </button>
                 );
