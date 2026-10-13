@@ -71,7 +71,18 @@ import ReceptionistNotifications from "./pages/receptionist/ReceptionistNotifica
 import ReceptionistComplaints from "./pages/receptionist/ReceptionistComplaints";
 
 function RequireRole({ role, children }) {
-  const { session } = useAuth();
+  const { session, authLoading } = useAuth();
+  // Đang kiểm tra token lúc khởi động — chưa biết có session hay không, đợi thêm
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <span className="text-sm">Đang tải...</span>
+        </div>
+      </div>
+    );
+  }
   if (!session) return <Navigate to="/login" replace />;
   if (session.role !== role) return <Navigate to={`/${session.role}`} replace />;
   return children;

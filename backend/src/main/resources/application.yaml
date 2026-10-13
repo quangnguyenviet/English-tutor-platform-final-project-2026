@@ -1,0 +1,26 @@
+server:
+  port: 8080
+  # servlet:
+  #   context-path: /identity
+
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: ${DBMS_CONNECTION:jdbc:postgresql://localhost:5432/identity_service}
+    driverClassName: "org.postgresql.Driver"
+    password: ${DBMS_PASSWORD:identity_password}
+    username: ${DBMS_USERNAME:identity_user}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+
+jwt:
+  signerKey: "1TjXchw5FloESb63Kc+DFhTARvpWL4jUGCwfGWxuG5SIf/1y/LgJxHnMqaF6A/ij"
+  valid-duration: 3600 # in second
+  refreshable-duration: 36000 # in seconds

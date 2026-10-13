@@ -1,8 +1,11 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { tutors, tutor, students, matchRequests, paymentProofs, receptionists, receptionist as receptionistData, complaints as complaintsData, studentNotifications as studentNotificationsData } from "../data/mockData";
+import { apiLogin, apiLogout, apiIntrospect } from "../lib/authApi";
+import { decodeJwt, scopeToRole, isTokenExpired } from "../lib/jwtDecode";
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = "gsa_session";
+const TOKEN_KEY = "gsa_token";
 const ADMIN_ACCOUNT = { name: "Quản trị hệ thống", initials: "QT", email: "admin@englishpath.vn" };
 const RECEPTIONIST_ACCOUNT = { name: receptionistData.name, initials: receptionistData.initials, email: receptionistData.email };
 
@@ -81,14 +84,10 @@ const initialNotifications = [
 ];
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : { role: "tutor", name: tutor.name, initials: tutor.initials };
-    } catch {
-      return { role: "tutor", name: tutor.name, initials: tutor.initials };
-    }
-  });
+  const [session, setSession] = useState(null);
+  const [token, setToken] = useState(null);
+  // true khi đang kiểm tra token lúc khởi động app
+  const [authLoading, setAuthLoading] = useState(true);
 
   // State quản lý danh sách gia sư & học sinh — dùng cho module admin
   const [tutorList, setTutorList] = useState(() => [...tutors]);
@@ -107,11 +106,104 @@ export function AuthProvider({ children }) {
     ...studentNotificationsData,
   ]);
 
+  // Khôi phục session từ localStorage khi app khởi động
   useEffect(() => {
-    if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    else localStorage.removeItem(STORAGE_KEY);
-  }, [session]);
+    async function restoreSession() {
+      const savedToken = localStorage.getItem(TOKEN_KEY);
+      const savedSession = localStorage.getItem(STORAGE_KEY);
 
+      if (!savedToken || !savedSession) {
+        setAuthLoading(false);
+        return;
+      }
+
+      // Kiểm tra token hết hạn phía client trước (nhanh, không tốn network)
+      if (isTokenExpired(savedToken)) {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(STORAGE_KEY);
+        setAuthLoading(false);
+        return;
+      }
+
+      // Introspect với server để xác nhận token chưa bị blacklist
+      const valid = await apiIntrospect(savedToken);
+      if (valid) {
+        try {
+          setSession(JSON.parse(savedSession));
+          setToken(savedToken);
+        } catch {
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      } else {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(STORAGE_KEY);
+      }
+
+      setAuthLoading(false);
+    }
+
+    restoreSession();
+  }, []);
+
+  /**
+   * Đăng nhập thực với backend — gọi POST /auth/token.
+   * Decode JWT, map role, lưu token & session vào localStorage.
+   *
+   * @param {string} username
+   * @param {string} password
+   * @returns {Promise<string>} role slug để LoginPage navigate
+   * @throws {Error} khi credentials sai hoặc role không hỗ trợ
+   */
+  async function login(username, password) {
+    const { token: jwt } = await apiLogin(username, password);
+    const payload = decodeJwt(jwt);
+    const role = scopeToRole(payload?.scope);
+
+    if (!role) {
+      throw new Error(`Role không được hỗ trợ: ${payload?.scope ?? "unknown"}`);
+    }
+
+    const initials = (payload.sub ?? username)
+      .trim()
+      .split(/\s+/)
+      .slice(-2)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+
+    const newSession = {
+      role,
+      username: payload.sub,
+      name: payload.sub,
+      initials,
+      exp: payload.exp,
+    };
+
+    localStorage.setItem(TOKEN_KEY, jwt);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
+    setToken(jwt);
+    setSession(newSession);
+
+    return role;
+  }
+
+  /**
+   * Đăng xuất — blacklist token trên server rồi xóa local session.
+   */
+  async function logout() {
+    const currentToken = localStorage.getItem(TOKEN_KEY);
+    if (currentToken) {
+      await apiLogout(currentToken);
+    }
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(STORAGE_KEY);
+    setToken(null);
+    setSession(null);
+  }
+
+  // Giữ lại các hàm mock login bên dưới phòng trường hợp các phần khác của app cần dùng
   function loginAsAdmin() {
     setSession({ role: "admin", name: ADMIN_ACCOUNT.name, initials: ADMIN_ACCOUNT.initials, email: ADMIN_ACCOUNT.email });
   }
@@ -141,10 +233,6 @@ export function AuthProvider({ children }) {
       .join("")
       .toUpperCase();
     setSession({ role: "parent", studentId: student.id, name, initials });
-  }
-
-  function logout() {
-    setSession(null);
   }
 
   // Admin CRUD helpers for tutors
@@ -430,12 +518,15 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider
       value={{
         session,
+        token,
+        authLoading,
+        login,
+        logout,
         loginAsAdmin,
         loginAsTutor,
         loginAsReceptionist,
         loginAsStudent,
         loginAsParent,
-        logout,
         tutorList,
         setTutorList,
         addTutor,

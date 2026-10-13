@@ -1,50 +1,40 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { GraduationCap, Lock, User, ArrowLeft, LogIn, CheckCircle2 } from "lucide-react";
+import { GraduationCap, Lock, User, ArrowLeft, LogIn, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "../components/theme-toggle";
 
+const ROLE_ROUTES = {
+  admin: "/admin",
+  tutor: "/tutor",
+  student: "/student",
+  receptionist: "/receptionist",
+};
+
 export default function LoginPage() {
-  const [username, setUsername] = useState("minhanh");
-  const [password, setPassword] = useState("123456");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { loginAsStudent, loginAsTutor, loginAsAdmin, loginAsReceptionist, loginAsParent } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
       setError("Vui lòng nhập tên đăng nhập và mật khẩu");
       return;
     }
-    // Authenticate student session and navigate to student dashboard
-    loginAsStudent("s1");
-    navigate("/student");
-  };
-
-  const handleQuickStudentLogin = () => {
-    loginAsStudent("s1");
-    navigate("/student");
-  };
-
-  const handleQuickTutorLogin = () => {
-    loginAsTutor();
-    navigate("/tutor");
-  };
-
-  const handleQuickAdminLogin = () => {
-    loginAsAdmin();
-    navigate("/admin");
-  };
-
-  const handleQuickReceptionistLogin = () => {
-    loginAsReceptionist();
-    navigate("/receptionist");
-  };
-
-  const handleQuickParentLogin = () => {
-    loginAsParent("s1");
-    navigate("/parent");
+    setLoading(true);
+    setError("");
+    try {
+      const role = await login(username.trim(), password);
+      navigate(ROLE_ROUTES[role] ?? "/", { replace: true });
+    } catch (err) {
+      setError(err.message || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -67,7 +57,7 @@ export default function LoginPage() {
               <GraduationCap className="w-6 h-6" />
             </div>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">Đăng nhập EnglishPath</h1>
-
+            <p className="text-sm text-muted-foreground">Nhập tài khoản được cấp để tiếp tục</p>
           </div>
 
           {error && (
@@ -84,12 +74,15 @@ export default function LoginPage() {
                 Tên đăng nhập
               </label>
               <input
+                id="login-username"
                 type="text"
                 required
+                disabled={loading}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Tên đăng nhập học sinh"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Nhập tên đăng nhập"
+                autoComplete="username"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
               />
             </div>
 
@@ -99,79 +92,43 @@ export default function LoginPage() {
                 Mật khẩu
               </label>
               <input
+                id="login-password"
                 type="password"
                 required
+                disabled={loading}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mật khẩu"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Nhập mật khẩu"
+                autoComplete="current-password"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
               />
             </div>
 
             <button
+              id="login-submit"
               type="submit"
-              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer"
+              disabled={loading}
+              className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100"
             >
-              <LogIn className="w-4 h-4" />
-              <span>Đăng nhập</span>
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Đang đăng nhập...</span>
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-4 h-4" />
+                  <span>Đăng nhập</span>
+                </>
+              )}
             </button>
           </form>
-
-          {/* Divider */}
-          <div className="relative py-1">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border" />
-            </div>
-
-          </div>
-
-          {/* Quick Demo Role Buttons */}
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={handleQuickStudentLogin}
-              className="w-full py-2.5 px-3 rounded-xl border border-accent/40 bg-accent/10 text-accent font-semibold text-xs hover:bg-accent/20 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Vào nhanh: Học sinh (Demo Nguyễn Minh Anh)</span>
-            </button>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={handleQuickParentLogin}
-                className="rounded-xl border border-border bg-muted/50 px-3 py-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
-              >
-                Phụ huynh
-              </button>
-              <button
-                type="button"
-                onClick={handleQuickTutorLogin}
-                className="py-2 px-3 rounded-xl border border-border bg-muted/50 text-foreground font-medium text-xs hover:bg-muted transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span>Gia sư</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleQuickReceptionistLogin}
-                className="py-2 px-3 rounded-xl border border-border bg-muted/50 text-foreground font-medium text-xs hover:bg-muted transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span>Lễ tân</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleQuickAdminLogin}
-                className="py-2 px-3 rounded-xl border border-border bg-muted/50 text-foreground font-medium text-xs hover:bg-muted transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span>Admin</span>
-              </button>
-            </div>
-          </div>
         </div>
       </main>
 
       {/* Footer copyright */}
       <footer className="text-center text-xs text-muted-foreground pb-4">
-        © 2026 EnglishPath. Dùng tài khoản demo để xem tiến độ học tập của con.
+        © 2026 EnglishPath. Hệ thống quản lý gia sư tiếng Anh.
       </footer>
     </div>
   );
