@@ -4,7 +4,7 @@
 
 Ứng dụng Web single-tenant dành cho một trung tâm gia sư tiếng Anh. Hệ thống làm hai việc:
 
-- **Vận hành trung tâm**: số hóa quy trình từ yêu cầu của phụ huynh, ghép gia sư, dạy thử, chốt lịch, thu phí nhận lớp (bằng ảnh biên lai) đến xử lý khiếu nại, có audit log.
+- **Vận hành trung tâm**: số hóa quy trình từ yêu cầu của phụ huynh, ghép gia sư, dạy thử, chốt lịch, thu phí nhận lớp (bằng ảnh biên lai, kế toán đối chiếu và xác nhận), hoàn tiền, thống kê tài chính đến xử lý khiếu nại, có audit log.
 - **Hỗ trợ giảng dạy**: gia sư soạn quiz với trợ lý AI (hoặc import từ ChatGPT/Claude/Gemini), bám sát hồ sơ kỹ năng và thang CEFR; học sinh làm quiz từng câu, nhận lời giải thích ngay, điểm Elo cập nhật, câu sai vào danh sách ôn tập.
 
 ## Các cổng người dùng
@@ -14,18 +14,19 @@
 | Công khai | Phụ huynh (không cần đăng nhập) | Tìm gia sư, xem hồ sơ, gửi yêu cầu tìm gia sư, đăng ký gia sư chỉ định |
 | Gia sư | Gia sư | Hồ sơ 5 bước, ứng tuyển lớp, lịch dạy thử và lịch cố định, buổi học và nhật ký, soạn và giao quiz, nộp phí nhận lớp |
 | Học sinh | Học sinh (tài khoản do trung tâm cấp, phụ huynh đăng nhập bằng tài khoản của con để xem) | Dashboard, lịch học, chi tiết buổi học, tài liệu, làm quiz, thông báo |
-| Lễ tân / Admin | Nhân sự trung tâm | Lớp cần gia sư, đơn ghép lớp, duyệt hồ sơ gia sư, duyệt phí nhận lớp, quản lý học sinh, khiếu nại tại quầy. Admin có thêm quản lý nhân sự lễ tân |
+| Lễ tân / Admin | Nhân sự trung tâm | Lớp cần gia sư, đơn ghép lớp, duyệt hồ sơ gia sư, thu hộ minh chứng phí, quản lý học sinh, khiếu nại tại quầy. Admin có thêm toàn bộ chức năng Kế toán và quản lý nhân sự |
+| Kế toán | Nhân sự trung tâm | Quản lý khoản phí nhận lớp, đối chiếu và xác nhận số tiền thực nhận, xử lý hoàn tiền, thống kê tài chính và xuất Excel |
 
 ## Tài liệu dự án
 
 | Tài liệu | Nội dung |
 | --- | --- |
 | [docs/project/mo_ta_de_tai.md](docs/project/mo_ta_de_tai.md) | Mô tả đề tài, bài toán, chức năng, cơ sở lý thuyết |
-| [docs/project/prd.md](docs/project/prd.md) | Yêu cầu sản phẩm: hành trình người dùng, 39 yêu cầu chức năng, máy trạng thái, chỉ số, câu hỏi mở |
+| [docs/project/prd.md](docs/project/prd.md) | Yêu cầu sản phẩm: hành trình người dùng, 44 yêu cầu chức năng, máy trạng thái, chỉ số, câu hỏi mở |
 | [docs/project/ke-hoach-trien-khai.md](docs/project/ke-hoach-trien-khai.md) | WBS, lịch 10 tuần, cột mốc, rủi ro, hiện trạng |
 | [docs/project/ARCHITECTURE.md](docs/project/ARCHITECTURE.md) | Kiến trúc hệ thống |
-| [docs/database.mmd](docs/database.mmd) | Thiết kế cơ sở dữ liệu (Mermaid) |
-| [docs/Usecase/](docs/Usecase) | Đặc tả use case: Lễ tân và Admin (một file), Gia sư, Học sinh và Phụ huynh |
+| [docs/New_ERD.md](docs/New_ERD.md) | Thiết kế cơ sở dữ liệu: bảng, thuộc tính, sơ đồ Mermaid, quan hệ, ràng buộc |
+| [docs/Usecase/](docs/Usecase) | Đặc tả use case: Lễ tân và Admin (một file), Kế toán, Gia sư, Học sinh và Phụ huynh |
 
 Khi tài liệu mâu thuẫn nhau, lấy bộ use case làm chuẩn.
 
