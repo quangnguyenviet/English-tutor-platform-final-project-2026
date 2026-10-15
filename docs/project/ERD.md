@@ -67,6 +67,8 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `full_name` | `VARCHAR(100)` | NN | Họ và tên đầy đủ, hiển thị trên giao diện và trong báo cáo |
 | `email` | `VARCHAR(100)` | UQ | Email liên hệ, dùng để gửi thông báo và khôi phục mật khẩu |
 | `phone` | `VARCHAR(15)` | UQ | Số điện thoại liên hệ, dùng trong tư vấn và xác thực |
+| `date_of_birth` | `DATE` | | Ngày sinh, hiển thị trong hồ sơ học sinh (UC-REC-10, UC-ST-02) và hồ sơ gia sư (UC-T01 bước 1) |
+| `gender` | `VARCHAR(10)` | | Giới tính: `MALE`, `FEMALE`, `OTHER`. Phụ huynh có thể lọc gia sư theo giới tính (UC-PA-01) |
 | `avatar_url` | `VARCHAR(500)` | | Đường dẫn ảnh đại diện (lưu trên S3), học sinh có thể tự cập nhật (UC-ST-02) |
 | `role` | `VARCHAR(20)` | NN | Vai trò người dùng: `ADMIN`, `RECEPTIONIST`, `ACCOUNTANT`, `TUTOR`, `STUDENT`. Quyết định phân quyền truy cập API và giao diện |
 | `status` | `VARCHAR(20)` | NN | Trạng thái tài khoản: `ACTIVE` (Đang hoạt động), `INACTIVE` (Ngưng hoạt động). Lễ tân/Admin có thể thay đổi (UC-REC-08, UC-REC-09) |
@@ -113,7 +115,6 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 |---|---|---|---|
 | `id` | `BIGINT` | PK, FK → users.id | Khóa chính đồng thời là khóa ngoại tới `users` (1-1, dùng chung id), mỗi học sinh chỉ có 1 account |
 | `parent_id` | `BIGINT` | FK → parents.id, NN | FK tới phụ huynh, một phụ huynh có thể có nhiều con (UC-PA-03, UC-PA-04) |
-| `date_of_birth` | `DATE` | | Ngày sinh học sinh, hiển thị trong hồ sơ (UC-REC-10) |
 | `school` | `VARCHAR(200)` | | Trường đang theo học, giúp gia sư nắm bối cảnh học tập (UC-ST-02) |
 | `grade` | `VARCHAR(20)` | | Lớp/Khối đang học (lớp 6, lớp 10...), dùng để gợi ý gia sư phù hợp |
 | `learning_goal` | `TEXT` | | Mục tiêu học tập (IELTS, giao tiếp, phổ thông...). Đầu vào cho SKP Goals và AI sinh bài tập (UC-ST-02) |
@@ -129,8 +130,6 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
 | `id` | `BIGINT` | PK, FK → users.id | Khóa chính đồng thời là khóa ngoại tới `users` (1-1, dùng chung id) |
-| `date_of_birth` | `DATE` | | Ngày sinh gia sư (UC-T01 bước 1) |
-| `gender` | `VARCHAR(10)` | | Giới tính: `MALE`, `FEMALE`, `OTHER`. Phụ huynh có thể lọc theo giới tính (UC-PA-01) |
 | `address` | `VARCHAR(500)` | | Địa chỉ cư trú, hiển thị tham khảo cho phụ huynh |
 | `university` | `VARCHAR(200)` | | Trường đại học/chuyên ngành (UC-T01 bước 2) |
 | `education_status` | `VARCHAR(30)` | | Trạng thái: `STUDENT` (Sinh viên), `GRADUATED` (Đã tốt nghiệp), `LECTURER` (Giảng viên) |
@@ -382,7 +381,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `quiz_questions`
 
-> Từng câu hỏi trắc nghiệm A/B/C/D trong quiz. Chứa đáp án đúng, lời giải thích, độ khó, thẻ kỹ năng và nhãn lỗi (UC-T03, UC-ST-08, Mô tả đề tài mục 3.1).
+> Từng câu hỏi trắc nghiệm A/B/C/D trong quiz. Chứa đáp án đúng, lời giải thích, cấp độ CEFR và thẻ kỹ năng (UC-T03, UC-ST-08, Mô tả đề tài mục 3.1).
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -396,10 +395,8 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `option_d` | `VARCHAR(500)` | NN | Phương án D |
 | `correct_answer` | `CHAR(1)` | NN | Đáp án đúng: `A`, `B`, `C` hoặc `D` (UC-ST-08 bước 5: đối chiếu đáp án) |
 | `explanation` | `TEXT` | | Lời giải thích chi tiết do AI soạn. Hiển thị ngay sau khi HS trả lời (UC-ST-08 bước 5) |
-| `difficulty` | `SMALLINT` | NN | Độ khó câu hỏi (1-100), dùng trong công thức Elo Rating (Mô tả đề tài mục 3.1: Difficulty Score) |
 | `cefr_level` | `VARCHAR(5)` | | Cấp độ CEFR tham khảo: `A1`, `A2`, `B1`, `B2`, `C1`, `C2` (UC-T03: "độ khó CEFR") |
 | `skill_id` | `BIGINT` | FK → skills.id | FK tới kỹ năng. Là điểm nối giữa câu hỏi và SKP hồ sơ HS (Mô tả đề tài mục 3.1: Skill Mastery) |
-| `error_tags` | `VARCHAR(200)[]` | | Mảng nhãn lỗi (rule-based) gán khi tạo câu hỏi. Map về Error Pattern Catalog (Mô tả đề tài mục 3.1) |
 | `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm tạo câu hỏi |
 
 ---
@@ -429,7 +426,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### View `v_student_skill_stats` (không phải bảng)
 
-> **Student Knowledge Profile (SKP)** — hồ sơ kỹ năng theo từng skill của học sinh. **Không lưu thành bảng**: mọi số liệu đều tính được từ `quiz_answers` nối `quiz_questions` (qua `skill_id`, `error_tags`), nên dùng view để không bị lệch dữ liệu. Elo chỉ tính chung cho học sinh (`students.elo`, lịch sử ở `quiz_answers.elo_*`), không tính riêng theo kỹ năng. Là đầu vào cho AI sinh bài cá nhân hóa (Mô tả đề tài mục 3.1, 3.3) và bảng "Thống kê Hồ sơ Học sinh" của gia sư (UC-T03).
+> **Student Knowledge Profile (SKP)** — hồ sơ kỹ năng theo từng skill của học sinh. **Không lưu thành bảng**: mọi số liệu đều tính được từ `quiz_answers` nối `quiz_questions` (qua `skill_id`), nên dùng view để không bị lệch dữ liệu. Elo chỉ tính chung cho học sinh (`students.elo`, lịch sử ở `quiz_answers.elo_*`), không tính riêng theo kỹ năng. Là đầu vào cho AI sinh bài cá nhân hóa (Mô tả đề tài mục 3.1, 3.3) và bảng "Thống kê Hồ sơ Học sinh" của gia sư (UC-T03).
 
 | Cột của view | Cách tính |
 |---|---|
@@ -437,8 +434,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `total_correct`, `total_incorrect`, `total_attempts` | `COUNT` có điều kiện trên `is_correct` |
 | `error_rate` | `total_incorrect / total_attempts`, dùng sắp xếp bảng kỹ năng (UC-T03) |
 | `last_practiced_at` | `MAX(answered_at)` |
-| `error_pattern_summary` | `unnest(error_tags)` trên các câu sai, đếm tần suất |
-| `mastery_score`, `confidence_score` | Công thức ở backend: mastery = tỷ lệ đúng có trọng số độ khó và độ mới; confidence theo số lần thử, độ đa dạng câu hỏi, độ mới của kết quả (Mô tả đề tài mục 3.1) |
+| `mastery_score`, `confidence_score` | Công thức ở backend: mastery = tỷ lệ đúng có trọng số cấp độ CEFR và độ mới; confidence theo số lần thử, độ đa dạng câu hỏi, độ mới của kết quả (Mô tả đề tài mục 3.1) |
 
 > **Lưu ý:** `last_reviewed_at` của SM-2 không còn lưu vì `quiz_answers` chỉ giữ 1 lần trả lời mỗi câu (UNIQUE `student_id`, `question_id`).
 
@@ -608,6 +604,8 @@ erDiagram
         VARCHAR full_name
         VARCHAR email
         VARCHAR phone
+        DATE date_of_birth
+        VARCHAR gender
         VARCHAR avatar_url
         VARCHAR role
         VARCHAR status
@@ -635,7 +633,6 @@ erDiagram
     students {
         BIGINT id PK, FK
         BIGINT parent_id FK
-        DATE date_of_birth
         VARCHAR school
         VARCHAR grade
         TEXT learning_goal
@@ -646,8 +643,6 @@ erDiagram
     %% ====== NHOM 2 - HO SO GIA SU ======
     tutors {
         BIGINT id PK, FK
-        DATE date_of_birth
-        VARCHAR gender
         VARCHAR address
         VARCHAR university
         VARCHAR education_status
@@ -822,7 +817,6 @@ erDiagram
         VARCHAR option_d
         CHAR correct_answer
         TEXT explanation
-        SMALLINT difficulty
         VARCHAR cefr_level
         BIGINT skill_id FK
         TIMESTAMPTZ created_at
@@ -1038,7 +1032,7 @@ erDiagram
 | Mã | Bảng trái | Bảng phải | Kiểu | Giải thích chi tiết |
 |---|---|---|---|---|
 | R-26 | `sessions` | `quizzes` | 1 : 0..* | Một buổi học có thể có nhiều quiz (bài tập + ôn tập). Không nối quiz trực tiếp với gia sư/HS vì suy ra được qua `sessions → classes`. |
-| R-27 | `quizzes` | `quiz_questions` | 1 : 1..* | Quiz phải có ít nhất 1 câu hỏi. Mỗi câu có đáp án A/B/C/D, lời giải thích và độ khó. |
+| R-27 | `quizzes` | `quiz_questions` | 1 : 1..* | Quiz phải có ít nhất 1 câu hỏi. Mỗi câu có đáp án A/B/C/D, lời giải thích và cấp độ CEFR. |
 | R-28 | `skills` | `quiz_questions` | 1 : 0..* | Mỗi câu hỏi gắn 1 thẻ kỹ năng. Kỹ năng là **điểm nối** giữa câu hỏi và hồ sơ HS (SKP). |
 | R-29 | `quiz_questions` | `quiz_answers` | 1 : 0..* | Mỗi câu hỏi nhận câu trả lời từ HS. Ràng buộc UNIQUE (`student_id`, `question_id`): mỗi HS trả lời 1 lần. |
 | R-30 | `students` | `quiz_answers` | 1 : 0..* | Lịch sử trả lời quiz của HS. Là nguồn gốc tính Elo và danh sách ôn tập (các dòng `is_correct = false`). |
