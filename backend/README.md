@@ -40,6 +40,18 @@ modules.
 * Java SDK 21
 * A PostgreSQL server
 
+## Tài khoản seed
+
+Sau khi khởi động ứng dụng và chạy migration, có thể sử dụng các tài khoản mẫu
+sau để đăng nhập:
+
+| Vai trò | Tên đăng nhập | Mật khẩu |
+| --- | --- | --- |
+| Quản trị viên | `admin` | `admin` |
+| Gia sư | `tutor` | `tutor` |
+| Học viên | `student` | `student` |
+| Lễ tân | `receptionist` | `receptionist` |
+
 ## Start application
 `mvn spring-boot:run`
 
