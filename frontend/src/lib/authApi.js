@@ -84,3 +84,29 @@ export async function apiIntrospect(token) {
 export function bearerHeader(token) {
   return { Authorization: `Bearer ${token}` };
 }
+
+/**
+ * Đăng ký tài khoản gia sư mới — POST /auth/register-tutor
+ *
+ * @param {string} fullName
+ * @param {string} email
+ * @param {string} password
+ * @returns {Promise<{ token: string, authenticated: boolean, userId: number, username: string, fullName: string, role: string, profileStatus: string }>}
+ * @throws {Error} khi email đã tồn tại hoặc validation error
+ */
+export async function apiRegisterTutor(fullName, email, password) {
+  const res = await fetch(`${BASE}/auth/register-tutor`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fullName, email, password }),
+  });
+
+  const data = await res.json();
+
+  // Backend trả về: { code, message, result: { token, authenticated, userId, username, fullName, role, profileStatus } }
+  if (!res.ok || !data.result?.authenticated) {
+    throw new Error(data.message || "Đăng ký thất bại");
+  }
+
+  return data.result;
+}

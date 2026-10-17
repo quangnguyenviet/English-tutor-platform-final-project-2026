@@ -27,43 +27,43 @@ import {
   vehicleList,
 } from "../../data/vietnamLocations";
 import { useAuth } from "../../context/AuthContext";
+import { apiSubmitTutorProfile, apiSubmitProfileForReview } from "../../lib/tutorApi";
 
 export default function CreateTutorProfilePage() {
   const navigate = useNavigate();
-  const { session, loginAsTutor, addTutor } = useAuth();
+  const { session, token } = useAuth();
 
-  // Load pre-registered email/name if available
-  const pendingRegisterRaw = localStorage.getItem("gsa_pending_tutor_register");
-  const pendingRegister = pendingRegisterRaw ? JSON.parse(pendingRegisterRaw) : null;
-
-  // Form State
+  // Form State - Initialize from session if available
   const [formData, setFormData] = useState({
-    fullName: pendingRegister?.fullName || "Phạm Công Minh",
+    fullName: session?.name || "",
     idCardNumber: "",
-    gender: "male", // "male" | "female"
-    phone: "0912 345 678",
+    gender: "male",
+    phone: "",
     phone2: "",
-    facebookUrl: "https://www.facebook.com/phamcongminh.vn",
+    facebookUrl: "",
     birthDay: "15",
     birthMonth: "08",
     birthYear: "2002",
     hometownProvince: "Hà Nội",
     hometownDistrict: "Quận Cầu Giấy",
-    title: "student", // "student" | "teacher" | "graduated"
+    title: "student",
+    educationStatus: "STUDENT",
     livingProvince: "Hà Nội",
     livingDistrict: "Quận Nam Từ Liêm",
-    addressDetail: "Số 12, Ngõ 45, KĐT Mỹ Đình 1",
-    street: "Đường Nguyễn Cơ Thạch",
-    ward: "Phường Mỹ Đình 1",
-    university: "Học viện Công nghệ Bưu chính Viễn thông (PTIT)",
+    addressDetail: "",
+    street: "",
+    ward: "",
+    university: "",
     customUniversity: "",
-    faculty: "Công nghệ thông tin",
+    faculty: "",
     vehicle: "Xe máy",
-    teachOnline: "yes", // "yes" | "no"
-    bio: "Em là sinh viên năm cuối khoa CNTT - PTIT, từng đạt 8.0 IELTS và giải Ba học sinh giỏi cấp Tỉnh. Em có kinh nghiệm gia sư 2 năm, phương pháp giảng dạy kiên nhẫn, dễ hiểu, nắm bắt tâm lý học sinh tốt.",
-    achievements: "Điểm thi Đại học: Khối A01 đạt 27.8 điểm (Toán 9.2, Lý 9.0, Anh 9.6). IELTS 8.0 (Listening 8.5, Reading 8.5). Đã kèm 4 học sinh thi đỗ trường chuyên và tăng 2-3 điểm thi học kỳ.",
-    teachingArea: "Quận Cầu Giấy, Quận Nam Từ Liêm, Quận Thanh Xuân, Quận Ba Đình",
-    videoUrl: "https://www.youtube.com/watch?v=demo-intro-tutor",
+    teachOnline: "yes",
+    bio: "",
+    achievements: "",
+    teachingArea: "",
+    videoUrl: "",
+    experienceYears: 0,
+    address: "",
   });
 
   // Môn học & Học phí có thể dạy (Dynamic Rows)
@@ -158,34 +158,109 @@ export default function CreateTutorProfilePage() {
     setCertFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Check if user is authenticated
+    if (!token) {
+      alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+      navigate("/login?role=tutor");
+      return;
+    }
+
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      // Đăng nhập vai trò Tutor và cập nhật thông tin
-      loginAsTutor();
-      // Đánh dấu gia sư này đã tạo hồ sơ thành công
-      localStorage.setItem("gsa_tutor_profile_created", "true");
-
-      if (addTutor) {
-        addTutor({
-          name: formData.fullName,
-          email: pendingRegister?.email || "minh.pham@englishpath.vn",
-          phone: formData.phone,
-          university: formData.university,
-          faculty: formData.faculty,
-          subjects: Array.from(new Set(subjectRows.map((r) => r.subject))),
-          gender: formData.gender === "male" ? "Nam" : "Nữ",
-          status: "pending_approval",
-          teachingArea: formData.teachingArea,
-          bio: formData.bio,
-        });
+    try {
+      // Validate client-side
+      if (!formData.fullName) {
+        throw new Error("Vui lòng nhập họ và tên");
       }
+      if (!formData.phone) {
+        throw new Error("Vui lòng nhập số điện thoại");
+      }
+      if (!formData.bio) {
+        throw new Error("Vui lòng nhập giới thiệu bản thân");
+      }
+      if (subjectRows.length === 0 || subjectRows.every(r => !r.fee || r.fee <= 0)) {
+        throw new Error("Vui lòng thêm ít nhất một môn học với học phí hợp lệ");
+      }
+      if (certFiles.length === 0) {
+        throw new Error("Vui lòng tải lên ít nhất một file minh chứng");
+      }
+
+      // Build FormData for multipart request
+      const formDataToSend = new FormData();
+
+      // Convert birth fields to dateOfBirth (YYYY-MM-DD format)
+      const birthYear = formData.birthYear || "2000";
+      const birthMonth = formData.birthMonth || "01";
+      const birthDay = formData.birthDay || "01";
+      const dateOfBirth = `${birthYear}-${birthMonth}-${birthDay}`;
+
+      // Map title to educationStatus
+      const educationStatusMap = {
+        student: "STUDENT",
+        teacher: "LECTURER",
+        graduated: "GRADUATED"
+      };
+      const educationStatus = educationStatusMap[formData.title] || "STUDENT";
+
+      // Basic fields
+      formDataToSend.append("fullName", formData.fullName);
+      formDataToSend.append("gender", formData.gender === "female" ? "FEMALE" : "MALE");
+      formDataToSend.append("phone", formData.phone);
+      formDataToSend.append("dateOfBirth", dateOfBirth);
+      formDataToSend.append("address", formData.address || `${formData.livingDistrict || ""}, ${formData.livingProvince || ""}`);
+      formDataToSend.append("university", formData.university || formData.customUniversity || "");
+      formDataToSend.append("educationStatus", educationStatus);
+      formDataToSend.append("experienceYears", formData.experienceYears?.toString() || "0");
+      formDataToSend.append("bio", formData.bio);
+      formDataToSend.append("videoUrl", formData.videoUrl || "");
+
+      // Service areas (from living province/district)
+      if (formData.livingProvince) {
+        formDataToSend.append("serviceAreas[0].province", formData.livingProvince);
+        if (formData.livingDistrict) {
+          formDataToSend.append("serviceAreas[0].district", formData.livingDistrict);
+        }
+      }
+
+      // Map subjectRows to specialties and prices
+      subjectRows.forEach((row, index) => {
+        if (row.subject && row.grade) {
+          formDataToSend.append(`specialties[${index}].specialty`, row.subject);
+          formDataToSend.append(`specialties[${index}].gradeLevel`, row.grade);
+        }
+        if (row.fee && parseInt(row.fee) > 0) {
+          formDataToSend.append(`prices[${index}].teachingMode`, "ONLINE");
+          formDataToSend.append(`prices[${index}].pricePerSession`, (parseInt(row.fee) * 1000).toString()); // Convert to VND
+        }
+      });
+
+      // Add credentials from uploaded files
+      certFiles.forEach((file, index) => {
+        formDataToSend.append(`credentials[${index}].title`, file.name.replace(/\.[^/.]+$/, ""));
+        formDataToSend.append(`credentials[${index}].type`, "CERTIFICATE");
+        formDataToSend.append(`credentials[${index}].file`, file);
+      });
+
+      // Add avatar if exists
+      if (avatarFile) {
+        formDataToSend.append("avatar", avatarFile);
+      }
+
+      // Submit profile
+      await apiSubmitTutorProfile(token, formDataToSend);
+
+      // Submit for review (change status to PENDING)
+      await apiSubmitProfileForReview(token);
 
       setIsSubmitting(false);
       setShowSuccessModal(true);
-    }, 800);
+    } catch (err) {
+      setIsSubmitting(false);
+      alert(err.message || "Lưu hồ sơ thất bại. Vui lòng thử lại.");
+    }
   };
 
   return (

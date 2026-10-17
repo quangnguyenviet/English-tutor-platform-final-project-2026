@@ -70,6 +70,9 @@ import ReceptionistStudentList from "./pages/receptionist/ReceptionistStudentLis
 import ReceptionistNotifications from "./pages/receptionist/ReceptionistNotifications";
 import ReceptionistComplaints from "./pages/receptionist/ReceptionistComplaints";
 
+import TutorRegisterPage from "./pages/tutor/TutorRegisterPage";
+import CreateTutorProfilePage from "./pages/tutor/CreateTutorProfilePage";
+
 function RequireRole({ role, children }) {
   const { session, authLoading } = useAuth();
   // Đang kiểm tra token lúc khởi động — chưa biết có session hay không, đợi thêm
@@ -124,6 +127,17 @@ export default function App() {
 
           {/* Trang Đăng nhập */}
           <Route path="/login" element={<LoginPage />} />
+
+          {/* Tutor Registration & Profile Setup Routes (Public - onboarding flow) */}
+          <Route path="/tutor/register" element={<TutorRegisterPage />} />
+          <Route
+            path="/tutor/create-profile"
+            element={
+              <RequireRole role="tutor">
+                <CreateTutorProfilePage />
+              </RequireRole>
+            }
+          />
 
           {/* Admin Routes */}
           <Route

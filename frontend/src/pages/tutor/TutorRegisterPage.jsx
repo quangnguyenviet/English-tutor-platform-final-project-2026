@@ -20,7 +20,7 @@ import { useAuth } from "../../context/AuthContext";
 
 export default function TutorRegisterPage() {
   const navigate = useNavigate();
-  const { loginAsTutor } = useAuth();
+  const { registerAsTutor } = useAuth();
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -41,7 +41,7 @@ export default function TutorRegisterPage() {
     if (error) setError("");
   };
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
 
@@ -64,39 +64,26 @@ export default function TutorRegisterPage() {
 
     setLoading(true);
 
-    // Giả lập lưu tạm thông tin đăng ký tài khoản gia sư
-    setTimeout(() => {
-      const pendingTutor = {
-        fullName: formData.fullName.trim(),
-        email: formData.email.trim(),
-        createdAt: new Date().toISOString(),
-      };
-      localStorage.setItem("gsa_pending_tutor_register", JSON.stringify(pendingTutor));
+    try {
+      // Gọi API đăng ký gia sư thực tế
+      await registerAsTutor(formData.fullName.trim(), formData.email.trim(), formData.password);
+
       setLoading(false);
       setIsSuccess(true);
 
-      // Chuyển sang trang đăng nhập sau 1.5 giây
+      // Chuyển sang trang tạo hồ sơ sau 1.5 giây
       setTimeout(() => {
-        navigate("/login?role=tutor&registered=true&email=" + encodeURIComponent(formData.email));
+        navigate("/tutor/create-profile");
       }, 1500);
-    }, 600);
+    } catch (err) {
+      setLoading(false);
+      setError(err.message || "Đăng ký thất bại. Vui lòng thử lại.");
+    }
   };
 
+  // Google login - hiện tại chưa có OAuth backend, hiển thị thông báo
   const handleGoogleLogin = () => {
-    setLoading(true);
-    setTimeout(() => {
-      const pendingTutor = {
-        fullName: "Nguyễn Công Thành (Google)",
-        email: "thanh.google.tutor@gmail.com",
-        createdAt: new Date().toISOString(),
-      };
-      localStorage.setItem("gsa_pending_tutor_register", JSON.stringify(pendingTutor));
-      // Tự động đăng nhập với vai trò Gia sư
-      loginAsTutor();
-      setLoading(false);
-      // Chuyển thẳng sang trang tạo hồ sơ gia sư không cần qua màn hình đăng nhập
-      navigate("/tutor/create-profile");
-    }, 500);
+    setError("Tính năng đăng nhập bằng Google đang được phát triển. Vui lòng đăng ký bằng email.");
   };
 
   return (

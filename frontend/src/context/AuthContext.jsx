@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { tutors, tutor, students, matchRequests, paymentProofs, receptionists, receptionist as receptionistData, complaints as complaintsData, studentNotifications as studentNotificationsData } from "../data/mockData";
-import { apiLogin, apiLogout, apiIntrospect } from "../lib/authApi";
+import { apiLogin, apiLogout, apiIntrospect, apiRegisterTutor } from "../lib/authApi";
 import { decodeJwt, scopeToRole, isTokenExpired } from "../lib/jwtDecode";
 
 const AuthContext = createContext(null);
@@ -185,6 +185,52 @@ export function AuthProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
     setToken(jwt);
     setSession(newSession);
+
+    return role;
+  }
+
+  /**
+   * Đăng ký tài khoản gia sư mới — gọi POST /auth/register-tutor.
+   * Backend tạo user role=TUTOR + tutor record với profile_status=INCOMPLETE,
+   * trả JWT để frontend tự động login.
+   *
+   * @param {string} fullName
+   * @param {string} email
+   * @param {string} password
+   * @returns {Promise<string>} role slug ("tutor") để navigate
+   * @throws {Error} khi email đã tồn tại hoặc validation error
+   */
+  async function registerAsTutor(fullName, email, password) {
+    const result = await apiRegisterTutor(fullName, email, password);
+    const { token: jwt } = result;
+
+    const payload = decodeJwt(jwt);
+    const role = "tutor"; // Luôn là tutor vì đây là endpoint đăng ký gia sư
+
+    const initials = (payload.sub ?? fullName)
+      .trim()
+      .split(/\s+/)
+      .slice(-2)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+
+    const newSession = {
+      role,
+      username: result.username,
+      name: result.fullName,
+      initials,
+      exp: payload.exp,
+    };
+
+    localStorage.setItem(TOKEN_KEY, jwt);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
+    setToken(jwt);
+    setSession(newSession);
+
+    // Xóa pending register localStorage nếu có (phòng khi user refresh trang)
+    localStorage.removeItem("gsa_pending_tutor_register");
 
     return role;
   }
@@ -522,6 +568,7 @@ export function AuthProvider({ children }) {
         authLoading,
         login,
         logout,
+        registerAsTutor,
         loginAsAdmin,
         loginAsTutor,
         loginAsReceptionist,
