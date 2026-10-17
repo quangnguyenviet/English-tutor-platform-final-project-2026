@@ -1,6 +1,5 @@
 package com.mycompany.englishtutor.module.user.service;
 
-import java.util.HashSet;
 import java.util.List;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -10,16 +9,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import com.mycompany.englishtutor.module.role.constant.PredefinedRole;
 import com.mycompany.englishtutor.module.user.api.request.UserCreationRequest;
 import com.mycompany.englishtutor.module.user.api.request.UserUpdateRequest;
 import com.mycompany.englishtutor.module.user.api.response.UserResponse;
-import com.mycompany.englishtutor.module.role.domain.Role;
 import com.mycompany.englishtutor.module.user.domain.User;
+import com.mycompany.englishtutor.module.user.domain.UserRole;
 import com.mycompany.englishtutor.shared.exception.AppException;
 import com.mycompany.englishtutor.shared.exception.ErrorCode;
 import com.mycompany.englishtutor.module.user.mapper.UserMapper;
-import com.mycompany.englishtutor.module.role.repository.RoleRepository;
 import com.mycompany.englishtutor.module.user.repository.UserRepository;
 
 import lombok.AccessLevel;
@@ -33,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class UserService {
     UserRepository userRepository;
-    RoleRepository roleRepository;
     UserMapper userMapper;
     PasswordEncoder passwordEncoder;
 
@@ -43,12 +39,10 @@ public class UserService {
         }
 
         User user = userMapper.toUser(request);
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-
-        HashSet<Role> roles = new HashSet<>();
-        roleRepository.findById(PredefinedRole.USER_ROLE).ifPresent(roles::add);
-
-        user.setRoles(roles);
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setRole(UserRole.STUDENT.name());
+        user.setStatus("ACTIVE");
+        user.setMustChangePassword(false);
 
         try {
             user = userRepository.save(user);
@@ -69,20 +63,22 @@ public class UserService {
     }
 
     @PostAuthorize("returnObject.username == authentication.name")
-    public UserResponse updateUser(String userId, UserUpdateRequest request) {
+    public UserResponse updateUser(Long userId, UserUpdateRequest request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
         userMapper.updateUser(user, request);
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-
-        var roles = roleRepository.findAllById(request.getRoles());
-        user.setRoles(new HashSet<>(roles));
+        if (request.getPassword() != null) {
+            user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        }
+        if (request.getRole() != null) {
+            user.setRole(UserRole.valueOf(request.getRole()).name());
+        }
 
         return userMapper.toUserResponse(userRepository.save(user));
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    public void deleteUser(String userId) {
+    public void deleteUser(Long userId) {
         userRepository.deleteById(userId);
     }
 
@@ -93,7 +89,7 @@ public class UserService {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    public UserResponse getUser(String id) {
+    public UserResponse getUser(Long id) {
         return userMapper.toUserResponse(
                 userRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED)));
     }

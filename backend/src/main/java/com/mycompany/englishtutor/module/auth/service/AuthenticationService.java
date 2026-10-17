@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 
 import com.mycompany.englishtutor.module.auth.api.request.AuthenticationRequest;
 import com.mycompany.englishtutor.module.auth.api.request.IntrospectRequest;
@@ -20,10 +19,10 @@ import com.mycompany.englishtutor.module.auth.api.request.RefreshRequest;
 import com.mycompany.englishtutor.module.auth.api.response.AuthenticationResponse;
 import com.mycompany.englishtutor.module.auth.api.response.IntrospectResponse;
 import com.mycompany.englishtutor.module.auth.domain.InvalidatedToken;
+import com.mycompany.englishtutor.module.auth.repository.InvalidatedTokenRepository;
 import com.mycompany.englishtutor.module.user.domain.User;
 import com.mycompany.englishtutor.shared.exception.AppException;
 import com.mycompany.englishtutor.shared.exception.ErrorCode;
-import com.mycompany.englishtutor.module.auth.repository.InvalidatedTokenRepository;
 import com.mycompany.englishtutor.module.user.repository.UserRepository;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.MACSigner;
@@ -44,7 +43,6 @@ import lombok.extern.slf4j.Slf4j;
 public class AuthenticationService {
     UserRepository userRepository;
     InvalidatedTokenRepository invalidatedTokenRepository;
-
     @NonFinal
     @Value("${jwt.signerKey}")
     protected String SIGNER_KEY;
@@ -76,7 +74,7 @@ public class AuthenticationService {
                 .findByUsername(request.getUsername())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
-        boolean authenticated = passwordEncoder.matches(request.getPassword(), user.getPassword());
+        boolean authenticated = passwordEncoder.matches(request.getPassword(), user.getPasswordHash());
 
         if (!authenticated) throw new AppException(ErrorCode.UNAUTHENTICATED);
 
@@ -87,15 +85,8 @@ public class AuthenticationService {
 
     public void logout(LogoutRequest request) throws ParseException, JOSEException {
         try {
-            var signToken = verifyToken(request.getToken(), true);
-
-            String jit = signToken.getJWTClaimsSet().getJWTID();
-            Date expiryTime = signToken.getJWTClaimsSet().getExpirationTime();
-
-            InvalidatedToken invalidatedToken =
-                    InvalidatedToken.builder().id(jit).expiryTime(expiryTime).build();
-
-            invalidatedTokenRepository.save(invalidatedToken);
+            var signedJWT = verifyToken(request.getToken(), true);
+            invalidate(signedJWT);
         } catch (AppException exception) {
             log.info("Token already expired");
         }
@@ -103,14 +94,7 @@ public class AuthenticationService {
 
     public AuthenticationResponse refreshToken(RefreshRequest request) throws ParseException, JOSEException {
         var signedJWT = verifyToken(request.getToken(), true);
-
-        var jit = signedJWT.getJWTClaimsSet().getJWTID();
-        var expiryTime = signedJWT.getJWTClaimsSet().getExpirationTime();
-
-        InvalidatedToken invalidatedToken =
-                InvalidatedToken.builder().id(jit).expiryTime(expiryTime).build();
-
-        invalidatedTokenRepository.save(invalidatedToken);
+        invalidate(signedJWT);
 
         var username = signedJWT.getJWTClaimsSet().getSubject();
 
@@ -120,6 +104,13 @@ public class AuthenticationService {
         var token = generateToken(user);
 
         return AuthenticationResponse.builder().token(token).authenticated(true).build();
+    }
+
+    private void invalidate(SignedJWT signedJWT) throws ParseException {
+        invalidatedTokenRepository.save(InvalidatedToken.builder()
+                .id(signedJWT.getJWTClaimsSet().getJWTID())
+                .expiryTime(signedJWT.getJWTClaimsSet().getExpirationTime())
+                .build());
     }
 
     private String generateToken(User user) {
@@ -166,8 +157,9 @@ public class AuthenticationService {
 
         if (!(verified && expiryTime.after(new Date()))) throw new AppException(ErrorCode.UNAUTHENTICATED);
 
-        if (invalidatedTokenRepository.existsById(signedJWT.getJWTClaimsSet().getJWTID()))
+        if (invalidatedTokenRepository.existsById(signedJWT.getJWTClaimsSet().getJWTID())) {
             throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
 
         return signedJWT;
     }
@@ -175,10 +167,9 @@ public class AuthenticationService {
     private String buildScope(User user) {
         StringJoiner stringJoiner = new StringJoiner(" ");
 
-        if (!CollectionUtils.isEmpty(user.getRoles()))
-            user.getRoles().forEach(role -> {
-                stringJoiner.add("ROLE_" + role.getName());
-            });
+        if (user.getRole() != null) {
+            stringJoiner.add("ROLE_" + user.getRole());
+        }
 
         return stringJoiner.toString();
     }

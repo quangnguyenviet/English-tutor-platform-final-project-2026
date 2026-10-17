@@ -1,8 +1,6 @@
 package com.mycompany.englishtutor.module.user.api.request;
 
 import java.time.LocalDate;
-import java.util.List;
-
 import com.mycompany.englishtutor.shared.validation.DobConstraint;
 
 import lombok.*;
@@ -15,11 +13,12 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UserUpdateRequest {
     String password;
-    String firstName;
-    String lastName;
+    String fullName;
+    String email;
+    String phone;
 
     @DobConstraint(min = 18, message = "INVALID_DOB")
-    LocalDate dob;
+    LocalDate dateOfBirth;
 
-    List<String> roles;
+    String role;
 }

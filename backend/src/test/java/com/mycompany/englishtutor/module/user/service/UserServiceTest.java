@@ -41,18 +41,16 @@ public class UserServiceTest {
 
         request = UserCreationRequest.builder()
                 .username("john")
-                .firstName("John")
-                .lastName("Doe")
+                .fullName("John Doe")
                 .password("12345678")
-                .dob(dob)
+                .dateOfBirth(dob)
                 .build();
 
         user = User.builder()
-                .id("cf0600f538b3")
+                .id(1L)
                 .username("john")
-                .firstName("John")
-                .lastName("Doe")
-                .dob(dob)
+                .fullName("John Doe")
+                .dateOfBirth(dob)
                 .build();
     }
 
@@ -66,7 +64,7 @@ public class UserServiceTest {
         var response = userService.createUser(request);
         // THEN
 
-        Assertions.assertThat(response.getId()).isEqualTo("cf0600f538b3");
+        Assertions.assertThat(response.getId()).isEqualTo(1L);
         Assertions.assertThat(response.getUsername()).isEqualTo("john");
     }
 
@@ -90,7 +88,7 @@ public class UserServiceTest {
         var response = userService.getMyInfo();
 
         Assertions.assertThat(response.getUsername()).isEqualTo("john");
-        Assertions.assertThat(response.getId()).isEqualTo("cf0600f538b3");
+        Assertions.assertThat(response.getId()).isEqualTo(1L);
     }
 
     @Test

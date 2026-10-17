@@ -1,11 +1,6 @@
 package com.mycompany.englishtutor.module.user.domain;
 
-import java.time.LocalDate;
-import java.util.Set;
-
 import jakarta.persistence.*;
-
-import com.mycompany.englishtutor.module.role.domain.Role;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -20,17 +15,45 @@ import lombok.experimental.FieldDefaults;
 @Table(name = "users")
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    Long id;
 
-    @Column(name = "username", unique = true)
+    @Column(nullable = false, unique = true, length = 50)
     String username;
 
-    String password;
-    String firstName;
-    LocalDate dob;
-    String lastName;
+    @Column(name = "password_hash", nullable = false, length = 255)
+    String passwordHash;
 
-    @ManyToMany
-    Set<Role> roles;
+    @Column(name = "full_name", nullable = false, length = 100)
+    String fullName;
+
+    @Column(length = 100, unique = true)
+    String email;
+
+    @Column(length = 15, unique = true)
+    String phone;
+
+    @Column(name = "date_of_birth")
+    java.time.LocalDate dateOfBirth;
+
+    @Column(length = 10)
+    String gender;
+
+    @Column(name = "avatar_url", length = 500)
+    String avatarUrl;
+
+    @Column(nullable = false, length = 20)
+    String role;
+
+    @Column(nullable = false, length = 20)
+    String status;
+
+    @Column(name = "must_change_password", nullable = false)
+    boolean mustChangePassword;
+
+    @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
+    java.time.OffsetDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false, insertable = false)
+    java.time.OffsetDateTime updatedAt;
 }

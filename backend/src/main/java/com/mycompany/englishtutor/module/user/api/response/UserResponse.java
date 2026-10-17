@@ -1,10 +1,6 @@
 package com.mycompany.englishtutor.module.user.api.response;
 
 import java.time.LocalDate;
-import java.util.Set;
-
-import com.mycompany.englishtutor.module.role.api.response.RoleResponse;
-
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -14,10 +10,15 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UserResponse {
-    String id;
+    Long id;
     String username;
-    String firstName;
-    String lastName;
-    LocalDate dob;
-    Set<RoleResponse> roles;
+    String fullName;
+    String email;
+    String phone;
+    LocalDate dateOfBirth;
+    String gender;
+    String avatarUrl;
+    String role;
+    String status;
+    boolean mustChangePassword;
 }
