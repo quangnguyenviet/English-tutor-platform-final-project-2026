@@ -24,3 +24,16 @@ jwt:
   signerKey: "1TjXchw5FloESb63Kc+DFhTARvpWL4jUGCwfGWxuG5SIf/1y/LgJxHnMqaF6A/ij"
   valid-duration: 3600 # in second
   refreshable-duration: 36000 # in seconds
+
+spring.servlet.multipart:
+  enabled: true
+  max-file-size: 50MB       # video giới thiệu (tối đa 50MB theo UC-T01)
+  max-request-size: 60MB
+
+s3:
+  endpoint: ${S3_ENDPOINT:http://localhost:9000}
+  bucket: ${S3_BUCKET:englishpath}
+  access-key: ${S3_ACCESS_KEY:minio_user}
+  secret-key: ${S3_SECRET_KEY:minio_password_123}
+  region: ${S3_REGION:us-east-1}
+  path-style-access-enabled: true  # BẮT BUỘC cho MinIO
