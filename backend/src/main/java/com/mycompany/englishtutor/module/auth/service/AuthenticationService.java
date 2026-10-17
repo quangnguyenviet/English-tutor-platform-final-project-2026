@@ -99,11 +99,16 @@ public class AuthenticationService {
      * @return TutorRegistrationResponse chứa token + thông tin user
      */
     public TutorRegistrationResponse registerTutor(TutorRegistrationRequest request) {
+        log.info("Starting tutor registration for email: {}", request.getEmail());
+
         if (userRepository.existsByEmail(request.getEmail())) {
+            log.warn("Email already exists: {}", request.getEmail());
             throw new AppException(ErrorCode.EMAIL_EXISTED);
         }
 
         String username = deriveUsername(request.getEmail());
+        log.info("Derived username: {}", username);
+
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
 
         User user = User.builder()
@@ -118,13 +123,18 @@ public class AuthenticationService {
 
         try {
             user = userRepository.save(user);
+            log.info("User saved successfully with id: {}", user.getId());
         } catch (org.springframework.dao.DataIntegrityViolationException exception) {
+            log.error("DataIntegrityViolationException during user save", exception);
             throw new AppException(ErrorCode.EMAIL_EXISTED);
+        } catch (Exception exception) {
+            log.error("Unexpected error during user save", exception);
+            throw exception;
         }
 
         // Tạo bản ghi tutors với profile_status = INCOMPLETE
+        // Lưu ý: Với @MapsId, KHÔNG set id thủ công - Hibernate tự lấy từ User
         Tutor tutor = Tutor.builder()
-                .id(user.getId())
                 .user(user)
                 .profileStatus("INCOMPLETE")
                 .build();
