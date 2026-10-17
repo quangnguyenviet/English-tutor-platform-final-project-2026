@@ -46,18 +46,16 @@ class UserControllerTest {
 
         request = UserCreationRequest.builder()
                 .username("john")
-                .firstName("John")
-                .lastName("Doe")
+                .fullName("John Doe")
                 .password("12345678")
-                .dob(dob)
+                .dateOfBirth(dob)
                 .build();
 
         userResponse = UserResponse.builder()
-                .id("cf0600f538b3")
+                .id(1L)
                 .username("john")
-                .firstName("John")
-                .lastName("Doe")
-                .dob(dob)
+                .fullName("John Doe")
+                .dateOfBirth(dob)
                 .build();
     }
 
@@ -77,7 +75,7 @@ class UserControllerTest {
                         .content(content))
                 .andExpect(MockMvcResultMatchers.status().isOk())
                 .andExpect(MockMvcResultMatchers.jsonPath("code").value(1000))
-                .andExpect(MockMvcResultMatchers.jsonPath("result.id").value("cf0600f538b3"));
+                .andExpect(MockMvcResultMatchers.jsonPath("result.id").value(1));
     }
 
     @Test
