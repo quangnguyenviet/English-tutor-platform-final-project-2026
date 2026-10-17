@@ -49,3 +49,5 @@ _bmad-output/
 .claude/
 frontend/.agents/
 frontend/.claude/
+
+docs/pm-book/
