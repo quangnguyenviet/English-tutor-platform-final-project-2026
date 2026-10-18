@@ -29,6 +29,8 @@ public class TutorProfileResponse {
     // Tutor info
     Long tutorId;
     String address;
+    String hometown;
+    String currentAddress;
     String university;
     String educationStatus;
     Integer experienceYears;
