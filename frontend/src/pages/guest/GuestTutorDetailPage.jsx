@@ -116,7 +116,7 @@ export function GuestTutorDetailPage() {
                     <MapPin className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <div className="font-bold text-foreground truncate">{currentTutor.district ? `${currentTutor.district}, ${currentTutor.province}` : currentTutor.currentAddress}</div>
+                    <div className="font-bold text-foreground truncate">{currentTutor.district ? `${currentTutor.district}, ${currentTutor.province}` : currentTutor.location}</div>
                     <div className="truncate">{currentTutor.learningModeLabel}</div>
                   </div>
                 </div>
@@ -357,7 +357,7 @@ export function GuestTutorDetailPage() {
                 </div>
                 <div className="flex items-center justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Khu vực nhận lớp:</span>
-                  <span className="font-semibold text-foreground">{currentTutor.district ? `${currentTutor.district}, ${currentTutor.province}` : currentTutor.currentAddress}</span>
+                  <span className="font-semibold text-foreground">{currentTutor.district ? `${currentTutor.district}, ${currentTutor.province}` : currentTutor.location}</span>
                 </div>
               </div>
 

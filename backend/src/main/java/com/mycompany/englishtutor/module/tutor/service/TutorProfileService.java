@@ -110,9 +110,6 @@ public class TutorProfileService {
         if (request.getHometown() != null) {
             tutor.setHometown(request.getHometown());
         }
-        if (request.getCurrentAddress() != null) {
-            tutor.setCurrentAddress(request.getCurrentAddress());
-        }
         if (request.getUniversity() != null) {
             tutor.setUniversity(request.getUniversity());
         }
@@ -287,7 +284,6 @@ public class TutorProfileService {
                 .tutorId(tutor.getId())
                 .address(tutor.getAddress())
                 .hometown(tutor.getHometown())
-                .currentAddress(tutor.getCurrentAddress())
                 .university(tutor.getUniversity())
                 .educationStatus(tutor.getEducationStatus())
                 .experienceYears(tutor.getExperienceYears() != null ? tutor.getExperienceYears().intValue() : null)

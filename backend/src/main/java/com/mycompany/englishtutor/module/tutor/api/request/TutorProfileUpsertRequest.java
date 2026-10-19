@@ -42,9 +42,6 @@ public class TutorProfileUpsertRequest {
     @Size(max = 100, message = "Hometown must be at most 100 characters")
     String hometown;
 
-    @Size(max = 500, message = "Current address must be at most 500 characters")
-    String currentAddress;
-
     @NotBlank(message = "University is required")
     String university;
 

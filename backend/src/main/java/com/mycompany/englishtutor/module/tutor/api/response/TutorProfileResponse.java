@@ -30,7 +30,6 @@ public class TutorProfileResponse {
     Long tutorId;
     String address;
     String hometown;
-    String currentAddress;
     String university;
     String educationStatus;
     Integer experienceYears;
