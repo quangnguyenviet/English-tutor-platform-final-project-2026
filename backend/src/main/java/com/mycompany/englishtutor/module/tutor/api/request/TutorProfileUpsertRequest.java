@@ -42,9 +42,6 @@ public class TutorProfileUpsertRequest {
     @Size(max = 100, message = "Hometown must be at most 100 characters")
     String hometown;
 
-    @Size(max = 500, message = "Current address must be at most 500 characters")
-    String currentAddress;
-
     @NotBlank(message = "University is required")
     String university;
 
@@ -60,15 +57,14 @@ public class TutorProfileUpsertRequest {
 
     String videoUrl;
 
+    String avatarUrl;
+
     // Nested DTOs
     List<ServiceAreaDto> serviceAreas;
     List<SpecialtyDto> specialties;
     List<PriceDto> prices;
     List<AvailabilityDto> availabilities;
     List<CredentialDto> credentials;
-
-    // File
-    Object avatar; // MultipartFile (handled separately in controller)
 
     @Data
     @Builder
@@ -132,6 +128,7 @@ public class TutorProfileUpsertRequest {
 
         String score;
 
-        // File handled separately
+        @NotBlank(message = "Credential file URL is required")
+        String fileUrl;
     }
 }
