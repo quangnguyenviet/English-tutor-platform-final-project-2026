@@ -8,51 +8,51 @@ EnglishPath là hệ thống quản lý và hỗ trợ giảng dạy gia sư ti�
 
 ### 2.1 Danh từ liên quan đến đề tài
 
-| Loại | Danh từ |
-|---|---|
-| **Người** | Người dùng, Quản trị viên (Admin), Lễ tân, Kế toán, Nhân sự trung tâm, Gia sư, Học sinh, Phụ huynh, Người khiếu nại |
-| **Vật / đối tượng** | Đơn yêu cầu lớp, Lượt ứng tuyển, Lớp học, Lịch dạy cố định, Buổi học, Tài liệu buổi học, Chứng chỉ, Thành tích, Chuyên môn, Bảng giá, Lịch rảnh, Khu vực dạy, Kỹ năng, Quiz, Câu hỏi, Câu trả lời, Khoản thanh toán (phí nhận lớp, học phí), Khiếu nại, Minh chứng khiếu nại, Yêu cầu hoàn tiền, Thông báo, Nhật ký hệ thống, Hồ sơ kỹ năng (SKP), Tin nhắn chat AI |
-| **Thông tin** | Tên đăng nhập, mật khẩu, họ tên, email, số điện thoại, ngày sinh, giới tính, địa chỉ, ảnh đại diện, vai trò, trạng thái, mã nhân viên, ngày vào làm, trường học, khối lớp, mục tiêu học tập, điểm Elo, trường đại học, trình độ, số năm kinh nghiệm, giới thiệu, video, trạng thái hồ sơ, lý do từ chối, điểm chứng chỉ, giá mỗi buổi, hình thức dạy, thứ, giờ bắt đầu, giờ kết thúc, link học online, địa điểm, nhật ký kiến thức, bài tập về nhà, đáp án, lời giải thích, cấp độ CEFR, hạn nộp, tỷ lệ phí, số tiền, số tiền thực nhận, biên lai, ngân hàng, số tài khoản, nội dung khiếu nại, kết quả xử lý, nội dung thông báo, địa chỉ IP, tuổi, thời lượng, số thứ tự buổi, tỷ lệ sai, mastery |
+| Loại                | Danh từ                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Người**           | Người dùng, Quản trị viên (Admin), Lễ tân, Kế toán, Nhân sự trung tâm, Gia sư, Học sinh, Phụ huynh, Người khiếu nại                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Vật / đối tượng** | Đơn yêu cầu lớp, Lượt ứng tuyển, Lớp học, Lịch dạy cố định, Buổi học, Tài liệu buổi học, Chứng chỉ, Thành tích, Chuyên môn, Bảng giá, Lịch rảnh, Khu vực dạy, Kỹ năng, Quiz, Câu hỏi, Câu trả lời, Khoản thanh toán (phí nhận lớp, học phí), Khiếu nại, Minh chứng khiếu nại, Yêu cầu hoàn tiền, Thông báo, Nhật ký hệ thống, Hồ sơ kỹ năng (SKP), Tin nhắn chat AI                                                                                                                                                                                                                                                                                                                                 |
+| **Thông tin**       | Tên đăng nhập, mật khẩu, họ tên, email, số điện thoại, ngày sinh, giới tính, địa chỉ, ảnh đại diện, vai trò, trạng thái, mã nhân viên, ngày vào làm, trường học, khối lớp, mục tiêu học tập, điểm Elo, trường đại học, trình độ, số năm kinh nghiệm, giới thiệu, video, trạng thái hồ sơ, lý do từ chối, điểm chứng chỉ, giá mỗi buổi, hình thức dạy, thứ, giờ bắt đầu, giờ kết thúc, link học online, địa điểm, nhật ký kiến thức, bài tập về nhà, đáp án, lời giải thích, cấp độ CEFR, hạn nộp, tỷ lệ phí, số tiền, số tiền thực nhận, biên lai, ngân hàng, số tài khoản, nội dung khiếu nại, kết quả xử lý, nội dung thông báo, địa chỉ IP, tuổi, thời lượng, số thứ tự buổi, tỷ lệ sai, mastery |
 
 ### 2.2 Lựa chọn danh từ làm lớp thực thể hoặc thuộc tính
 
-| Danh từ | Lựa chọn | Thành | Lý do |
-|---|---|---|---|
-| Người dùng | Lớp thực thể | `users` | Có tài khoản, dùng chung cho mọi vai trò |
-| Admin, Lễ tân, Kế toán, Nhân sự | Lớp thực thể | `employees` | Hồ sơ nhân sự riêng; vai trò phân biệt bằng thuộc tính `users.role` |
-| Gia sư | Lớp thực thể | `tutors` | Có hồ sơ, trạng thái duyệt riêng |
-| Học sinh | Lớp thực thể | `students` | Có dữ liệu học tập (trường, khối, Elo) |
-| Phụ huynh | Lớp thực thể | `parents` | Không có tài khoản nhưng gửi đơn và có thông tin liên hệ riêng |
-| Người khiếu nại | Thuộc tính | `complaints.complainant_name`, `complainant_phone`, `complainant_role` | Có thể là phụ huynh không có tài khoản, chỉ cần ghi thông tin |
-| Chứng chỉ, Thành tích | Lớp thực thể (gộp) | `tutor_credentials` | Cùng cấu trúc, phân biệt bằng `credential_type` |
-| Chuyên môn | Lớp thực thể | `tutor_specialties` | Một gia sư có nhiều chuyên môn |
-| Bảng giá | Lớp thực thể | `tutor_prices` | Một gia sư có nhiều mức giá theo hình thức dạy |
-| Lịch rảnh | Lớp thực thể | `tutor_availabilities` | Một gia sư có nhiều ca rảnh |
-| Khu vực dạy | Lớp thực thể | `tutor_service_areas` | Một gia sư dạy nhiều khu vực |
-| Đơn yêu cầu lớp | Lớp thực thể | `class_requests` | Có vòng đời trạng thái riêng |
-| Lượt ứng tuyển | Lớp thực thể | `class_applications` | Quan hệ N-N gia sư — đơn yêu cầu, có thuộc tính riêng (lời nhắn, trạng thái) |
-| Lớp học | Lớp thực thể | `classes` | Quan hệ dạy học 1 gia sư — 1 học sinh |
-| Lịch dạy cố định | Lớp thực thể | `class_schedules` | Một lớp có nhiều ca mỗi tuần |
-| Buổi học | Lớp thực thể | `sessions` | Có nhật ký, tài liệu, quiz riêng |
-| Tài liệu buổi học | Lớp thực thể | `session_materials` | Một buổi có nhiều tài liệu |
-| Kỹ năng | Lớp thực thể | `skills` | Danh mục dùng chung, gắn với câu hỏi |
-| Quiz, Câu hỏi, Câu trả lời | Lớp thực thể | `quizzes`, `quiz_questions`, `quiz_answers` | Mỗi loại có số lượng nhiều và thuộc tính riêng |
-| Khoản thanh toán | Lớp thực thể | `payments` | Có trạng thái và người xác nhận |
-| Khiếu nại, Minh chứng khiếu nại, Yêu cầu hoàn tiền | Lớp thực thể | `complaints`, `complaint_attachments`, `refunds` | Vòng đời và người xử lý riêng |
-| Thông báo, Nhật ký hệ thống | Lớp thực thể | `notifications`, `audit_logs` | Dữ liệu hệ thống |
-| Hồ sơ kỹ năng (SKP) | Lớp thực thể (view) | `v_student_skill_stats` | Toàn bộ số liệu là dẫn suất từ câu trả lời |
-| Tin nhắn chat AI | Lớp thực thể (MongoDB) | `ai_chat_messages` | Lưu ở MongoDB, không vẽ trong sơ đồ quan hệ |
-| Tên đăng nhập, mật khẩu, họ tên, email, SĐT, ngày sinh, giới tính, ảnh đại diện, vai trò, trạng thái | Thuộc tính | `users` | Thông tin mô tả người dùng |
-| Mã nhân viên, ngày vào làm | Thuộc tính | `employees` | Thông tin riêng của nhân sự |
-| Trường học, khối lớp, mục tiêu học tập, điểm Elo | Thuộc tính | `students` | Thông tin riêng của học sinh |
-| Trường đại học, trình độ, kinh nghiệm, giới thiệu, video, trạng thái hồ sơ | Thuộc tính | `tutors` | Thông tin riêng của gia sư |
-| Giá mỗi buổi, hình thức dạy, thứ, giờ, link, địa điểm | Thuộc tính | `tutor_prices`, `classes`, `class_schedules`, `sessions` | Thông tin mô tả bảng tương ứng |
-| Nhật ký kiến thức, bài tập về nhà | Thuộc tính | `sessions.log_knowledge`, `log_homework` | Mô tả buổi học |
-| Đáp án, lời giải thích, cấp độ CEFR | Thuộc tính | `quiz_questions` | Mô tả câu hỏi |
-| Tỷ lệ phí, số tiền, số tiền thực nhận, biên lai | Thuộc tính | `payments` | Mô tả khoản thanh toán |
-| Ngân hàng, số tài khoản | Thuộc tính | `refunds` | Mô tả nơi nhận tiền hoàn |
-| Địa chỉ IP | Thuộc tính | `audit_logs` | Mô tả thao tác |
-| Tuổi, thời lượng, số thứ tự buổi, tỷ lệ sai, mastery | Thuộc tính dẫn suất | Xem mục 3.4 | Tính được từ thuộc tính khác, không lưu |
+| Danh từ                                                                                              | Lựa chọn               | Thành                                                                  | Lý do                                                                        |
+| ---------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Người dùng                                                                                           | Lớp thực thể           | `users`                                                                | Có tài khoản, dùng chung cho mọi vai trò                                     |
+| Admin, Lễ tân, Kế toán, Nhân sự                                                                      | Lớp thực thể           | `employees`                                                            | Hồ sơ nhân sự riêng; vai trò phân biệt bằng thuộc tính `users.role`          |
+| Gia sư                                                                                               | Lớp thực thể           | `tutors`                                                               | Có hồ sơ, trạng thái duyệt riêng                                             |
+| Học sinh                                                                                             | Lớp thực thể           | `students`                                                             | Có dữ liệu học tập (trường, khối, Elo)                                       |
+| Phụ huynh                                                                                            | Lớp thực thể           | `parents`                                                              | Không có tài khoản nhưng gửi đơn và có thông tin liên hệ riêng               |
+| Người khiếu nại                                                                                      | Thuộc tính             | `complaints.complainant_name`, `complainant_phone`, `complainant_role` | Có thể là phụ huynh không có tài khoản, chỉ cần ghi thông tin                |
+| Chứng chỉ, Thành tích                                                                                | Lớp thực thể (gộp)     | `tutor_credentials`                                                    | Cùng cấu trúc, phân biệt bằng `credential_type`                              |
+| Chuyên môn                                                                                           | Lớp thực thể           | `tutor_specialties`                                                    | Một gia sư có nhiều chuyên môn                                               |
+| Bảng giá                                                                                             | Lớp thực thể           | `tutor_prices`                                                         | Một gia sư có nhiều mức giá theo hình thức dạy                               |
+| Lịch rảnh                                                                                            | Lớp thực thể           | `tutor_availabilities`                                                 | Một gia sư có nhiều ca rảnh                                                  |
+| Khu vực dạy                                                                                          | Lớp thực thể           | `tutor_service_areas`                                                  | Một gia sư dạy nhiều khu vực                                                 |
+| Đơn yêu cầu lớp                                                                                      | Lớp thực thể           | `class_requests`                                                       | Có vòng đời trạng thái riêng                                                 |
+| Lượt ứng tuyển                                                                                       | Lớp thực thể           | `class_applications`                                                   | Quan hệ N-N gia sư — đơn yêu cầu, có thuộc tính riêng (lời nhắn, trạng thái) |
+| Lớp học                                                                                              | Lớp thực thể           | `classes`                                                              | Quan hệ dạy học 1 gia sư — 1 học sinh                                        |
+| Lịch dạy cố định                                                                                     | Lớp thực thể           | `class_schedules`                                                      | Một lớp có nhiều ca mỗi tuần                                                 |
+| Buổi học                                                                                             | Lớp thực thể           | `sessions`                                                             | Có nhật ký, tài liệu, quiz riêng                                             |
+| Tài liệu buổi học                                                                                    | Lớp thực thể           | `session_materials`                                                    | Một buổi có nhiều tài liệu                                                   |
+| Kỹ năng                                                                                              | Lớp thực thể           | `skills`                                                               | Danh mục dùng chung, gắn với câu hỏi                                         |
+| Quiz, Câu hỏi, Câu trả lời                                                                           | Lớp thực thể           | `quizzes`, `quiz_questions`, `quiz_answers`                            | Mỗi loại có số lượng nhiều và thuộc tính riêng                               |
+| Khoản thanh toán                                                                                     | Lớp thực thể           | `payments`                                                             | Có trạng thái và người xác nhận                                              |
+| Khiếu nại, Minh chứng khiếu nại, Yêu cầu hoàn tiền                                                   | Lớp thực thể           | `complaints`, `complaint_attachments`, `refunds`                       | Vòng đời và người xử lý riêng                                                |
+| Thông báo, Nhật ký hệ thống                                                                          | Lớp thực thể           | `notifications`, `audit_logs`                                          | Dữ liệu hệ thống                                                             |
+| Hồ sơ kỹ năng (SKP)                                                                                  | Lớp thực thể (view)    | `v_student_skill_stats`                                                | Toàn bộ số liệu là dẫn suất từ câu trả lời                                   |
+| Tin nhắn chat AI                                                                                     | Lớp thực thể (MongoDB) | `ai_chat_messages`                                                     | Lưu ở MongoDB, không vẽ trong sơ đồ quan hệ                                  |
+| Tên đăng nhập, mật khẩu, họ tên, email, SĐT, ngày sinh, giới tính, ảnh đại diện, vai trò, trạng thái | Thuộc tính             | `users`                                                                | Thông tin mô tả người dùng                                                   |
+| Mã nhân viên, ngày vào làm                                                                           | Thuộc tính             | `employees`                                                            | Thông tin riêng của nhân sự                                                  |
+| Trường học, khối lớp, mục tiêu học tập, điểm Elo                                                     | Thuộc tính             | `students`                                                             | Thông tin riêng của học sinh                                                 |
+| Trường đại học, trình độ, kinh nghiệm, giới thiệu, video, trạng thái hồ sơ                           | Thuộc tính             | `tutors`                                                               | Thông tin riêng của gia sư                                                   |
+| Giá mỗi buổi, hình thức dạy, thứ, giờ, link, địa điểm                                                | Thuộc tính             | `tutor_prices`, `classes`, `class_schedules`, `sessions`               | Thông tin mô tả bảng tương ứng                                               |
+| Nhật ký kiến thức, bài tập về nhà                                                                    | Thuộc tính             | `sessions.log_knowledge`, `log_homework`                               | Mô tả buổi học                                                               |
+| Đáp án, lời giải thích, cấp độ CEFR                                                                  | Thuộc tính             | `quiz_questions`                                                       | Mô tả câu hỏi                                                                |
+| Tỷ lệ phí, số tiền, số tiền thực nhận, biên lai                                                      | Thuộc tính             | `payments`                                                             | Mô tả khoản thanh toán                                                       |
+| Ngân hàng, số tài khoản                                                                              | Thuộc tính             | `refunds`                                                              | Mô tả nơi nhận tiền hoàn                                                     |
+| Địa chỉ IP                                                                                           | Thuộc tính             | `audit_logs`                                                           | Mô tả thao tác                                                               |
+| Tuổi, thời lượng, số thứ tự buổi, tỷ lệ sai, mastery                                                 | Thuộc tính dẫn suất    | Xem mục 3.4                                                            | Tính được từ thuộc tính khác, không lưu                                      |
 
 ## 3. Quan hệ số lượng giữa các thực thể
 
@@ -60,57 +60,57 @@ EnglishPath là hệ thống quản lý và hỗ trợ giảng dạy gia sư ti�
 
 Các lớp con dùng chung khóa chính với `users` (`id` của lớp con chính là `users.id`), nên là quan hệ kế thừa chứ không phải quan hệ số lượng.
 
-| Lớp cha | Lớp con | Điều kiện (`users.role`) |
-|---|---|---|
+| Lớp cha | Lớp con     | Điều kiện (`users.role`)              |
+| ------- | ----------- | ------------------------------------- |
 | `users` | `employees` | `ADMIN`, `RECEPTIONIST`, `ACCOUNTANT` |
-| `users` | `tutors` | `TUTOR` |
-| `users` | `students` | `STUDENT` |
+| `users` | `tutors`    | `TUTOR`                               |
+| `users` | `students`  | `STUDENT`                             |
 
 ### 3.2 Bảng quan hệ số lượng
 
-| Thực thể A | Số lượng (A : B) | Thực thể B | Ý nghĩa |
-|---|---|---|---|
-| `parents` | 1 : 0..* | `students` | Một phụ huynh có nhiều con |
-| `tutors` | 1 : 0..* | `tutor_specialties` | Một gia sư có nhiều chuyên môn |
-| `tutors` | 1 : 0..* | `tutor_prices` | Một gia sư có nhiều mức giá |
-| `tutors` | 1 : 0..* | `tutor_availabilities` | Một gia sư có nhiều ca rảnh |
-| `tutors` | 1 : 0..* | `tutor_service_areas` | Một gia sư dạy nhiều khu vực |
-| `tutors` | 1 : 0..* | `tutor_credentials` | Một gia sư có nhiều chứng chỉ, thành tích |
-| `users` | 1 : 0..* | `tutors` | Một Lễ tân duyệt nhiều hồ sơ gia sư |
-| `parents` | 1 : 0..* | `class_requests` | Một phụ huynh gửi nhiều đơn |
-| `students` | 1 : 0..* | `class_requests` | Một học sinh có thể có nhiều đơn |
-| `tutors` | 1 : 0..* | `class_requests` | Một gia sư có thể được chỉ định trong nhiều đơn |
-| `users` | 1 : 0..* | `class_requests` | Một Lễ tân tạo hoặc xử lý nhiều đơn |
-| `class_requests` | 1 : 0..* | `class_applications` | Một đơn nhận nhiều lượt ứng tuyển |
-| `tutors` | 1 : 0..* | `class_applications` | Một gia sư ứng tuyển nhiều đơn |
-| `users` | 1 : 0..* | `tutor_credentials` | Một Lễ tân xác thực nhiều chứng chỉ |
-| `users` | 1 : 0..* | `tutor_specialties` | Một Lễ tân xác thực nhiều chuyên môn |
-| `tutor_credentials` | 1 : 0..* | `tutor_specialties` | Một chứng chỉ minh chứng cho nhiều chuyên môn |
-| `class_requests` | 1 : 0..* | `classes` | Một đơn sinh ra nhiều lớp theo thời gian (ghép lại) |
-| `tutors` | 1 : 0..* | `classes` | Một gia sư dạy nhiều lớp |
-| `students` | 1 : 0..* | `classes` | Một học sinh học nhiều lớp |
-| `classes` | 1 : 0..* | `class_schedules` | Một lớp có nhiều ca dạy mỗi tuần |
-| `classes` | 1 : 0..* | `sessions` | Một lớp có nhiều buổi học |
-| `sessions` | 1 : 0..* | `session_materials` | Một buổi có nhiều tài liệu |
-| `users` | 1 : 0..* | `session_materials` | Một người dùng tải lên nhiều tài liệu |
-| `sessions` | 1 : 0..* | `quizzes` | Một buổi có nhiều quiz |
-| `quizzes` | 1 : 1..* | `quiz_questions` | Một quiz có ít nhất một câu hỏi |
-| `skills` | 1 : 0..* | `quiz_questions` | Một kỹ năng gắn với nhiều câu hỏi |
-| `quiz_questions` | 1 : 0..* | `quiz_answers` | Một câu hỏi nhận nhiều câu trả lời |
-| `students` | 1 : 0..* | `quiz_answers` | Một học sinh có nhiều câu trả lời |
-| `classes` | 1 : 0..* | `payments` | Một lớp có nhiều khoản phí |
-| `users` | 1 : 0..* | `payments` | Một người dùng nộp hoặc xác nhận nhiều khoản |
-| `classes` | 1 : 0..* | `complaints` | Một lớp có nhiều khiếu nại |
-| `users` | 1 : 0..* | `complaints` | Một người dùng tiếp nhận hoặc giải quyết nhiều khiếu nại |
-| `complaints` | 1 : 0..* | `complaint_attachments` | Một khiếu nại có nhiều minh chứng |
-| `users` | 1 : 0..* | `complaint_attachments` | Một Lễ tân tải lên nhiều minh chứng |
-| `complaints` | 1 : 0..* | `refunds` | Một khiếu nại có thể có nhiều yêu cầu hoàn tiền (gửi lại khi bị từ chối) |
-| `payments` | 1 : 0..* | `refunds` | Một khoản thu có thể được hoàn nhiều lần |
-| `users` | 1 : 0..* | `refunds` | Một người dùng tạo hoặc xử lý nhiều yêu cầu hoàn tiền |
-| `users` | 1 : 0..* | `notifications` | Một người dùng nhận nhiều thông báo |
-| `users` | 1 : 0..* | `audit_logs` | Một người dùng sinh nhiều dòng nhật ký |
-| `students` | 1 : 0..* | `v_student_skill_stats` | Một học sinh có số liệu theo từng kỹ năng |
-| `skills` | 1 : 0..* | `v_student_skill_stats` | Một kỹ năng được thống kê cho nhiều học sinh |
+| Thực thể A          | Số lượng (A : B) | Thực thể B              | Ý nghĩa                                                                  |
+| ------------------- | ---------------- | ----------------------- | ------------------------------------------------------------------------ |
+| `parents`           | 1 : 0..\*        | `students`              | Một phụ huynh có nhiều con                                               |
+| `tutors`            | 1 : 0..\*        | `tutor_specialties`     | Một gia sư có nhiều chuyên môn                                           |
+| `tutors`            | 1 : 0..\*        | `tutor_prices`          | Một gia sư có nhiều mức giá                                              |
+| `tutors`            | 1 : 0..\*        | `tutor_availabilities`  | Một gia sư có nhiều ca rảnh                                              |
+| `tutors`            | 1 : 0..\*        | `tutor_service_areas`   | Một gia sư dạy nhiều khu vực                                             |
+| `tutors`            | 1 : 0..\*        | `tutor_credentials`     | Một gia sư có nhiều chứng chỉ, thành tích                                |
+| `users`             | 1 : 0..\*        | `tutors`                | Một Lễ tân duyệt nhiều hồ sơ gia sư                                      |
+| `parents`           | 1 : 0..\*        | `class_requests`        | Một phụ huynh gửi nhiều đơn                                              |
+| `students`          | 1 : 0..\*        | `class_requests`        | Một học sinh có thể có nhiều đơn                                         |
+| `tutors`            | 1 : 0..\*        | `class_requests`        | Một gia sư có thể được chỉ định trong nhiều đơn                          |
+| `users`             | 1 : 0..\*        | `class_requests`        | Một Lễ tân tạo hoặc xử lý nhiều đơn                                      |
+| `class_requests`    | 1 : 0..\*        | `class_applications`    | Một đơn nhận nhiều lượt ứng tuyển                                        |
+| `tutors`            | 1 : 0..\*        | `class_applications`    | Một gia sư ứng tuyển nhiều đơn                                           |
+| `users`             | 1 : 0..\*        | `tutor_credentials`     | Một Lễ tân xác thực nhiều chứng chỉ                                      |
+| `users`             | 1 : 0..\*        | `tutor_specialties`     | Một Lễ tân xác thực nhiều chuyên môn                                     |
+| `tutor_credentials` | 1 : 0..\*        | `tutor_specialties`     | Một chứng chỉ minh chứng cho nhiều chuyên môn                            |
+| `class_requests`    | 1 : 0..\*        | `classes`               | Một đơn sinh ra nhiều lớp theo thời gian (ghép lại)                      |
+| `tutors`            | 1 : 0..\*        | `classes`               | Một gia sư dạy nhiều lớp                                                 |
+| `students`          | 1 : 0..\*        | `classes`               | Một học sinh học nhiều lớp                                               |
+| `classes`           | 1 : 0..\*        | `class_schedules`       | Một lớp có nhiều ca dạy mỗi tuần                                         |
+| `classes`           | 1 : 0..\*        | `sessions`              | Một lớp có nhiều buổi học                                                |
+| `sessions`          | 1 : 0..\*        | `session_materials`     | Một buổi có nhiều tài liệu                                               |
+| `users`             | 1 : 0..\*        | `session_materials`     | Một người dùng tải lên nhiều tài liệu                                    |
+| `sessions`          | 1 : 0..\*        | `quizzes`               | Một buổi có nhiều quiz                                                   |
+| `quizzes`           | 1 : 1..\*        | `quiz_questions`        | Một quiz có ít nhất một câu hỏi                                          |
+| `skills`            | 1 : 0..\*        | `quiz_questions`        | Một kỹ năng gắn với nhiều câu hỏi                                        |
+| `quiz_questions`    | 1 : 0..\*        | `quiz_answers`          | Một câu hỏi nhận nhiều câu trả lời                                       |
+| `students`          | 1 : 0..\*        | `quiz_answers`          | Một học sinh có nhiều câu trả lời                                        |
+| `classes`           | 1 : 0..\*        | `payments`              | Một lớp có nhiều khoản phí                                               |
+| `users`             | 1 : 0..\*        | `payments`              | Một người dùng nộp hoặc xác nhận nhiều khoản                             |
+| `classes`           | 1 : 0..\*        | `complaints`            | Một lớp có nhiều khiếu nại                                               |
+| `users`             | 1 : 0..\*        | `complaints`            | Một người dùng tiếp nhận hoặc giải quyết nhiều khiếu nại                 |
+| `complaints`        | 1 : 0..\*        | `complaint_attachments` | Một khiếu nại có nhiều minh chứng                                        |
+| `users`             | 1 : 0..\*        | `complaint_attachments` | Một Lễ tân tải lên nhiều minh chứng                                      |
+| `complaints`        | 1 : 0..\*        | `refunds`               | Một khiếu nại có thể có nhiều yêu cầu hoàn tiền (gửi lại khi bị từ chối) |
+| `payments`          | 1 : 0..\*        | `refunds`               | Một khoản thu có thể được hoàn nhiều lần                                 |
+| `users`             | 1 : 0..\*        | `refunds`               | Một người dùng tạo hoặc xử lý nhiều yêu cầu hoàn tiền                    |
+| `users`             | 1 : 0..\*        | `notifications`         | Một người dùng nhận nhiều thông báo                                      |
+| `users`             | 1 : 0..\*        | `audit_logs`            | Một người dùng sinh nhiều dòng nhật ký                                   |
+| `students`          | 1 : 0..\*        | `v_student_skill_stats` | Một học sinh có số liệu theo từng kỹ năng                                |
+| `skills`            | 1 : 0..\*        | `v_student_skill_stats` | Một kỹ năng được thống kê cho nhiều học sinh                             |
 
 ### 3.3 Sơ đồ lớp
 
@@ -169,6 +169,7 @@ classDiagram
         id PK FK
         address
         university
+        hometown
         education_status
         experience_years
         bio
@@ -525,15 +526,15 @@ classDiagram
 
 ### 3.4 Thuộc tính dẫn suất
 
-| Lớp | Thuộc tính dẫn suất | Cách tính |
-|---|---|---|
-| `users` | `/age` | Tuổi, tính từ `date_of_birth` và ngày hiện tại |
-| `classes` | `/sessions_per_week` | Số buổi/tuần = `COUNT(class_schedules)` của lớp |
-| `sessions` | `/session_number` | Số thứ tự buổi (Buổi 1, 2... N) = `ROW_NUMBER() OVER (PARTITION BY class_id ORDER BY session_date, start_time)` |
-| `sessions` | `/duration` | Thời lượng = `end_time - start_time` |
-| `sessions` | `/day_of_week` | Thứ trong tuần, suy ra từ `session_date` (`EXTRACT(ISODOW FROM session_date)`) |
-| `payments` | `/total_refunded` | Tổng tiền đã hoàn của khoản = `SUM(refunds.approved_amount)` với `status = 'PAID'` |
-| `v_student_skill_stats` | `/total_correct`, `/total_incorrect`, `/total_attempts` | `COUNT` có điều kiện trên `quiz_answers.is_correct`, nhóm theo (`student_id`, `skill_id`) |
-| `v_student_skill_stats` | `/error_rate` | `total_incorrect / total_attempts` |
-| `v_student_skill_stats` | `/last_practiced_at` | `MAX(quiz_answers.answered_at)` |
-| `v_student_skill_stats` | `/mastery_score`, `/confidence_score` | Công thức ở backend (xem mục 2.5 trong ERD.md) |
+| Lớp                     | Thuộc tính dẫn suất                                     | Cách tính                                                                                                       |
+| ----------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `users`                 | `/age`                                                  | Tuổi, tính từ `date_of_birth` và ngày hiện tại                                                                  |
+| `classes`               | `/sessions_per_week`                                    | Số buổi/tuần = `COUNT(class_schedules)` của lớp                                                                 |
+| `sessions`              | `/session_number`                                       | Số thứ tự buổi (Buổi 1, 2... N) = `ROW_NUMBER() OVER (PARTITION BY class_id ORDER BY session_date, start_time)` |
+| `sessions`              | `/duration`                                             | Thời lượng = `end_time - start_time`                                                                            |
+| `sessions`              | `/day_of_week`                                          | Thứ trong tuần, suy ra từ `session_date` (`EXTRACT(ISODOW FROM session_date)`)                                  |
+| `payments`              | `/total_refunded`                                       | Tổng tiền đã hoàn của khoản = `SUM(refunds.approved_amount)` với `status = 'PAID'`                              |
+| `v_student_skill_stats` | `/total_correct`, `/total_incorrect`, `/total_attempts` | `COUNT` có điều kiện trên `quiz_answers.is_correct`, nhóm theo (`student_id`, `skill_id`)                       |
+| `v_student_skill_stats` | `/error_rate`                                           | `total_incorrect / total_attempts`                                                                              |
+| `v_student_skill_stats` | `/last_practiced_at`                                    | `MAX(quiz_answers.answered_at)`                                                                                 |
+| `v_student_skill_stats` | `/mastery_score`, `/confidence_score`                   | Công thức ở backend (xem mục 2.5 trong ERD.md)                                                                  |
