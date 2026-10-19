@@ -705,8 +705,8 @@ export default function CreateTutorProfilePage() {
                     <div className="flex items-center gap-1">
                       <input
                         type="number"
-                        min="1"
-                        step="10"
+                        min="0"
+                        step="100"
                         value={row.feeThousands}
                         onChange={(e) => handleSubjectRowChange(row.id, "feeThousands", e.target.value)}
                         placeholder="200"
