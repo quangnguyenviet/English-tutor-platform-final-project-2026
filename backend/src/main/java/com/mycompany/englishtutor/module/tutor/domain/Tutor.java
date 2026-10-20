@@ -28,14 +28,11 @@ public class Tutor {
     @Column(length = 100)
     String hometown;
 
-    @Column(name = "current_address", length = 500)
-    String currentAddress;
-
     @Column(length = 200)
     String university;
 
     @Column(name = "education_status", length = 30)
-    String educationStatus;
+    String educationStatus; // 'STUDENT', 'GRADUATED', 'LECTURER'
 
     @Column(name = "experience_years")
     Short experienceYears;

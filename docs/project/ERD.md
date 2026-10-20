@@ -2,7 +2,7 @@
 
 > **Tác giả:** Chuyên gia kiến trúc phần mềm  
 > **Ngày tạo:** 12/10/2026  
-> **Phiên bản:** 2.1 — bổ sung `hometown` (VARCHAR 100) và `current_address` (VARCHAR 500) vào bảng `tutors` (migration V2, nullable, backward-compatible)
+> **Phiên bản:** 2.2 — bỏ `current_address` khỏi bảng `tutors` (migration V3); giữ `hometown` (VARCHAR 100, migration V2)
 > **Cơ sở dữ liệu:** PostgreSQL (26 bảng chính + 1 view) + MongoDB (1 collection `ai_chat_messages`)
 
 ---
@@ -131,7 +131,6 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 |---|---|---|---|
 | `id` | `BIGINT` | PK, FK → users.id | Khóa chính đồng thời là khóa ngoại tới `users` (1-1, dùng chung id) |
 | `address` | `VARCHAR(500)` | | Địa chỉ cư trú (tóm tắt nhanh, build từ `serviceAreas[0]` lúc submit). Hiển thị tham khảo cho phụ huynh |
-| `current_address` | `VARCHAR(500)` | | Địa chỉ chi tiết hiện tại (số nhà, ngõ, phố, phường/xã, quận/huyện, tỉnh/thành). Nhập tự do ở form gia sư. **Khác** `address` (tóm tắt từ `serviceAreas`) và **khác** `serviceAreas[]` (khu vực gia sư *muốn nhận lớp*) |
 | `hometown` | `VARCHAR(100)` | | Quê quán, text tự do. Nhập ở form gia sư, optional. Index phục vụ filter theo quê quán (VD admin lọc gia sư cùng tỉnh) |
 | `university` | `VARCHAR(200)` | | Trường đại học/chuyên ngành (UC-T01 bước 2) |
 | `education_status` | `VARCHAR(30)` | | Trạng thái: `STUDENT` (Sinh viên), `GRADUATED` (Đã tốt nghiệp), `LECTURER` (Giảng viên) |
@@ -646,7 +645,6 @@ erDiagram
     tutors {
         BIGINT id PK, FK
         VARCHAR address
-        VARCHAR current_address
         VARCHAR hometown
         VARCHAR university
         VARCHAR education_status
