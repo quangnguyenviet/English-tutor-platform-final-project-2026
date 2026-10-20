@@ -34,3 +34,4 @@ build/
 
 # Local environment variables and credentials
 .env
+api-docs.json

@@ -1,7 +1,6 @@
 package com.mycompany.englishtutor.shared.exception;
 
 import java.util.Map;
-import java.util.Objects;
 
 import jakarta.validation.ConstraintViolation;
 
@@ -22,12 +21,13 @@ public class GlobalExceptionHandler {
     private static final String MIN_ATTRIBUTE = "min";
 
     @ExceptionHandler(value = Exception.class)
-    ResponseEntity<ApiResponse> handlingRuntimeException(RuntimeException exception) {
+    ResponseEntity<ApiResponse> handlingRuntimeException(Exception exception) {
         log.error("Uncategorized exception caught: {} - {}", exception.getClass().getName(), exception.getMessage(), exception);
         ApiResponse apiResponse = new ApiResponse();
 
         apiResponse.setCode(ErrorCode.UNCATEGORIZED_EXCEPTION.getCode());
-        apiResponse.setMessage(ErrorCode.UNCATEGORIZED_EXCEPTION.getMessage());
+        // Return the actual exception message so frontend can display it
+        apiResponse.setMessage(exception.getMessage() != null ? exception.getMessage() : ErrorCode.UNCATEGORIZED_EXCEPTION.getMessage());
 
         return ResponseEntity.badRequest().body(apiResponse);
     }
@@ -56,31 +56,33 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(value = MethodArgumentNotValidException.class)
     ResponseEntity<ApiResponse> handlingValidation(MethodArgumentNotValidException exception) {
-        String enumKey = exception.getFieldError().getDefaultMessage();
-
-        ErrorCode errorCode = ErrorCode.INVALID_KEY;
-        Map<String, Object> attributes = null;
-        try {
-            errorCode = ErrorCode.valueOf(enumKey);
-
-            var constraintViolation =
-                    exception.getBindingResult().getAllErrors().getFirst().unwrap(ConstraintViolation.class);
-
-            attributes = constraintViolation.getConstraintDescriptor().getAttributes();
-
-            log.info(attributes.toString());
-
-        } catch (IllegalArgumentException e) {
-
-        }
-
         ApiResponse apiResponse = new ApiResponse();
 
+        var constraintViolation =
+                exception.getBindingResult().getAllErrors().getFirst().unwrap(ConstraintViolation.class);
+
+        Map<String, Object> attributes = constraintViolation.getConstraintDescriptor().getAttributes();
+
+        // Try to find the message in ErrorCode enum (custom messages that ARE enum keys)
+        String message = exception.getFieldError() != null
+                ? exception.getFieldError().getDefaultMessage()
+                : constraintViolation.getMessage();
+
+        ErrorCode errorCode = ErrorCode.INVALID_KEY;
+        try {
+            errorCode = ErrorCode.valueOf(message);
+        } catch (IllegalArgumentException e) {
+            // Message is a human-readable string, not an enum key — use it directly
+            String mappedMessage = mapAttribute(message, attributes);
+            apiResponse.setCode(errorCode.getCode());
+            apiResponse.setMessage(mappedMessage);
+            return ResponseEntity.badRequest().body(apiResponse);
+        }
+
+        log.info(attributes.toString());
+
         apiResponse.setCode(errorCode.getCode());
-        apiResponse.setMessage(
-                Objects.nonNull(attributes)
-                        ? mapAttribute(errorCode.getMessage(), attributes)
-                        : errorCode.getMessage());
+        apiResponse.setMessage(mapAttribute(errorCode.getMessage(), attributes));
 
         return ResponseEntity.badRequest().body(apiResponse);
     }
