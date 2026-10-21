@@ -101,4 +101,17 @@ public class TutorProfileController {
     public ResponseEntity<TutorProfileResponse> submitForReview() {
         return ResponseEntity.ok(tutorProfileService.submitForReview());
     }
+
+    @PostMapping("/me/profile/cancel")
+    @PreAuthorize("hasRole('TUTOR')")
+    @Operation(summary = "Hủy duyệt hồ sơ gia sư (quay về INCOMPLETE)", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Profile cancelled, status changed to INCOMPLETE"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "404", description = "Tutor profile not found"),
+            @ApiResponse(responseCode = "409", description = "Profile is not in PENDING status")
+    })
+    public ResponseEntity<TutorProfileResponse> cancelForReview() {
+        return ResponseEntity.ok(tutorProfileService.cancelProfileForReview());
+    }
 }

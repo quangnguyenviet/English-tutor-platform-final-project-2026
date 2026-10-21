@@ -38,6 +38,7 @@ public class TutorProfileService {
     TutorAvailabilityRepository tutorAvailabilityRepository;
     TutorServiceAreaRepository tutorServiceAreaRepository;
     StorageService storageService;
+    TutorProfileMapper tutorProfileMapper;
 
     private Long getCurrentUserId() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -57,7 +58,7 @@ public class TutorProfileService {
         Tutor tutor = tutorRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.TUTOR_PROFILE_NOT_FOUND));
 
-        return mapToResponse(user, tutor);
+        return tutorProfileMapper.mapToResponse(user, tutor);
     }
 
     @Transactional
@@ -67,6 +68,27 @@ public class TutorProfileService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
+        // Get or create tutor
+        Tutor tutor = tutorRepository.findById(userId)
+                .orElseGet(() -> {
+                    Tutor newTutor = Tutor.builder()
+                            .user(user)
+                            .profileStatus("INCOMPLETE")
+                            .build();
+                    return tutorRepository.save(newTutor);
+                });
+
+        // 1. PENDING → không cho sửa
+        if ("PENDING".equals(tutor.getProfileStatus())) {
+            throw new AppException(ErrorCode.TUTOR_PROFILE_PENDING);
+        }
+
+        // 2. ACTIVE → chỉ cho sửa trường trong whitelist, bỏ qua trường bị khóa
+        if ("ACTIVE".equals(tutor.getProfileStatus())) {
+            return updateAllowedFieldsOnly(tutor, user, request);
+        }
+
+        // 3. INCOMPLETE / REJECTED → sửa tất cả trường
         // Update user fields
         if (request.getFullName() != null) {
             user.setFullName(request.getFullName());
@@ -85,16 +107,6 @@ public class TutorProfileService {
         }
 
         userRepository.save(user);
-
-        // Get or create tutor
-        Tutor tutor = tutorRepository.findById(userId)
-                .orElseGet(() -> {
-                    Tutor newTutor = Tutor.builder()
-                            .user(user)
-                            .profileStatus("INCOMPLETE")
-                            .build();
-                    return tutorRepository.save(newTutor);
-                });
 
         // Update tutor fields
         if (request.getAddress() != null) {
@@ -130,21 +142,63 @@ public class TutorProfileService {
 
         log.info("Tutor profile upserted for userId: {}", userId);
 
-        return mapToResponse(user, tutor);
+        return tutorProfileMapper.mapToResponse(user, tutor);
+    }
+
+    /**
+     * Cập nhật chỉ những trường được phép khi hồ sơ đã {@code ACTIVE}.
+     * Các trường quan trọng (fullName, dateOfBirth, gender, hometown, university)
+     * bị bỏ qua — không được sửa sau khi duyệt.
+     */
+    private TutorProfileResponse updateAllowedFieldsOnly(
+            Tutor tutor, User user, TutorProfileUpsertRequest request) {
+        // User fields cho phép sửa
+        if (request.getPhone() != null) {
+            user.setPhone(request.getPhone());
+        }
+        if (request.getAvatarUrl() != null) {
+            user.setAvatarUrl(request.getAvatarUrl());
+        }
+        userRepository.save(user);
+
+        // Tutor fields cho phép sửa
+        if (request.getAddress() != null) {
+            tutor.setAddress(request.getAddress());
+        }
+        if (request.getEducationStatus() != null) {
+            tutor.setEducationStatus(request.getEducationStatus());
+        }
+        if (request.getExperienceYears() != null) {
+            tutor.setExperienceYears(request.getExperienceYears().shortValue());
+        }
+        if (request.getBio() != null) {
+            tutor.setBio(request.getBio());
+        }
+        if (request.getVideoUrl() != null) {
+            tutor.setVideoUrl(request.getVideoUrl());
+        }
+        tutorRepository.save(tutor);
+
+        // 5 mảng con — cho phép cập nhật tất cả
+        updateServiceAreas(tutor, request.getServiceAreas());
+        updateSpecialties(tutor, request.getSpecialties());
+        updatePrices(tutor, request.getPrices());
+        updateAvailabilities(tutor, request.getAvailabilities());
+        updateCredentials(tutor, request.getCredentials());
+
+        log.info("Tutor profile updated (restricted fields) for userId: {}", user.getId());
+
+        return tutorProfileMapper.mapToResponse(user, tutor);
     }
 
     @Transactional
     public String uploadAvatar(MultipartFile avatarFile) {
-        Long userId = getCurrentUserId();
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+        // Chỉ cần xác thực user tồn tại (giữ guard)
+        getCurrentUserId();
 
         String avatarUrl = storageService.uploadFile("avatars", avatarFile);
-        user.setAvatarUrl(avatarUrl);
-        userRepository.save(user);
-
-        log.info("Avatar uploaded for userId: {}", userId);
-        return avatarUrl;
+        log.info("Avatar uploaded, url: {}", avatarUrl);
+        return avatarUrl;  // FE giữ URL, gửi lại trong upsert payload
     }
 
     @Transactional
@@ -177,6 +231,12 @@ public class TutorProfileService {
         }
 
         tutor.setProfileStatus("PENDING");
+        // Reset kết quả duyệt của lần trước: hồ sơ đang chờ duyệt không được
+        // mang theo lý do từ chối cũ hay thông tin "đã duyệt" của lần trước.
+        tutor.setRejectionReason(null);
+        tutor.setReviewedBy(null);
+        tutor.setReviewedAt(null);
+        tutor.setSubmittedAt(java.time.OffsetDateTime.now());
         tutorRepository.save(tutor);
 
         User user = userRepository.findById(userId)
@@ -184,7 +244,32 @@ public class TutorProfileService {
 
         log.info("Tutor profile submitted for review, userId: {}", userId);
 
-        return mapToResponse(user, tutor);
+        return tutorProfileMapper.mapToResponse(user, tutor);
+    }
+
+    @Transactional
+    public TutorProfileResponse cancelProfileForReview() {
+        Long userId = getCurrentUserId();
+
+        Tutor tutor = tutorRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.TUTOR_PROFILE_NOT_FOUND));
+
+        if (!"PENDING".equals(tutor.getProfileStatus())) {
+            throw new AppException(ErrorCode.TUTOR_PROFILE_NOT_PENDING);
+        }
+
+        tutor.setProfileStatus("INCOMPLETE");
+        tutor.setRejectionReason(null);
+        tutor.setReviewedBy(null);
+        tutor.setReviewedAt(null);
+        tutorRepository.save(tutor);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        log.info("Tutor profile cancelled for review, userId: {}, status: {}", userId, tutor.getProfileStatus());
+
+        return tutorProfileMapper.mapToResponse(user, tutor);
     }
 
     private void updateServiceAreas(Tutor tutor, List<TutorProfileUpsertRequest.ServiceAreaDto> dtos) {
@@ -289,71 +374,4 @@ public class TutorProfileService {
         tutorCredentialRepository.saveAll(entities);
     }
 
-    private TutorProfileResponse mapToResponse(User user, Tutor tutor) {
-        List<TutorServiceArea> serviceAreas = tutorServiceAreaRepository.findByTutorId(tutor.getId());
-        List<TutorSpecialty> specialties = tutorSpecialtyRepository.findByTutorId(tutor.getId());
-        List<TutorPrice> prices = tutorPriceRepository.findByTutorId(tutor.getId());
-        List<TutorAvailability> availabilities = tutorAvailabilityRepository.findByTutorId(tutor.getId());
-        List<TutorCredential> credentials = tutorCredentialRepository.findByTutorId(tutor.getId());
-
-        return TutorProfileResponse.builder()
-                .userId(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .dateOfBirth(user.getDateOfBirth() != null ? user.getDateOfBirth().toString() : null)
-                .gender(user.getGender())
-                .phone(user.getPhone())
-                .avatarUrl(user.getAvatarUrl())
-                .tutorId(tutor.getId())
-                .address(tutor.getAddress())
-                .hometown(tutor.getHometown())
-                .university(tutor.getUniversity())
-                .educationStatus(tutor.getEducationStatus())
-                .experienceYears(tutor.getExperienceYears() != null ? tutor.getExperienceYears().intValue() : null)
-                .bio(tutor.getBio())
-                .videoUrl(tutor.getVideoUrl())
-                .profileStatus(tutor.getProfileStatus())
-                .rejectionReason(tutor.getRejectionReason())
-                .reviewedAt(tutor.getReviewedAt())
-                .updatedAt(tutor.getUpdatedAt())
-                .serviceAreas(serviceAreas.stream()
-                        .map(s -> TutorProfileResponse.ServiceAreaResponse.builder()
-                                .id(s.getId())
-                                .province(s.getProvince())
-                                .district(s.getDistrict())
-                                .build())
-                        .toList())
-                .specialties(specialties.stream()
-                        .map(s -> TutorProfileResponse.SpecialtyResponse.builder()
-                                .id(s.getId())
-                                .specialty(s.getSpecialty())
-                                .gradeLevel(s.getGradeLevel())
-                                .build())
-                        .toList())
-                .prices(prices.stream()
-                        .map(p -> TutorProfileResponse.PriceResponse.builder()
-                                .id(p.getId())
-                                .teachingMode(p.getTeachingMode().name())
-                                .pricePerSession(p.getPricePerSession())
-                                .program(p.getProgram())
-                                .build())
-                        .toList())
-                .availabilities(availabilities.stream()
-                        .map(a -> TutorProfileResponse.AvailabilityResponse.builder()
-                                .id(a.getId())
-                                .dayOfWeek(a.getDayOfWeek() != null ? a.getDayOfWeek().intValue() : null)
-                                .timeSlot(a.getTimeSlot().name())
-                                .build())
-                        .toList())
-                .credentials(credentials.stream()
-                        .map(c -> TutorProfileResponse.CredentialResponse.builder()
-                                .id(c.getId())
-                                .title(c.getTitle())
-                                .type(c.getType())
-                                .score(c.getScore())
-                                .fileUrl(c.getFileUrl())
-                                .build())
-                        .toList())
-                .build();
-    }
 }
