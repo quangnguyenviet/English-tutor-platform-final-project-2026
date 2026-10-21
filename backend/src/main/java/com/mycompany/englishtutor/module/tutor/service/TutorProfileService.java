@@ -178,6 +178,12 @@ public class TutorProfileService {
         }
 
         tutor.setProfileStatus("PENDING");
+        // Reset kết quả duyệt của lần trước: hồ sơ đang chờ duyệt không được
+        // mang theo lý do từ chối cũ hay thông tin "đã duyệt" của lần trước.
+        tutor.setRejectionReason(null);
+        tutor.setReviewedBy(null);
+        tutor.setReviewedAt(null);
+        tutor.setSubmittedAt(java.time.OffsetDateTime.now());
         tutorRepository.save(tutor);
 
         User user = userRepository.findById(userId)
