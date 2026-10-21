@@ -37,6 +37,7 @@ public class TutorProfileResponse {
     String videoUrl;
     String profileStatus;
     String rejectionReason;
+    OffsetDateTime submittedAt;
     OffsetDateTime reviewedAt;
     OffsetDateTime updatedAt;
 

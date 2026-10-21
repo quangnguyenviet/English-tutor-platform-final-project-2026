@@ -2,6 +2,8 @@ package com.mycompany.englishtutor.module.tutor.domain;
 
 import jakarta.persistence.*;
 
+import org.hibernate.annotations.ColumnDefault;
+
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -55,6 +57,16 @@ public class Tutor {
     @Column(name = "reviewed_at")
     java.time.OffsetDateTime reviewedAt;
 
+    /**
+     * Thời điểm gia sư gửi hồ sơ để duyệt lần gần nhất.
+     * Khác với {@code updatedAt} (không tự cập nhật do khai báo
+     * {@code insertable=false, updatable=false}), cột này được set chủ động
+     * mỗi lần chuyển trạng thái sang {@code PENDING}.
+     */
+    @Column(name = "submitted_at")
+    java.time.OffsetDateTime submittedAt;
+
     @Column(name = "updated_at", nullable = false, insertable = false)
+    @ColumnDefault("NOW()")
     java.time.OffsetDateTime updatedAt;
 }
