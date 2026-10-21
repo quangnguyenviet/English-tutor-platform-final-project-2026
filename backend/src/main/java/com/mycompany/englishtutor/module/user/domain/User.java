@@ -2,6 +2,8 @@ package com.mycompany.englishtutor.module.user.domain;
 
 import jakarta.persistence.*;
 
+import org.hibernate.annotations.ColumnDefault;
+
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -52,8 +54,10 @@ public class User {
     boolean mustChangePassword;
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
+    @ColumnDefault("NOW()")
     java.time.OffsetDateTime createdAt;
 
     @Column(name = "updated_at", nullable = false, insertable = false)
+    @ColumnDefault("NOW()")
     java.time.OffsetDateTime updatedAt;
 }

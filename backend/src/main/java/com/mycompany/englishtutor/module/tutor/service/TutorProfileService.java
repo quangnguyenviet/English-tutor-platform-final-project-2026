@@ -38,6 +38,7 @@ public class TutorProfileService {
     TutorAvailabilityRepository tutorAvailabilityRepository;
     TutorServiceAreaRepository tutorServiceAreaRepository;
     StorageService storageService;
+    TutorProfileMapper tutorProfileMapper;
 
     private Long getCurrentUserId() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -57,7 +58,7 @@ public class TutorProfileService {
         Tutor tutor = tutorRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.TUTOR_PROFILE_NOT_FOUND));
 
-        return mapToResponse(user, tutor);
+        return tutorProfileMapper.mapToResponse(user, tutor);
     }
 
     @Transactional
@@ -130,7 +131,7 @@ public class TutorProfileService {
 
         log.info("Tutor profile upserted for userId: {}", userId);
 
-        return mapToResponse(user, tutor);
+        return tutorProfileMapper.mapToResponse(user, tutor);
     }
 
     @Transactional
@@ -184,7 +185,7 @@ public class TutorProfileService {
 
         log.info("Tutor profile submitted for review, userId: {}", userId);
 
-        return mapToResponse(user, tutor);
+        return tutorProfileMapper.mapToResponse(user, tutor);
     }
 
     private void updateServiceAreas(Tutor tutor, List<TutorProfileUpsertRequest.ServiceAreaDto> dtos) {
@@ -289,71 +290,4 @@ public class TutorProfileService {
         tutorCredentialRepository.saveAll(entities);
     }
 
-    private TutorProfileResponse mapToResponse(User user, Tutor tutor) {
-        List<TutorServiceArea> serviceAreas = tutorServiceAreaRepository.findByTutorId(tutor.getId());
-        List<TutorSpecialty> specialties = tutorSpecialtyRepository.findByTutorId(tutor.getId());
-        List<TutorPrice> prices = tutorPriceRepository.findByTutorId(tutor.getId());
-        List<TutorAvailability> availabilities = tutorAvailabilityRepository.findByTutorId(tutor.getId());
-        List<TutorCredential> credentials = tutorCredentialRepository.findByTutorId(tutor.getId());
-
-        return TutorProfileResponse.builder()
-                .userId(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .dateOfBirth(user.getDateOfBirth() != null ? user.getDateOfBirth().toString() : null)
-                .gender(user.getGender())
-                .phone(user.getPhone())
-                .avatarUrl(user.getAvatarUrl())
-                .tutorId(tutor.getId())
-                .address(tutor.getAddress())
-                .hometown(tutor.getHometown())
-                .university(tutor.getUniversity())
-                .educationStatus(tutor.getEducationStatus())
-                .experienceYears(tutor.getExperienceYears() != null ? tutor.getExperienceYears().intValue() : null)
-                .bio(tutor.getBio())
-                .videoUrl(tutor.getVideoUrl())
-                .profileStatus(tutor.getProfileStatus())
-                .rejectionReason(tutor.getRejectionReason())
-                .reviewedAt(tutor.getReviewedAt())
-                .updatedAt(tutor.getUpdatedAt())
-                .serviceAreas(serviceAreas.stream()
-                        .map(s -> TutorProfileResponse.ServiceAreaResponse.builder()
-                                .id(s.getId())
-                                .province(s.getProvince())
-                                .district(s.getDistrict())
-                                .build())
-                        .toList())
-                .specialties(specialties.stream()
-                        .map(s -> TutorProfileResponse.SpecialtyResponse.builder()
-                                .id(s.getId())
-                                .specialty(s.getSpecialty())
-                                .gradeLevel(s.getGradeLevel())
-                                .build())
-                        .toList())
-                .prices(prices.stream()
-                        .map(p -> TutorProfileResponse.PriceResponse.builder()
-                                .id(p.getId())
-                                .teachingMode(p.getTeachingMode().name())
-                                .pricePerSession(p.getPricePerSession())
-                                .program(p.getProgram())
-                                .build())
-                        .toList())
-                .availabilities(availabilities.stream()
-                        .map(a -> TutorProfileResponse.AvailabilityResponse.builder()
-                                .id(a.getId())
-                                .dayOfWeek(a.getDayOfWeek() != null ? a.getDayOfWeek().intValue() : null)
-                                .timeSlot(a.getTimeSlot().name())
-                                .build())
-                        .toList())
-                .credentials(credentials.stream()
-                        .map(c -> TutorProfileResponse.CredentialResponse.builder()
-                                .id(c.getId())
-                                .title(c.getTitle())
-                                .type(c.getType())
-                                .score(c.getScore())
-                                .fileUrl(c.getFileUrl())
-                                .build())
-                        .toList())
-                .build();
-    }
 }
