@@ -1,6 +1,7 @@
 package com.mycompany.englishtutor.module.tutor.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -42,7 +43,7 @@ public class TutorProfileController {
         return ResponseEntity.ok(tutorProfileService.getProfile());
     }
 
-    @PostMapping(value = "/me/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/me/profile", consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('TUTOR')")
     @Operation(summary = "Create or update tutor profile", security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponses(value = {
@@ -52,13 +53,41 @@ public class TutorProfileController {
             @ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public ResponseEntity<TutorProfileResponse> upsertProfile(
-            @ModelAttribute @Valid TutorProfileUpsertRequest request,
-            @RequestParam(value = "avatar", required = false) MultipartFile avatar,
-            @RequestParam(value = "credentialsFiles", required = false) List<MultipartFile> credentialFiles) {
+            @RequestBody @Valid TutorProfileUpsertRequest request) {
 
         log.info("Received profile upsert request for tutor");
-        TutorProfileResponse response = tutorProfileService.upsertProfile(request, avatar, credentialFiles);
+        TutorProfileResponse response = tutorProfileService.upsertProfile(request);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/me/profile/avatar")
+    @PreAuthorize("hasRole('TUTOR')")
+    @Operation(summary = "Upload tutor avatar", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Avatar uploaded successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "400", description = "Invalid file")
+    })
+    public ResponseEntity<Map<String, String>> uploadAvatar(
+            @RequestParam("avatar") MultipartFile avatar) {
+
+        String avatarUrl = tutorProfileService.uploadAvatar(avatar);
+        return ResponseEntity.ok(Map.of("avatarUrl", avatarUrl));
+    }
+
+    @PostMapping("/me/profile/credentials/upload")
+    @PreAuthorize("hasRole('TUTOR')")
+    @Operation(summary = "Upload credential files", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Files uploaded successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "400", description = "Invalid files")
+    })
+    public ResponseEntity<List<String>> uploadCredentialFiles(
+            @RequestParam("files") List<MultipartFile> files) {
+
+        List<String> fileUrls = tutorProfileService.uploadCredentialFiles(files);
+        return ResponseEntity.ok(fileUrls);
     }
 
     @PostMapping("/me/profile/submit")

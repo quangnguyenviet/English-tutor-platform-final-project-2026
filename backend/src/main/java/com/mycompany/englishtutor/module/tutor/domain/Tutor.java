@@ -32,7 +32,7 @@ public class Tutor {
     String university;
 
     @Column(name = "education_status", length = 30)
-    String educationStatus;
+    String educationStatus; // 'STUDENT', 'GRADUATED', 'LECTURER'
 
     @Column(name = "experience_years")
     Short experienceYears;

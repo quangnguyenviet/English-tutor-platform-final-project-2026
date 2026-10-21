@@ -61,11 +61,7 @@ public class TutorProfileService {
     }
 
     @Transactional
-    public TutorProfileResponse upsertProfile(
-            TutorProfileUpsertRequest request,
-            MultipartFile avatarFile,
-            List<MultipartFile> credentialFiles) {
-
+    public TutorProfileResponse upsertProfile(TutorProfileUpsertRequest request) {
         Long userId = getCurrentUserId();
 
         User user = userRepository.findById(userId)
@@ -84,11 +80,8 @@ public class TutorProfileService {
         if (request.getPhone() != null) {
             user.setPhone(request.getPhone());
         }
-
-        // Handle avatar upload
-        if (avatarFile != null && !avatarFile.isEmpty()) {
-            String avatarUrl = storageService.uploadFile("avatars", avatarFile);
-            user.setAvatarUrl(avatarUrl);
+        if (request.getAvatarUrl() != null) {
+            user.setAvatarUrl(request.getAvatarUrl());
         }
 
         userRepository.save(user);
@@ -133,11 +126,43 @@ public class TutorProfileService {
         updateSpecialties(tutor, request.getSpecialties());
         updatePrices(tutor, request.getPrices());
         updateAvailabilities(tutor, request.getAvailabilities());
-        updateCredentials(tutor, request.getCredentials(), credentialFiles);
+        updateCredentials(tutor, request.getCredentials());
 
         log.info("Tutor profile upserted for userId: {}", userId);
 
         return mapToResponse(user, tutor);
+    }
+
+    @Transactional
+    public String uploadAvatar(MultipartFile avatarFile) {
+        Long userId = getCurrentUserId();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        String avatarUrl = storageService.uploadFile("avatars", avatarFile);
+        user.setAvatarUrl(avatarUrl);
+        userRepository.save(user);
+
+        log.info("Avatar uploaded for userId: {}", userId);
+        return avatarUrl;
+    }
+
+    @Transactional
+    public List<String> uploadCredentialFiles(List<MultipartFile> files) {
+        if (files == null || files.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> fileUrls = new ArrayList<>();
+        for (MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) {
+                String fileUrl = storageService.uploadFile("credentials", file);
+                fileUrls.add(fileUrl);
+            }
+        }
+
+        log.info("Credential files uploaded, count: {}", fileUrls.size());
+        return fileUrls;
     }
 
     @Transactional
@@ -193,6 +218,7 @@ public class TutorProfileService {
                     .tutor(tutor)
                     .specialty(dto.getSpecialty())
                     .gradeLevel(dto.getGradeLevel())
+                    .isVerified(false)
                     .build());
         }
         tutorSpecialtyRepository.saveAll(entities);
@@ -237,8 +263,7 @@ public class TutorProfileService {
 
     private void updateCredentials(
             Tutor tutor,
-            List<TutorProfileUpsertRequest.CredentialDto> dtos,
-            List<MultipartFile> files) {
+            List<TutorProfileUpsertRequest.CredentialDto> dtos) {
 
         tutorCredentialRepository.deleteByTutorId(tutor.getId());
 
@@ -247,12 +272,9 @@ public class TutorProfileService {
         }
 
         List<TutorCredential> entities = new ArrayList<>();
-        for (int i = 0; i < dtos.size(); i++) {
-            var dto = dtos.get(i);
-            String fileUrl = null;
-
-            if (files != null && i < files.size() && files.get(i) != null && !files.get(i).isEmpty()) {
-                fileUrl = storageService.uploadFile("credentials", files.get(i));
+        for (var dto : dtos) {
+            if (dto.getFileUrl() == null || dto.getFileUrl().isBlank()) {
+                throw new IllegalArgumentException("File URL cho chứng chỉ \"" + dto.getTitle() + "\" không hợp lệ");
             }
 
             entities.add(TutorCredential.builder()
@@ -260,7 +282,8 @@ public class TutorProfileService {
                     .title(dto.getTitle())
                     .type(dto.getType())
                     .score(dto.getScore())
-                    .fileUrl(fileUrl)
+                    .fileUrl(dto.getFileUrl())
+                    .isVerified(false)
                     .build());
         }
         tutorCredentialRepository.saveAll(entities);

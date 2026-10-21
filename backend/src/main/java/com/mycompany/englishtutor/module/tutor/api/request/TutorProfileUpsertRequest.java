@@ -57,15 +57,14 @@ public class TutorProfileUpsertRequest {
 
     String videoUrl;
 
+    String avatarUrl;
+
     // Nested DTOs
     List<ServiceAreaDto> serviceAreas;
     List<SpecialtyDto> specialties;
     List<PriceDto> prices;
     List<AvailabilityDto> availabilities;
     List<CredentialDto> credentials;
-
-    // File
-    Object avatar; // MultipartFile (handled separately in controller)
 
     @Data
     @Builder
@@ -129,6 +128,7 @@ public class TutorProfileUpsertRequest {
 
         String score;
 
-        // File handled separately
+        @NotBlank(message = "Credential file URL is required")
+        String fileUrl;
     }
 }

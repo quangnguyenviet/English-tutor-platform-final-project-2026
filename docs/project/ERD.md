@@ -2,7 +2,7 @@
 
 > **Tác giả:** Chuyên gia kiến trúc phần mềm  
 > **Ngày tạo:** 12/10/2026  
-> **Phiên bản:** 2.1 — bổ sung `hometown` (VARCHAR 100) vào bảng `tutors` (migration V2, nullable, backward-compatible)
+> **Phiên bản:** 2.2 — bỏ `current_address` khỏi bảng `tutors` (migration V3); giữ `hometown` (VARCHAR 100, migration V2)
 > **Cơ sở dữ liệu:** PostgreSQL (26 bảng chính + 1 view) + MongoDB (1 collection `ai_chat_messages`)
 
 ---
