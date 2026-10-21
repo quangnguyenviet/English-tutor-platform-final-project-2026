@@ -93,7 +93,7 @@ export function TutorCard({ tutor, index = 0, onContact, onConnect, onViewDetail
           </div>
           <div className="flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-            <span className="truncate">{tutor.district ? `${tutor.district}, ${tutor.province}` : tutor.currentAddress}</span>
+            <span className="truncate">{tutor.district ? `${tutor.district}, ${tutor.province}` : tutor.location}</span>
           </div>
         </div>
 

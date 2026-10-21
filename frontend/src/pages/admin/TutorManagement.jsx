@@ -612,7 +612,7 @@ export function TutorManagement() {
                   </div>
                   <div className="flex justify-between border-b border-slate-200/60 pb-1.5 dark:border-slate-700/60">
                     <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><MapPin size={13} /> Khu vực dạy:</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-100">{viewingTutor.location || viewingTutor.currentAddress || "TP. Hồ Chí Minh & Online"}</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-100">{viewingTutor.location || "TP. Hồ Chí Minh & Online"}</span>
                   </div>
                   <div className="flex justify-between border-b border-slate-200/60 pb-1.5 dark:border-slate-700/60">
                     <span className="text-slate-500 dark:text-slate-400">Học phí / buổi:</span>
