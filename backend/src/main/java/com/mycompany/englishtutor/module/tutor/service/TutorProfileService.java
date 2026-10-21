@@ -68,6 +68,27 @@ public class TutorProfileService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
+        // Get or create tutor
+        Tutor tutor = tutorRepository.findById(userId)
+                .orElseGet(() -> {
+                    Tutor newTutor = Tutor.builder()
+                            .user(user)
+                            .profileStatus("INCOMPLETE")
+                            .build();
+                    return tutorRepository.save(newTutor);
+                });
+
+        // 1. PENDING → không cho sửa
+        if ("PENDING".equals(tutor.getProfileStatus())) {
+            throw new AppException(ErrorCode.TUTOR_PROFILE_PENDING);
+        }
+
+        // 2. ACTIVE → chỉ cho sửa trường trong whitelist, bỏ qua trường bị khóa
+        if ("ACTIVE".equals(tutor.getProfileStatus())) {
+            return updateAllowedFieldsOnly(tutor, user, request);
+        }
+
+        // 3. INCOMPLETE / REJECTED → sửa tất cả trường
         // Update user fields
         if (request.getFullName() != null) {
             user.setFullName(request.getFullName());
@@ -86,16 +107,6 @@ public class TutorProfileService {
         }
 
         userRepository.save(user);
-
-        // Get or create tutor
-        Tutor tutor = tutorRepository.findById(userId)
-                .orElseGet(() -> {
-                    Tutor newTutor = Tutor.builder()
-                            .user(user)
-                            .profileStatus("INCOMPLETE")
-                            .build();
-                    return tutorRepository.save(newTutor);
-                });
 
         // Update tutor fields
         if (request.getAddress() != null) {
@@ -134,18 +145,60 @@ public class TutorProfileService {
         return tutorProfileMapper.mapToResponse(user, tutor);
     }
 
-    @Transactional
-    public String uploadAvatar(MultipartFile avatarFile) {
-        Long userId = getCurrentUserId();
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-
-        String avatarUrl = storageService.uploadFile("avatars", avatarFile);
-        user.setAvatarUrl(avatarUrl);
+    /**
+     * Cập nhật chỉ những trường được phép khi hồ sơ đã {@code ACTIVE}.
+     * Các trường quan trọng (fullName, dateOfBirth, gender, hometown, university)
+     * bị bỏ qua — không được sửa sau khi duyệt.
+     */
+    private TutorProfileResponse updateAllowedFieldsOnly(
+            Tutor tutor, User user, TutorProfileUpsertRequest request) {
+        // User fields cho phép sửa
+        if (request.getPhone() != null) {
+            user.setPhone(request.getPhone());
+        }
+        if (request.getAvatarUrl() != null) {
+            user.setAvatarUrl(request.getAvatarUrl());
+        }
         userRepository.save(user);
 
-        log.info("Avatar uploaded for userId: {}", userId);
-        return avatarUrl;
+        // Tutor fields cho phép sửa
+        if (request.getAddress() != null) {
+            tutor.setAddress(request.getAddress());
+        }
+        if (request.getEducationStatus() != null) {
+            tutor.setEducationStatus(request.getEducationStatus());
+        }
+        if (request.getExperienceYears() != null) {
+            tutor.setExperienceYears(request.getExperienceYears().shortValue());
+        }
+        if (request.getBio() != null) {
+            tutor.setBio(request.getBio());
+        }
+        if (request.getVideoUrl() != null) {
+            tutor.setVideoUrl(request.getVideoUrl());
+        }
+        tutorRepository.save(tutor);
+
+        // 5 mảng con — cho phép cập nhật tất cả
+        updateServiceAreas(tutor, request.getServiceAreas());
+        updateSpecialties(tutor, request.getSpecialties());
+        updatePrices(tutor, request.getPrices());
+        updateAvailabilities(tutor, request.getAvailabilities());
+        updateCredentials(tutor, request.getCredentials());
+
+        log.info("Tutor profile updated (restricted fields) for userId: {}", userId);
+
+        return tutorProfileMapper.mapToResponse(user, tutor);
+    }
+
+    @Transactional
+    public String uploadAvatar(MultipartFile avatarFile) {
+        // Chỉ cần xác thực user tồn tại (giữ guard)
+        getCurrentUserId();
+
+        String avatarUrl = storageService.uploadFile("avatars", avatarFile);
+        log.info("Avatar uploaded, url: {}", avatarUrl);
+        return avatarUrl;  // FE giữ URL, gửi lại trong upsert payload
     }
 
     @Transactional

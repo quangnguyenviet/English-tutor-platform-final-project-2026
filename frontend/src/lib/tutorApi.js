@@ -68,7 +68,7 @@ export async function apiGetTutorProfile(token) {
 
 /**
  * Tải ảnh đại diện gia sư — POST /api/v1/tutors/me/profile/avatar
- * Ảnh được lưu ngay vào tài khoản người dùng ở backend.
+ * Chỉ upload file và trả URL; ảnh chưa được lưu vào hồ sơ cho đến khi gọi Lưu hồ sơ.
  *
  * @param {string} token - JWT token
  * @param {File} file - File ảnh đại diện
