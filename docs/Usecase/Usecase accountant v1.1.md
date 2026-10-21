@@ -64,7 +64,7 @@ Kế toán (Accountant) là nhân sự văn phòng phụ trách tài chính, dò
 
 | Thuộc tính | Nội dung đặc tả |
 | :---- | :---- |
-| **Mã UC** | **UC-ACC-02** |
+| **Mã UC** | **UC-ACC-02**  |
 | **Tên UC** | **Quản lý và theo dõi khoản phí nhận lớp** |
 | **Actor** | Kế toán (Accountant) |
 | **Tiền điều kiện** | 1\. Kế toán đã đăng nhập hệ thống. 2\. Tồn tại ít nhất một khoản phí trong hệ thống. Khoản phí được hệ thống tự động sinh ra khi gia sư hoàn thành chốt lịch học cố định (UC-T06), số tiền được tính theo công thức: Số tiền phải nộp \= Tỷ lệ phí (%) × Số buổi/tuần × 4 × Học phí mỗi buổi. |

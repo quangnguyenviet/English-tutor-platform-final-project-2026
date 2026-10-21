@@ -9,7 +9,7 @@ Admin (Quản trị viên) là người vận hành trung tâm gia sư, chịu t
 
 ## **1.2 Trách nhiệm chính**
 
-| Trách nhiệm | Mô tả |
+| Trách nhiệm | Mô tả  |
 | :---- | :---- |
 | Quản lý Lớp cần gia sư | Tiếp nhận yêu cầu đăng ký học từ Phụ huynh, trường hợp Phụ huynh chưa xác định được gia sư nào phù hợp, cần trung tâm hỗ trợ tìm giúp. Tạo các lớp cần gia sư để các gia sư tham gia đăng ký. |
 | Quản lý Đơn ghép lớp | Tiếp nhận yêu cầu đăng ký học từ Phụ huynh, trường hợp Phụ huynh xác định được gia sư phù hợp. Đơn ghép lớp là các lớp đã xác định được gia sư. |
