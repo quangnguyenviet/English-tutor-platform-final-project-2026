@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { apiGetTutorProfile } from "../../lib/tutorApi";
+import { getEditMode } from "../../lib/tutorProfileModel";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import ProfileSkeleton from "../../components/tutor/profile/ProfileSkeleton";
 import ProfileEmptyState from "../../components/tutor/profile/ProfileEmptyState";
 import ProfileView from "../../components/tutor/profile/ProfileView";
+import ProfileEditForm from "../../components/tutor/profile/ProfileEditForm";
 
 export default function TutorProfile() {
   const { token } = useAuth();
@@ -17,6 +19,7 @@ export default function TutorProfile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const loadProfile = useCallback(async function loadProfile() {
     if (!token) {
@@ -57,10 +60,20 @@ export default function TutorProfile() {
   const handleGoLogin = () => navigate("/login?role=tutor");
   const handleGoCreate = () => navigate("/tutor/create-profile");
 
-  // Callbacks tạm thời (task 6 sẽ triển khai form chỉnh sửa, task 7 hành động lưu/gửi duyệt)
-  const handleEdit = () => navigate("/tutor/create-profile");
+  // ── Điều phối chế độ Xem ↔ Sửa (task 6) ──
+  const handleEdit = () => {
+    // Chỉ vào chế độ sửa khi trạng thái cho phép (INCOMPLETE / REJECTED / ACTIVE)
+    if (getEditMode(profile?.profileStatus) === "locked") return;
+    setEditing(true);
+  };
+  const handleCancelEdit = () => setEditing(false);
+
+  // Hành động lưu / gửi duyệt / hủy duyệt (task 7 sẽ triển khai)
+  const handleSave = async () => {
+    // TODO: task 7 — upload avatar/credentials mới → build payload → apiSubmitTutorProfile → refresh
+  };
   const handleSubmitForReview = () => {
-    // TODO: task 7 — gọi apiSubmitProfileForReview
+    // TODO: task 7 — lưu trước nếu dirty rồi apiSubmitProfileForReview
   };
   const handleCancelReview = () => {
     // TODO: task 7 — gọi cancelProfileForReview
@@ -96,6 +109,18 @@ export default function TutorProfile() {
           </div>
         )}
       </Card>
+    );
+  }
+
+  // Chế độ sửa (task 6): full edit cho INCOMPLETE/REJECTED, restricted cho ACTIVE
+  if (editing) {
+    return (
+      <ProfileEditForm
+        profile={profile}
+        onCancel={handleCancelEdit}
+        onSave={handleSave}
+        onSubmitForReview={handleSubmitForReview}
+      />
     );
   }
 
