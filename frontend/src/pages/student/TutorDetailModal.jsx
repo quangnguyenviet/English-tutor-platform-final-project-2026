@@ -68,7 +68,7 @@ export default function TutorDetailModal({ tutor, onClose, onSelectTutor }) {
                 <span className="font-semibold text-slate-900 dark:text-slate-200">Quê quán:</span> {tutor.hometown || "TP.HCM"}
               </p>
               <p className="text-slate-600 dark:text-slate-400">
-                <span className="font-semibold text-slate-900 dark:text-slate-200">Nơi ở hiện tại:</span> {tutor.currentAddress || "TP.HCM"}
+                <span className="font-semibold text-slate-900 dark:text-slate-200">Nơi ở hiện tại:</span> {tutor.location || "TP.HCM"}
               </p>
               <p className="text-slate-600 dark:text-slate-400">
                 <span className="font-semibold text-slate-900 dark:text-slate-200">Trường Cấp 3:</span> {tutor.highSchool || "THPT Chuyên"}

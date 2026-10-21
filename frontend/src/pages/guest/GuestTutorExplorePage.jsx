@@ -16,7 +16,6 @@ function applyFilters(list, filters) {
         t.name,
         t.university,
         t.location,
-        t.currentAddress,
         t.district,
         t.province,
         t.gender,
@@ -33,7 +32,7 @@ function applyFilters(list, filters) {
     // 2. Địa điểm 2 cấp: Tỉnh/Thành phố & Quận/Huyện
     if (filters.province && filters.province !== "Tất cả") {
       const provLow = filters.province.toLowerCase();
-      const tutorLocation = [t.location, t.province, t.currentAddress].join(" ").toLowerCase();
+      const tutorLocation = [t.location, t.province].join(" ").toLowerCase();
       if (!tutorLocation.includes(provLow) && !provLow.includes(tutorLocation)) {
         // Fallback kiểm tra "Hà Nội" hoặc "Hồ Chí Minh"
         if (filters.province === "Hà Nội" && !tutorLocation.includes("hà nội") && !tutorLocation.includes("hn")) return false;
@@ -43,7 +42,7 @@ function applyFilters(list, filters) {
 
     if (filters.district && filters.district !== "Tất cả quận/huyện") {
       const distLow = filters.district.toLowerCase();
-      const tutorDistrict = [t.district, t.currentAddress, t.location].join(" ").toLowerCase();
+      const tutorDistrict = [t.district, t.location].join(" ").toLowerCase();
       if (!tutorDistrict.includes(distLow)) return false;
     }
 
