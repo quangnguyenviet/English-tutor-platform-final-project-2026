@@ -6,18 +6,18 @@
 ┌──────────┐   Gửi duyệt   ┌─────────┐   Lễ tân duyệt   ┌────────┐
 │INCOMPLETE├──────────────►│ PENDING ├──────────────────►│ ACTIVE │
 └──────────┘               └────┬────┘                   └───┬────┘
-                                │                            │
-                           Lễ tân từ chối               Sửa field
-                                │                      cho phép (*)
-                                ▼                            │
-                          ┌──────────┐                       │
-                          │ REJECTED │                       ▼
-                          └────┬─────┘              Lưu trực tiếp,
-                               │                  KHÔNG cần duyệt lại
-                          Sửa hồ sơ +
-                          gửi duyệt lại
-                               │
-                               ▼
+                               │ ▲                          │
+                        Gia sư hủy│                          │ Sửa field
+                                 │ │                      cho phép (*)
+                                 └─┘                          │
+                           ┌──────────┐                       │
+                           │ REJECTED │                       ▼
+                           └────┬─────┘              Lưu trực tiếp,
+                                │                  KHÔNG cần duyệt lại
+                           Sửa hồ sơ +
+                           gửi duyệt lại
+                                │
+                                ▼
                           ┌─────────┐
                           │ PENDING │
                           └─────────┘
@@ -29,7 +29,8 @@
 2. Gia sư điền hồ sơ + bấm **"Gửi duyệt"** → `PENDING`.
 3. Lễ tân (Receptionist/Admin) duyệt → `ACTIVE` | từ chối → `REJECTED` (kèm lý do).
 4. `REJECTED`: gia sư sửa hồ sơ rồi bấm **"Gửi duyệt lại"** → quay về `PENDING`.
-5. `ACTIVE`: gia sư **chỉ** sửa được các trường cho phép (bảng bên dưới), lưu trực tiếp, **không cần admin duyệt lại**.
+5. `PENDING`: gia sư có thể bấm **"Hủy duyệt"** để retirer hồ sơ về `INCOMPLETE`, sau đó sửa tự do tất cả trường và bấm **"Gửi duyệt"** để quay lại `PENDING`.
+6. `ACTIVE`: gia sư **chỉ** sửa được các trường cho phép (bảng bên dưới), lưu trực tiếp, **không cần admin duyệt lại**.
 
 ---
 
@@ -41,7 +42,9 @@ Sửa **tất cả** trường, không giới hạn. Phải gửi duyệt lại 
 
 ### 2.2. Khi `PENDING`
 
-**Không được sửa.** Hồ sơ đang chờ duyệt — UI ẩn nút sửa, chỉ hiển thị chế độ xem.
+**Không được sửa trực tiếp.** Hồ sơ đang chờ duyệt — UI ẩn nút sửa, chỉ hiển thị chế độ xem.
+
+Gia sư có thể bấm **"Hủy duyệt"** để retirer hồ sơ về `INCOMPLETE`. Sau khi về `INCOMPLETE`, có thể sửa **tất cả** trường và bấm **"Gửi duyệt"** để quay lại `PENDING`.
 
 ### 2.3. Khi `ACTIVE`
 
@@ -92,6 +95,7 @@ Chỉ sửa các trường sau, **lưu trực tiếp không cần admin duyệt 
 **Thiếu:**
 
 - **Endpoint admin duyệt/từ chối** (chưa có).
+- **Endpoint gia sư hủy PENDING → INCOMPLETE** (chưa có).
 - **Chặn sửa trường bị khóa khi ACTIVE** (upsert hiện cho sửa tất cả).
 - **Chặn upsert khi PENDING** (hiện cho sửa tự do).
 - **Upload avatar hiện lưu thẳng vào DB** — cần sửa thành chỉ trả URL.
@@ -111,9 +115,10 @@ Chỉ sửa các trường sau, **lưu trực tiếp không cần admin duyệt 
 - ✅ Xem hồ sơ gia sư theo trạng thái (5 trạng thái).
 - ✅ Sửa hồ sơ khi `INCOMPLETE`/`REJECTED` (tất cả trường) + gửi duyệt.
 - ✅ Sửa hồ sơ khi `ACTIVE` (chỉ trường cho phép, lưu trực tiếp).
-- ✅ Khóa sửa khi `PENDING`.
+- ✅ Khóa sửa khi `PENDING`; cho phép **hủy duyệt** về `INCOMPLETE` rồi sửa tự do.
 - ✅ Upload avatar & file chứng chỉ.
 - ✅ Backend: endpoint admin duyệt/từ chối hồ sơ.
+- ✅ Backend: endpoint gia sư hủy hồ sơ PENDING → INCOMPLETE.
 - ✅ Backend: chặn upsert khi `PENDING`, chặn trường khóa khi `ACTIVE`.
 - ✅ Loading, empty, error, 401, confirm rời trang.
 
@@ -146,6 +151,20 @@ GET  /api/v1/admin/tutors/pending
 - `reject`: set `profileStatus = REJECTED`, `reviewedBy`, `reviewedAt`, `rejectionReason = request.reason`.
 - Guard: chỉ `PENDING` mới được approve/reject, khác thì trả 409.
 - `@PreAuthorize("hasRole('RECEPTIONIST') or hasRole('ADMIN')")`.
+
+### 5.1.1. Endpoint gia sư hủy hồ sơ PENDING (MỚI)
+
+```
+POST /api/v1/tutors/me/profile/cancel
+```
+
+**Logic:**
+
+- Chỉ cho phép khi `profileStatus = PENDING`; khác thì trả 409 (`TUTOR_PROFILE_NOT_PENDING`).
+- Set `profileStatus = INCOMPLETE`, `rejectionReason = null`, `reviewedBy = null`, `reviewedAt = null`.
+- Sau khi hủy, gia sư có thể sửa tất cả trường và gửi duyệt lại.
+
+---
 
 ### 5.2. Sửa `upsertProfile` — chặn khi PENDING + khóa field khi ACTIVE
 
@@ -268,13 +287,13 @@ TUTOR_PROFILE_NOT_PENDING(1031, "Hồ sơ không ở trạng thái chờ duyệt
 
 ## 7. Hành vi theo trạng thái (UI)
 
-| `profileStatus` | Nhãn UI                   | Badge   | Xem |             Sửa             |      Gửi duyệt      |
-| :---------------- | :------------------------- | :------ | :-: | :--------------------------: | :-------------------: |
-| `INCOMPLETE`    | Chưa hoàn thiện hồ sơ | amber   | ✓ |    ✓ (tất cả trường)    |   ✓ "Gửi duyệt"   |
-| `PENDING`       | Đang chờ duyệt          | amber   | ✓ |              ✕              |          ✕          |
-| `ACTIVE`        | Đã duyệt                | emerald | ✓ | ✓ (chỉ trường cho phép) |          ✕          |
-| `REJECTED`      | Bị từ chối              | rose    | ✓ |    ✓ (tất cả trường)    | ✓ "Gửi duyệt lại" |
-| `INACTIVE`      | Tạm ngưng                | slate   | ✓ |              ✕              |          ✕          |
+| `profileStatus` | Nhãn UI                   | Badge   | Xem |             Sửa             | Hủy duyệt |      Gửi duyệt      |
+| :---------------- | :------------------------- | :------ | :-: | :--------------------------: | :-------: | :-------------------: |
+| `INCOMPLETE`    | Chưa hoàn thiện hồ sơ | amber   | ✓ |    ✓ (tất cả trường)    |     ✕     |   ✓ "Gửi duyệt"   |
+| `PENDING`       | Đang chờ duyệt          | amber   | ✓ |              ✕              |     ✓     |          ✕          |
+| `ACTIVE`        | Đã duyệt                | emerald | ✓ | ✓ (chỉ trường cho phép) |     ✕     |          ✕          |
+| `REJECTED`      | Bị từ chối              | rose    | ✓ |    ✓ (tất cả trường)    |     ✕     | ✓ "Gửi duyệt lại" |
+| `INACTIVE`      | Tạm ngưng                | slate   | ✓ |              ✕              |     ✕     |          ✕          |
 
 ---
 
@@ -304,7 +323,7 @@ frontend/src/components/tutor/profile/
 ### File sửa
 
 - **TutorProfile.jsx**: viết lại — fetch, state, điều phối View ↔ Edit, action bar.
-- **tutorApi.js**: giữ nguyên (đã đủ 5 hàm).
+- **tutorApi.js**: thêm hàm `cancelProfileForReview(token)` (gọi `POST .../me/profile/cancel`); tổng 6 hàm.
 
 ### Hai chế độ sửa
 
@@ -340,6 +359,10 @@ Gửi duyệt (chỉ INCOMPLETE/REJECTED):
   nếu dirty → lưu trước
   apiSubmitProfileForReview(token) → profileStatus = PENDING
   toast "Đã gửi duyệt"
+
+Hủy duyệt (chỉ PENDING):
+  apiCancelProfileForReview(token) → profileStatus = INCOMPLETE
+  toast "Đã hủy duyệt, bạn có thể chỉnh sửa lại hồ sơ"
 ```
 
 ---
@@ -353,7 +376,7 @@ Gửi duyệt (chỉ INCOMPLETE/REJECTED):
 - **Nút hành động**:
   - `INCOMPLETE` / `REJECTED`: "Chỉnh sửa hồ sơ" + "Gửi duyệt" / "Gửi duyệt lại"
   - `ACTIVE`: "Chỉnh sửa hồ sơ" (restricted)
-  - `PENDING`: không có nút sửa — hiện thông báo "Hồ sơ đang chờ duyệt"
+  - `PENDING`: không có nút sửa — hiện thông báo "Hồ sơ đang chờ duyệt" + nút "Hủy duyệt" (trở về INCOMPLETE)
 - Layout bất đối xứng responsive: giới thiệu + chuyên môn + học phí | lịch rảnh + khu vực + chứng chỉ.
 
 ### Chế độ Sửa
@@ -380,6 +403,7 @@ Gửi duyệt (chỉ INCOMPLETE/REJECTED):
 | 404 `TUTOR_PROFILE_NOT_FOUND` | Empty state + CTA sang `/tutor/create-profile`                                     |
 | 409 khi upsert (PENDING)        | "Hồ sơ đang chờ duyệt, không thể chỉnh sửa" — refresh, ẩn nút sửa       |
 | 409 khi submit                  | "Hồ sơ đã được gửi duyệt" — refresh                                        |
+| 409 khi hủy duyệt (không PENDING)| "Không thể hủy hồ sơ tại trạng thái này" — refresh                        |
 | 400 validation                  | Hiện message lỗi; map lỗi kỹ thuật về tiếng Việt                             |
 | Mất mạng                      | Banner lỗi + nút "Thử lại", không mất dữ liệu form                           |
 | Upload avatar lỗi              | Giữ ảnh cũ, báo lỗi, không chặn Lưu (gửi payload không có avatarUrl mới) |
@@ -393,6 +417,7 @@ Gửi duyệt (chỉ INCOMPLETE/REJECTED):
 | # | Việc                                                                                                                                                    | Output                                                                        | Ước lượng      |
 | :-: | :------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------- | :----------------- |
 | 1 | **Backend: Admin endpoint duyệt/từ chối**                                                                                                       | `AdminTutorController` + `AdminTutorService` + approve/reject/listPending | 1 ngày            |
+| 1.5 | **Backend: endpoint gia sư hủy PENDING → INCOMPLETE**                                                                                     | `TutorProfileController`/`Service` + cancel logic                       | 0,5 ngày          |
 | 2 | **Backend: sửa upsertProfile + uploadAvatar + submitForReview** — chặn PENDING, khóa field ACTIVE, avatar chỉ trả URL, clear rejectionReason | `TutorProfileService` sửa + cập nhật comment `tutorApi.js`             | 0,5 ngày          |
 | 3 | **FE: `tutorProfileModel.js`** — mapper, validate, build payload, field lock logic + unit test                                                  | Mapper thuần, test xanh                                                      | 0,5 ngày          |
 | 4 | **FE: Page shell** — fetch + skeleton/error/empty + `ProfileStatusBanner`                                                                       | Xem được hồ sơ thật                                                     | 1 ngày            |
@@ -400,7 +425,7 @@ Gửi duyệt (chỉ INCOMPLETE/REJECTED):
 | 6 | **FE: `ProfileEditForm`** — full edit + restricted edit + 8 section                                                                             | Sửa được, phân biệt ACTIVE vs khác                                     | 2 ngày            |
 | 7 | **FE: Luồng Lưu / Upload / Gửi duyệt / dirty guard / toast**                                                                                   | Chạy thật end-to-end                                                        | 1 ngày            |
 | 8 | **QA + polish**                                                                                                                                    | Lint, build, test thủ công, dark mode, mobile                               | 1 ngày            |
-|  | **Tổng**                                                                                                                                          |                                                                               | **~8 ngày** |
+|  | **Tổng**                                                                                                                                          |                                                                               | **~8,5 ngày** |
 
 ---
 
@@ -418,7 +443,8 @@ Gửi duyệt (chỉ INCOMPLETE/REJECTED):
 8. Tắt backend → banner lỗi + Thử lại.
 9. Token hết hạn → redirect login.
 10. Rời trang khi đang sửa → cảnh báo.
-11. Mobile 375px, dark mode.
+11. `PENDING` → "Hủy duyệt" → `INCOMPLETE` → sửa tất cả trường → "Gửi duyệt" → quay lại `PENDING`.
+12. Mobile 375px, dark mode.
 
 ### Tự động
 
@@ -439,7 +465,7 @@ Gửi duyệt (chỉ INCOMPLETE/REJECTED):
 
 ## 14. Tổng kết quyết định thiết kế
 
-1. **PENDING = không sửa được** — đơn giản, không phức tạp hạ trạng thái.
+1. **PENDING = không sửa trực tiếp**, nhưng cho phép **Hủy duyệt** về `INCOMPLETE` → sửa tự do → gửi duyệt lại. Giúp gia sư sửa lỗi/hồ sơ cũ mà không cần đợi admin hay tạo hồ sơ mới.
 2. **ACTIVE = sửa giới hạn, không cần duyệt lại** — vì trường quan trọng (tên, tuổi, quê, trường) đã khóa.
 3. **Backend enforce field lock** — FE disable trường nhưng backend cũng bỏ qua field khóa khi ACTIVE → defense in depth.
 4. **Admin endpoint riêng** — tách khỏi tutor self-service, bảo vệ bằng role `RECEPTIONIST`/`ADMIN`.
