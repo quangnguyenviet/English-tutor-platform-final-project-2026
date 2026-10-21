@@ -60,7 +60,11 @@ export async function apiGetTutorProfile(token) {
   const data = await readJson(res);
 
   if (!res.ok) {
-    throw new Error(extractErrorMessage(data, "Không thể lấy hồ sơ gia sư"));
+    const err = new Error(
+      extractErrorMessage(data, `Không thể lấy hồ sơ gia sư (${res.status})`),
+    );
+    err.status = res.status;
+    throw err;
   }
 
   return data.result ?? data;
@@ -158,6 +162,36 @@ export async function apiSubmitTutorProfile(token, profileData) {
 
   if (!res.ok) {
     throw new Error(extractErrorMessage(data, `Lưu hồ sơ thất bại (${res.status})`));
+  }
+
+  return data.result ?? data;
+}
+
+/**
+ * Hủy hồ sơ đang chờ duyệt — POST /api/v1/tutors/me/profile/cancel
+ * Chuyển profile_status từ PENDING -> INCOMPLETE.
+ * Chỉ được gọi khi profileStatus = PENDING, khác thì backend trả 409.
+ *
+ * @param {string} token - JWT token
+ * @returns {Promise<Object>} Updated tutor profile với status INCOMPLETE
+ */
+export async function cancelProfileForReview(token) {
+  const res = await fetch(`${BASE}/api/v1/tutors/me/profile/cancel`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...bearerHeader(token),
+    },
+  });
+
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    const err = new Error(
+      extractErrorMessage(data, `Hủy duyệt thất bại (${res.status})`),
+    );
+    err.status = res.status;
+    throw err;
   }
 
   return data.result ?? data;
