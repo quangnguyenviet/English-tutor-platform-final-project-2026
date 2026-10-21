@@ -186,7 +186,7 @@ public class TutorProfileService {
         updateAvailabilities(tutor, request.getAvailabilities());
         updateCredentials(tutor, request.getCredentials());
 
-        log.info("Tutor profile updated (restricted fields) for userId: {}", userId);
+        log.info("Tutor profile updated (restricted fields) for userId: {}", user.getId());
 
         return tutorProfileMapper.mapToResponse(user, tutor);
     }
