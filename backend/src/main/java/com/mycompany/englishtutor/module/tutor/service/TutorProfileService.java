@@ -194,6 +194,31 @@ public class TutorProfileService {
         return tutorProfileMapper.mapToResponse(user, tutor);
     }
 
+    @Transactional
+    public TutorProfileResponse cancelProfileForReview() {
+        Long userId = getCurrentUserId();
+
+        Tutor tutor = tutorRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.TUTOR_PROFILE_NOT_FOUND));
+
+        if (!"PENDING".equals(tutor.getProfileStatus())) {
+            throw new AppException(ErrorCode.TUTOR_PROFILE_NOT_PENDING);
+        }
+
+        tutor.setProfileStatus("INCOMPLETE");
+        tutor.setRejectionReason(null);
+        tutor.setReviewedBy(null);
+        tutor.setReviewedAt(null);
+        tutorRepository.save(tutor);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        log.info("Tutor profile cancelled for review, userId: {}, status: {}", userId, tutor.getProfileStatus());
+
+        return tutorProfileMapper.mapToResponse(user, tutor);
+    }
+
     private void updateServiceAreas(Tutor tutor, List<TutorProfileUpsertRequest.ServiceAreaDto> dtos) {
         tutorServiceAreaRepository.deleteByTutorId(tutor.getId());
 
