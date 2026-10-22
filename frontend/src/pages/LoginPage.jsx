@@ -11,6 +11,8 @@ const ROLE_ROUTES = {
   receptionist: "/receptionist",
 };
 
+const TUTOR_PROFILE_ACTIONABLE = ["INCOMPLETE", "REJECTED"];
+
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -28,8 +30,10 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const role = await login(username.trim(), password);
-      navigate(ROLE_ROUTES[role] ?? "/", { replace: true });
+      const { role, profileStatus } = await login(username.trim(), password);
+      // Gia sư chưa có hồ sơ hoàn chỉnh (hoặc bị từ chối) phải tạo/sửa hồ sơ trước
+      const needsProfile = role === "tutor" && TUTOR_PROFILE_ACTIONABLE.includes(profileStatus);
+      navigate(needsProfile ? "/tutor/create-profile" : (ROLE_ROUTES[role] ?? "/"), { replace: true });
     } catch (err) {
       setError(err.message || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
     } finally {

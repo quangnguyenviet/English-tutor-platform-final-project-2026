@@ -147,16 +147,16 @@ export function AuthProvider({ children }) {
   }, []);
 
   /**
-   * Đăng nhập thực với backend — gọi POST /auth/token.
+   * Đăng nhập thực với backend — gọi POST /api/v1/auth/token.
    * Decode JWT, map role, lưu token & session vào localStorage.
    *
    * @param {string} username
    * @param {string} password
-   * @returns {Promise<string>} role slug để LoginPage navigate
+   * @returns {Promise<{ role: string, profileStatus: string | null }>} role slug và trạng thái hồ sơ gia sư để LoginPage điều hướng
    * @throws {Error} khi credentials sai hoặc role không hỗ trợ
    */
   async function login(username, password) {
-    const { token: jwt } = await apiLogin(username, password);
+    const { token: jwt, profileStatus } = await apiLogin(username, password);
     const payload = decodeJwt(jwt);
     const role = scopeToRole(payload?.scope);
 
@@ -186,11 +186,11 @@ export function AuthProvider({ children }) {
     setToken(jwt);
     setSession(newSession);
 
-    return role;
+    return { role, profileStatus: profileStatus ?? null };
   }
 
   /**
-   * Đăng ký tài khoản gia sư mới — gọi POST /auth/register-tutor.
+   * Đăng ký tài khoản gia sư mới — gọi POST /api/v1/auth/register-tutor.
    * Backend tạo user role=TUTOR + tutor record với profile_status=INCOMPLETE,
    * trả JWT để frontend tự động login.
    *

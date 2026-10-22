@@ -11,7 +11,7 @@ if (!BASE) {
 
 
 /**
- * Đăng nhập — POST /auth/token
+ * Đăng nhập — POST /api/v1/auth/token
  *
  * @param {string} username
  * @param {string} password
@@ -19,7 +19,7 @@ if (!BASE) {
  * @throws {Error} khi credentials sai hoặc network error
  */
 export async function apiLogin(username, password) {
-  const res = await fetch(`${BASE}/auth/token`, {
+  const res = await fetch(`${BASE}/api/v1/auth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
@@ -36,7 +36,7 @@ export async function apiLogin(username, password) {
 }
 
 /**
- * Đăng xuất — POST /auth/logout
+ * Đăng xuất — POST /api/v1/auth/logout
  * Blacklist token hiện tại trên server.
  *
  * @param {string} token - JWT token đang dùng
@@ -44,7 +44,7 @@ export async function apiLogin(username, password) {
  */
 export async function apiLogout(token) {
   try {
-    await fetch(`${BASE}/auth/logout`, {
+    await fetch(`${BASE}/api/v1/auth/logout`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
@@ -55,7 +55,7 @@ export async function apiLogout(token) {
 }
 
 /**
- * Introspect token — POST /auth/introspect
+ * Introspect token — POST /api/v1/auth/introspect
  * Kiểm tra token còn hợp lệ trên server không (chưa bị blacklist, chưa hết hạn).
  *
  * @param {string} token
@@ -63,7 +63,7 @@ export async function apiLogout(token) {
  */
 export async function apiIntrospect(token) {
   try {
-    const res = await fetch(`${BASE}/auth/introspect`, {
+    const res = await fetch(`${BASE}/api/v1/auth/introspect`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
@@ -86,7 +86,7 @@ export function bearerHeader(token) {
 }
 
 /**
- * Đăng ký tài khoản gia sư mới — POST /auth/register-tutor
+ * Đăng ký tài khoản gia sư mới — POST /api/v1/auth/register-tutor
  *
  * @param {string} fullName
  * @param {string} email
@@ -95,7 +95,7 @@ export function bearerHeader(token) {
  * @throws {Error} khi email đã tồn tại hoặc validation error
  */
 export async function apiRegisterTutor(fullName, email, password) {
-  const res = await fetch(`${BASE}/auth/register-tutor`, {
+  const res = await fetch(`${BASE}/api/v1/auth/register-tutor`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ fullName, email, password }),
