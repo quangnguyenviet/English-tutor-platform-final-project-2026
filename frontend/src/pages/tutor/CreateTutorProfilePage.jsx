@@ -875,9 +875,7 @@ export default function CreateTutorProfilePage() {
                 rows={4}
                 name="bio"
                 required
-                min="0"
-                max="60"
-                value={formData.experienceYears}
+                value={formData.bio}
                 onChange={handleInputChange}
                 maxLength={500}
                 placeholder="VD: Mình là sinh viên năm 3 Sư phạm Anh, có 2 năm kinh nghiệm dạy tiếng Anh..."
