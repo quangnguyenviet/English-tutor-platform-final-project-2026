@@ -37,3 +37,5 @@ s3:
   secret-key: ${S3_SECRET_KEY:minio_password_123}
   region: ${S3_REGION:us-east-1}
   path-style-access-enabled: true  # BẮT BUỘC cho MinIO
+  # Các thư mục cho phép đọc công khai để hiển thị trực tiếp trên trình duyệt.
+  public-read-prefixes: avatars,credentials

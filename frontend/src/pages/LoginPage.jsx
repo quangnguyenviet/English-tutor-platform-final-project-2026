@@ -127,6 +127,17 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          {/* Đăng ký gia sư */}
+          <div className="mt-4 text-center text-sm text-muted-foreground">
+            Chưa có tài khoản gia sư?{" "}
+            <Link
+              to="/tutor/register"
+              className="text-primary font-semibold hover:underline"
+            >
+              Đăng ký làm gia sư
+            </Link>
+          </div>
         </div>
       </main>
 

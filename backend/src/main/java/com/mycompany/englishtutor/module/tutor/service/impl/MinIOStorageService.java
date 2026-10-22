@@ -1,8 +1,10 @@
 package com.mycompany.englishtutor.module.tutor.service.impl;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -49,6 +51,7 @@ public class MinIOStorageService implements StorageService {
                 .build();
 
         createBucketIfNotExists();
+        applyPublicReadPolicy();
     }
 
     private void createBucketIfNotExists() {
@@ -67,6 +70,56 @@ public class MinIOStorageService implements StorageService {
         } catch (S3Exception e) {
             log.error("Error checking/creating bucket: {}", e.awsErrorDetails().errorMessage(), e);
             throw new RuntimeException("Failed to initialize S3 bucket", e);
+        }
+    }
+
+    /**
+     * Cấp quyền đọc công khai cho các tiền tố cần hiển thị trực tiếp trên trình duyệt
+     * (ảnh đại diện trong thẻ {@code <img>}, file chứng chỉ mở bằng link).
+     */
+    private void applyPublicReadPolicy() {
+        List<String> prefixes = properties.getPublicReadPrefixes();
+        if (prefixes == null || prefixes.isEmpty()) {
+            return;
+        }
+
+        String resources = prefixes.stream()
+                .map(prefix -> prefix.replaceAll("^/+|/+$", ""))
+                .filter(prefix -> !prefix.isBlank())
+                .map(prefix -> "arn:aws:s3:::" + properties.getBucket() + "/" + prefix + "/*")
+                .map(arn -> "\"" + arn + "\"")
+                .collect(Collectors.joining(","));
+
+        if (resources.isBlank()) {
+            return;
+        }
+
+        String policy = """
+                {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Principal": {"AWS": ["*"]},
+                      "Action": ["s3:GetObject"],
+                      "Resource": [%s]
+                    }
+                  ]
+                }
+                """.formatted(resources);
+
+        try {
+            s3Client.putBucketPolicy(PutBucketPolicyRequest.builder()
+                    .bucket(properties.getBucket())
+                    .policy(policy)
+                    .build());
+            log.info("Applied public read policy for prefixes {} in bucket {}",
+                    prefixes, properties.getBucket());
+        } catch (S3Exception e) {
+            // Không chặn khởi động ứng dụng: nếu bucket chặn public access (AWS),
+            // ảnh sẽ lỗi 403 và cần xử lý qua presigned URL.
+            log.error("Could not apply public read policy for bucket {}: {}",
+                    properties.getBucket(), e.awsErrorDetails().errorMessage(), e);
         }
     }
 

@@ -1,5 +1,11 @@
 import { MessageCircle, Video } from "lucide-react";
 import Card from "../../../ui/Card";
+import {
+  SectionCard,
+  TextField,
+  FieldError,
+  INPUT_CLASS,
+} from "./EditFields";
 
 /**
  * IntroSection — Giới thiệu & video (chế độ xem).
@@ -44,5 +50,54 @@ export default function IntroSection({ bio, videoUrl }) {
         </div>
       )}
     </Card>
+  );
+}
+
+/**
+ * IntroSectionEdit — Giới thiệu & video (chế độ sửa).
+ */
+export function IntroSectionEdit({ form, onChange, errors = {} }) {
+  return (
+    <SectionCard
+      icon={MessageCircle}
+      iconClass="text-indigo-600 dark:text-indigo-400"
+      title="Giới thiệu & video"
+    >
+      <div className="space-y-4">
+        <div id="field-bio" className="space-y-1.5">
+          <label
+            htmlFor="bio"
+            className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+          >
+            Giới thiệu bản thân <span className="text-rose-500">*</span>
+          </label>
+          <textarea
+            id="bio"
+            rows={4}
+            value={form.bio}
+            onChange={(e) => onChange("bio", e.target.value)}
+            maxLength={500}
+            placeholder="VD: Mình là sinh viên năm 3 Sư phạm Anh, có 2 năm kinh nghiệm dạy tiếng Anh..."
+            className={`${INPUT_CLASS} resize-none`}
+          />
+          <div className="flex items-start justify-between gap-2">
+            <FieldError error={errors.bio} />
+            <p className="text-xs text-slate-400 ml-auto shrink-0">
+              {(form.bio || "").length}/500
+            </p>
+          </div>
+        </div>
+
+        <TextField
+          fieldId="videoUrl"
+          type="url"
+          label="Link video giới thiệu"
+          value={form.videoUrl}
+          onChange={(e) => onChange("videoUrl", e.target.value)}
+          placeholder="VD: https://www.youtube.com/watch?v=..."
+          hint="Dán link video YouTube / TikTok giới thiệu bản thân hoặc bài giảng mẫu."
+        />
+      </div>
+    </SectionCard>
   );
 }

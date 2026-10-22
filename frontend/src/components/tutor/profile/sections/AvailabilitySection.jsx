@@ -1,6 +1,7 @@
 import { Calendar } from "lucide-react";
 import Badge from "../../../ui/Badge";
 import Card from "../../../ui/Card";
+import { SectionCard } from "./EditFields";
 
 const DAY_LABEL = {
   1: "Thứ 2",
@@ -90,5 +91,88 @@ export default function AvailabilitySection({ availabilities = [] }) {
         </p>
       )}
     </Card>
+  );
+}
+
+/**
+ * AvailabilitySectionEdit — Lịch rảnh (chế độ sửa).
+ * Bảng checkbox 7 ngày × 3 ca; tick = có thể dạy khung giờ đó.
+ */
+export function AvailabilitySectionEdit({ form, onChange }) {
+  const availabilities = form.availabilities || [];
+
+  const toggleSlot = (dayOfWeek, timeSlot) => {
+    const exists = availabilities.some(
+      (a) => a.dayOfWeek === dayOfWeek && a.timeSlot === timeSlot,
+    );
+    onChange(
+      "availabilities",
+      exists
+        ? availabilities.filter(
+            (a) => !(a.dayOfWeek === dayOfWeek && a.timeSlot === timeSlot),
+          )
+        : [...availabilities, { dayOfWeek, timeSlot }],
+    );
+  };
+
+  return (
+    <SectionCard
+      icon={Calendar}
+      iconClass="text-blue-600 dark:text-blue-400"
+      title="Lịch rảnh"
+      hint="Chọn các khung giờ bạn có thể sắp xếp dạy."
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm text-center">
+          <thead>
+            <tr className="border-b border-slate-200 dark:border-slate-800">
+              <th className="py-2 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide w-20">
+                Khung
+              </th>
+              {TIME_SLOTS.map((slot) => (
+                <th
+                  key={slot}
+                  className="py-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide px-2"
+                >
+                  {SLOT_LABEL[slot]}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[1, 2, 3, 4, 5, 6, 7].map((day) => (
+              <tr
+                key={day}
+                className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+              >
+                <td className="py-2.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 pr-2">
+                  {DAY_LABEL[day]}
+                </td>
+                {TIME_SLOTS.map((slot) => (
+                  <td key={slot} className="py-2.5 px-2">
+                    <label className="inline-flex items-center justify-center cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={availabilities.some(
+                          (a) => a.dayOfWeek === day && a.timeSlot === slot,
+                        )}
+                        onChange={() => toggleSlot(day, slot)}
+                        className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                    </label>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {availabilities.length === 0 && (
+        <p className="mt-3 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg p-3">
+          Chưa chọn khung giờ rảnh nào. Nên chọn ít nhất 1 khung giờ để lễ tân dễ ghép lớp.
+        </p>
+      )}
+    </SectionCard>
   );
 }

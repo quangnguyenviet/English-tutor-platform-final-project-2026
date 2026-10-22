@@ -24,6 +24,7 @@ import {
   gradeList,
 } from "../../data/vietnamLocations";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../hooks/useToast";
 import {
   apiSubmitTutorProfile,
   apiSubmitProfileForReview,
@@ -75,6 +76,7 @@ function toggleSlot(availabilities, setAvailabilities, day, slot) {
 export default function CreateTutorProfilePage() {
   const navigate = useNavigate();
   const { session, token } = useAuth();
+  const { error } = useToast();
 
   // ── Form State ───────────────────────────────────────────────────────────
   const [formData, setFormData] = useState({
@@ -121,7 +123,6 @@ export default function CreateTutorProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [submitError, setSubmitError] = useState("");
 
   // Refs cho file inputs
   const avatarInputRef = useRef(null);
@@ -218,7 +219,6 @@ export default function CreateTutorProfilePage() {
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitError("");
 
     if (!token) {
       navigate("/login?role=tutor");
@@ -246,13 +246,6 @@ export default function CreateTutorProfilePage() {
       }
       if (formData.subjectRows.every((r) => !r.specialty || !r.gradeLevel)) {
         throw new Error("Vui lòng điền đầy đủ môn học và lớp");
-      }
-      if (
-        formData.subjectRows.every(
-          (r) => !r.feeThousands || Number(r.feeThousands) <= 0,
-        )
-      ) {
-        throw new Error("Vui lòng nhập học phí > 0 cho ít nhất 1 môn");
       }
       if (availabilities.length === 0) {
         throw new Error("Vui lòng chọn ít nhất 1 khung giờ rảnh");
@@ -341,7 +334,7 @@ export default function CreateTutorProfilePage() {
       setShowSuccessModal(true);
     } catch (err) {
       setIsSubmitting(false);
-      setSubmitError(err.message || "Lưu hồ sơ thất bại. Vui lòng thử lại.");
+      error(err.message || "Lưu hồ sơ thất bại. Vui lòng thử lại.");
     }
   };
 
@@ -403,13 +396,6 @@ export default function CreateTutorProfilePage() {
             nhé!
           </div>
         </div>
-
-        {/* Error Banner */}
-        {submitError && (
-          <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 dark:bg-rose-950/30 dark:border-rose-800/50 dark:text-rose-300 text-rose-800 text-sm">
-            {submitError}
-          </div>
-        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -875,9 +861,7 @@ export default function CreateTutorProfilePage() {
                 rows={4}
                 name="bio"
                 required
-                min="0"
-                max="60"
-                value={formData.experienceYears}
+                value={formData.bio}
                 onChange={handleInputChange}
                 maxLength={500}
                 placeholder="VD: Mình là sinh viên năm 3 Sư phạm Anh, có 2 năm kinh nghiệm dạy tiếng Anh..."

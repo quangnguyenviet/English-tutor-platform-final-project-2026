@@ -100,8 +100,10 @@ export default function ProfileView({
         </div>
       </div>
 
-      {/* Sticky action bar (hiển thị khi không phải PENDING) */}
-      {status !== PROFILE_STATUS.PENDING && (
+      {/* Sticky action bar (ẩn khi PENDING / INACTIVE — không được sửa) */}
+      {(status === PROFILE_STATUS.INCOMPLETE ||
+        status === PROFILE_STATUS.ACTIVE ||
+        status === PROFILE_STATUS.REJECTED) && (
         <Card className="p-4 border-slate-200 dark:border-slate-800">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="text-xs text-slate-500 dark:text-slate-400">
@@ -109,31 +111,19 @@ export default function ProfileView({
                 ? "Chỉ được chỉnh sửa các trường được phép. Lưu trực tiếp không cần duyệt lại."
                 : status === PROFILE_STATUS.REJECTED
                   ? "Sửa đầy đủ thông tin rồi bấm Gửi duyệt lại."
-                  : "Hoàn thiện hồ sơ rồi bấm Gửi duyệt."
-                }
+                  : "Hoàn thiện hồ sơ rồi bấm Gửi duyệt."}
             </div>
             <div className="flex items-center gap-2">
-              {status === PROFILE_STATUS.REJECTED && (
-                <Button
-                  onClick={onSubmitForReview}
-                  className="flex items-center gap-2"
-                >
-                  Gửi duyệt lại
+              {onEdit && (
+                <Button variant="outline" onClick={onEdit}>
+                  Chỉnh sửa hồ sơ
                 </Button>
               )}
-              {status !== PROFILE_STATUS.REJECTED && (
-                <>
-                  {onEdit && (
-                    <Button variant="outline" onClick={onEdit}>
-                      Chỉnh sửa hồ sơ
-                    </Button>
-                  )}
-                  {status === PROFILE_STATUS.INCOMPLETE && (
-                    <Button onClick={onSubmitForReview} className="ml-2">
-                      Gửi duyệt
-                    </Button>
-                  )}
-                </>
+              {status === PROFILE_STATUS.INCOMPLETE && (
+                <Button onClick={onSubmitForReview}>Gửi duyệt</Button>
+              )}
+              {status === PROFILE_STATUS.REJECTED && (
+                <Button onClick={onSubmitForReview}>Gửi duyệt lại</Button>
               )}
             </div>
           </div>
