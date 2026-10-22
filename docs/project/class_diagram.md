@@ -1,580 +1,197 @@
-# EnglishPath — Biểu đồ lớp pha phân tích
+# **EnglishPath — Biểu đồ lớp pha phân tích**
 
-## 1. Trích các lớp thực thể hệ thống
+Cập nhật ngày 19/10
 
-**Bước 1: Mô tả hệ thống**   
+## 1\. Trích các lớp thực thể hệ thống
+
+**Bước 1: Mô tả hệ thống**  
 Hệ thống EnglishPath là một nền tảng web quản lý và hỗ trợ giảng dạy gia sư tiếng Anh 1-1 của một trung tâm gia sư. Hệ thống chia cơ sở dữ liệu thành 7 nhóm bảng trong PostgreSQL (26 bảng thực thể chính) và 1 collection trong MongoDB, phục vụ 5 vai trò có tài khoản: Admin (Quản trị viên), Receptionist (Lễ tân), Accountant (Kế toán), Tutor (Gia sư), Student (Học sinh) — cùng đối tượng Parent (Phụ huynh) không có tài khoản. Trong đó, phụ huynh được phép để lại thông tin liên hệ (tên, số điện thoại, email, địa chỉ) để yêu cầu tìm gia sư cho con, có thể chỉ đích danh gia sư hoặc để trung tâm đăng tuyển; xem thông tin lớp học và tiến độ học tập của con thông qua tài khoản học sinh. Lễ tân tiếp nhận đơn yêu cầu lớp từ phụ huynh, gọi lại bổ sung thông tin, tạo tài khoản và hồ sơ học sinh, duyệt hồ sơ gia sư (xác thực chứng chỉ IELTS/TOEIC/VSTEP, thành tích, chuyên môn), ghép lớp giữa một gia sư với một học sinh, xử lý khiếu nại (ghép lại lớp hoặc tạo yêu cầu hoàn tiền), thu hộ tiền mặt tại quầy. Gia sư đăng ký hồ sơ với thông tin cá nhân (trường đại học, quê quán, trình độ, kinh nghiệm, giới thiệu, video), khai báo chứng chỉ và thành tích kèm file minh chứng, chuyên môn theo cấp lớp, bảng giá theo hình thức dạy (Online/Tại nhà), lịch rảnh và khu vực dạy; ứng tuyển các đơn yêu cầu lớp đang mở; dạy từng buổi, ghi nhật ký kiến thức trọng tâm và bài tập về nhà, đính kèm tài liệu (PDF, Word, hình ảnh, audio), tạo và giao quiz trắc nghiệm A/B/C/D do AI sinh hoặc import từ bên ngoài với đáp án, lời giải thích, cấp độ CEFR và thẻ kỹ năng; nộp phí nhận lớp (35-40% học phí tháng đầu) kèm biên lai chuyển khoản. Học sinh được tạo tài khoản bởi Lễ tân, xem lịch học, làm quiz, xem kết quả và lời giải thích từng câu; điểm Elo và lịch sử làm bài được cập nhật tự động sau mỗi câu trả lời theo thuật toán Elo Rating; câu sai tự động vào danh sách ôn tập theo thuật toán Spaced Repetition (SM-2); xem tài liệu buổi học, nhận thông báo. Kế toán đối chiếu số tiền thực nhận từ phí nhận lớp và học phí đóng trước, xác nhận hoặc yêu cầu gửi lại minh chứng, chỉnh tỷ lệ phí, xử lý yêu cầu hoàn tiền (duyệt số tiền, chuyển khoản và tải biên lai), xem thống kê doanh thu theo tháng/ngày. Admin quản lý nhân sự (tạo tài khoản Lễ tân, Kế toán), quản lý toàn bộ hệ thống. Hệ thống ghi nhật ký (audit log) các thao tác quan trọng và gửi thông báo chuông cho người dùng. Ngoài ra, hệ thống có tính năng chat AI giữa gia sư và Chatbot để hỗ trợ sinh quiz, lưu trong MongoDB.
 
-**Bước 2: Trích các danh từ xuất hiện trong đoạn**   
+**Bước 2: Trích các danh từ xuất hiện trong đoạn**
 
-Các danh từ liên quan đến người:   
+Các danh từ liên quan đến người:  
 \- Người dùng, Quản trị viên (Admin), Lễ tân, Kế toán, Nhân sự trung tâm, Gia sư, Học sinh, Phụ huynh, Người khiếu nại
 
-Các danh từ liên quan đến vật:   
+Các danh từ liên quan đến vật:  
 \- Đơn yêu cầu lớp, Lượt ứng tuyển, Lớp học, Lịch dạy cố định, Buổi học, Tài liệu buổi học, Chứng chỉ, Thành tích, Chuyên môn, Bảng giá, Lịch rảnh, Khu vực dạy, Kỹ năng, Quiz, Câu hỏi, Câu trả lời, Khoản thanh toán (phí nhận lớp, học phí), Khiếu nại, Minh chứng khiếu nại, Yêu cầu hoàn tiền, Thông báo, Nhật ký hệ thống, Tin nhắn chat AI
 
-Các danh từ liên quan đến thông tin:   
+Các danh từ liên quan đến thông tin:  
 \- Tên đăng nhập, mật khẩu, họ tên, email, số điện thoại, ngày sinh, giới tính, địa chỉ, ảnh đại diện, vai trò, trạng thái, mã nhân viên, ngày vào làm, trường học, khối lớp, mục tiêu học tập, điểm Elo, trường đại học, quê quán, trình độ, số năm kinh nghiệm, giới thiệu, video, trạng thái hồ sơ, lý do từ chối, điểm chứng chỉ, loại chứng chỉ, giá mỗi buổi, hình thức dạy, chương trình, thứ, ca rảnh, giờ bắt đầu, giờ kết thúc, tỉnh/thành phố, quận/huyện, yêu cầu lớp học, lịch mong muốn, yêu cầu gia sư, lý do hủy, lời nhắn ứng tuyển, tên lớp, ngày bắt đầu dạy, ghi chú gia sư, link học online, địa điểm, buổi dạy thử, nhật ký kiến thức, bài tập về nhà, tiêu đề quiz, nguồn tạo quiz, hạn nộp, đáp án, lời giải thích, cấp độ CEFR, mã kỹ năng, nhóm kỹ năng, đáp án đã chọn, đúng/sai, hệ số dễ, lần ôn tập, loại người nộp phí, tỷ lệ phí, số tiền, phương thức thanh toán, biên lai, số tiền thực nhận, lý do từ chối thanh toán, tên người khiếu nại, SĐT người khiếu nại, vai trò người khiếu nại, loại khiếu nại, nội dung khiếu nại, kết quả xử lý, số tiền đề xuất hoàn, số tiền được duyệt hoàn, tên chủ tài khoản, ngân hàng, số tài khoản, biên lai hoàn tiền, nội dung thông báo, liên kết thông báo, loại đối tượng liên kết, trạng thái đã đọc, hành động, loại đối tượng, chi tiết thay đổi, địa chỉ IP
 
-**Bước 3: Đánh giá và lựa chọn các danh từ làm lớp thực thể hoặc thuộc tính**   
+**Bước 3: Đánh giá và lựa chọn các danh từ làm lớp thực thể hoặc thuộc tính**
 
 Các danh từ trừu tượng: Hệ thống, trung tâm, nền tảng web, thống kê, doanh thu, lợi nhuận, công nợ → loại bỏ (hoặc tính toán qua báo cáo, không đề xuất lớp riêng)
 
-Các danh từ liên quan đến người:   
-\- Người dùng → lớp **users**: username, password_hash, full_name, email, phone, date_of_birth, gender, avatar_url, role, status, must_change_password — Bảng đăng nhập chung cho cả 5 vai trò (ADMIN, RECEPTIONIST, ACCOUNTANT, TUTOR, STUDENT)   
-\- Admin, Lễ tân, Kế toán, Nhân sự → lớp **employees**: employee_code, hired_date — Là lớp con kế thừa users (khóa chính dùng chung: employees.id = users.id), vai trò phân biệt bằng users.role   
-\- Gia sư → lớp **tutors**: address, hometown, university, education_status, experience_years, bio, video_url, profile_status, rejection_reason, reviewed_by, reviewed_at — Là lớp con kế thừa users (tutors.id = users.id), chứa thông tin cá nhân, trình độ, trạng thái duyệt hồ sơ   
-\- Học sinh → lớp **students**: parent_id, school, grade, learning_goal, elo — Là lớp con kế thừa users (students.id = users.id), chứa dữ liệu học tập   
-\- Phụ huynh → lớp **parents**: full_name, phone, email, address — Không có tài khoản nhưng gửi đơn yêu cầu lớp và có thông tin liên hệ riêng, xem thông tin qua tài khoản con   
+Các danh từ liên quan đến người:  
+\- Người dùng → lớp **users**: username, password_hash, full_name, email, phone, date_of_birth, gender, avatar_url, role, status, must_change_password — Bảng đăng nhập chung cho cả 5 vai trò (ADMIN, RECEPTIONIST, ACCOUNTANT, TUTOR, STUDENT)  
+\- Admin, Lễ tân, Kế toán, Nhân sự → lớp **employees**: employee_code, hired_date — Là lớp con kế thừa users (khóa chính dùng chung: employees.id \= users.id), vai trò phân biệt bằng users.role  
+\- Gia sư → lớp **tutors**: address, hometown, university, education_status, experience_years, bio, video_url, profile_status, rejection_reason, reviewed_by, reviewed_at — Là lớp con kế thừa users (tutors.id \= users.id), chứa thông tin cá nhân, trình độ, trạng thái duyệt hồ sơ  
+\- Học sinh → lớp **students**: parent_id, school, grade, learning_goal, elo — Là lớp con kế thừa users (students.id \= users.id), chứa dữ liệu học tập  
+\- Phụ huynh → lớp **parents**: full_name, phone, email, address — Không có tài khoản nhưng gửi đơn yêu cầu lớp và có thông tin liên hệ riêng, xem thông tin qua tài khoản con  
 \- Người khiếu nại → thuộc tính của complaints: complainant_name, complainant_phone, complainant_role — Có thể là phụ huynh không có tài khoản, chỉ cần ghi thông tin liên hệ
 
-Các danh từ liên quan đến vật:   
-\- Chứng chỉ, Thành tích → lớp **tutor_credentials** (gộp): tutor_id, credential_type, title, score, description, issued_at, file_url, is_verified, verified_by, verified_at — Cùng cấu trúc (một mục kèm file minh chứng và trạng thái xác thực), phân biệt bằng credential_type (CERTIFICATE hoặc ACHIEVEMENT)   
-\- Chuyên môn → lớp **tutor_specialties**: tutor_id, specialty, grade_level, credential_id, is_verified, verified_by, verified_at — Chuyên môn giảng dạy theo cấp lớp/chương trình, tách bảng để hỗ trợ lọc "chuyên môn + cấp lớp" khi phụ huynh tìm kiếm   
-\- Bảng giá → lớp **tutor_prices**: tutor_id, teaching_mode, price_per_session, program — Mỗi hình thức dạy (Online/Tại nhà) có mức giá riêng   
-\- Lịch rảnh → lớp **tutor_availabilities**: tutor_id, day_of_week, time_slot — Lịch rảnh tham khảo, khác với class_schedules là lịch dạy cố định thực tế   
-\- Khu vực dạy → lớp **tutor_service_areas**: tutor_id, province, district — Khu vực địa lý gia sư nhận dạy tại nhà, phục vụ bộ lọc tỉnh/quận   
-\- Đơn yêu cầu lớp → lớp **class_requests**: parent_id, requested_tutor_id, student_id, class_requirement, teaching_mode, price_per_session, preferred_schedule, tutor_requirement, status, cancel_reason, created_by, handled_by — Có vòng đời trạng thái riêng (NEW → OPEN → MATCHED hoặc CANCELLED)   
-\- Lượt ứng tuyển → lớp **class_applications**: class_request_id, tutor_id, message, status, applied_at — Bảng nối N-N giữa gia sư và đơn yêu cầu, có thuộc tính riêng (lời nhắn, trạng thái). UNIQUE (class_request_id, tutor_id)   
-\- Lớp học → lớp **classes**: class_request_id, tutor_id, student_id, class_name, status, teaching_mode, active_from, price_per_session, tutor_note — Quan hệ dạy học 1 gia sư — 1 học sinh   
-\- Lịch dạy cố định → lớp **class_schedules**: class_id, day_of_week, start_time, end_time — Mẫu lịch dạy hằng tuần, dùng để sinh trước các sessions   
-\- Buổi học → lớp **sessions**: class_id, title, session_date, start_time, end_time, is_trial, teaching_mode, meeting_url, location, status, log_knowledge, log_homework — Buổi dạy thực tế, có nhật ký dạy học công khai cho HS và PH xem   
-\- Tài liệu buổi học → lớp **session_materials**: session_id, uploaded_by, file_name, file_url, file_type, file_size — Tài liệu đính kèm (PDF, DOCX, hình ảnh, âm thanh)   
-\- Kỹ năng → lớp **skills**: skill_code, skill_name, category, description — Danh mục thẻ kỹ năng (micro-skill) dùng chung, gắn với câu hỏi để phân loại kiến thức   
-\- Quiz → lớp **quizzes**: session_id, title, status, source, deadline, total_questions — Bài quiz trắc nghiệm gắn với một buổi học, tạo qua AI hoặc import   
-\- Câu hỏi → lớp **quiz_questions**: quiz_id, question_number, question_text, option_a, option_b, option_c, option_d, correct_answer, explanation, cefr_level, skill_id — Câu hỏi trắc nghiệm A/B/C/D với đáp án, lời giải thích, cấp độ CEFR và thẻ kỹ năng   
-\- Câu trả lời → lớp **quiz_answers**: question_id, student_id, selected_answer, is_correct, elo_before, elo_after, elo_change, next_review, review_count, easiness_factor, answered_at — Nguồn gốc tính điểm Elo và danh sách ôn tập Spaced Repetition. UNIQUE (student_id, question_id)   
-\- Khoản thanh toán → lớp **payments**: class_id, payer_type, fee_percentage, amount, payment_method, proof_url, received_amount, status, reject_reason, uploaded_by, uploaded_at, reviewed_by, reviewed_at — Khoản thu của trung tâm (phí nhận lớp hoặc học phí đóng trước)   
-\- Khiếu nại → lớp **complaints**: class_id, complainant_name, complainant_phone, complainant_role, complaint_type, complaint_content, status, resolution, received_by, resolved_by, resolved_at — Đơn khiếu nại tại quầy, Lễ tân tiếp nhận và xử lý   
-\- Minh chứng khiếu nại → lớp **complaint_attachments**: complaint_id, file_url, file_name, uploaded_by — Ảnh minh chứng khi giải quyết khiếu nại   
-\- Yêu cầu hoàn tiền → lớp **refunds**: complaint_id, payment_id, requested_amount, approved_amount, recipient_name, bank_name, bank_account_number, status, reject_reason, proof_url, requested_by, processed_by, processed_at — Phát sinh từ khiếu nại REFUND, Lễ tân tạo và Kế toán xử lý   
-\- Thông báo → lớp **notifications**: user_id, title, content, link_url, link_entity_type, link_entity_id, is_read — Thông báo chuông cho người dùng   
-\- Nhật ký hệ thống → lớp **audit_logs**: user_id, action, entity_type, entity_id, details, ip_address — Ghi ngầm các thao tác quan trọng, dùng entity_type + entity_id thay FK cứng   
+Các danh từ liên quan đến vật:  
+\- Chứng chỉ, Thành tích → lớp **tutor_credentials** (gộp): tutor_id, credential_type, title, score, description, issued_at, file_url, is_verified, verified_by, verified_at — Cùng cấu trúc (một mục kèm file minh chứng và trạng thái xác thực), phân biệt bằng credential_type (CERTIFICATE hoặc ACHIEVEMENT)  
+\- Chuyên môn → lớp **tutor_specialties**: tutor_id, specialty, grade_level, credential_id, is_verified, verified_by, verified_at — Chuyên môn giảng dạy theo cấp lớp/chương trình, tách bảng để hỗ trợ lọc "chuyên môn \+ cấp lớp" khi phụ huynh tìm kiếm  
+\- Bảng giá → lớp **tutor_prices**: tutor_id, teaching_mode, price_per_session, program — Mỗi hình thức dạy (Online/Tại nhà) có mức giá riêng  
+\- Lịch rảnh → lớp **tutor_availabilities**: tutor_id, day_of_week, time_slot — Lịch rảnh tham khảo, khác với class_schedules là lịch dạy cố định thực tế  
+\- Khu vực dạy → lớp **tutor_service_areas**: tutor_id, province, district — Khu vực địa lý gia sư nhận dạy tại nhà, phục vụ bộ lọc tỉnh/quận  
+\- Đơn yêu cầu lớp → lớp **class_requests**: parent_id, requested_tutor_id, student_id, class_requirement, teaching_mode, price_per_session, preferred_schedule, tutor_requirement, status, cancel_reason, created_by, handled_by — Có vòng đời trạng thái riêng (NEW → OPEN → MATCHED hoặc CANCELLED)  
+\- Lượt ứng tuyển → lớp **class_applications**: class_request_id, tutor_id, message, status, applied_at — Bảng nối N-N giữa gia sư và đơn yêu cầu, có thuộc tính riêng (lời nhắn, trạng thái). UNIQUE (class_request_id, tutor_id)  
+\- Lớp học → lớp **classes**: class_request_id, tutor_id, student_id, class_name, status, teaching_mode, active_from, price_per_session, tutor_note — Quan hệ dạy học 1 gia sư — 1 học sinh  
+\- Lịch dạy cố định → lớp **class_schedules**: class_id, day_of_week, start_time, end_time — Mẫu lịch dạy hằng tuần, dùng để sinh trước các sessions  
+\- Buổi học → lớp **sessions**: class_id, title, session_date, start_time, end_time, is_trial, teaching_mode, meeting_url, location, status, log_knowledge, log_homework — Buổi dạy thực tế, có nhật ký dạy học công khai cho HS và PH xem  
+\- Tài liệu buổi học → lớp **session_materials**: session_id, uploaded_by, file_name, file_url, file_type, file_size — Tài liệu đính kèm (PDF, DOCX, hình ảnh, âm thanh)  
+\- Kỹ năng → lớp **skills**: skill_code, skill_name, category, description — Danh mục thẻ kỹ năng (micro-skill) dùng chung, gắn với câu hỏi để phân loại kiến thức  
+\- Quiz → lớp **quizzes**: session_id, title, status, source, deadline, total_questions — Bài quiz trắc nghiệm gắn với một buổi học, tạo qua AI hoặc import  
+\- Câu hỏi → lớp **quiz_questions**: quiz_id, question_number, question_text, option_a, option_b, option_c, option_d, correct_answer, explanation, cefr_level, skill_id — Câu hỏi trắc nghiệm A/B/C/D với đáp án, lời giải thích, cấp độ CEFR và thẻ kỹ năng  
+\- Câu trả lời → lớp **quiz_answers**: question_id, student_id, selected_answer, is_correct, elo_before, elo_after, elo_change, next_review, review_count, easiness_factor, answered_at — Nguồn gốc tính điểm Elo và danh sách ôn tập Spaced Repetition. UNIQUE (student_id, question_id)  
+\- Khoản thanh toán → lớp **payments**: class_id, payer_type, fee_percentage, amount, payment_method, proof_url, received_amount, status, reject_reason, uploaded_by, uploaded_at, reviewed_by, reviewed_at — Khoản thu của trung tâm (phí nhận lớp hoặc học phí đóng trước)  
+\- Khiếu nại → lớp **complaints**: class_id, complainant_name, complainant_phone, complainant_role, complaint_type, complaint_content, status, resolution, received_by, resolved_by, resolved_at — Đơn khiếu nại tại quầy, Lễ tân tiếp nhận và xử lý  
+\- Minh chứng khiếu nại → lớp **complaint_attachments**: complaint_id, file_url, file_name, uploaded_by — Ảnh minh chứng khi giải quyết khiếu nại  
+\- Yêu cầu hoàn tiền → lớp **refunds**: complaint_id, payment_id, requested_amount, approved_amount, recipient_name, bank_name, bank_account_number, status, reject_reason, proof_url, requested_by, processed_by, processed_at — Phát sinh từ khiếu nại REFUND, Lễ tân tạo và Kế toán xử lý  
+\- Thông báo → lớp **notifications**: user_id, title, content, link_url, link_entity_type, link_entity_id, is_read — Thông báo chuông cho người dùng  
+\- Nhật ký hệ thống → lớp **audit_logs**: user_id, action, entity_type, entity_id, details, ip_address — Ghi ngầm các thao tác quan trọng, dùng entity_type \+ entity_id thay FK cứng  
 \- Tin nhắn chat AI → lớp **ai_chat_messages** (MongoDB collection): session_id, tutor_id, role, content, attachments — Lưu ở MongoDB, liên kết mềm qua session_id, không vẽ trong sơ đồ quan hệ
 
-Các danh từ thông tin:   
-\- Tên đăng nhập, mật khẩu, họ tên, email, SĐT, ngày sinh, giới tính, ảnh đại diện, vai trò, trạng thái, cờ buộc đổi mật khẩu → thuộc tính của users   
-\- Mã nhân viên, ngày vào làm → thuộc tính của employees   
-\- Quê quán, trường đại học, trình độ, kinh nghiệm, giới thiệu, video, trạng thái hồ sơ, lý do từ chối → thuộc tính của tutors   
-\- Trường học, khối lớp, mục tiêu học tập, điểm Elo → thuộc tính của students   
-\- Họ tên, SĐT, email, địa chỉ → thuộc tính của parents   
-\- Loại chứng chỉ, tên mục, điểm số, ngày cấp, file minh chứng, cờ xác thực → thuộc tính của tutor_credentials   
-\- Tên chuyên môn, cấp lớp, cờ xác thực → thuộc tính của tutor_specialties   
-\- Hình thức dạy, giá mỗi buổi, chương trình → thuộc tính của tutor_prices   
-\- Thứ, ca rảnh → thuộc tính của tutor_availabilities   
-\- Tỉnh/thành phố, quận/huyện → thuộc tính của tutor_service_areas   
-\- Yêu cầu lớp học, hình thức, giá mong muốn, lịch mong muốn, yêu cầu gia sư, trạng thái, lý do hủy → thuộc tính của class_requests   
-\- Lời nhắn ứng tuyển, trạng thái → thuộc tính của class_applications   
-\- Tên lớp, trạng thái, hình thức, ngày bắt đầu dạy, giá mỗi buổi, ghi chú gia sư → thuộc tính của classes   
-\- Thứ, giờ bắt đầu, giờ kết thúc → thuộc tính của class_schedules   
-\- Tiêu đề, ngày dạy, giờ, buổi dạy thử, hình thức, link online, địa điểm, trạng thái, nhật ký kiến thức, bài tập về nhà → thuộc tính của sessions   
-\- Tên file, đường dẫn file, loại file, dung lượng → thuộc tính của session_materials   
-\- Mã kỹ năng, tên kỹ năng, nhóm kỹ năng, mô tả → thuộc tính của skills   
-\- Tiêu đề quiz, trạng thái, nguồn tạo, hạn nộp, tổng số câu → thuộc tính của quizzes   
-\- Số thứ tự câu, nội dung câu hỏi, phương án A/B/C/D, đáp án đúng, lời giải thích, cấp độ CEFR → thuộc tính của quiz_questions   
-\- Đáp án đã chọn, kết quả đúng/sai, Elo trước/sau/thay đổi, thời điểm ôn tập tiếp, số lần ôn, hệ số dễ → thuộc tính của quiz_answers   
-\- Loại người nộp, tỷ lệ phí, số tiền, phương thức thanh toán, biên lai, số tiền thực nhận, trạng thái, lý do từ chối → thuộc tính của payments   
-\- Tên người khiếu nại, SĐT, vai trò, loại khiếu nại, nội dung, trạng thái, kết quả xử lý → thuộc tính của complaints   
-\- Đường dẫn file, tên file → thuộc tính của complaint_attachments   
-\- Số tiền đề xuất hoàn, số tiền được duyệt, tên chủ tài khoản, ngân hàng, số tài khoản, trạng thái, lý do từ chối, biên lai hoàn tiền → thuộc tính của refunds   
-\- Tiêu đề, nội dung, liên kết, loại đối tượng liên kết, ID đối tượng, cờ đã đọc → thuộc tính của notifications   
+Các danh từ thông tin:  
+\- Tên đăng nhập, mật khẩu, họ tên, email, SĐT, ngày sinh, giới tính, ảnh đại diện, vai trò, trạng thái, cờ buộc đổi mật khẩu → thuộc tính của users  
+\- Mã nhân viên, ngày vào làm → thuộc tính của employees  
+\- Quê quán, trường đại học, trình độ, kinh nghiệm, giới thiệu, video, trạng thái hồ sơ, lý do từ chối → thuộc tính của tutors  
+\- Trường học, khối lớp, mục tiêu học tập, điểm Elo → thuộc tính của students  
+\- Họ tên, SĐT, email, địa chỉ → thuộc tính của parents  
+\- Loại chứng chỉ, tên mục, điểm số, ngày cấp, file minh chứng, cờ xác thực → thuộc tính của tutor_credentials  
+\- Tên chuyên môn, cấp lớp, cờ xác thực → thuộc tính của tutor_specialties  
+\- Hình thức dạy, giá mỗi buổi, chương trình → thuộc tính của tutor_prices  
+\- Thứ, ca rảnh → thuộc tính của tutor_availabilities  
+\- Tỉnh/thành phố, quận/huyện → thuộc tính của tutor_service_areas  
+\- Yêu cầu lớp học, hình thức, giá mong muốn, lịch mong muốn, yêu cầu gia sư, trạng thái, lý do hủy → thuộc tính của class_requests  
+\- Lời nhắn ứng tuyển, trạng thái → thuộc tính của class_applications  
+\- Tên lớp, trạng thái, hình thức, ngày bắt đầu dạy, giá mỗi buổi, ghi chú gia sư → thuộc tính của classes  
+\- Thứ, giờ bắt đầu, giờ kết thúc → thuộc tính của class_schedules  
+\- Tiêu đề, ngày dạy, giờ, buổi dạy thử, hình thức, link online, địa điểm, trạng thái, nhật ký kiến thức, bài tập về nhà → thuộc tính của sessions  
+\- Tên file, đường dẫn file, loại file, dung lượng → thuộc tính của session_materials  
+\- Mã kỹ năng, tên kỹ năng, nhóm kỹ năng, mô tả → thuộc tính của skills  
+\- Tiêu đề quiz, trạng thái, nguồn tạo, hạn nộp, tổng số câu → thuộc tính của quizzes  
+\- Số thứ tự câu, nội dung câu hỏi, phương án A/B/C/D, đáp án đúng, lời giải thích, cấp độ CEFR → thuộc tính của quiz_questions  
+\- Đáp án đã chọn, kết quả đúng/sai, Elo trước/sau/thay đổi, thời điểm ôn tập tiếp, số lần ôn, hệ số dễ → thuộc tính của quiz_answers  
+\- Loại người nộp, tỷ lệ phí, số tiền, phương thức thanh toán, biên lai, số tiền thực nhận, trạng thái, lý do từ chối → thuộc tính của payments  
+\- Tên người khiếu nại, SĐT, vai trò, loại khiếu nại, nội dung, trạng thái, kết quả xử lý → thuộc tính của complaints  
+\- Đường dẫn file, tên file → thuộc tính của complaint_attachments  
+\- Số tiền đề xuất hoàn, số tiền được duyệt, tên chủ tài khoản, ngân hàng, số tài khoản, trạng thái, lý do từ chối, biên lai hoàn tiền → thuộc tính của refunds  
+\- Tiêu đề, nội dung, liên kết, loại đối tượng liên kết, ID đối tượng, cờ đã đọc → thuộc tính của notifications  
 \- Hành động, loại đối tượng, ID đối tượng, chi tiết thay đổi, địa chỉ IP → thuộc tính của audit_logs
 
-**Bước 4: Xác định quan hệ số lượng giữa các thực thể**   
+**Bước 4: Xác định quan hệ số lượng giữa các thực thể**
 
-Quan hệ kế thừa:   
-Các lớp con dùng chung khóa chính với users (id của lớp con chính là users.id), nên là quan hệ kế thừa chứ không phải quan hệ số lượng.   
-\- users là lớp cha của employees (điều kiện: users.role = ADMIN, RECEPTIONIST, ACCOUNTANT)   
-\- users là lớp cha của tutors (điều kiện: users.role = TUTOR)   
-\- users là lớp cha của students (điều kiện: users.role = STUDENT)
+Quan hệ kế thừa:  
+Các lớp con dùng chung khóa chính với users (id của lớp con chính là users.id), nên là quan hệ kế thừa chứ không phải quan hệ số lượng.  
+\- users là lớp cha của employees (điều kiện: users.role \= ADMIN, RECEPTIONIST, ACCOUNTANT)  
+\- users là lớp cha của tutors (điều kiện: users.role \= TUTOR)  
+\- users là lớp cha của students (điều kiện: users.role \= STUDENT)
 
-Quan hệ 1-n (một-nhiều):   
-\- parents có nhiều students → parents - students là 1-n (một phụ huynh có nhiều con, FK: students.parent_id → parents.id)   
-\- tutors có nhiều tutor_specialties → tutors - tutor_specialties là 1-n (một gia sư có nhiều chuyên môn)   
-\- tutors có nhiều tutor_prices → tutors - tutor_prices là 1-n (một gia sư có nhiều mức giá)   
-\- tutors có nhiều tutor_availabilities → tutors - tutor_availabilities là 1-n (một gia sư có nhiều ca rảnh)   
-\- tutors có nhiều tutor_service_areas → tutors - tutor_service_areas là 1-n (một gia sư dạy nhiều khu vực)   
-\- tutors có nhiều tutor_credentials → tutors - tutor_credentials là 1-n (một gia sư có nhiều chứng chỉ, thành tích)   
-\- users có nhiều tutors (thông qua reviewed_by) → users - tutors là 1-n (một Lễ tân duyệt nhiều hồ sơ gia sư)   
-\- parents có nhiều class_requests → parents - class_requests là 1-n (một phụ huynh gửi nhiều đơn)   
-\- students có nhiều class_requests → students - class_requests là 1-n (một học sinh có thể có nhiều đơn, FK nullable)   
-\- tutors có nhiều class_requests (thông qua requested_tutor_id) → tutors - class_requests là 1-n (gia sư được chỉ đích danh, NULL = đơn đăng tuyển)   
-\- users có nhiều class_requests (thông qua created_by, handled_by) → users - class_requests là 1-n (Lễ tân tạo hoặc xử lý nhiều đơn)   
-\- class_requests có nhiều class_applications → class_requests - class_applications là 1-n (một đơn OPEN nhận nhiều lượt ứng tuyển)   
-\- tutors có nhiều class_applications → tutors - class_applications là 1-n (một gia sư ứng tuyển nhiều đơn)   
-\- users có nhiều tutor_credentials (thông qua verified_by) → users - tutor_credentials là 1-n (một Lễ tân xác thực nhiều chứng chỉ)   
-\- users có nhiều tutor_specialties (thông qua verified_by) → users - tutor_specialties là 1-n (một Lễ tân xác thực nhiều chuyên môn)   
-\- tutor_credentials có nhiều tutor_specialties (thông qua credential_id) → tutor_credentials - tutor_specialties là 1-n (một chứng chỉ minh chứng cho nhiều chuyên môn, FK nullable)   
-\- class_requests có nhiều classes → class_requests - classes là 1-n (một đơn sinh ra nhiều lớp theo thời gian khi ghép lại, tối đa 1 lớp TRIAL/ACTIVE)   
-\- tutors có nhiều classes → tutors - classes là 1-n (một gia sư dạy nhiều lớp)   
-\- students có nhiều classes → students - classes là 1-n (một học sinh học nhiều lớp)   
-\- classes có nhiều class_schedules → classes - class_schedules là 1-n (một lớp có nhiều ca dạy mỗi tuần)   
-\- classes có nhiều sessions → classes - sessions là 1-n (một lớp có nhiều buổi học)   
-\- sessions có nhiều session_materials → sessions - session_materials là 1-n (một buổi có nhiều tài liệu)   
-\- users có nhiều session_materials (thông qua uploaded_by) → users - session_materials là 1-n (một người dùng tải lên nhiều tài liệu)   
-\- sessions có nhiều quizzes → sessions - quizzes là 1-n (một buổi có nhiều quiz)   
-\- quizzes có nhiều quiz_questions → quizzes - quiz_questions là 1-n (một quiz có ít nhất một câu hỏi)   
-\- skills có nhiều quiz_questions → skills - quiz_questions là 1-n (một kỹ năng gắn với nhiều câu hỏi)   
-\- quiz_questions có nhiều quiz_answers → quiz_questions - quiz_answers là 1-n (một câu hỏi nhận nhiều câu trả lời từ HS)   
-\- students có nhiều quiz_answers → students - quiz_answers là 1-n (một học sinh có nhiều câu trả lời)   
-\- classes có nhiều payments → classes - payments là 1-n (một lớp có nhiều khoản phí: phí nhận lớp + học phí)   
-\- users có nhiều payments (thông qua uploaded_by, reviewed_by) → users - payments là 1-n (uploaded_by = người nộp minh chứng, reviewed_by = Kế toán xác nhận, phải khác nhau)   
-\- classes có nhiều complaints → classes - complaints là 1-n (một lớp có nhiều khiếu nại)   
-\- users có nhiều complaints (thông qua received_by, resolved_by) → users - complaints là 1-n (Lễ tân tiếp nhận, Lễ tân/Kế toán đóng đơn)   
-\- complaints có nhiều complaint_attachments → complaints - complaint_attachments là 1-n (một khiếu nại có nhiều minh chứng)   
-\- users có nhiều complaint_attachments (thông qua uploaded_by) → users - complaint_attachments là 1-n (Lễ tân tải lên nhiều minh chứng)   
-\- complaints có nhiều refunds → complaints - refunds là 1-n (một khiếu nại REFUND có thể gửi lại yêu cầu khi bị từ chối, tối đa 1 PENDING/PAID)   
-\- payments có nhiều refunds → payments - refunds là 1-n (một khoản thu có thể được hoàn nhiều lần, tổng không vượt received_amount)   
-\- users có nhiều refunds (thông qua requested_by, processed_by) → users - refunds là 1-n (Lễ tân đề xuất, Kế toán xử lý, phải khác nhau)   
-\- users có nhiều notifications → users - notifications là 1-n (một người dùng nhận nhiều thông báo)   
-\- users có nhiều audit_logs → users - audit_logs là 1-n (một người dùng sinh nhiều dòng nhật ký)
+Quan hệ 1-n (một-nhiều):  
+\- parents có nhiều students → parents \- students là 1-n (một phụ huynh có nhiều con, FK: students.parent_id → parents.id)  
+\- tutors có nhiều tutor_specialties → tutors \- tutor_specialties là 1-n (một gia sư có nhiều chuyên môn)  
+\- tutors có nhiều tutor_prices → tutors \- tutor_prices là 1-n (một gia sư có nhiều mức giá)  
+\- tutors có nhiều tutor_availabilities → tutors \- tutor_availabilities là 1-n (một gia sư có nhiều ca rảnh)  
+\- tutors có nhiều tutor_service_areas → tutors \- tutor_service_areas là 1-n (một gia sư dạy nhiều khu vực)  
+\- tutors có nhiều tutor_credentials → tutors \- tutor_credentials là 1-n (một gia sư có nhiều chứng chỉ, thành tích)  
+\- users có nhiều tutors (thông qua reviewed_by) → users \- tutors là 1-n (một Lễ tân duyệt nhiều hồ sơ gia sư)  
+\- parents có nhiều class_requests → parents \- class_requests là 1-n (một phụ huynh gửi nhiều đơn)  
+\- students có nhiều class_requests → students \- class_requests là 1-n (một học sinh có thể có nhiều đơn, FK nullable)  
+\- tutors có nhiều class_requests (thông qua requested_tutor_id) → tutors \- class_requests là 1-n (gia sư được chỉ đích danh, NULL \= đơn đăng tuyển)  
+\- users có nhiều class_requests (thông qua created_by, handled_by) → users \- class_requests là 1-n (Lễ tân tạo hoặc xử lý nhiều đơn)  
+\- class_requests có nhiều class_applications → class_requests \- class_applications là 1-n (một đơn OPEN nhận nhiều lượt ứng tuyển)  
+\- tutors có nhiều class_applications → tutors \- class_applications là 1-n (một gia sư ứng tuyển nhiều đơn)  
+\- users có nhiều tutor_credentials (thông qua verified_by) → users \- tutor_credentials là 1-n (một Lễ tân xác thực nhiều chứng chỉ)  
+\- users có nhiều tutor_specialties (thông qua verified_by) → users \- tutor_specialties là 1-n (một Lễ tân xác thực nhiều chuyên môn)  
+\- tutor_credentials có nhiều tutor_specialties (thông qua credential_id) → tutor_credentials \- tutor_specialties là 1-n (một chứng chỉ minh chứng cho nhiều chuyên môn, FK nullable)  
+\- class_requests có nhiều classes → class_requests \- classes là 1-n (một đơn sinh ra nhiều lớp theo thời gian khi ghép lại, tối đa 1 lớp TRIAL/ACTIVE)  
+\- tutors có nhiều classes → tutors \- classes là 1-n (một gia sư dạy nhiều lớp)  
+\- students có nhiều classes → students \- classes là 1-n (một học sinh học nhiều lớp)  
+\- classes có nhiều class_schedules → classes \- class_schedules là 1-n (một lớp có nhiều ca dạy mỗi tuần)  
+\- classes có nhiều sessions → classes \- sessions là 1-n (một lớp có nhiều buổi học)  
+\- sessions có nhiều session_materials → sessions \- session_materials là 1-n (một buổi có nhiều tài liệu)  
+\- users có nhiều session_materials (thông qua uploaded_by) → users \- session_materials là 1-n (một người dùng tải lên nhiều tài liệu)  
+\- sessions có nhiều quizzes → sessions \- quizzes là 1-n (một buổi có nhiều quiz)  
+\- quizzes có nhiều quiz_questions → quizzes \- quiz_questions là 1-n (một quiz có ít nhất một câu hỏi)  
+\- skills có nhiều quiz_questions → skills \- quiz_questions là 1-n (một kỹ năng gắn với nhiều câu hỏi)  
+\- quiz_questions có nhiều quiz_answers → quiz_questions \- quiz_answers là 1-n (một câu hỏi nhận nhiều câu trả lời từ HS)  
+\- students có nhiều quiz_answers → students \- quiz_answers là 1-n (một học sinh có nhiều câu trả lời)  
+\- classes có nhiều payments → classes \- payments là 1-n (một lớp có nhiều khoản phí: phí nhận lớp \+ học phí)  
+\- users có nhiều payments (thông qua uploaded_by, reviewed_by) → users \- payments là 1-n (uploaded_by \= người nộp minh chứng, reviewed_by \= Kế toán xác nhận, phải khác nhau)  
+\- classes có nhiều complaints → classes \- complaints là 1-n (một lớp có nhiều khiếu nại)  
+\- users có nhiều complaints (thông qua received_by, resolved_by) → users \- complaints là 1-n (Lễ tân tiếp nhận, Lễ tân/Kế toán đóng đơn)  
+\- complaints có nhiều complaint_attachments → complaints \- complaint_attachments là 1-n (một khiếu nại có nhiều minh chứng)  
+\- users có nhiều complaint_attachments (thông qua uploaded_by) → users \- complaint_attachments là 1-n (Lễ tân tải lên nhiều minh chứng)  
+\- complaints có nhiều refunds → complaints \- refunds là 1-n (một khiếu nại REFUND có thể gửi lại yêu cầu khi bị từ chối, tối đa 1 PENDING/PAID)  
+\- payments có nhiều refunds → payments \- refunds là 1-n (một khoản thu có thể được hoàn nhiều lần, tổng không vượt received_amount)  
+\- users có nhiều refunds (thông qua requested_by, processed_by) → users \- refunds là 1-n (Lễ tân đề xuất, Kế toán xử lý, phải khác nhau)  
+\- users có nhiều notifications → users \- notifications là 1-n (một người dùng nhận nhiều thông báo)  
+\- users có nhiều audit_logs → users \- audit_logs là 1-n (một người dùng sinh nhiều dòng nhật ký)
 
-Quan hệ liên kết mềm (MongoDB):   
-\- sessions (PostgreSQL) có nhiều ai_chat_messages (MongoDB) → sessions - ai_chat_messages là 1-n (liên kết mềm qua session_id, không FK thật)
+Quan hệ liên kết mềm (MongoDB):  
+\- sessions (PostgreSQL) có nhiều ai_chat_messages (MongoDB) → sessions \- ai_chat_messages là 1-n (liên kết mềm qua session_id, không FK thật)
 
-**Bước 5: Xác định quan hệ đối tượng giữa các thực thể**   
+**Bước 5: Xác định quan hệ đối tượng giữa các thực thể**
 
-Quan hệ thành phần (Composition):   
-\- tutor_credentials là thành phần của tutors   
-\- tutor_specialties là thành phần của tutors   
-\- tutor_prices là thành phần của tutors   
-\- tutor_availabilities là thành phần của tutors   
-\- tutor_service_areas là thành phần của tutors   
-\- class_schedules là thành phần của classes   
-\- sessions là thành phần của classes   
-\- session_materials là thành phần của sessions   
-\- quiz_questions là thành phần của quizzes   
-\- complaint_attachments là thành phần của complaints   
-\- class_applications liên kết tutors và class_requests tạo ra một lượt ứng tuyển duy nhất (UNIQUE: class_request_id + tutor_id)   
-\- quiz_answers liên kết students và quiz_questions tạo ra một câu trả lời duy nhất (UNIQUE: student_id + question_id)
+Quan hệ thành phần (Composition):  
+\- tutor_credentials là thành phần của tutors  
+\- tutor_specialties là thành phần của tutors  
+\- tutor_prices là thành phần của tutors  
+\- tutor_availabilities là thành phần của tutors  
+\- tutor_service_areas là thành phần của tutors  
+\- class_schedules là thành phần của classes  
+\- sessions là thành phần của classes  
+\- session_materials là thành phần của sessions  
+\- quiz_questions là thành phần của quizzes  
+\- complaint_attachments là thành phần của complaints  
+\- class_applications liên kết tutors và class_requests tạo ra một lượt ứng tuyển duy nhất (UNIQUE: class_request_id \+ tutor_id)  
+\- quiz_answers liên kết students và quiz_questions tạo ra một câu trả lời duy nhất (UNIQUE: student_id \+ question_id)
 
-Quan hệ tham chiếu (Reference):   
-\- tutors tham chiếu đến users (reviewed_by — Lễ tân duyệt hồ sơ)   
-\- tutor_credentials tham chiếu đến users (verified_by — Lễ tân xác thực)   
-\- tutor_specialties tham chiếu đến users (verified_by) và tutor_credentials (credential_id — chứng chỉ minh chứng cho chuyên môn)   
-\- class_requests tham chiếu đến parents (parent_id), students (student_id, nullable), tutors (requested_tutor_id, nullable), users (created_by, handled_by)   
-\- class_applications tham chiếu đến class_requests (class_request_id) và tutors (tutor_id)   
-\- classes tham chiếu đến class_requests (class_request_id), tutors (tutor_id), students (student_id)   
-\- sessions tham chiếu đến classes (class_id)   
-\- session_materials tham chiếu đến sessions (session_id) và users (uploaded_by)   
-\- quizzes tham chiếu đến sessions (session_id)   
-\- quiz_questions tham chiếu đến quizzes (quiz_id) và skills (skill_id)   
-\- quiz_answers tham chiếu đến quiz_questions (question_id) và students (student_id)   
-\- payments tham chiếu đến classes (class_id) và users (uploaded_by, reviewed_by — phải khác nhau, kiểm soát chéo)   
-\- complaints tham chiếu đến classes (class_id) và users (received_by, resolved_by)   
-\- complaint_attachments tham chiếu đến complaints (complaint_id) và users (uploaded_by)   
-\- refunds tham chiếu đến complaints (complaint_id), payments (payment_id), users (requested_by, processed_by — phải khác nhau, kiểm soát chéo)   
-\- notifications tham chiếu đến users (user_id)   
-\- audit_logs tham chiếu đến users (user_id)   
+Quan hệ tham chiếu (Reference):  
+\- tutors tham chiếu đến users (reviewed_by — Lễ tân duyệt hồ sơ)  
+\- tutor_credentials tham chiếu đến users (verified_by — Lễ tân xác thực)  
+\- tutor_specialties tham chiếu đến users (verified_by) và tutor_credentials (credential_id — chứng chỉ minh chứng cho chuyên môn)  
+\- class_requests tham chiếu đến parents (parent_id), students (student_id, nullable), tutors (requested_tutor_id, nullable), users (created_by, handled_by)  
+\- class_applications tham chiếu đến class_requests (class_request_id) và tutors (tutor_id)  
+\- classes tham chiếu đến class_requests (class_request_id), tutors (tutor_id), students (student_id)  
+\- sessions tham chiếu đến classes (class_id)  
+\- session_materials tham chiếu đến sessions (session_id) và users (uploaded_by)  
+\- quizzes tham chiếu đến sessions (session_id)  
+\- quiz_questions tham chiếu đến quizzes (quiz_id) và skills (skill_id)  
+\- quiz_answers tham chiếu đến quiz_questions (question_id) và students (student_id)  
+\- payments tham chiếu đến classes (class_id) và users (uploaded_by, reviewed_by — phải khác nhau, kiểm soát chéo)  
+\- complaints tham chiếu đến classes (class_id) và users (received_by, resolved_by)  
+\- complaint_attachments tham chiếu đến complaints (complaint_id) và users (uploaded_by)  
+\- refunds tham chiếu đến complaints (complaint_id), payments (payment_id), users (requested_by, processed_by — phải khác nhau, kiểm soát chéo)  
+\- notifications tham chiếu đến users (user_id)  
+\- audit_logs tham chiếu đến users (user_id)  
 \- students tham chiếu đến parents (parent_id)
 
-Thông tin nằm trong:   
-\- Thông tin tài khoản và xác thực nằm trong users   
-\- Thông tin nhân sự nội bộ nằm trong employees   
-\- Thông tin học tập và điểm Elo nằm trong students   
-\- Thông tin hồ sơ gia sư (cá nhân, trình độ, quê quán, duyệt hồ sơ) nằm trong tutors   
-\- Thông tin chứng chỉ, thành tích và file minh chứng nằm trong tutor_credentials   
-\- Thông tin chuyên môn theo cấp lớp nằm trong tutor_specialties   
-\- Thông tin giá và chương trình dạy nằm trong tutor_prices   
-\- Thông tin lịch rảnh nằm trong tutor_availabilities   
-\- Thông tin khu vực dạy nằm trong tutor_service_areas   
-\- Thông tin yêu cầu lớp và ứng tuyển nằm trong class_requests, class_applications   
-\- Thông tin lớp học, lịch cố định và buổi dạy nằm trong classes, class_schedules, sessions   
-\- Thông tin tài liệu buổi học nằm trong session_materials   
-\- Thông tin quiz, câu hỏi và câu trả lời nằm trong quizzes, quiz_questions, quiz_answers   
-\- Thông tin kỹ năng nằm trong skills   
-\- Thông tin tài chính (thu phí, xác nhận) nằm trong payments   
-\- Thông tin khiếu nại và minh chứng nằm trong complaints, complaint_attachments   
-\- Thông tin hoàn tiền nằm trong refunds   
-\- Thông tin thông báo nằm trong notifications   
-\- Thông tin nhật ký hệ thống nằm trong audit_logs   
+Thông tin nằm trong:  
+\- Thông tin tài khoản và xác thực nằm trong users  
+\- Thông tin nhân sự nội bộ nằm trong employees  
+\- Thông tin học tập và điểm Elo nằm trong students  
+\- Thông tin hồ sơ gia sư (cá nhân, trình độ, quê quán, duyệt hồ sơ) nằm trong tutors  
+\- Thông tin chứng chỉ, thành tích và file minh chứng nằm trong tutor_credentials  
+\- Thông tin chuyên môn theo cấp lớp nằm trong tutor_specialties  
+\- Thông tin giá và chương trình dạy nằm trong tutor_prices  
+\- Thông tin lịch rảnh nằm trong tutor_availabilities  
+\- Thông tin khu vực dạy nằm trong tutor_service_areas  
+\- Thông tin yêu cầu lớp và ứng tuyển nằm trong class_requests, class_applications  
+\- Thông tin lớp học, lịch cố định và buổi dạy nằm trong classes, class_schedules, sessions  
+\- Thông tin tài liệu buổi học nằm trong session_materials  
+\- Thông tin quiz, câu hỏi và câu trả lời nằm trong quizzes, quiz_questions, quiz_answers  
+\- Thông tin kỹ năng nằm trong skills  
+\- Thông tin tài chính (thu phí, xác nhận) nằm trong payments  
+\- Thông tin khiếu nại và minh chứng nằm trong complaints, complaint_attachments  
+\- Thông tin hoàn tiền nằm trong refunds  
+\- Thông tin thông báo nằm trong notifications  
+\- Thông tin nhật ký hệ thống nằm trong audit_logs  
 \- Thông tin thời gian nằm trong các thực thể (created_at, updated_at, answered_at, reviewed_at, processed_at...)
 
-**Bước 6:**   
-Biểu đồ lớp pha phân tích   
-Giữ nguyên tên thực thể, thuộc tính, quan hệ và bội số của sơ đồ ERD trong [ERD.md](ERD.md); bỏ kiểu dữ liệu. Ba quan hệ users — employees, tutors, students vẽ là kế thừa (`<|--`). `PK`, `FK` đánh dấu khóa chính, khóa ngoại.
+## 2\. Biểu đồ lớp: ![][image1]
 
-```mermaid
-classDiagram
-    direction LR
-    %% ====== NHOM 1 - TAI KHOAN VA NGUOI DUNG ======
-    class users {
-        id PK
-        username
-        password_hash
-        full_name
-        email
-        phone
-        date_of_birth
-        gender
-        avatar_url
-        role
-        status
-        must_change_password
-        created_at
-        updated_at
-    }
-
-    class employees {
-        id PK FK
-        employee_code
-        hired_date
-    }
-
-    class parents {
-        id PK
-        full_name
-        phone
-        email
-        address
-        created_at
-        updated_at
-    }
-
-    class students {
-        id PK FK
-        parent_id FK
-        school
-        grade
-        learning_goal
-        elo
-        updated_at
-    }
-
-    %% ====== NHOM 2 - HO SO GIA SU ======
-    class tutors {
-        id PK FK
-        address
-        hometown
-        university
-        education_status
-        experience_years
-        bio
-        video_url
-        profile_status
-        rejection_reason
-        reviewed_by FK
-        reviewed_at
-        updated_at
-    }
-
-    class tutor_credentials {
-        id PK
-        tutor_id FK
-        credential_type
-        title
-        score
-        description
-        issued_at
-        file_url
-        is_verified
-        verified_by FK
-        verified_at
-        created_at
-    }
-
-    class tutor_specialties {
-        id PK
-        tutor_id FK
-        specialty
-        grade_level
-        credential_id FK
-        is_verified
-        verified_by FK
-        verified_at
-    }
-
-    class tutor_prices {
-        id PK
-        tutor_id FK
-        teaching_mode
-        price_per_session
-        program
-    }
-
-    class tutor_availabilities {
-        id PK
-        tutor_id FK
-        day_of_week
-        time_slot
-    }
-
-    class tutor_service_areas {
-        id PK
-        tutor_id FK
-        province
-        district
-    }
-
-    %% ====== NHOM 3 - YEU CAU VA GHEP LOP ======
-    class class_requests {
-        id PK
-        parent_id FK
-        requested_tutor_id FK
-        student_id FK
-        class_requirement
-        teaching_mode
-        price_per_session
-        preferred_schedule
-        tutor_requirement
-        status
-        cancel_reason
-        created_by FK
-        handled_by FK
-        created_at
-        updated_at
-    }
-
-    class class_applications {
-        id PK
-        class_request_id FK
-        tutor_id FK
-        message
-        status
-        applied_at
-    }
-
-    %% ====== NHOM 4 - LOP HOC VA BUOI HOC ======
-    class classes {
-        id PK
-        class_request_id FK
-        tutor_id FK
-        student_id FK
-        class_name
-        status
-        teaching_mode
-        active_from
-        price_per_session
-        tutor_note
-        created_at
-        updated_at
-    }
-
-    class class_schedules {
-        id PK
-        class_id FK
-        day_of_week
-        start_time
-        end_time
-    }
-
-    class sessions {
-        id PK
-        class_id FK
-        title
-        session_date
-        start_time
-        end_time
-        is_trial
-        teaching_mode
-        meeting_url
-        location
-        status
-        log_knowledge
-        log_homework
-        created_at
-        updated_at
-    }
-
-    class session_materials {
-        id PK
-        session_id FK
-        uploaded_by FK
-        file_name
-        file_url
-        file_type
-        file_size
-        created_at
-    }
-
-    %% ====== NHOM 5 - QUIZ VA ELO ======
-    class skills {
-        id PK
-        skill_code
-        skill_name
-        category
-        description
-    }
-
-    class quizzes {
-        id PK
-        session_id FK
-        title
-        status
-        source
-        deadline
-        total_questions
-        created_at
-        updated_at
-    }
-
-    class quiz_questions {
-        id PK
-        quiz_id FK
-        question_number
-        question_text
-        option_a
-        option_b
-        option_c
-        option_d
-        correct_answer
-        explanation
-        cefr_level
-        skill_id FK
-        created_at
-    }
-
-    class quiz_answers {
-        id PK
-        question_id FK
-        student_id FK
-        selected_answer
-        is_correct
-        elo_before
-        elo_after
-        elo_change
-        next_review
-        review_count
-        easiness_factor
-        answered_at
-    }
-
-    %% ====== NHOM 6 - TAI CHINH VA KHIEU NAI ======
-    class payments {
-        id PK
-        class_id FK
-        payer_type
-        fee_percentage
-        amount
-        payment_method
-        proof_url
-        received_amount
-        status
-        reject_reason
-        uploaded_by FK
-        uploaded_at
-        reviewed_by FK
-        reviewed_at
-        created_at
-        updated_at
-    }
-
-    class complaints {
-        id PK
-        class_id FK
-        complainant_name
-        complainant_phone
-        complainant_role
-        complaint_type
-        complaint_content
-        status
-        resolution
-        received_by FK
-        resolved_by FK
-        resolved_at
-        created_at
-        updated_at
-    }
-
-    class complaint_attachments {
-        id PK
-        complaint_id FK
-        file_url
-        file_name
-        uploaded_by FK
-        created_at
-    }
-
-    class refunds {
-        id PK
-        complaint_id FK
-        payment_id FK
-        requested_amount
-        approved_amount
-        recipient_name
-        bank_name
-        bank_account_number
-        status
-        reject_reason
-        proof_url
-        requested_by FK
-        processed_by FK
-        processed_at
-        created_at
-        updated_at
-    }
-
-    %% ====== NHOM 7 - HE THONG ======
-    class notifications {
-        id PK
-        user_id FK
-        title
-        content
-        link_url
-        link_entity_type
-        link_entity_id
-        is_read
-        created_at
-    }
-
-    class audit_logs {
-        id PK
-        user_id FK
-        action
-        entity_type
-        entity_id
-        details
-        ip_address
-        created_at
-    }
-
-    %% ====== QUAN HE ======
-    users <|-- employees
-    users <|-- tutors
-    users <|-- students
-    parents "1" -- "0..*" students : has children
-
-    tutors "1" -- "0..*" tutor_specialties : has
-    tutors "1" -- "0..*" tutor_prices : has
-    tutors "1" -- "0..*" tutor_availabilities : has
-    tutors "1" -- "0..*" tutor_service_areas : serves
-    tutors "1" -- "0..*" tutor_credentials : has
-    users "1" -- "0..*" tutors : reviews
-
-    parents "1" -- "0..*" class_requests : submits
-    students "1" -- "0..*" class_requests : for student
-    tutors "1" -- "0..*" class_requests : requested
-    users "1" -- "0..*" class_requests : creates or handles
-    class_requests "1" -- "0..*" class_applications : receives
-    tutors "1" -- "0..*" class_applications : applies
-    users "1" -- "0..*" tutor_credentials : verifies
-    users "1" -- "0..*" tutor_specialties : verifies
-    tutor_credentials "1" -- "0..*" tutor_specialties : proves
-
-    class_requests "1" -- "0..*" classes : creates
-    tutors "1" -- "0..*" classes : teaches
-    students "1" -- "0..*" classes : enrolls
-    classes "1" -- "0..*" class_schedules : has schedule
-    classes "1" -- "0..*" sessions : has sessions
-    sessions "1" -- "0..*" session_materials : has materials
-    users "1" -- "0..*" session_materials : uploads
-
-    sessions "1" -- "0..*" quizzes : has quizzes
-    quizzes "1" -- "1..*" quiz_questions : contains
-    skills "1" -- "0..*" quiz_questions : tagged
-    quiz_questions "1" -- "0..*" quiz_answers : answered
-    students "1" -- "0..*" quiz_answers : submits
-
-    classes "1" -- "0..*" payments : has fees
-    users "1" -- "0..*" payments : uploads or reviews
-    classes "1" -- "0..*" complaints : has complaints
-    users "1" -- "0..*" complaints : receives or resolves
-    complaints "1" -- "0..*" complaint_attachments : has attachments
-    users "1" -- "0..*" complaint_attachments : uploads
-    complaints "1" -- "0..*" refunds : requests refund
-    payments "1" -- "0..*" refunds : refunded by
-    users "1" -- "0..*" refunds : requests or processes
-
-    users "1" -- "0..*" notifications : receives
-    users "1" -- "0..*" audit_logs : generates
-```
+[image1]: data:image/png;base64,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

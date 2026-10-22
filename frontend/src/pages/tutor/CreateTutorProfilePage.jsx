@@ -32,7 +32,15 @@ import {
 } from "../../lib/tutorApi";
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const WEEK_DAYS = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
+const WEEK_DAYS = [
+  "Thứ 2",
+  "Thứ 3",
+  "Thứ 4",
+  "Thứ 5",
+  "Thứ 6",
+  "Thứ 7",
+  "Chủ nhật",
+];
 const TIME_SLOTS = ["MORNING", "AFTERNOON", "EVENING"];
 const SLOT_LABELS = { MORNING: "Sáng", AFTERNOON: "Chiều", EVENING: "Tối" };
 const GENDER_OPTIONS = [
@@ -85,7 +93,14 @@ export default function CreateTutorProfilePage() {
 
     // Khối 3 – Môn học (mỗi row = 1 specialty + 1 price)
     subjectRows: [
-      { id: 1, specialty: "Tiếng Anh", gradeLevel: "Lớp 8", teachingMode: "ONLINE", program: "", feeThousands: "" },
+      {
+        id: 1,
+        specialty: "Tiếng Anh",
+        gradeLevel: "Lớp 8",
+        teachingMode: "ONLINE",
+        program: "",
+        feeThousands: "",
+      },
     ],
 
     // Khối 4 – Giới thiệu
@@ -123,7 +138,8 @@ export default function CreateTutorProfilePage() {
       const newArea = { ...prev.serviceArea, [field]: value };
       if (field === "province") {
         const firstDistrict =
-          provincesAndDistricts.find((p) => p.province === value)?.districts[0] || "";
+          provincesAndDistricts.find((p) => p.province === value)
+            ?.districts[0] || "";
         newArea.district = firstDistrict;
       }
       return { ...prev, serviceArea: newArea };
@@ -135,7 +151,7 @@ export default function CreateTutorProfilePage() {
     setFormData((prev) => ({
       ...prev,
       subjectRows: prev.subjectRows.map((row) =>
-        row.id === id ? { ...row, [field]: value } : row
+        row.id === id ? { ...row, [field]: value } : row,
       ),
     }));
   };
@@ -145,7 +161,14 @@ export default function CreateTutorProfilePage() {
       ...prev,
       subjectRows: [
         ...prev.subjectRows,
-        { id: Date.now(), specialty: "Tiếng Anh", gradeLevel: "Lớp 8", teachingMode: "ONLINE", program: "", feeThousands: "" },
+        {
+          id: Date.now(),
+          specialty: "Tiếng Anh",
+          gradeLevel: "Lớp 8",
+          teachingMode: "ONLINE",
+          program: "",
+          feeThousands: "",
+        },
       ],
     }));
   };
@@ -182,13 +205,13 @@ export default function CreateTutorProfilePage() {
 
   const handleCredentialChange = (id, field, value) => {
     setCredentials((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c))
+      prev.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
     );
   };
 
   const handleCredentialFileChange = (id, file) => {
     setCredentials((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, file } : c))
+      prev.map((c) => (c.id === id ? { ...c, file } : c)),
     );
   };
 
@@ -208,10 +231,13 @@ export default function CreateTutorProfilePage() {
       // ── Validation ──
       if (!formData.fullName.trim()) throw new Error("Vui lòng nhập họ và tên");
       if (!formData.dateOfBirth) throw new Error("Vui lòng chọn ngày sinh");
-      if (!formData.phone.trim()) throw new Error("Vui lòng nhập số điện thoại");
+      if (!formData.phone.trim())
+        throw new Error("Vui lòng nhập số điện thoại");
       if (!formData.university.trim()) throw new Error("Vui lòng nhập trường");
-      if (!formData.bio.trim()) throw new Error("Vui lòng nhập giới thiệu bản thân");
-      if (formData.serviceArea.province === "") throw new Error("Vui lòng chọn tỉnh/thành dạy học");
+      if (!formData.bio.trim())
+        throw new Error("Vui lòng nhập giới thiệu bản thân");
+      if (formData.serviceArea.province === "")
+        throw new Error("Vui lòng chọn tỉnh/thành dạy học");
       if (formData.experienceYears === null || formData.experienceYears < 0) {
         throw new Error("Số năm kinh nghiệm không hợp lệ");
       }
@@ -221,7 +247,11 @@ export default function CreateTutorProfilePage() {
       if (formData.subjectRows.every((r) => !r.specialty || !r.gradeLevel)) {
         throw new Error("Vui lòng điền đầy đủ môn học và lớp");
       }
-      if (formData.subjectRows.every((r) => !r.feeThousands || Number(r.feeThousands) <= 0)) {
+      if (
+        formData.subjectRows.every(
+          (r) => !r.feeThousands || Number(r.feeThousands) <= 0,
+        )
+      ) {
         throw new Error("Vui lòng nhập học phí > 0 cho ít nhất 1 môn");
       }
       if (availabilities.length === 0) {
@@ -242,7 +272,7 @@ export default function CreateTutorProfilePage() {
       // 2. Upload toàn bộ file minh chứng, nhận lại URL theo đúng thứ tự
       const credentialFileUrls = await uploadTutorCredentials(
         token,
-        validCreds.map((c) => c.file)
+        validCreds.map((c) => c.file),
       );
 
       // 3. Ghép URL file vào từng chứng chỉ
@@ -254,7 +284,9 @@ export default function CreateTutorProfilePage() {
       }));
 
       if (credentialPayload.some((c) => !c.fileUrl)) {
-        throw new Error("Không nhận được URL file minh chứng sau khi tải lên. Vui lòng thử lại.");
+        throw new Error(
+          "Không nhận được URL file minh chứng sau khi tải lên. Vui lòng thử lại.",
+        );
       }
 
       // 4. Build JSON hồ sơ (không còn file đính kèm)
@@ -263,7 +295,8 @@ export default function CreateTutorProfilePage() {
         dateOfBirth: formData.dateOfBirth,
         gender: formData.gender,
         phone: formData.phone.trim(),
-        address: `${formData.serviceArea.district || ""}, ${formData.serviceArea.province}`.trim(),
+        address:
+          `${formData.serviceArea.district || ""}, ${formData.serviceArea.province}`.trim(),
         university: formData.university.trim(),
         educationStatus: formData.educationStatus,
         experienceYears: Number(formData.experienceYears),
@@ -276,7 +309,10 @@ export default function CreateTutorProfilePage() {
         ],
         specialties: formData.subjectRows
           .filter((row) => row.specialty && row.gradeLevel)
-          .map((row) => ({ specialty: row.specialty, gradeLevel: row.gradeLevel })),
+          .map((row) => ({
+            specialty: row.specialty,
+            gradeLevel: row.gradeLevel,
+          })),
         prices: formData.subjectRows
           .filter((row) => row.feeThousands && Number(row.feeThousands) > 0)
           .map((row) => ({
@@ -291,8 +327,10 @@ export default function CreateTutorProfilePage() {
         credentials: credentialPayload,
       };
 
-      if (formData.hometown.trim()) profileData.hometown = formData.hometown.trim();
-      if (formData.videoUrl.trim()) profileData.videoUrl = formData.videoUrl.trim();
+      if (formData.hometown.trim())
+        profileData.hometown = formData.hometown.trim();
+      if (formData.videoUrl.trim())
+        profileData.videoUrl = formData.videoUrl.trim();
       if (avatarUrl) profileData.avatarUrl = avatarUrl;
 
       // 5. Lưu hồ sơ rồi gửi duyệt
@@ -309,7 +347,9 @@ export default function CreateTutorProfilePage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   const currentServiceDistricts =
-    provincesAndDistricts.find((p) => p.province === formData.serviceArea.province)?.districts || [];
+    provincesAndDistricts.find(
+      (p) => p.province === formData.serviceArea.province,
+    )?.districts || [];
 
   return (
     <div className="min-h-screen bg-muted/30 text-foreground pb-20">
@@ -346,7 +386,8 @@ export default function CreateTutorProfilePage() {
             Tạo hồ sơ gia sư
           </h1>
           <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-            Điền đầy đủ thông tin bên dưới để hoàn thiện hồ sơ giảng dạy và bắt đầu nhận lớp từ phụ huynh.
+            Điền đầy đủ thông tin bên dưới để hoàn thiện hồ sơ giảng dạy và bắt
+            đầu nhận lớp từ phụ huynh.
           </p>
         </div>
 
@@ -354,7 +395,12 @@ export default function CreateTutorProfilePage() {
         <div className="mb-8 p-4 sm:p-5 rounded-2xl bg-blue-50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-800/50 dark:text-blue-300 text-blue-900 flex items-start gap-3 shadow-xs">
           <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
           <div className="text-xs sm:text-sm leading-relaxed">
-            <strong className="font-bold text-blue-700 dark:text-blue-300">LƯU Ý:</strong> Sau khi tạo xong hồ sơ, bạn có thể sửa các thông tin trừ một số trường. Vì vậy bạn đừng quá lo lắng khi điền các thông tin dưới đây nhé!
+            <strong className="font-bold text-blue-700 dark:text-blue-300">
+              LƯU Ý:
+            </strong>{" "}
+            Sau khi tạo xong hồ sơ, bạn có thể sửa các thông tin trừ một số
+            trường. Vì vậy bạn đừng quá lo lắng khi điền các thông tin dưới đây
+            nhé!
           </div>
         </div>
 
@@ -367,7 +413,6 @@ export default function CreateTutorProfilePage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-8">
-
           {/* ════════════════════════════════════════════════════════════════════ */}
           {/* KHỐI 1: THÔNG TIN CÁ NHÂN */}
           {/* ════════════════════════════════════════════════════════════════════ */}
@@ -401,7 +446,10 @@ export default function CreateTutorProfilePage() {
                 </label>
                 <div className="flex items-center gap-6 pt-2">
                   {GENDER_OPTIONS.map((opt) => (
-                    <label key={opt.value} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <label
+                      key={opt.value}
+                      className="flex items-center gap-2 text-sm cursor-pointer"
+                    >
                       <input
                         type="radio"
                         name="gender"
@@ -410,7 +458,9 @@ export default function CreateTutorProfilePage() {
                         onChange={handleInputChange}
                         className="text-blue-600 focus:ring-blue-500 w-4 h-4"
                       />
-                      <span className="text-slate-700 dark:text-slate-300">{opt.label}</span>
+                      <span className="text-slate-700 dark:text-slate-300">
+                        {opt.label}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -451,7 +501,10 @@ export default function CreateTutorProfilePage() {
               {/* Quê quán (mới – text tự do) */}
               <div className="space-y-1.5 sm:col-span-2">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Quê quán <span className="text-slate-400 font-normal">(Không bắt buộc)</span>
+                  Quê quán{" "}
+                  <span className="text-slate-400 font-normal">
+                    (Không bắt buộc)
+                  </span>
                 </label>
                 <input
                   type="text"
@@ -475,7 +528,11 @@ export default function CreateTutorProfilePage() {
               <div className="flex flex-col sm:flex-row items-center gap-4">
                 <div className="w-24 h-28 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
                   {avatarPreview ? (
-                    <img src={avatarPreview} alt="Avatar preview" className="w-full h-full object-cover" />
+                    <img
+                      src={avatarPreview}
+                      alt="Avatar preview"
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <User className="w-8 h-8 text-slate-400" />
                   )}
@@ -493,7 +550,9 @@ export default function CreateTutorProfilePage() {
                     />
                   </label>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {avatarFile ? avatarFile.name : "Kích thước khuyên dùng: 300×400px, dưới 5MB"}
+                    {avatarFile
+                      ? avatarFile.name
+                      : "Kích thước khuyên dùng: 300×400px, dưới 5MB"}
                   </p>
                 </div>
               </div>
@@ -516,7 +575,10 @@ export default function CreateTutorProfilePage() {
               </label>
               <div className="flex flex-wrap items-center gap-6 pt-1">
                 {EDUCATION_OPTIONS.map((opt) => (
-                  <label key={opt.value} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <label
+                    key={opt.value}
+                    className="flex items-center gap-2 text-sm cursor-pointer"
+                  >
                     <input
                       type="radio"
                       name="educationStatus"
@@ -525,7 +587,9 @@ export default function CreateTutorProfilePage() {
                       onChange={handleInputChange}
                       className="text-blue-600 focus:ring-blue-500 w-4 h-4"
                     />
-                    <span className="text-slate-700 dark:text-slate-300">{opt.label}</span>
+                    <span className="text-slate-700 dark:text-slate-300">
+                      {opt.label}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -551,7 +615,8 @@ export default function CreateTutorProfilePage() {
               {/* Trường học */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Trường đang học / Đã tốt nghiệp <span className="text-rose-500">*</span>
+                  Trường đang học / Đã tốt nghiệp{" "}
+                  <span className="text-rose-500">*</span>
                 </label>
                 <select
                   name="university"
@@ -562,7 +627,9 @@ export default function CreateTutorProfilePage() {
                 >
                   <option value="">— Chọn trường —</option>
                   {universitiesList.map((u) => (
-                    <option key={u} value={u}>{u}</option>
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -572,31 +639,43 @@ export default function CreateTutorProfilePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Tỉnh / Thành phố dạy học <span className="text-rose-500">*</span>
+                  Tỉnh / Thành phố dạy học{" "}
+                  <span className="text-rose-500">*</span>
                 </label>
                 <select
                   value={formData.serviceArea.province}
-                  onChange={(e) => handleServiceAreaChange("province", e.target.value)}
+                  onChange={(e) =>
+                    handleServiceAreaChange("province", e.target.value)
+                  }
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">— Chọn tỉnh/thành —</option>
                   {provincesAndDistricts.map((p) => (
-                    <option key={p.province} value={p.province}>{p.province}</option>
+                    <option key={p.province} value={p.province}>
+                      {p.province}
+                    </option>
                   ))}
                 </select>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Quận / Huyện <span className="text-slate-400 font-normal">(Không bắt buộc)</span>
+                  Quận / Huyện{" "}
+                  <span className="text-slate-400 font-normal">
+                    (Không bắt buộc)
+                  </span>
                 </label>
                 <select
                   value={formData.serviceArea.district}
-                  onChange={(e) => handleServiceAreaChange("district", e.target.value)}
+                  onChange={(e) =>
+                    handleServiceAreaChange("district", e.target.value)
+                  }
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">— Chọn quận/huyện —</option>
                   {currentServiceDistricts.map((d) => (
-                    <option key={d} value={d}>{d}</option>
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -623,7 +702,8 @@ export default function CreateTutorProfilePage() {
             </div>
 
             <p className="text-xs text-amber-600 dark:text-amber-400 font-medium leading-relaxed bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg p-3">
-              Mỗi dòng = 1 môn học. Hình thức "Online" gửi riêng, "Tại nhà" gửi riêng. Học phí nhập theo nghìn VNĐ (VD: 200 = 200.000đ/buổi).
+              Mỗi dòng = 1 môn học. Hình thức "Online" gửi riêng, "Tại nhà" gửi
+              riêng. Học phí nhập theo nghìn VNĐ (VD: 200 = 200.000đ/buổi).
             </p>
 
             {/* Table Header */}
@@ -647,11 +727,19 @@ export default function CreateTutorProfilePage() {
                   <div className="col-span-1 sm:col-span-3">
                     <select
                       value={row.specialty}
-                      onChange={(e) => handleSubjectRowChange(row.id, "specialty", e.target.value)}
+                      onChange={(e) =>
+                        handleSubjectRowChange(
+                          row.id,
+                          "specialty",
+                          e.target.value,
+                        )
+                      }
                       className="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       {subjectList.map((s) => (
-                        <option key={s} value={s}>{s}</option>
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -660,11 +748,19 @@ export default function CreateTutorProfilePage() {
                   <div className="col-span-1 sm:col-span-2">
                     <select
                       value={row.gradeLevel}
-                      onChange={(e) => handleSubjectRowChange(row.id, "gradeLevel", e.target.value)}
+                      onChange={(e) =>
+                        handleSubjectRowChange(
+                          row.id,
+                          "gradeLevel",
+                          e.target.value,
+                        )
+                      }
                       className="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       {gradeList.map((g) => (
-                        <option key={g} value={g}>{g}</option>
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -673,16 +769,27 @@ export default function CreateTutorProfilePage() {
                   <div className="col-span-1 sm:col-span-2">
                     <div className="flex flex-col gap-1">
                       {TEACHING_MODE_OPTIONS.map((opt) => (
-                        <label key={opt.value} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                        <label
+                          key={opt.value}
+                          className="flex items-center gap-1.5 text-xs cursor-pointer"
+                        >
                           <input
                             type="radio"
                             name={`mode-${row.id}`}
                             value={opt.value}
                             checked={row.teachingMode === opt.value}
-                            onChange={() => handleSubjectRowChange(row.id, "teachingMode", opt.value)}
+                            onChange={() =>
+                              handleSubjectRowChange(
+                                row.id,
+                                "teachingMode",
+                                opt.value,
+                              )
+                            }
                             className="text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                           />
-                          <span className="text-slate-700 dark:text-slate-300">{opt.label}</span>
+                          <span className="text-slate-700 dark:text-slate-300">
+                            {opt.label}
+                          </span>
                         </label>
                       ))}
                     </div>
@@ -693,7 +800,13 @@ export default function CreateTutorProfilePage() {
                     <input
                       type="text"
                       value={row.program}
-                      onChange={(e) => handleSubjectRowChange(row.id, "program", e.target.value)}
+                      onChange={(e) =>
+                        handleSubjectRowChange(
+                          row.id,
+                          "program",
+                          e.target.value,
+                        )
+                      }
                       placeholder="VD: Luyện thi IELTS"
                       maxLength={100}
                       className="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -708,11 +821,19 @@ export default function CreateTutorProfilePage() {
                         min="0"
                         step="100"
                         value={row.feeThousands}
-                        onChange={(e) => handleSubjectRowChange(row.id, "feeThousands", e.target.value)}
+                        onChange={(e) =>
+                          handleSubjectRowChange(
+                            row.id,
+                            "feeThousands",
+                            e.target.value,
+                          )
+                        }
                         placeholder="200"
                         className="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-right font-semibold"
                       />
-                      <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">nghìn</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">
+                        nghìn
+                      </span>
                     </div>
                   </div>
 
@@ -747,29 +868,38 @@ export default function CreateTutorProfilePage() {
                 Giới thiệu bản thân <span className="text-rose-500">*</span>
               </label>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Mô tả ngắn gọn về bản thân: kinh nghiệm, phương pháp dạy, điểm mạnh...
+                Mô tả ngắn gọn về bản thân: kinh nghiệm, phương pháp dạy, điểm
+                mạnh...
               </p>
               <textarea
                 rows={4}
                 name="bio"
                 required
-                value={formData.bio}
+                min="0"
+                max="60"
+                value={formData.experienceYears}
                 onChange={handleInputChange}
                 maxLength={500}
                 placeholder="VD: Mình là sinh viên năm 3 Sư phạm Anh, có 2 năm kinh nghiệm dạy tiếng Anh..."
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed resize-none"
               />
-              <p className="text-xs text-slate-400 text-right">{formData.bio.length}/500</p>
+              <p className="text-xs text-slate-400 text-right">
+                {formData.bio.length}/500
+              </p>
             </div>
 
             {/* Video URL */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                 <Video className="w-4 h-4 text-blue-600" />
-                Link video giới thiệu <span className="text-slate-400 font-normal">(Không bắt buộc)</span>
+                Link video giới thiệu{" "}
+                <span className="text-slate-400 font-normal">
+                  (Không bắt buộc)
+                </span>
               </label>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Dán link video YouTube / TikTok / Facebook... giới thiệu bản thân hoặc bài giảng mẫu.
+                Dán link video YouTube / TikTok / Facebook... giới thiệu bản
+                thân hoặc bài giảng mẫu.
               </p>
               <input
                 type="url"
@@ -793,7 +923,8 @@ export default function CreateTutorProfilePage() {
               5. Lịch rảnh có thể dạy
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Chọn các khung giờ bạn có thể sắp xếp dạy. Admin sẽ dùng thông tin này để ghép lớp phù hợp.
+              Chọn các khung giờ bạn có thể sắp xếp dạy. Admin sẽ dùng thông tin
+              này để ghép lớp phù hợp.
             </p>
 
             {/* 7×3 Table */}
@@ -801,9 +932,14 @@ export default function CreateTutorProfilePage() {
               <table className="w-full text-sm text-center">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800">
-                    <th className="py-2 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide w-20">Khung</th>
+                    <th className="py-2 text-left text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide w-20">
+                      Khung
+                    </th>
                     {TIME_SLOTS.map((slot) => (
-                      <th key={slot} className="py-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide px-2">
+                      <th
+                        key={slot}
+                        className="py-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide px-2"
+                      >
                         {SLOT_LABELS[slot]}
                       </th>
                     ))}
@@ -813,7 +949,10 @@ export default function CreateTutorProfilePage() {
                   {WEEK_DAYS.map((dayLabel, idx) => {
                     const dayOfWeek = idx + 1; // 1=Thứ 2 … 7=Chủ nhật
                     return (
-                      <tr key={dayOfWeek} className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      <tr
+                        key={dayOfWeek}
+                        className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                      >
                         <td className="py-2.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 pr-2">
                           {dayLabel}
                         </td>
@@ -822,8 +961,19 @@ export default function CreateTutorProfilePage() {
                             <label className="inline-flex items-center justify-center cursor-pointer select-none">
                               <input
                                 type="checkbox"
-                                checked={hasSlot(availabilities, dayOfWeek, slot)}
-                                onChange={() => toggleSlot(availabilities, setAvailabilities, dayOfWeek, slot)}
+                                checked={hasSlot(
+                                  availabilities,
+                                  dayOfWeek,
+                                  slot,
+                                )}
+                                onChange={() =>
+                                  toggleSlot(
+                                    availabilities,
+                                    setAvailabilities,
+                                    dayOfWeek,
+                                    slot,
+                                  )
+                                }
                                 className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
                               />
                             </label>
@@ -882,7 +1032,13 @@ export default function CreateTutorProfilePage() {
                       <input
                         type="text"
                         value={cred.title}
-                        onChange={(e) => handleCredentialChange(cred.id, "title", e.target.value)}
+                        onChange={(e) =>
+                          handleCredentialChange(
+                            cred.id,
+                            "title",
+                            e.target.value,
+                          )
+                        }
                         placeholder="VD: IELTS Academic 7.5"
                         className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
@@ -895,7 +1051,13 @@ export default function CreateTutorProfilePage() {
                       </label>
                       <select
                         value={cred.type}
-                        onChange={(e) => handleCredentialChange(cred.id, "type", e.target.value)}
+                        onChange={(e) =>
+                          handleCredentialChange(
+                            cred.id,
+                            "type",
+                            e.target.value,
+                          )
+                        }
                         className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="CERTIFICATE">Chứng chỉ</option>
@@ -906,12 +1068,21 @@ export default function CreateTutorProfilePage() {
                     {/* Điểm số */}
                     <div className="space-y-1 sm:col-span-1">
                       <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Điểm số <span className="text-slate-400 font-normal">(Không bắt buộc)</span>
+                        Điểm số{" "}
+                        <span className="text-slate-400 font-normal">
+                          (Không bắt buộc)
+                        </span>
                       </label>
                       <input
                         type="text"
                         value={cred.score}
-                        onChange={(e) => handleCredentialChange(cred.id, "score", e.target.value)}
+                        onChange={(e) =>
+                          handleCredentialChange(
+                            cred.id,
+                            "score",
+                            e.target.value,
+                          )
+                        }
                         placeholder="VD: 7.5, 8.0, 900..."
                         className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
@@ -928,10 +1099,17 @@ export default function CreateTutorProfilePage() {
                         <Upload className="w-3.5 h-3.5" />
                         <span>{cred.file ? "Đổi file" : "Chọn file"}</span>
                         <input
-                          ref={(el) => { credentialFileRefs.current[cred.id] = el; }}
+                          ref={(el) => {
+                            credentialFileRefs.current[cred.id] = el;
+                          }}
                           type="file"
                           accept="image/*,.pdf"
-                          onChange={(e) => handleCredentialFileChange(cred.id, e.target.files?.[0] || null)}
+                          onChange={(e) =>
+                            handleCredentialFileChange(
+                              cred.id,
+                              e.target.files?.[0] || null,
+                            )
+                          }
                           className="hidden"
                         />
                       </label>
@@ -941,7 +1119,9 @@ export default function CreateTutorProfilePage() {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400">Chấp nhận: JPG, PNG, PDF. Tối đa 10MB.</p>
+                    <p className="text-xs text-slate-400">
+                      Chấp nhận: JPG, PNG, PDF. Tối đa 10MB.
+                    </p>
                   </div>
                 </div>
               ))}
@@ -960,7 +1140,8 @@ export default function CreateTutorProfilePage() {
           {/* ── Submit ── */}
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-xs text-slate-500 dark:text-slate-400 text-center sm:text-left">
-              Bằng việc nhấn "Tạo hồ sơ", bạn cam kết các thông tin khai báo là hoàn toàn chính xác.
+              Bằng việc nhấn "Tạo hồ sơ", bạn cam kết các thông tin khai báo là
+              hoàn toàn chính xác.
             </p>
             <button
               type="submit"
@@ -969,9 +1150,24 @@ export default function CreateTutorProfilePage() {
             >
               {isSubmitting ? (
                 <>
-                  <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  <svg
+                    className="animate-spin w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
                   </svg>
                   <span>Đang lưu hồ sơ...</span>
                 </>
@@ -999,7 +1195,8 @@ export default function CreateTutorProfilePage() {
                 Tạo hồ sơ thành công!
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                Hồ sơ của bạn đã được gửi duyệt cho Admin. Bạn có thể truy cập Dashboard để xem các lớp học phù hợp.
+                Hồ sơ của bạn đã được gửi duyệt cho Admin. Bạn có thể truy cập
+                Dashboard để xem các lớp học phù hợp.
               </p>
             </div>
 
