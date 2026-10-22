@@ -247,13 +247,6 @@ export default function CreateTutorProfilePage() {
       if (formData.subjectRows.every((r) => !r.specialty || !r.gradeLevel)) {
         throw new Error("Vui lòng điền đầy đủ môn học và lớp");
       }
-      if (
-        formData.subjectRows.every(
-          (r) => !r.feeThousands || Number(r.feeThousands) <= 0,
-        )
-      ) {
-        throw new Error("Vui lòng nhập học phí > 0 cho ít nhất 1 môn");
-      }
       if (availabilities.length === 0) {
         throw new Error("Vui lòng chọn ít nhất 1 khung giờ rảnh");
       }
