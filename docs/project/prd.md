@@ -149,10 +149,10 @@ Hai yêu cầu FR-08 (gia sư ứng tuyển lớp) và FR-15 (gia sư nộp minh
 
 | FR | Yêu cầu | UC nguồn | Ưu tiên |
 | --- | --- | --- | --- |
-| FR-01 | Tìm gia sư đang hoạt động theo tỉnh/quận, chuyên môn tiếng Anh, cấp lớp, hình thức học, giới tính, thành tích; có phân trang. Kết quả hiện ảnh, họ tên, trường và chuyên ngành, học phí/buổi, khu vực, chuyên môn, thành tích | UC-PA-01 | M |
+| FR-01 | Tìm gia sư đang hoạt động theo tỉnh/quận, chuyên môn tiếng Anh, cấp lớp, hình thức học, giới tính, thành tích; có phân trang. Kết quả hiện ảnh, họ tên, trường và chuyên ngành, khu vực, chuyên môn, thành tích. Không công khai học phí | UC-PA-01 | M |
 | FR-02 | Xem hồ sơ công khai của gia sư (giới thiệu, bằng cấp và chứng chỉ đã xác thực, kinh nghiệm, khu vực, hình thức dạy, video, lịch rảnh). Mục chưa có thì ẩn, không hiện trường rỗng. Gia sư ngừng hoạt động thì báo hồ sơ không khả dụng | UC-PA-02 | M |
 | FR-03 | Đăng ký gia sư chỉ định bằng họ tên và SĐT. Kiểm tra SĐT 10 số đầu 03/05/07/08/09 hoặc +84/84. Tạo đơn ghép lớp "Chờ xử lý" kèm mã yêu cầu, thông báo trung tâm | UC-PA-03 | M |
-| FR-04 | Gửi yêu cầu tìm gia sư (tên, SĐT, tên con tùy chọn, khối lớp hoặc độ tuổi). Tạo lớp cần gia sư "Chờ xử lý", báo "liên hệ trong 12 giờ", thông báo lễ tân | UC-PA-04 | M |
+| FR-04 | Gửi yêu cầu tìm gia sư (chỉ họ tên và SĐT phụ huynh; thông tin của con do Lễ tân hỏi khi gọi lại). Tạo lớp cần gia sư "Chờ xử lý", báo "liên hệ trong 12 giờ", thông báo lễ tân | UC-PA-04 | M |
 
 ### 4.2. Đăng nhập
 
