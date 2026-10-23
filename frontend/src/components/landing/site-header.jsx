@@ -21,7 +21,10 @@ export function SiteHeader({ onOpenContactModal }) {
           <Link to="/tutors" className="hover:text-foreground transition-colors font-semibold text-primary">
             Gia sư
           </Link>
-          <Link to="/faq" className="hover:text-foreground transition-colors">
+          <Link to="/classes" className="hover:text-foreground transition-colors">
+            Lớp cần gia sư
+          </Link>
+          <Link to="/faq"className="hover:text-foreground transition-colors">
             Hỏi đáp
           </Link>
           {/* UC-P05 & UC-P06: Tạm ẩn tab Phụ huynh theo dõi, triển khai sau
@@ -46,7 +49,7 @@ export function SiteHeader({ onOpenContactModal }) {
             onClick={onOpenContactModal}
             className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm cursor-pointer"
           >
-            Đăng ký học thử
+            Đăng ký
           </button>
         </div>
       </div>

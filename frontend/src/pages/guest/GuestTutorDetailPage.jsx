@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -7,32 +7,77 @@ import {
   BookOpen,
   Award,
   CheckCircle2,
-  Calendar,
-  MessageSquare,
   Sparkles,
-  ChevronRight,
   ShieldCheck,
-  Eye,
   FileCheck,
-  Building,
   User,
-  ExternalLink,
-  Share2
 } from "lucide-react";
-import { tutors } from "../../data/mockData";
 import HireTutorModal from "../../components/guest/HireTutorModal";
+import { apiGetPublicTutor } from "../../lib/tutorApi";
+import { mapPublicTutor } from "../../lib/publicTutorMapper";
 
 export function GuestTutorDetailPage() {
   const { tutorId } = useParams();
   const [selectedImage, setSelectedImage] = useState(null);
   const [isHireModalOpen, setIsHireModalOpen] = useState(false);
+  const [currentTutor, setCurrentTutor] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  // Find tutor by id (or fallback to first tutor if id not found)
-  const currentTutor = tutors.find((t) => t.id === tutorId) || tutors[0];
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadTutor() {
+      setIsLoading(true);
+      setErrorMessage("");
+      try {
+        const profile = await apiGetPublicTutor(tutorId);
+        if (isMounted) setCurrentTutor(mapPublicTutor(profile));
+      } catch (error) {
+        if (isMounted) {
+          setErrorMessage(error.status === 404
+            ? "Hồ sơ gia sư không tồn tại hoặc chưa được công khai."
+            : error.message || "Không thể tải hồ sơ gia sư.");
+        }
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    loadTutor();
+    return () => {
+      isMounted = false;
+    };
+  }, [tutorId]);
 
   const handleOpenHireModal = () => {
     setIsHireModalOpen(true);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[70dvh] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10" aria-label="Đang tải hồ sơ gia sư">
+        <div className="h-52 rounded-2xl bg-slate-200 dark:bg-slate-800 animate-pulse" />
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 h-80 rounded-2xl bg-slate-200 dark:bg-slate-800 animate-pulse" />
+          <div className="h-80 rounded-2xl bg-slate-200 dark:bg-slate-800 animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentTutor) {
+    return (
+      <div className="min-h-[70dvh] flex flex-col items-center justify-center px-4 text-center">
+        <User className="w-12 h-12 text-slate-300 dark:text-slate-600" />
+        <h1 className="mt-4 text-lg font-bold text-foreground">Không thể hiển thị hồ sơ gia sư</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{errorMessage}</p>
+        <Link to="/tutors" className="mt-5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold active:scale-[0.98]">
+          Quay lại danh sách gia sư
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -66,10 +111,14 @@ export function GuestTutorDetailPage() {
             {/* Avatar block */}
             <div className="flex flex-col items-center sm:items-start shrink-0">
               <div
-                className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl flex items-center justify-center font-extrabold text-3xl sm:text-4xl text-white shadow-md"
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl flex items-center justify-center font-extrabold text-3xl sm:text-4xl text-white shadow-md overflow-hidden"
                 style={{ background: "linear-gradient(135deg, #3b82f6, #1d4ed8)" }}
               >
-                {currentTutor.initials}
+                {currentTutor.avatarUrl ? (
+                  <img src={currentTutor.avatarUrl} alt={`Ảnh đại diện ${currentTutor.name}`} className="w-full h-full object-cover" />
+                ) : (
+                  currentTutor.initials
+                )}
               </div>
               <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold">
                 <ShieldCheck className="w-3.5 h-3.5" />
@@ -87,10 +136,6 @@ export function GuestTutorDetailPage() {
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-muted-foreground border border-border">
                     {currentTutor.gender}
                   </span>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-black text-primary">{currentTutor.ratePerHour}</div>
-                  <div className="text-xs text-muted-foreground">Học phí / buổi</div>
                 </div>
               </div>
 
@@ -126,8 +171,8 @@ export function GuestTutorDetailPage() {
                     <CheckCircle2 className="w-3.5 h-3.5" />
                   </div>
                   <div>
-                    <div className="font-bold text-foreground">{currentTutor.progressRate}</div>
-                    <div>Học sinh tiến bộ</div>
+                    <div className="font-bold text-foreground">{currentTutor.experienceYears ?? 0} năm</div>
+                    <div>Kinh nghiệm giảng dạy</div>
                   </div>
                 </div>
               </div>
@@ -347,10 +392,6 @@ export function GuestTutorDetailPage() {
               </div>
 
               <div className="space-y-3 text-xs">
-                <div className="flex items-center justify-between py-2 border-b border-border">
-                  <span className="text-muted-foreground">Học phí:</span>
-                  <span className="font-bold text-foreground text-sm">{currentTutor.ratePerHour}/buổi</span>
-                </div>
                 <div className="flex items-center justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Hình thức:</span>
                   <span className="font-semibold text-foreground">{currentTutor.learningModeLabel}</span>

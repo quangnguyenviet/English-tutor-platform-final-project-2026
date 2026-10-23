@@ -1,142 +1,47 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useOutletContext, Link } from "react-router-dom";
-import { Search, Users, ShieldCheck, TrendingUp, ChevronRight, BookOpen, Flame, SlidersHorizontal, Sparkles } from "lucide-react";
-import { tutors, publicClassListings } from "../../data/mockData";
+import { Search, Users, ShieldCheck, ChevronRight, Flame, BookOpen } from "lucide-react";
 import TutorCard from "../../components/guest/TutorCard";
 import ClassRequestCard from "../../components/guest/ClassRequestCard";
 import TutorFilterSidebar, { DEFAULT_FILTERS } from "../../components/guest/TutorFilterSidebar";
+import { apiGetPublicTutors } from "../../lib/tutorApi";
+import { mapPublicTutor } from "../../lib/publicTutorMapper";
+import { getPageWindow } from "../../lib/pagination";
+import { apiGetPublicClasses, mapPublicClass } from "../../lib/publicClassApi";
 
-// Helper lọc gia sư theo tiêu chí
-function applyFilters(list, filters) {
-  let result = list.filter((t) => {
-    // 1. Text search
-    if (filters.search && filters.search.trim()) {
-      const q = filters.search.toLowerCase().trim();
-      const haystack = [
-        t.name,
-        t.university,
-        t.location,
-        t.district,
-        t.province,
-        t.gender,
-        ...(t.subjects || []),
-        ...(t.specialization || []),
-        ...(t.highlights || []),
-        t.bio || ""
-      ]
-        .join(" ")
-        .toLowerCase();
-      if (!haystack.includes(q)) return false;
-    }
+const TUTORS_PER_PAGE = 6;
+const SEARCH_DEBOUNCE_MS = 400;
 
-    // 2. Địa điểm 2 cấp: Tỉnh/Thành phố & Quận/Huyện
-    if (filters.province && filters.province !== "Tất cả") {
-      const provLow = filters.province.toLowerCase();
-      const tutorLocation = [t.location, t.province].join(" ").toLowerCase();
-      if (!tutorLocation.includes(provLow) && !provLow.includes(tutorLocation)) {
-        // Fallback kiểm tra "Hà Nội" hoặc "Hồ Chí Minh"
-        if (filters.province === "Hà Nội" && !tutorLocation.includes("hà nội") && !tutorLocation.includes("hn")) return false;
-        if (filters.province === "TP. Hồ Chí Minh" && !tutorLocation.includes("hồ chí minh") && !tutorLocation.includes("tp.hcm") && !tutorLocation.includes("sài gòn")) return false;
-      }
-    }
+const GRADE_GROUP_BY_LABEL = {
+  "Tiểu học (Lớp 1 - 5)": "tieuhoc",
+  "THCS (Lớp 6 - 9)": "thcs",
+  "THPT (Lớp 10 - 12)": "thpt",
+  "Luyện thi Đại học": "thpt",
+  "Người đi làm / Sinh viên": "nguoidilam",
+};
 
-    if (filters.district && filters.district !== "Tất cả quận/huyện") {
-      const distLow = filters.district.toLowerCase();
-      const tutorDistrict = [t.district, t.location].join(" ").toLowerCase();
-      if (!tutorDistrict.includes(distLow)) return false;
-    }
+// "TP. Hồ Chí Minh" -> "Hồ Chí Minh": backend tìm theo cụm từ, không theo tiền tố hành chính.
+const stripCityPrefix = (value) => value.replace(/^TP\.\s*/i, "");
 
-    // 3. Chuyên môn Tiếng Anh
-    if (filters.subjects && filters.subjects.length > 0) {
-      const matchSubject = filters.subjects.some((s) => {
-        const sLow = s.toLowerCase();
-        const combinedText = [
-          ...(t.subjects || []),
-          ...(t.specialization || []),
-          t.bio || "",
-          t.university || ""
-        ].join(" ").toLowerCase();
+/** Chuyển bộ lọc trên giao diện thành query params cho API tìm gia sư. */
+function buildTutorQuery(filters, page) {
+  const province = filters.province && filters.province !== "Tất cả" ? stripCityPrefix(filters.province) : "";
+  const district =
+    filters.district && filters.district !== "Tất cả quận/huyện" ? stripCityPrefix(filters.district) : "";
+  const genderMap = { Nam: "MALE", "Nữ": "FEMALE" };
+  const modeMap = { Online: "ONLINE", "Tại nhà": "AT_HOME" };
 
-        if (combinedText.includes(sLow)) return true;
-        if (sLow.includes("ielts") && combinedText.includes("ielts")) return true;
-        if (sLow.includes("toeic") && combinedText.includes("toeic")) return true;
-        if (sLow.includes("giao tiếp") && (combinedText.includes("giao tiếp") || combinedText.includes("speaking"))) return true;
-        if (sLow.includes("thpt") && (combinedText.includes("thpt") || combinedText.includes("cấp 3"))) return true;
-        if (sLow.includes("thcs") && (combinedText.includes("thcs") || combinedText.includes("cấp 2") || combinedText.includes("chuyên"))) return true;
-        if (sLow.includes("ngữ pháp") && combinedText.includes("ngữ pháp")) return true;
-        if (sLow.includes("phát âm") && (combinedText.includes("phát âm") || combinedText.includes("ipa"))) return true;
-        if (sLow.includes("mất gốc") && combinedText.includes("mất gốc")) return true;
-
-        return false;
-      });
-      if (!matchSubject) return false;
-    }
-
-    // 4. Cấp lớp học
-    if (filters.gradeLevel && filters.gradeLevel !== "Tất cả cấp lớp") {
-      const gradeLow = filters.gradeLevel.toLowerCase();
-      const tutorGrades = (t.gradeLevels || []).join(" ").toLowerCase();
-      const combined = [tutorGrades, t.bio || "", ...(t.specialization || [])].join(" ").toLowerCase();
-      if (gradeLow.includes("tiểu học") && !combined.includes("tiểu học") && !combined.includes("lớp 1") && !combined.includes("lớp 5")) return false;
-      if (gradeLow.includes("thcs") && !combined.includes("thcs") && !combined.includes("lớp 6") && !combined.includes("lớp 9") && !combined.includes("cấp 2")) return false;
-      if (gradeLow.includes("thpt") && !combined.includes("thpt") && !combined.includes("lớp 10") && !combined.includes("lớp 12") && !combined.includes("cấp 3")) return false;
-      if (gradeLow.includes("đại học") && !combined.includes("đại học")) return false;
-    }
-
-    // 5. Hình thức học
-    if (filters.learningMode && filters.learningMode !== "Tất cả") {
-      if (filters.learningMode === "Online" && t.learningMode !== "online" && t.learningMode !== "both") return false;
-      if (filters.learningMode === "Tại nhà" && t.learningMode !== "offline" && t.learningMode !== "both") return false;
-    }
-
-    // 6. Thành tích nổi bật
-    if (filters.highlights && filters.highlights.length > 0) {
-      const matchHighlight = filters.highlights.some((h) => {
-        const hLow = h.toLowerCase();
-        const inHighlights = (t.highlights || []).some(
-          (th) => th.toLowerCase().includes(hLow) || hLow.includes(th.toLowerCase())
-        );
-        if (inHighlights) return true;
-
-        const bioAwardsText = [
-          t.bio || "",
-          t.highSchool || "",
-          t.academicRank || "",
-          ...(t.awards || []).map((a) => a.title || ""),
-          ...(t.certificates || []).map((c) => c.name || "")
-        ].join(" ").toLowerCase();
-
-        return bioAwardsText.includes(hLow);
-      });
-      if (!matchHighlight) return false;
-    }
-
-    // 7. Giới tính
-    if (filters.gender && filters.gender !== "Tất cả") {
-      if ((t.gender || "").toLowerCase() !== filters.gender.toLowerCase()) return false;
-    }
-
-    return true;
-  });
-
-  // Sắp xếp danh sách
-  if (filters.sortBy === "price_asc") {
-    result.sort((a, b) => {
-      const priceA = parseInt((a.ratePerHour || "0").replace(/[^0-9]/g, ""), 10);
-      const priceB = parseInt((b.ratePerHour || "0").replace(/[^0-9]/g, ""), 10);
-      return priceA - priceB;
-    });
-  } else if (filters.sortBy === "price_desc") {
-    result.sort((a, b) => {
-      const priceA = parseInt((a.ratePerHour || "0").replace(/[^0-9]/g, ""), 10);
-      const priceB = parseInt((b.ratePerHour || "0").replace(/[^0-9]/g, ""), 10);
-      return priceB - priceA;
-    });
-  } else if (filters.sortBy === "newest") {
-    result.sort((a, b) => (b.id || "").localeCompare(a.id || ""));
-  }
-
-  return result;
+  return {
+    page: page - 1,
+    size: TUTORS_PER_PAGE,
+    keyword: filters.search?.trim(),
+    province,
+    district,
+    gender: genderMap[filters.gender],
+    teachingMode: modeMap[filters.learningMode],
+    specialty: filters.subjects,
+    gradeGroup: GRADE_GROUP_BY_LABEL[filters.gradeLevel],
+  };
 }
 
 function StatsBadge({ icon: Icon, value, label }) {
@@ -151,20 +56,77 @@ function StatsBadge({ icon: Icon, value, label }) {
 
 export function GuestTutorExplorePage() {
   const { openContactModal } = useOutletContext() || {};
+  const [tutors, setTutors] = useState([]);
+  const [totalTutors, setTotalTutors] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoadingTutors, setIsLoadingTutors] = useState(true);
+  const [tutorError, setTutorError] = useState("");
+  const [publicClassListings, setPublicClassListings] = useState([]);
+  const [totalClasses, setTotalClasses] = useState(0);
+  const [isLoadingClasses, setIsLoadingClasses] = useState(true);
+  const [classError, setClassError] = useState("");
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [debouncedSearch, setDebouncedSearch] = useState(DEFAULT_FILTERS.search);
   const [currentPage, setCurrentPage] = useState(1);
-  const tutorsPerPage = 6; // Chuẩn 6 gia sư / trang theo UC-P02
 
-  const filteredTutors = useMemo(
-    () => applyFilters(tutors, filters),
-    [filters]
-  );
+  // Chỉ gọi API sau khi người dùng ngừng gõ ô tìm kiếm.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(filters.search), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [filters.search]);
 
-  const totalPages = Math.ceil(filteredTutors.length / tutorsPerPage) || 1;
-  const paginatedTutors = useMemo(() => {
-    const start = (currentPage - 1) * tutorsPerPage;
-    return filteredTutors.slice(start, start + tutorsPerPage);
-  }, [filteredTutors, currentPage, tutorsPerPage]);
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadTutors() {
+      setIsLoadingTutors(true);
+      setTutorError("");
+      try {
+        const result = await apiGetPublicTutors(
+          buildTutorQuery({ ...filters, search: debouncedSearch }, currentPage),
+        );
+        if (!isMounted) return;
+        setTutors(result.items.map(mapPublicTutor));
+        setTotalTutors(result.totalItems);
+        setTotalPages(Math.max(result.totalPages, 1));
+      } catch (error) {
+        if (isMounted) setTutorError(error.message || "Không thể tải danh sách gia sư.");
+      } finally {
+        if (isMounted) setIsLoadingTutors(false);
+      }
+    }
+
+    loadTutors();
+    return () => {
+      isMounted = false;
+    };
+  }, [filters, debouncedSearch, currentPage]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadClasses() {
+      setIsLoadingClasses(true);
+      setClassError("");
+      try {
+        const result = await apiGetPublicClasses({ page: 0, size: 6 });
+        if (!isMounted) return;
+        setPublicClassListings(result.items.map(mapPublicClass));
+        setTotalClasses(result.totalItems);
+      } catch (error) {
+        if (isMounted) setClassError(error.message || "Không thể tải danh sách lớp cần gia sư.");
+      } finally {
+        if (isMounted) setIsLoadingClasses(false);
+      }
+    }
+
+    loadClasses();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const paginatedTutors = tutors;
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
@@ -191,21 +153,23 @@ export function GuestTutorExplorePage() {
         <div className="relative max-w-4xl mx-auto px-4 py-12 text-center">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-white/20 bg-white/10 backdrop-blur-sm text-white text-xs font-semibold tracking-wide mb-3">
             <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-            Hồ sơ gia sư tiếng Anh được thẩm định năng lực 100%
+            Hồ sơ gia sư tiếng Anh đã được EnglishPath thẩm định
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-extrabold text-white mb-3 leading-tight tracking-tight">
             Khám Phá & Chọn Gia Sư <span className="text-blue-300">Phù Hợp Nhất</span>
           </h1>
           <p className="text-white/80 text-xs sm:text-sm mb-6 max-w-xl mx-auto leading-relaxed">
-            Tra cứu đội ngũ gia sư chuyên môn cao theo khu vực, cấp lớp và phong cách sư phạm. Đăng ký học thử 01 buổi miễn phí.
+            Tra cứu đội ngũ gia sư chuyên môn cao theo khu vực, cấp lớp và phong cách sư phạm. Nhận tư vấn để được ghép gia sư phù hợp.
           </p>
 
           <div className="flex flex-wrap justify-center gap-2.5">
-            <StatsBadge icon={Users} value={`${tutors.length}+`} label="Gia sư chọn lọc" />
-            <StatsBadge icon={ShieldCheck} value="100%" label="Xác thực chứng chỉ" />
-            <StatsBadge icon={TrendingUp} value="98%" label="Hài lòng" />
-            <StatsBadge icon={BookOpen} value="10+" label="Chuyên môn Tiếng Anh" />
+            <StatsBadge
+              icon={Users}
+              value={isLoadingTutors && totalTutors === 0 ? "..." : totalTutors}
+              label="Gia sư đang hoạt động"
+            />
+            <StatsBadge icon={ShieldCheck} value="Đã duyệt" label="Hồ sơ công khai" />
           </div>
         </div>
       </section>
@@ -217,7 +181,7 @@ export function GuestTutorExplorePage() {
         {/* Mobile filter toggle */}
         <div className="flex items-center justify-between mb-4 lg:hidden">
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Tìm thấy <span className="font-bold text-slate-900 dark:text-white">{filteredTutors.length}</span> gia sư
+            Tìm thấy <span className="font-bold text-slate-900 dark:text-white">{totalTutors}</span> gia sư
           </p>
           <TutorFilterSidebar onFilterChange={handleFilterChange} initialFilters={filters} />
         </div>
@@ -234,39 +198,36 @@ export function GuestTutorExplorePage() {
             <div className="flex items-center justify-between mb-4 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
               <p className="text-slate-500 dark:text-slate-400">
                 Hiển thị <span className="font-bold text-slate-900 dark:text-white">{paginatedTutors.length}</span> trên tổng số{" "}
-                <span className="font-bold text-slate-900 dark:text-white">{filteredTutors.length}</span> gia sư
+                <span className="font-bold text-slate-900 dark:text-white">{totalTutors}</span> gia sư
                 {totalPages > 1 && (
                   <span className="ml-1 text-slate-400">
                     (Trang {currentPage} / {totalPages})
                   </span>
                 )}
               </p>
-
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 dark:text-slate-400 font-medium">Sắp xếp:</span>
-                <select
-                  value={filters.sortBy || "relevant"}
-                  onChange={(e) => handleFilterChange({ ...filters, sortBy: e.target.value })}
-                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white cursor-pointer outline-none focus:border-blue-500"
-                >
-                  <option value="relevant">Phù hợp nhất</option>
-                  <option value="price_asc">Học phí: Thấp đến cao</option>
-                  <option value="price_desc">Học phí: Cao đến thấp</option>
-                  <option value="newest">Mới tham gia</option>
-                </select>
-              </div>
             </div>
 
             {/* Tutor Grid */}
-            {paginatedTutors.length > 0 ? (
+            {isLoadingTutors ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" aria-label="Đang tải danh sách gia sư">
+                {Array.from({ length: 6 }, (_, index) => (
+                  <div key={index} className="h-72 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 animate-pulse" />
+                ))}
+              </div>
+            ) : tutorError ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center p-6 bg-white dark:bg-slate-900 rounded-2xl border border-rose-200 dark:border-rose-900/50">
+                <Search className="w-10 h-10 text-rose-400 mb-3" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Không thể tải danh sách gia sư</h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{tutorError}</p>
+              </div>
+            ) : paginatedTutors.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {paginatedTutors.map((tutor, i) => (
                     <TutorCard
                       key={tutor.id}
                       tutor={tutor}
                       index={i}
-                      onContact={openContactModal}
                     />
                   ))}
                 </div>
@@ -283,7 +244,7 @@ export function GuestTutorExplorePage() {
                       Trước
                     </button>
 
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                    {getPageWindow(currentPage, totalPages).map((pageNum) => (
                       <button
                         key={pageNum}
                         type="button"
@@ -346,25 +307,40 @@ export function GuestTutorExplorePage() {
             </div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Danh sách lớp cần tìm gia sư</h2>
           </div>
-          <Link
-            id="view-all-classes-btn"
-            to="/classes"
-            className="hidden sm:flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline cursor-pointer"
-          >
-            Xem toàn bộ ({publicClassListings.length} lớp)
-            <ChevronRight className="w-4 h-4" />
-          </Link>
+          {!isLoadingClasses && !classError && (
+            <Link
+              id="view-all-classes-btn"
+              to="/classes"
+              className="hidden sm:flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline cursor-pointer"
+            >
+              Xem toàn bộ ({totalClasses} lớp)
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {publicClassListings.slice(0, 6).map((listing, i) => (
-            <ClassRequestCard
-              key={listing.id}
-              listing={listing}
-              index={i}
-            />
-          ))}
-        </div>
+        {isLoadingClasses ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" aria-label="Đang tải danh sách lớp">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div key={index} className="h-72 rounded-2xl bg-slate-200 dark:bg-slate-800 animate-pulse" />
+            ))}
+          </div>
+        ) : classError ? (
+          <div className="rounded-2xl border border-rose-200 dark:border-rose-900/50 bg-white dark:bg-slate-900 p-6 text-center text-sm text-slate-500 dark:text-slate-400">
+            {classError}
+          </div>
+        ) : publicClassListings.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {publicClassListings.slice(0, 6).map((listing, i) => (
+              <ClassRequestCard key={listing.id} listing={listing} index={i} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center">
+            <BookOpen className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600" />
+            <p className="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Hiện chưa có lớp nào đang mở</p>
+          </div>
+        )}
       </section>
 
       {/* ══════════════════════════════════════════════════

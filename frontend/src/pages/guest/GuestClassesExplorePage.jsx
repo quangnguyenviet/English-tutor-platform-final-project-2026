@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Flame,
@@ -6,48 +6,57 @@ import {
   BookOpen,
   RefreshCw,
 } from "lucide-react";
-import { publicClassListings } from "../../data/mockData";
 import ClassRequestCard from "../../components/guest/ClassRequestCard";
+import { apiGetPublicClasses, mapPublicClass } from "../../lib/publicClassApi";
+import { getPageWindow } from "../../lib/pagination";
+
+const CLASSES_PER_PAGE = 6;
+const MODE_PARAM = { all: "", "Tại nhà": "AT_HOME", Online: "ONLINE" };
 
 export default function GuestClassesExplorePage() {
+  const [publicClassListings, setPublicClassListings] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
   const [selectedMode, setSelectedMode] = useState("all");
   const [selectedGrade, setSelectedGrade] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [currentPage, setCurrentPage] = useState(1);
-  const classesPerPage = 6;
 
-  // Filter & Sort
-  const filteredListings = useMemo(() => {
-    return publicClassListings
-      .filter((item) => {
-        // Mode filter
-        if (selectedMode !== "all") {
-          if (item.teachingMode !== selectedMode) return false;
-        }
+  // Lọc, sắp xếp và phân trang đều chạy ở server; mỗi lần chỉ tải một trang.
+  useEffect(() => {
+    let isMounted = true;
 
-        // Grade filter
-        if (selectedGrade !== "all") {
-          if (selectedGrade === "tieuhoc" && !item.gradeLevel?.includes("Lớp 1") && !item.gradeLevel?.includes("Lớp 2") && !item.gradeLevel?.includes("Lớp 3") && !item.gradeLevel?.includes("Cấp 1") && !item.gradeLevel?.includes("Mầm non")) return false;
-          if (selectedGrade === "thcs" && !item.gradeLevel?.includes("Lớp 6") && !item.gradeLevel?.includes("Lớp 7") && !item.gradeLevel?.includes("Lớp 8") && !item.gradeLevel?.includes("Lớp 9") && !item.gradeLevel?.includes("Cấp 2")) return false;
-          if (selectedGrade === "thpt" && !item.gradeLevel?.includes("Lớp 10") && !item.gradeLevel?.includes("Lớp 11") && !item.gradeLevel?.includes("Lớp 12") && !item.gradeLevel?.includes("Cấp 3")) return false;
-          if (selectedGrade === "nguoidilam" && !item.gradeLevel?.includes("Người đi làm") && !item.gradeLevel?.includes("Tự do") && !item.gradeLevel?.includes("Sinh viên")) return false;
-        }
+    async function loadClasses() {
+      setIsLoading(true);
+      setErrorMessage("");
+      try {
+        const result = await apiGetPublicClasses({
+          page: currentPage - 1,
+          size: CLASSES_PER_PAGE,
+          teachingMode: MODE_PARAM[selectedMode],
+          gradeGroup: selectedGrade === "all" ? "" : selectedGrade,
+          sort: sortBy,
+        });
+        if (!isMounted) return;
+        setPublicClassListings(result.items.map(mapPublicClass));
+        setTotalItems(result.totalItems);
+        setTotalPages(Math.max(result.totalPages, 1));
+      } catch (error) {
+        if (isMounted) setErrorMessage(error.message || "Không thể tải danh sách lớp cần gia sư.");
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
 
-        return true;
-      })
-      .sort((a, b) => {
-        if (sortBy === "fee_desc") return b.feePerSession - a.feePerSession;
-        if (sortBy === "fee_asc") return a.feePerSession - b.feePerSession;
-        return 0; // default newest
-      });
-  }, [selectedMode, selectedGrade, sortBy]);
+    loadClasses();
+    return () => {
+      isMounted = false;
+    };
+  }, [currentPage, selectedMode, selectedGrade, sortBy]);
 
-  // Pagination calculation
-  const totalPages = Math.ceil(filteredListings.length / classesPerPage);
-  const paginatedListings = useMemo(() => {
-    const start = (currentPage - 1) * classesPerPage;
-    return filteredListings.slice(start, start + classesPerPage);
-  }, [filteredListings, currentPage, classesPerPage]);
+  const paginatedListings = publicClassListings;
 
   const handleResetFilters = () => {
     setSelectedMode("all");
@@ -70,7 +79,7 @@ export default function GuestClassesExplorePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
             <Flame className="w-3.5 h-3.5 text-primary" />
-            <span>CẬP NHẬT LIÊN TỤC 24/7</span>
+            <span>DỮ LIỆU TRỰC TIẾP TỪ HỆ THỐNG</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
@@ -78,7 +87,7 @@ export default function GuestClassesExplorePage() {
           </h1>
 
           <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Hàng trăm lớp học mới mỗi ngày với mức học phí hấp dẫn. Trung tâm cam kết thu phí sau khi nhận lương!
+            Theo dõi các lớp đang mở và chọn yêu cầu phù hợp với chuyên môn, lịch dạy của bạn.
           </p>
         </div>
       </section>
@@ -133,8 +142,8 @@ export default function GuestClassesExplorePage() {
                 className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
               >
                 <option value="all">Tất cả hình thức</option>
-                <option value="Tại nhà">🏠 Tại nhà</option>
-                <option value="Online">🌐 Online</option>
+                <option value="Tại nhà">Tại nhà</option>
+                <option value="Online">Online</option>
               </select>
             </div>
 
@@ -160,7 +169,10 @@ export default function GuestClassesExplorePage() {
         </div>
 
         {/* Quick Link to Register */}
-        <div className="flex items-center justify-end mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs text-muted-foreground">
+            Tìm thấy <span className="font-bold text-foreground">{totalItems}</span> lớp
+          </p>
           <Link
             to="/tutor/register"
             className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
@@ -171,7 +183,19 @@ export default function GuestClassesExplorePage() {
         </div>
 
         {/* Grid List (6 items per page) */}
-        {paginatedListings.length > 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" aria-label="Đang tải danh sách lớp">
+            {Array.from({ length: 6 }, (_, index) => (
+              <div key={index} className="h-72 rounded-2xl bg-slate-200 dark:bg-slate-800 animate-pulse" />
+            ))}
+          </div>
+        ) : errorMessage ? (
+          <div className="p-10 text-center rounded-2xl border border-rose-200 dark:border-rose-900/50 bg-card">
+            <BookOpen className="w-10 h-10 mx-auto text-rose-400" />
+            <h3 className="mt-3 text-base font-bold text-foreground">Không thể tải danh sách lớp</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{errorMessage}</p>
+          </div>
+        ) : paginatedListings.length > 0 ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {paginatedListings.map((listing, i) => (
@@ -191,7 +215,7 @@ export default function GuestClassesExplorePage() {
                   Trước
                 </button>
 
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                {getPageWindow(currentPage, totalPages).map((pageNum) => (
                   <button
                     key={pageNum}
                     type="button"

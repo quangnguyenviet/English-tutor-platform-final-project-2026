@@ -1,17 +1,20 @@
 import { Link } from "react-router-dom";
-import { BookOpen, Home, MapPin, DollarSign, Percent, User, Users, Calendar, ArrowRight } from "lucide-react";
+import { BookOpen, Home, MapPin, DollarSign, Users, Calendar, ArrowRight, Wifi } from "lucide-react";
 
 function ModeChip({ mode }) {
   const isOnline = mode === "Online";
   return (
     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide border border-primary/25 bg-primary/10 text-primary">
-      {isOnline ? "🌐 Online" : "🏠 Tại nhà"}
+      {isOnline ? <Wifi className="w-3 h-3" /> : <Home className="w-3 h-3" />}
+      {isOnline ? "Online" : "Tại nhà"}
     </span>
   );
 }
 
 export function ClassRequestCard({ listing, index = 0, onViewDetail }) {
-  const formattedFee = new Intl.NumberFormat("vi-VN").format(listing.feePerSession);
+  const formattedFee = listing.feePerSession
+    ? `${new Intl.NumberFormat("vi-VN").format(listing.feePerSession)} VNĐ/buổi`
+    : "Thỏa thuận";
 
   return (
     <div
@@ -64,15 +67,7 @@ export function ClassRequestCard({ listing, index = 0, onViewDetail }) {
             <DollarSign className="w-3.5 h-3.5 text-primary shrink-0" />
             Học phí:
           </span>
-          <span className="font-bold text-primary">{formattedFee} VNĐ/buổi</span>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground flex items-center gap-1.5">
-            <Percent className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-            Phí nhận lớp:
-          </span>
-          <span className="font-medium text-foreground">{listing.commissionRate}%</span>
+          <span className="font-bold text-primary">{formattedFee}</span>
         </div>
 
         <div className="flex items-center justify-between">
@@ -80,7 +75,7 @@ export function ClassRequestCard({ listing, index = 0, onViewDetail }) {
             <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             Yêu cầu gia sư:
           </span>
-          <span className="font-medium text-foreground truncate max-w-[60%] text-right">{listing.genderRequirement} - {listing.teacherRequirement}</span>
+          <span className="font-medium text-foreground truncate max-w-[60%] text-right">{listing.teacherRequirement}</span>
         </div>
       </div>
 
