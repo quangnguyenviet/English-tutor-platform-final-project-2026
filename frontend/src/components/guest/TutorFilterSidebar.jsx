@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, SlidersHorizontal, BookOpen, User, Award, MapPin, GraduationCap, Laptop } from "lucide-react";
+import { X, SlidersHorizontal, BookOpen, User, MapPin, GraduationCap, Laptop } from "lucide-react";
 
 export const PROVINCES_DATA = {
   "Tất cả": [],
@@ -61,17 +61,6 @@ export const LEARNING_MODES = [
 
 export const GENDERS = ["Tất cả", "Nam", "Nữ"];
 
-export const HIGHLIGHT_OPTIONS = [
-  "Học sinh giỏi Quốc Gia",
-  "Học sinh trường chuyên (Cấp 3)",
-  "Học sinh giỏi Tỉnh/TP",
-  "Du học sinh",
-  "Thủ khoa",
-  "IELTS 8.0+",
-  "Chuyên dạy học sinh mất gốc",
-  "Chuyên luyện thi Đại học"
-];
-
 export const DEFAULT_FILTERS = {
   search: "",
   province: "Tất cả",
@@ -80,8 +69,6 @@ export const DEFAULT_FILTERS = {
   gradeLevel: "Tất cả cấp lớp",
   learningMode: "Tất cả",
   gender: "",
-  highlights: [],
-  sortBy: "relevant" // "relevant" | "price_asc" | "price_desc" | "newest"
 };
 
 function FilterSection({ title, icon: Icon, children }) {
@@ -162,7 +149,6 @@ export function TutorFilterSidebar({ onFilterChange, initialFilters = DEFAULT_FI
     (filters.learningMode && filters.learningMode !== "Tất cả" ? 1 : 0) +
     (filters.gender && filters.gender !== "Tất cả" ? 1 : 0) +
     filters.subjects.length +
-    filters.highlights.length +
     (filters.search ? 1 : 0);
 
   const availableDistricts = PROVINCES_DATA[filters.province] || [];
@@ -313,17 +299,6 @@ export function TutorFilterSidebar({ onFilterChange, initialFilters = DEFAULT_FI
               </button>
             );
           })}
-        </div>
-      </FilterSection>
-
-      {/* 6. Thành tích nổi bật */}
-      <FilterSection title="Thành tích nổi bật" icon={Award}>
-        <div className="space-y-2">
-          <PillGroup
-            options={HIGHLIGHT_OPTIONS.slice(0, 5)}
-            selected={filters.highlights}
-            onToggle={(val) => toggleMulti("highlights", val)}
-          />
         </div>
       </FilterSection>
     </div>

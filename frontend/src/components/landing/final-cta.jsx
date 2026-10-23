@@ -17,7 +17,7 @@ export function FinalCTA({ onOpenContactModal }) {
             onClick={onOpenContactModal}
             className="px-8 py-4 rounded-xl bg-primary text-primary-foreground font-bold text-base hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg hover:shadow-xl cursor-pointer"
           >
-            <span>Bắt đầu học thử miễn phí</span>
+            <span>Nhận tư vấn tìm gia sư</span>
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>

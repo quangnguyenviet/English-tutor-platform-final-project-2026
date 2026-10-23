@@ -134,7 +134,7 @@ Luồng cốt lõi của nền tảng (từ yêu cầu của phụ huynh đến 
 Phụ huynh chưa tìm được gia sư và chưa có cách để lại yêu cầu. Các trang `Guest*` hiện chạy bằng mock data.
 
 **Requirement**
-- Backend: `GET /api/v1/public/tutors` (lọc tỉnh/quận, chuyên môn, cấp lớp, hình thức, giới tính, từ khóa, phân trang), `GET /api/v1/public/tutors/{id}`, `POST /api/v1/public/tutor-requests`, `POST /api/v1/public/class-requests`; thêm các đường dẫn `/api/v1/public/**` vào `PUBLIC_ENDPOINTS` (cả GET).
+- Backend: `GET /api/v1/public/tutors` (lọc tỉnh/quận, chuyên môn, cấp lớp, hình thức, giới tính, từ khóa, phân trang), `GET /api/v1/public/tutors/{id}`, `POST /api/v1/public/class-requests` (body `{ parentName, phone, tutorId? }`: có `tutorId` là đăng ký gia sư chỉ định, bỏ trống là nhận tư vấn; thay cho 2 endpoint `tutor-requests` và `class-requests` ban đầu); không công khai học phí gia sư; thêm các đường dẫn `/api/v1/public/**` vào `PUBLIC_ENDPOINTS` (cả GET).
 - Chỉ trả gia sư `ACTIVE`; mục rỗng không có trong response; gia sư không còn `ACTIVE` → 404 `TUTOR_PROFILE_UNAVAILABLE`.
 - Validate SĐT Việt Nam (đầu 03/05/07/08/09 hoặc +84/84, 10 số), giới hạn 5 request/giờ cho mỗi SĐT.
 - Sinh mã `REQ-{yyyyMMdd}-{id}`; tạo `parents` mới nếu SĐT chưa tồn tại, dùng lại nếu đã có.

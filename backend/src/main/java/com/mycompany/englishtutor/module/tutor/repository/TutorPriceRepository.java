@@ -11,5 +11,7 @@ import java.util.List;
 public interface TutorPriceRepository extends JpaRepository<TutorPrice, Long> {
     List<TutorPrice> findByTutorId(Long tutorId);
 
+    List<TutorPrice> findByTutorIdIn(java.util.Collection<Long> tutorIds);
+
     void deleteByTutorId(Long tutorId);
 }

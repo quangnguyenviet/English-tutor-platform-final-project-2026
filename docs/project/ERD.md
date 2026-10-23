@@ -2,7 +2,7 @@
 
 > **Tác giả:** Chuyên gia kiến trúc phần mềm  
 > **Ngày tạo:** 12/10/2026  
-> **Phiên bản:** 2.2 — bỏ `current_address` khỏi bảng `tutors` (migration V3); giữ `hometown` (VARCHAR 100, migration V2)
+> **Phiên bản:** 2.3 — bổ sung `tutors.submitted_at` (migration V4) còn thiếu trong tài liệu; làm rõ kế thừa `users` → `tutors`/`employees`/`students`; ghi luồng form công khai (họ tên + SĐT [+ gia sư]) tạo `parents` + `class_requests` `NEW`. (2.2: bỏ `current_address` khỏi `tutors` — V3; giữ `hometown` — V2)
 > **Cơ sở dữ liệu:** PostgreSQL (26 bảng chính + 1 view) + MongoDB (1 collection `ai_chat_messages`)
 
 ---
@@ -141,7 +141,10 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `rejection_reason` | `TEXT` | | Lý do từ chối hồ sơ, chỉ có giá trị khi `profile_status = REJECTED` |
 | `reviewed_by` | `BIGINT` | FK → users.id | ID của Lễ tân/Admin đã duyệt hồ sơ, ghi nhận trách nhiệm duyệt (UC-REC-07) |
 | `reviewed_at` | `TIMESTAMPTZ` | | Thời điểm duyệt hồ sơ |
+| `submitted_at` | `TIMESTAMPTZ` | | Thời điểm gia sư gửi hồ sơ để duyệt lần gần nhất (migration V4). Set mỗi lần chuyển sang `PENDING`; dùng sắp xếp hàng chờ duyệt (hồ sơ chờ lâu nhất lên đầu) |
 | `updated_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm cập nhật gần nhất |
+
+> **Vì sao `tutors` không lặp lại các cột của `users`?** Đây là kế thừa theo kiểu *bảng con – khóa chính dùng chung*: `tutors.id` vừa là PK vừa là FK tới `users.id`. Họ tên, email, SĐT, ngày sinh, giới tính, ảnh đại diện... chỉ lưu **một nơi** ở `users`; `tutors` (và `employees`, `students`) chỉ chứa cột riêng của vai trò, muốn lấy thông tin chung thì JOIN theo `id`. Cách này tránh trùng dữ liệu và không bị lệch giữa hai bảng.
 
 ---
 
@@ -245,6 +248,8 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm tạo đơn |
 | `updated_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm cập nhật gần nhất |
 
+> **Form công khai (khách chưa đăng nhập):** "Nhận tư vấn tìm gia sư" và "Liên hệ gia sư" chỉ thu **họ tên + SĐT phụ huynh** (và id gia sư với form liên hệ). Backend `POST /api/v1/public/class-requests` tìm `parents` theo SĐT (chưa có thì tạo), rồi tạo `class_requests` `status = NEW`, `requested_tutor_id` = id gia sư hoặc NULL, `created_by` = NULL. Gửi lặp cùng một yêu cầu đang `NEW` không tạo thêm đơn. Không có bảng riêng cho yêu cầu tư vấn.
+>
 > **Luồng 1 (chỉ đích danh):** `NEW` (có `requested_tutor_id`) → Lễ tân gọi, bổ sung `student_id` → tạo `classes` (`TRIAL`) → `MATCHED`.
 > **Luồng 2 (đăng tuyển):** `NEW` → Lễ tân gọi, bổ sung `student_id` + yêu cầu → `OPEN` → gia sư ứng tuyển (`class_applications`) → Lễ tân chọn → tạo `classes` (`TRIAL`) → `MATCHED`.
 > **Ghép lại:** khi lớp bị hủy (khiếu nại `REMATCH`), đơn chuyển lại `OPEN` để chọn gia sư khác.
@@ -655,6 +660,7 @@ erDiagram
         TEXT rejection_reason
         BIGINT reviewed_by FK
         TIMESTAMPTZ reviewed_at
+        TIMESTAMPTZ submitted_at
         TIMESTAMPTZ updated_at
     }
 

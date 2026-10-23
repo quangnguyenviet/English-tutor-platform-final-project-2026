@@ -1,4 +1,5 @@
 import { Star, ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export function Hero({ onOpenContactModal }) {
   return (
@@ -13,30 +14,33 @@ export function Hero({ onOpenContactModal }) {
 
           {/* Main Headline */}
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-foreground tracking-tight leading-[1.2] max-w-4xl">
-            Lộ trình học tiếng Anh cá nhân hóa cho con, <span className="text-primary">báo cáo rõ ràng</span> từng tuần
+            Lộ trình học tiếng Anh cá nhân hóa cho con,{" "}
+            <span className="text-primary">báo cáo rõ ràng</span> từng tuần
           </h1>
 
           {/* Subtitle */}
           <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-3xl">
-            EnglishPath giúp phụ huynh hoàn toàn yên tâm theo dõi tiến độ học tập của con qua lớp học 1 kèm 1, AI tự động theo dõi kỹ năng nghe nói đọc viết và thanh toán ký quỹ an toàn.
+            EnglishPath giúp phụ huynh hoàn toàn yên tâm theo dõi tiến độ học
+            tập của con qua lớp học 1 kèm 1, AI tự động theo dõi kỹ năng nghe
+            nói đọc viết và thanh toán ký quỹ an toàn.
           </p>
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto pt-2">
+            <Link
+              to="/tutors"
+              className="px-6 py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg cursor-pointer"
+            >
+              <span>Tìm gia sư</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
             <button
               type="button"
               onClick={onOpenContactModal}
-              className="px-6 py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg cursor-pointer"
+              className="px-6 py-3.5 rounded-xl border border-border bg-background text-foreground font-semibold text-sm hover:bg-muted active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Tìm gia sư nhanh</span>
-              <ArrowRight className="w-4 h-4" />
+              <span>Nhận tư vấn tìm gia sư</span>
             </button>
-            <a
-              href="#how-it-works"
-              className="px-6 py-3.5 rounded-xl border border-border bg-card text-foreground font-semibold text-sm hover:bg-muted transition-colors flex items-center justify-center"
-            >
-              Xem cách hoạt động
-            </a>
           </div>
 
           {/* Social Trust Line */}
@@ -47,7 +51,8 @@ export function Hero({ onOpenContactModal }) {
               ))}
             </div>
             <span>
-              <strong className="text-foreground font-semibold">4.9/5</strong> từ 2.000+ phụ huynh tin tưởng
+              <strong className="text-foreground font-semibold">4.9/5</strong>{" "}
+              từ 2.000+ phụ huynh tin tưởng
             </span>
           </div>
         </div>

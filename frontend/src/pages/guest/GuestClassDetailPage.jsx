@@ -1,44 +1,30 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   BookOpen,
   MapPin,
   Calendar,
-  DollarSign,
-  Percent,
   Users,
   Home,
   CheckCircle2,
   ShieldCheck,
-  AlertCircle,
   ArrowLeft,
-  Share2,
-  Phone,
   Clock,
-  Sparkles,
   Info,
   UserCheck,
   LogIn,
   UserPlus,
 } from "lucide-react";
-import { publicClassListings } from "../../data/mockData";
 import { useAuth } from "../../context/AuthContext";
+import { apiGetPublicClass, mapPublicClass } from "../../lib/publicClassApi";
 
 export default function GuestClassDetailPage() {
   const { classId } = useParams();
   const navigate = useNavigate();
   const { session } = useAuth();
-
-  // Find listing by id or code
-  const listing =
-    publicClassListings.find((c) => c.id === classId || c.code === classId) ||
-    publicClassListings[0];
-
-  const formattedFee = new Intl.NumberFormat("vi-VN").format(listing.feePerSession);
-  const commissionAmount = Math.round(
-    (listing.feePerSession * (listing.commissionRate || 30)) / 100
-  );
-  const formattedCommission = new Intl.NumberFormat("vi-VN").format(commissionAmount);
+  const [listing, setListing] = useState(null);
+  const [isLoadingClass, setIsLoadingClass] = useState(true);
+  const [classError, setClassError] = useState("");
 
   // States
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -48,6 +34,32 @@ export default function GuestClassDetailPage() {
   const [isClaimedSuccess, setIsClaimedSuccess] = useState(false);
 
   const isTutorLoggedIn = session && session.role === "tutor";
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadClass() {
+      setIsLoadingClass(true);
+      setClassError("");
+      try {
+        const classRequest = await apiGetPublicClass(classId);
+        if (isMounted) setListing(mapPublicClass(classRequest));
+      } catch (error) {
+        if (isMounted) {
+          setClassError(error.status === 404
+            ? "Lớp này không tồn tại hoặc không còn mở."
+            : error.message || "Không thể tải thông tin lớp học.");
+        }
+      } finally {
+        if (isMounted) setIsLoadingClass(false);
+      }
+    }
+
+    loadClass();
+    return () => {
+      isMounted = false;
+    };
+  }, [classId]);
 
   const handleClaimClassClick = () => {
     if (!isTutorLoggedIn) {
@@ -67,6 +79,31 @@ export default function GuestClassDetailPage() {
       setIsClaimedSuccess(true);
     }, 600);
   };
+
+  if (isLoadingClass) {
+    return (
+      <div className="min-h-[70dvh] max-w-5xl mx-auto px-4 py-10" aria-label="Đang tải thông tin lớp">
+        <div className="h-80 rounded-2xl bg-slate-200 dark:bg-slate-800 animate-pulse" />
+      </div>
+    );
+  }
+
+  if (!listing) {
+    return (
+      <div className="min-h-[70dvh] flex flex-col items-center justify-center px-4 text-center">
+        <BookOpen className="w-12 h-12 text-slate-300 dark:text-slate-600" />
+        <h1 className="mt-4 text-lg font-bold text-foreground">Không thể hiển thị lớp học</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{classError}</p>
+        <Link to="/classes" className="mt-5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold active:scale-[0.98]">
+          Quay lại danh sách lớp
+        </Link>
+      </div>
+    );
+  }
+
+  const formattedFee = listing.feePerSession
+    ? new Intl.NumberFormat("vi-VN").format(listing.feePerSession)
+    : "Thỏa thuận";
 
   return (
     <div className="min-h-screen bg-background text-foreground py-8 px-4 sm:px-6 lg:px-8">
@@ -140,21 +177,15 @@ export default function GuestClassDetailPage() {
               </div>
 
               {/* Highlight Stats Row */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-2xl bg-muted/40 border border-border/70">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl bg-muted/40 border border-border/70">
                 <div className="space-y-0.5">
                   <span className="text-[11px] font-medium text-muted-foreground">Học phí / buổi:</span>
-                  <p className="text-base sm:text-lg font-bold text-primary">{formattedFee} đ</p>
+                  <p className="text-base sm:text-lg font-bold text-primary">{listing.feePerSession ? `${formattedFee} đ` : formattedFee}</p>
                 </div>
                 <div className="space-y-0.5">
                   <span className="text-[11px] font-medium text-muted-foreground">Hình thức dạy:</span>
                   <p className="text-sm sm:text-base font-semibold text-foreground flex items-center gap-1">
-                    {listing.teachingMode === "Online" ? "🌐 Online" : "🏠 Tại nhà"}
-                  </p>
-                </div>
-                <div className="space-y-0.5 col-span-2 sm:col-span-1">
-                  <span className="text-[11px] font-medium text-muted-foreground">Phí nhận lớp:</span>
-                  <p className="text-sm sm:text-base font-semibold text-amber-600 dark:text-amber-400">
-                    {listing.commissionRate}% ({formattedCommission} đ)
+                    {listing.teachingMode}
                   </p>
                 </div>
               </div>
@@ -179,7 +210,7 @@ export default function GuestClassDetailPage() {
                     <div>
                       <span className="text-xs text-muted-foreground block">Yêu cầu gia sư:</span>
                       <strong className="text-foreground">
-                        {listing.genderRequirement} - {listing.teacherRequirement}
+                        {listing.teacherRequirement}
                       </strong>
                     </div>
                   </div>
@@ -210,10 +241,10 @@ export default function GuestClassDetailPage() {
 
                 <div className="p-4 rounded-2xl bg-sky-500/10 border border-sky-500/25 space-y-2 text-xs sm:text-sm">
                   <p className="text-sky-950 dark:text-sky-200 leading-relaxed">
-                    <strong>Tình hình học viên:</strong> {listing.studentInfo || "Học sinh cần gia sư theo sát lộ trình, củng cố kiến thức và giải bài tập định kỳ."}
+                    <strong>Tình hình học viên:</strong> {listing.studentInfo}
                   </p>
                   <p className="text-sky-950 dark:text-sky-200 leading-relaxed">
-                    <strong>Mục tiêu học tập:</strong> {listing.learningGoal || "Tiến bộ rõ rệt trong điểm số học kỳ và nắm vững kiến thức căn bản."}
+                    <strong>Mục tiêu học tập:</strong> {listing.learningGoal}
                   </p>
                 </div>
               </div>
@@ -241,7 +272,7 @@ export default function GuestClassDetailPage() {
                   Đăng ký nhận lớp
                 </span>
                 <p className="text-2xl font-extrabold text-primary">
-                  {formattedFee} đ <span className="text-xs font-normal text-muted-foreground">/ buổi</span>
+                  {listing.feePerSession ? `${formattedFee} đ` : formattedFee} <span className="text-xs font-normal text-muted-foreground">/ buổi</span>
                 </p>
               </div>
 
@@ -376,15 +407,11 @@ export default function GuestClassDetailPage() {
             <div className="p-4 rounded-2xl bg-muted/60 border border-border space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Học phí:</span>
-                <span className="font-bold text-primary">{formattedFee} đ / buổi</span>
+                <span className="font-bold text-primary">{listing.feePerSession ? `${formattedFee} đ / buổi` : formattedFee}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Lịch học:</span>
                 <span className="font-semibold text-foreground">{listing.schedule}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Phí nhận lớp ({listing.commissionRate}%):</span>
-                <span className="font-semibold text-amber-600 dark:text-amber-400">{formattedCommission} đ</span>
               </div>
             </div>
 

@@ -43,6 +43,60 @@ function extractErrorMessage(data, fallback) {
 }
 
 /**
+ * Tìm hồ sơ gia sư ACTIVE có phân trang phía server (page bắt đầu từ 0).
+ * Endpoint này là public nên không gửi access token.
+ *
+ * @param {Object} [params] - page, size, keyword, province, district, gender, teachingMode, specialty (mảng), gradeGroup
+ * @returns {Promise<{items: Object[], page: number, size: number, totalItems: number, totalPages: number}>}
+ */
+export async function apiGetPublicTutors(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (Array.isArray(value)) value.forEach((v) => v && query.append(key, v));
+    else if (value !== undefined && value !== null && value !== "") query.set(key, value);
+  });
+
+  const res = await fetch(`${BASE}/api/v1/public/tutors?${query.toString()}`, {
+    headers: { Accept: "application/json" },
+  });
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    throw new Error(extractErrorMessage(data, `Không thể lấy danh sách gia sư (${res.status})`));
+  }
+
+  const result = data.result || {};
+  return {
+    items: Array.isArray(result.items) ? result.items : [],
+    page: result.page ?? 0,
+    size: result.size ?? 0,
+    totalItems: result.totalItems ?? 0,
+    totalPages: result.totalPages ?? 0,
+  };
+}
+
+/**
+ * Lấy một hồ sơ gia sư ACTIVE theo id.
+ *
+ * @param {string|number} tutorId
+ * @returns {Promise<Object>}
+ */
+export async function apiGetPublicTutor(tutorId) {
+  const res = await fetch(`${BASE}/api/v1/public/tutors/${encodeURIComponent(tutorId)}`, {
+    headers: { Accept: "application/json" },
+  });
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    const error = new Error(extractErrorMessage(data, `Không thể lấy hồ sơ gia sư (${res.status})`));
+    error.status = res.status;
+    throw error;
+  }
+
+  return data.result ?? data;
+}
+
+/**
  * Lấy hồ sơ gia sư hiện tại — GET /api/v1/tutors/me/profile
  *
  * @param {string} token - JWT token

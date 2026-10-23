@@ -15,7 +15,7 @@ function ModeIcon({ mode }) {
   return <LayoutList className="w-3.5 h-3.5 text-primary" />;
 }
 
-export function TutorCard({ tutor, index = 0, onContact, onConnect, onViewDetail }) {
+export function TutorCard({ tutor, index = 0, onConnect, onViewDetail }) {
   const gradient = AVATAR_GRADIENTS[index % AVATAR_GRADIENTS.length];
 
   return (
@@ -28,10 +28,14 @@ export function TutorCard({ tutor, index = 0, onContact, onConnect, onViewDetail
         <div className="flex gap-3.5 items-start">
           <Link
             to={`/tutors/${tutor.id}`}
-            className="w-14 h-14 rounded-xl flex items-center justify-center font-bold text-lg text-white shrink-0 shadow-xs hover:opacity-90 transition-opacity"
+            className="w-14 h-14 rounded-xl flex items-center justify-center font-bold text-lg text-white shrink-0 shadow-xs hover:opacity-90 transition-opacity overflow-hidden"
             style={{ background: gradient }}
           >
-            {tutor.initials}
+            {tutor.avatarUrl ? (
+              <img src={tutor.avatarUrl} alt={`Ảnh đại diện ${tutor.name}`} className="w-full h-full object-cover" />
+            ) : (
+              tutor.initials
+            )}
           </Link>
           <div className="min-w-0 flex-1">
             <Link
@@ -97,15 +101,10 @@ export function TutorCard({ tutor, index = 0, onContact, onConnect, onViewDetail
           </div>
         </div>
 
-        {/* Price + CTA */}
-        <div className="mt-auto pt-3 border-t border-border flex items-center justify-between gap-2">
-          <div>
-            <span className="text-base sm:text-lg font-bold text-foreground">{tutor.ratePerHour}</span>
-            <span className="text-xs text-muted-foreground">/buổi</span>
-          </div>
-
+        {/* CTA */}
+        <div className="mt-auto pt-3 border-t border-border flex items-center justify-end gap-2">
           <div className="flex items-center gap-2">
-            {onViewDetail ? (
+            {onViewDetail && (
               <button
                 type="button"
                 onClick={() => onViewDetail(tutor)}
@@ -113,13 +112,6 @@ export function TutorCard({ tutor, index = 0, onContact, onConnect, onViewDetail
               >
                 Chi tiết
               </button>
-            ) : (
-              <Link
-                to={`/tutors/${tutor.id}`}
-                className="px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-muted transition-colors"
-              >
-                Chi tiết
-              </Link>
             )}
 
             {onConnect && (

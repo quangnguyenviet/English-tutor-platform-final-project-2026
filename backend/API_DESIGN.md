@@ -232,12 +232,11 @@ Gia sư muốn rút ứng tuyển thì xóa dòng này, chỉ được khi đơn
 
 | Method | Path | Quyền | Mô tả | FR |
 | --- | --- | --- | --- | --- |
-| GET | `/api/v1/public/tutors` | PUBLIC | Tìm gia sư `ACTIVE`. Query: `province`, `district`, `specialty`, `gradeLevel`, `teachingMode`, `gender`, `keyword`, `page`, `size`. Item: ảnh, họ tên, trường/chuyên ngành, học phí/buổi (thấp nhất), khu vực, chuyên môn, thành tích | FR-01 |
-| GET | `/api/v1/public/tutors/{id}` | PUBLIC | Hồ sơ công khai: giới thiệu, chứng chỉ đã xác thực, kinh nghiệm, khu vực, hình thức dạy, video, lịch rảnh. Mục rỗng không trả. Gia sư không `ACTIVE` → 404 `TUTOR_PROFILE_UNAVAILABLE` | FR-02 |
-| POST | `/api/v1/public/tutor-requests` | PUBLIC | Đăng ký gia sư chỉ định. Body `{ parentName, parentPhone, requestedTutorId }`. Tạo `parents` (nếu chưa có theo SĐT) + `class_requests` (`NEW`, có `requested_tutor_id`). Trả `requestCode`. Thông báo cho Lễ tân | FR-03 |
-| POST | `/api/v1/public/class-requests` | PUBLIC | Gửi yêu cầu tìm gia sư. Body `{ parentName, parentPhone, studentName?, gradeLevel \| age }`. Tạo `class_requests` (`NEW`, không có gia sư). Trả `requestCode` + thông điệp "liên hệ trong 12 giờ" | FR-04 |
+| GET | `/api/v1/public/tutors` | PUBLIC | Tìm gia sư `ACTIVE`. Query: `province`, `district`, `specialty` (lặp được nhiều lần), `gradeGroup` (`tieuhoc`/`thcs`/`thpt`/`nguoidilam`), `teachingMode` (`ONLINE`/`AT_HOME`), `gender` (`MALE`/`FEMALE`), `keyword`, `page`, `size`. Tìm không phân biệt dấu. Item: ảnh, họ tên, trường/chuyên ngành, khu vực, chuyên môn, thành tích, hình thức dạy. **Không công khai học phí.** Mục rỗng không trả. `size` mặc định 20, tối đa 100 | FR-01 |
+| GET | `/api/v1/public/tutors/{id}` | PUBLIC | Hồ sơ công khai: giới thiệu, chứng chỉ đã xác thực, kinh nghiệm, khu vực, hình thức dạy, video, lịch rảnh. Mục rỗng không trả. Gia sư không `ACTIVE` → 404 `TUTOR_PROFILE_UNAVAILABLE` (1101). Không công khai học phí | FR-02 |
+| POST | `/api/v1/public/class-requests` | PUBLIC | Phụ huynh để lại **họ tên + SĐT** để trung tâm gọi lại. Body `{ parentName, phone, tutorId? }`: có `tutorId` là đăng ký gia sư chỉ định (gia sư phải `ACTIVE`, nếu không 404 `TUTOR_PROFILE_UNAVAILABLE`), bỏ trống là nhận tư vấn tìm gia sư. Tìm `parents` theo SĐT (chưa có thì tạo), tạo `class_requests` (`NEW`, `requested_tutor_id` = `tutorId` hoặc NULL). Gửi lặp cùng yêu cầu đang `NEW` trả lại mã cũ. Trả 201 `{ requestCode, message }`, `requestCode` dạng `REQ-yyyyMMdd-id`, thông điệp "liên hệ trong 12 giờ". Ghi `notifications` cho Lễ tân | FR-03, FR-04 |
 
-Validate SĐT: regex `^(0|\+84|84)(3|5|7|8|9)\d{8}$`; chống spam: tối đa 5 request/giờ/IP và/hoặc SĐT (bucket đơn giản trong bộ nhớ).
+Validate SĐT: regex `^(0|\+84|84)(3|5|7|8|9)\d{8}$`, sai trả 400 "Số điện thoại không hợp lệ". Chống spam: tối đa 5 request/giờ/SĐT (bộ đếm trong bộ nhớ), vượt quá trả 429 `TOO_MANY_REQUESTS` (1102).
 
 ### 3.3. Hồ sơ gia sư (module `tutor`)
 
