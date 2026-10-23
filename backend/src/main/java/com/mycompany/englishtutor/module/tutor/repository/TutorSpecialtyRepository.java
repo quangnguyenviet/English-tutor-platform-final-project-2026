@@ -11,5 +11,7 @@ import java.util.List;
 public interface TutorSpecialtyRepository extends JpaRepository<TutorSpecialty, Long> {
     List<TutorSpecialty> findByTutorId(Long tutorId);
 
+    List<TutorSpecialty> findByTutorIdIn(java.util.Collection<Long> tutorIds);
+
     void deleteByTutorId(Long tutorId);
 }

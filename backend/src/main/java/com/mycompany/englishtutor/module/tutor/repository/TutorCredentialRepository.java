@@ -11,5 +11,7 @@ import java.util.List;
 public interface TutorCredentialRepository extends JpaRepository<TutorCredential, Long> {
     List<TutorCredential> findByTutorId(Long tutorId);
 
+    List<TutorCredential> findByTutorIdIn(java.util.Collection<Long> tutorIds);
+
     void deleteByTutorId(Long tutorId);
 }

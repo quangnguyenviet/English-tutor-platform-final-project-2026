@@ -24,6 +24,12 @@ public enum ErrorCode {
     FILE_INVALID_TYPE(1014, "Định dạng tệp không hợp lệ", HttpStatus.BAD_REQUEST),
     TUTOR_PROFILE_PENDING(1030, "Hồ sơ đang chờ duyệt, không thể chỉnh sửa", HttpStatus.CONFLICT),
     TUTOR_PROFILE_NOT_PENDING(1031, "Hồ sơ không ở trạng thái chờ duyệt", HttpStatus.CONFLICT),
+    CLASS_REQUEST_NOT_FOUND(1100, "Lớp cần gia sư không tồn tại hoặc không còn mở", HttpStatus.NOT_FOUND),
+    TUTOR_PROFILE_UNAVAILABLE(1101, "Hồ sơ gia sư không khả dụng", HttpStatus.NOT_FOUND),
+    TOO_MANY_REQUESTS(
+            1102,
+            "Số điện thoại này đã gửi quá 5 yêu cầu trong 1 giờ. Vui lòng thử lại sau",
+            HttpStatus.TOO_MANY_REQUESTS),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
