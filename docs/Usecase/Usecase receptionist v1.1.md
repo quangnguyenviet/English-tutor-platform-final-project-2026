@@ -117,7 +117,16 @@ Tóm tắt các luồng nghiệp vụ Lễ tân:
 | **Kịch bản chính** | 1\. Lễ tân chọn mục Đơn ghép lớp từ trang chủ Lễ tân. 2\. Hệ thống hiển thị danh sách yêu cầu với 4 tab trạng thái: Chờ xử lý, Đang dạy thử, Ghép thành công, Đã hủy. 3\. Lễ tân chọn vào mục Chờ xử lý. 4\. Hệ thống hiển thị ra list danh sách đơn ghép lớp và nút "Xác nhận đơn",  “Hủy đơn”. 5\. Lễ tân đọc thông tin đơn và bấm nút  "Xác nhận đơn". 6\. Hệ thống hiển thị popup xác nhận: "Bạn xác nhận thao tác của mình chứ?" kèm 2 nút Đồng ý/Hủy. 7\. Lễ tân bấm "Đồng ý". 8\. Hệ thống hiển thị thông báo thao tác thành công, đồng thời chuyển trạng thái đơn thành "Đang dạy thử”. |
 | **Ngoại lệ** | 5.1. Lễ tân bấm nút “Hủy đơn” 5.1.1. Hệ thống hiển thị thông báo xác nhận: “Bạn muốn hủy đơn ghép lớp này?” và 2 nút “Đồng ý”, “Hủy”. 5.1.1.1. Lễ tân bấm nút “Đồng ý”. 5.1.1.1.1. Hệ thống thông báo đã hủy yêu cầu ghép lớp và chuyển đơn sang mục “Đã hủy”. 5.1.1.2. Lễ tân bấm nút “Hủy” 5.1.1.2.1. Hệ thống quay lại trang “Chờ xử lý”. 7.1. Lễ tân bấm "Hủy" tại popup xác nhận 7.1.1. Hệ thống quay lại trang yêu cầu, không có thay đổi. |
 
-## 
+## **UC-REC-06.1: Duyệt đơn ghép lớp từ dạy thử sang ghép thành công** 
+
+| Mã UC | UC-REC-06.1 |
+| :---- | :---- |
+| **Tên UC** | Duyệt đơn ghép lớp từ dạy thử sang ghép thành công |
+| **Actor** | Lễ tân |
+| **Tiền điều kiện** | 1\. Lễ tân đã đăng nhập. 2\. Tồn tại đơn ghép lớp ở trạng thái “Đang dạy thử”. 3\. Gia sư đã hoàn thành buổi dạy thử và hai bên (phụ huynh, gia sư) thống nhất tiếp tục học chính thức. |
+| **Hậu điều kiện** | 1\. Đơn ghép lớp chuyển từ "Đang dạy thử" → "Ghép thành công". 2\. Lớp học tương ứng chuyển từ `TRIAL` sang `ACTIVE`. |
+| **Kịch bản chính** | 1\. Lễ tân chọn mục Quản lý đơn ghép lớp từ menu điều hướng. 2\. Hệ thống hiển thị danh sách yêu cầu với các tab: Tất cả, Chờ xử lý, Đang dạy thử, Ghép thành công, Đã hủy. 3\. Lễ tân chọn tab “Đang dạy thử”. 4\. Hệ thống hiển thị danh sách đơn đang dạy thử kèm nút "Xác nhận ghép thành công", "Hủy đơn", "Xem chi tiết". 5\. Lễ tân bấm nút "Xác nhận ghép thành công". 6\. Hệ thống hiển thị popup xác nhận: "Bạn xác nhận thao tác của mình chứ? Xác nhận hoàn tất dạy thử và chuyển đơn sang trạng thái Ghép thành công?" kèm 2 nút Đồng ý/Hủy. 7\. Lễ tân bấm "Đồng ý". 8\. Hệ thống hiển thị thông báo thao tác thành công, chuyển đơn sang tab "Ghép thành công" và cập nhật lớp học sang trạng thái chính thức (ACTIVE). |
+| **Ngoại lệ** | 5.1. Lễ tân bấm nút “Hủy đơn”. 5.1.1. Hệ thống chuyển sang luồng UC-REC-07 (Hủy đơn ghép lớp). 7.1. Lễ tân bấm "Hủy" tại popup xác nhận. 7.1.1. Hệ thống quay lại trang danh sách, không có thay đổi. |
 
 ## **UC-REC-07: Hủy đơn ghép lớp**
 

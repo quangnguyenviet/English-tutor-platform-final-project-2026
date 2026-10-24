@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   ClipboardList,
   Search,
@@ -6,48 +6,46 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  Calculator,
-  Send,
   Calendar,
   MapPin,
   Phone,
-  MessageCircle,
+  Mail,
   ArrowRight,
   AlertCircle,
   X,
-  Zap,
-  Trash2,
-  Timer,
-  Upload,
-  Users,
-  Globe,
-  UserPlus,
+  PlusCircle,
   RotateCcw,
+  BookOpen,
+  GraduationCap,
+  Sparkles,
+  Info,
+  Loader2,
+  Send,
+  Eye,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
-import Avatar from "../../components/ui/Avatar";
 import StatCard from "../../components/ui/StatCard";
 import ConfirmModal from "../../components/ui/ConfirmModal";
+import {
+  apiGetMatchRequests,
+  apiGetMatchRequestCounts,
+  apiCreateMatchRequest,
+  apiConfirmMatchRequest,
+  apiCompleteMatchRequest,
+  apiCancelMatchRequest,
+  apiGetMatchRequestDetail,
+} from "../../lib/matchRequestApi";
+import { apiGetPublicTutors } from "../../lib/tutorApi";
 
 const statusMeta = {
-  pending: { label: "Chờ xử lý", tone: "amber" },
-  published: { label: "Đã gửi lên hệ thống", tone: "violet" },
-  offered: { label: "Đã gửi đề nghị", tone: "blue" },
-  matched: { label: "Đã ghép thành công", tone: "emerald" },
-  cancelled: { label: "Đã hủy", tone: "slate" },
-};
-
-const levelTone = {
-  A1: "slate",
-  A2: "slate",
-  B1: "blue",
-  B2: "blue",
-  C1: "blue",
-  C2: "blue",
+  PENDING: { label: "Chờ xử lý", tone: "amber", icon: Clock },
+  TRIAL: { label: "Đang dạy thử", tone: "blue", icon: BookOpen },
+  MATCHED: { label: "Ghép thành công", tone: "emerald", icon: CheckCircle2 },
+  CANCELLED: { label: "Đã hủy", tone: "slate", icon: XCircle },
 };
 
 const fmtVND = (n) => (n ? Number(n).toLocaleString("vi-VN") + "₫" : "0₫");
@@ -62,55 +60,52 @@ function formatTs(ts) {
   );
 }
 
-function getDaysRemaining(cancelledAt) {
-  if (!cancelledAt) return null;
-  const cancelDate = new Date(cancelledAt);
-  const deleteDate = new Date(cancelDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const now = new Date();
-  const diffMs = deleteDate - now;
-  if (diffMs <= 0) return 0;
-  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-}
-
-function getPublishedHoursRemaining(publishedAt) {
-  if (!publishedAt) return null;
-  const pubDate = new Date(publishedAt);
-  const closeDate = new Date(pubDate.getTime() + 6 * 60 * 60 * 1000); // 6 hours
-  const now = new Date();
-  const diffMs = closeDate - now;
-  if (diffMs <= 0) return { hours: 0, minutes: 0, expired: true };
-  const hours = Math.floor(diffMs / (1000 * 60 * 60));
-  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-  return { hours, minutes, expired: false };
-}
+const INITIAL_CREATE_FORM = {
+  parentName: "",
+  phone: "",
+  studentName: "",
+  grade: "Lớp 10",
+  school: "",
+  tutorId: "",
+  className: "Tiếng Anh học thử 1 kèm 1",
+  sessionsPerWeek: 2,
+  durationMinutes: 90,
+  teachingMode: "ONLINE",
+  pricePerSession: 250000,
+  preferredSchedule: "Thứ 2 - 4 - 6 (19:30 - 21:00)",
+  notes: "",
+};
 
 export function MatchRequests() {
-  const {
-    matchRequestList,
-    createMatchOffer,
-    updateMatchRequest,
-    cancelMatchOffer,
-    publishMatchRequest,
-    selectTutorFromPublished,
-    sendDirectOffer,
-    tutorList,
-  } = useAuth();
+  const { token, session, tutorList: mockTutorList } = useAuth();
+  const currentToken = token || session?.token;
 
-  const [searchQuery, setSearchQuery] = useState("");
+  // Data states
+  const [requests, setRequests] = useState([]);
+  const [counts, setCounts] = useState({ pending: 0, trial: 0, matched: 0, cancelled: 0, total: 0 });
+  const [activeTutors, setActiveTutors] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Filter & Search states
   const [statusFilter, setStatusFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
-  // Modal State for Creating Match Offer (existing flow — for "offered" tab change tutor)
-  const [selectedRequest, setSelectedRequest] = useState(null);
-  const [selectedTutorId, setSelectedTutorId] = useState("");
-  const [customFeeRate, setCustomFeeRate] = useState(0.15); // 15%
-  const [adminNote, setAdminNote] = useState("");
-  const [toastMessage, setToastMessage] = useState(null);
+  // Modals
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createFormData, setCreateFormData] = useState(INITIAL_CREATE_FORM);
+  const [createFormError, setCreateFormError] = useState("");
 
-  // Modal State for Published -> Select Applied Tutor
-  const [publishedSelectRequest, setPublishedSelectRequest] = useState(null);
-  const [selectedAppliedTutorId, setSelectedAppliedTutorId] = useState("");
+  const [detailModalItem, setDetailModalItem] = useState(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
 
-  // ConfirmModal states
+  const [cancelModalItem, setCancelModalItem] = useState(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelError, setCancelError] = useState("");
+
+  // Confirm Modal state
   const [confirmModal, setConfirmModal] = useState({
     open: false,
     title: "",
@@ -120,10 +115,9 @@ export function MatchRequests() {
     onConfirm: null,
   });
 
-  // Success popup after match offer confirmation
+  // Success Toast & Popup
+  const [toastMessage, setToastMessage] = useState(null);
   const [successPopup, setSuccessPopup] = useState(null);
-
-  const activeTutors = tutorList.filter((t) => t.status === "active");
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -134,234 +128,263 @@ export function MatchRequests() {
     setConfirmModal((prev) => ({ ...prev, open: false, onConfirm: null }));
   };
 
-  // Filtered requests
-  const filtered = matchRequestList.filter((r) => {
-    const matchSearch =
-      r.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.parentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.targetGoal.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (r.location && r.location.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    const matchStatus = statusFilter === "all" || r.status === statusFilter;
-
-    return matchSearch && matchStatus;
-  });
-
-  // Calculate stats
-  const totalCount = matchRequestList.length;
-  const pendingCount = matchRequestList.filter((r) => r.status === "pending").length;
-  const publishedCount = matchRequestList.filter((r) => r.status === "published").length;
-  const offeredCount = matchRequestList.filter((r) => r.status === "offered").length;
-  const matchedCount = matchRequestList.filter((r) => r.status === "matched").length;
-
-  // === PENDING ACTIONS ===
-
-  // Path 1: Open match — Publish to tutor board
-  const handlePublishToBoard = (req) => {
-    setConfirmModal({
-      open: true,
-      title: "Đẩy offer lên trang gia sư",
-      message: `Bạn xác nhận đẩy offer này lên trang gia sư chứ?`,
-      confirmLabel: "Đồng ý",
-      confirmTone: "blue",
-      onConfirm: () => {
-        publishMatchRequest(req.id);
-        closeConfirmModal();
-        setSuccessPopup(`Đơn của học sinh ${req.studentName} đã được đẩy lên trang gia sư thành công. Gia sư có thể vào đăng ký trong vòng 6 giờ.`);
-      },
-    });
-  };
-
-  // Path 2: Direct match — Send offer directly to designated tutor
-  const handleSendDirectOffer = (req) => {
-    const tutorName = req.designatedTutorName || "gia sư được chỉ định";
-    const tutorId = req.designatedTutorId;
-    if (!tutorId) return;
-
-    const monthlySessions = (req.sessionsPerWeek || 3) * 4;
-    const totalTuition = monthlySessions * (req.budgetPerSession || 250000);
-    const calculatedFee = Math.round(totalTuition * (req.platformFeeRate || 0.15));
-
-    setConfirmModal({
-      open: true,
-      title: "Gửi offer cho gia sư",
-      message: `Bạn xác nhận gửi offer cho gia sư ${tutorName} chứ?`,
-      confirmLabel: "Đồng ý",
-      confirmTone: "blue",
-      onConfirm: () => {
-        sendDirectOffer(req.id, tutorId, tutorName, calculatedFee);
-        closeConfirmModal();
-        setSuccessPopup(`Hệ thống sẽ gửi đề nghị tới gia sư ${tutorName}.`);
-      },
-    });
-  };
-
-  // === PUBLISHED ACTIONS ===
-
-  // Path 1: Re-Offer to tutor board when 6h countdown expired and 0 tutors applied
-  const handleReOfferToBoard = (req) => {
-    setConfirmModal({
-      open: true,
-      title: "Đẩy lại đề nghị lên trang gia sư (Re-Offer)",
-      message: `Đơn của học sinh ${req.studentName} đã hết thời gian 6 giờ mà chưa có gia sư nào nhận. Bạn xác nhận Re-Offer để đẩy lại lên trang gia sư trong 6 giờ tiếp theo chứ?`,
-      confirmLabel: "Xác nhận Re-Offer",
-      confirmTone: "amber",
-      onConfirm: () => {
-        publishMatchRequest(req.id);
-        closeConfirmModal();
-        setSuccessPopup(
-          `Đã Re-Offer thành công! Đơn của học sinh ${req.studentName} đã được đẩy lại lên bảng tin gia sư và gia hạn thêm 6 giờ.`
-        );
-      },
-    });
-  };
-
-  // Open modal to select from applied tutors
-  const handleOpenPublishedSelect = (req) => {
-    setPublishedSelectRequest(req);
-    if (req.appliedTutors && req.appliedTutors.length > 0) {
-      setSelectedAppliedTutorId(req.appliedTutors[0].tutorId);
-    } else {
-      setSelectedAppliedTutorId("");
+  // Load Active Tutors for Selection Dropdown
+  useEffect(() => {
+    async function loadTutors() {
+      try {
+        const res = await apiGetPublicTutors({ page: 0, size: 100 });
+        if (res && res.items && res.items.length > 0) {
+          setActiveTutors(res.items);
+        } else if (mockTutorList && mockTutorList.length > 0) {
+          setActiveTutors(mockTutorList.filter((t) => t.status === "active"));
+        }
+      } catch {
+        if (mockTutorList && mockTutorList.length > 0) {
+          setActiveTutors(mockTutorList.filter((t) => t.status === "active"));
+        }
+      }
     }
-  };
+    loadTutors();
+  }, [mockTutorList]);
 
-  const handleClosePublishedSelect = () => {
-    setPublishedSelectRequest(null);
-    setSelectedAppliedTutorId("");
-  };
+  // Load Requests & Counts
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [listRes, countsRes] = await Promise.all([
+        apiGetMatchRequests({
+          tab: statusFilter,
+          keyword: searchQuery,
+          page,
+          size: 20,
+          token: currentToken,
+        }),
+        apiGetMatchRequestCounts(currentToken).catch(() => ({
+          pending: 0,
+          trial: 0,
+          matched: 0,
+          cancelled: 0,
+          total: 0,
+        })),
+      ]);
 
-  const handleConfirmPublishedSelect = () => {
-    if (!publishedSelectRequest || !selectedAppliedTutorId) return;
-
-    const chosenApplied = publishedSelectRequest.appliedTutors?.find(
-      (t) => t.tutorId === selectedAppliedTutorId
-    );
-    if (!chosenApplied) return;
-
-    const monthlySessions = (publishedSelectRequest.sessionsPerWeek || 3) * 4;
-    const totalTuition = monthlySessions * (publishedSelectRequest.budgetPerSession || 250000);
-    const calculatedFee = Math.round(totalTuition * (publishedSelectRequest.platformFeeRate || 0.15));
-
-    setConfirmModal({
-      open: true,
-      title: "Xác nhận gửi đề nghị",
-      message: `Bạn xác nhận gửi offer cho gia sư ${chosenApplied.tutorName} chứ?`,
-      confirmLabel: "Đồng ý",
-      confirmTone: "blue",
-      onConfirm: () => {
-        selectTutorFromPublished(
-          publishedSelectRequest.id,
-          chosenApplied.tutorId,
-          chosenApplied.tutorName,
-          calculatedFee
-        );
-        closeConfirmModal();
-        handleClosePublishedSelect();
-        setSuccessPopup(`Hệ thống sẽ gửi đề nghị tới gia sư ${chosenApplied.tutorName}.`);
-      },
-    });
-  };
-
-  // === OFFERED ACTIONS (existing — change tutor / cancel offer) ===
-
-  // Open Match Offer Modal (for offered tab — change tutor)
-  const handleOpenOfferModal = (req) => {
-    setSelectedRequest(req);
-    if (req.suggestedTutors && req.suggestedTutors.length > 0) {
-      setSelectedTutorId(req.suggestedTutors[0].tutorId);
-    } else if (activeTutors.length > 0) {
-      setSelectedTutorId(activeTutors[0].id);
-    } else {
-      setSelectedTutorId("");
+      setRequests(listRes.items || []);
+      setTotalPages(listRes.totalPages || 1);
+      if (countsRes) {
+        setCounts(countsRes);
+        window.dispatchEvent(new CustomEvent("match-requests-updated", { detail: countsRes }));
+      }
+    } catch (err) {
+      showToast(err.message || "Không thể tải danh sách đơn ghép lớp.");
+    } finally {
+      setIsLoading(false);
     }
-    setCustomFeeRate(req.platformFeeRate || 0.15);
-    setAdminNote(`Trung tâm xin gửi đề nghị nhận lớp học viên ${req.studentName} (${req.grade}) - Mục tiêu: ${req.targetGoal}`);
+  }, [currentToken, statusFilter, searchQuery, page]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Handle Search Input (reset to page 0)
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    setPage(0);
+    loadData();
   };
 
-  const handleCloseModal = () => {
-    setSelectedRequest(null);
-    setSelectedTutorId("");
-    setAdminNote("");
+  const handleOpenCreateModal = () => {
+    const firstTutor = activeTutors[0];
+    const defaultTutorId = firstTutor ? String(firstTutor.tutorId ?? firstTutor.id ?? "") : "";
+    setCreateFormData({
+      ...INITIAL_CREATE_FORM,
+      tutorId: defaultTutorId,
+    });
+    setCreateFormError("");
+    setIsCreateModalOpen(true);
   };
 
-  // Submit Match Offer — with intermediate confirmation step
-  const handleConfirmOffer = () => {
-    if (!selectedRequest || !selectedTutorId) return;
+  const handleCreateSubmit = (e) => {
+    e.preventDefault();
+    if (!createFormData.parentName.trim()) {
+      setCreateFormError("Vui lòng nhập họ tên phụ huynh.");
+      return;
+    }
+    const cleanPhone = createFormData.phone.replace(/[\s.\-()]/g, "");
+    if (!/^(0|\+84|84)(3|5|7|8|9)\d{8}$/.test(cleanPhone)) {
+      setCreateFormError("Vui lòng nhập đúng số điện thoại (10 chữ số nhà mạng Việt Nam).");
+      return;
+    }
+    if (!createFormData.studentName.trim()) {
+      setCreateFormError("Vui lòng nhập họ tên học sinh.");
+      return;
+    }
+    if (!createFormData.tutorId) {
+      setCreateFormError("Vui lòng chọn gia sư được chỉ định.");
+      return;
+    }
+    if (!createFormData.className.trim()) {
+      setCreateFormError("Vui lòng nhập tên lớp hoặc yêu cầu môn học.");
+      return;
+    }
 
-    const chosenTutor = tutorList.find((t) => t.id === selectedTutorId);
-    if (!chosenTutor) return;
-
-    const isChangingTutor = selectedRequest.status === "offered" && selectedRequest.matchedTutorName;
-    const previousTutorName = selectedRequest.matchedTutorName;
+    const chosenTutor = activeTutors.find((t) => String(t.tutorId ?? t.id) === String(createFormData.tutorId));
+    const tutorDisplayName = chosenTutor ? (chosenTutor.fullName || chosenTutor.name || `Gia sư #${createFormData.tutorId}`) : "Gia sư";
 
     setConfirmModal({
       open: true,
-      title: isChangingTutor ? "Xác nhận thay đổi gia sư" : "Xác nhận ghép lớp",
-      message: isChangingTutor
-        ? `Bạn chắc chắn xác nhận thay đổi gia sư ${previousTutorName} thành gia sư ${chosenTutor.name} chứ?`
-        : `Bạn chắc chắn xác nhận match học sinh ${selectedRequest.studentName} với gia sư ${chosenTutor.name} chứ?`,
+      title: "Xác nhận tạo đơn ghép lớp",
+      message: `Bạn xác nhận thao tác của mình chứ? Xác nhận tạo đơn ghép lớp cho học sinh ${createFormData.studentName} với gia sư ${tutorDisplayName}?`,
       confirmLabel: "Đồng ý",
       confirmTone: "blue",
-      onConfirm: () => {
-        // Tính phí tự động: (Số buổi/tuần * 4 tuần) * Đơn giá/buổi * Tỷ lệ phí
-        const monthlySessions = (selectedRequest.sessionsPerWeek || 3) * 4;
-        const totalTuition = monthlySessions * (selectedRequest.budgetPerSession || 250000);
-        const calculatedFee = Math.round(totalTuition * customFeeRate);
-
-        createMatchOffer(selectedRequest.id, chosenTutor.id, chosenTutor.name, calculatedFee);
-
+      onConfirm: async () => {
         closeConfirmModal();
-        handleCloseModal();
-
-        // Show success popup
-        setSuccessPopup(
-          isChangingTutor
-            ? `Hệ thống đã gửi thông báo hủy đề nghị tới gia sư ${previousTutorName} và lời đề nghị tới gia sư ${chosenTutor.name}.`
-            : `Hệ thống sẽ gửi đề nghị tới gia sư ${chosenTutor.name}.`
-        );
+        setIsSubmitting(true);
+        try {
+          await apiCreateMatchRequest(
+            {
+              parentName: createFormData.parentName.trim(),
+              phone: cleanPhone,
+              studentName: createFormData.studentName.trim(),
+              grade: createFormData.grade,
+              school: createFormData.school.trim(),
+              tutorId: Number(createFormData.tutorId),
+              className: createFormData.className.trim(),
+              sessionsPerWeek: Number(createFormData.sessionsPerWeek) || 2,
+              durationMinutes: Number(createFormData.durationMinutes) || 90,
+              teachingMode: createFormData.teachingMode,
+              pricePerSession: Number(createFormData.pricePerSession) || 250000,
+              preferredSchedule: createFormData.preferredSchedule,
+              notes: createFormData.notes,
+            },
+            currentToken
+          );
+          setIsCreateModalOpen(false);
+          setSuccessPopup(
+            `Đã tạo thành công đơn ghép lớp cho học sinh ${createFormData.studentName} và gia sư ${tutorDisplayName}! Đơn đã được chuyển vào mục "Chờ xử lý".`
+          );
+          loadData();
+        } catch (err) {
+          setCreateFormError(err.message || "Tạo đơn ghép lớp thất bại.");
+        } finally {
+          setIsSubmitting(false);
+        }
       },
     });
   };
 
-  // Cancel request with ConfirmModal
-  const handleCancelRequest = (reqId, studentName) => {
+  // === UC-REC-06 / UC-ADM-05: Duyệt Đơn ghép lớp (Xác nhận đơn) ===
+  const handleConfirmRequest = (req) => {
     setConfirmModal({
       open: true,
-      title: "Hủy yêu cầu ghép lớp",
-      message: `Bạn chắc chắn muốn hủy yêu cầu ghép lớp của học sinh ${studentName}?`,
+      title: "Xác nhận ghép lớp",
+      message: `Bạn xác nhận thao tác của mình chứ? Xác nhận ghép lớp cho gia sư ${req.tutorName || "chỉ định"} và phụ huynh ${req.parentName}?`,
+      confirmLabel: "Đồng ý",
+      confirmTone: "emerald",
+      onConfirm: async () => {
+        closeConfirmModal();
+        setIsSubmitting(true);
+        try {
+          await apiConfirmMatchRequest(req.id, currentToken);
+          setDetailModalItem(null);
+          setSuccessPopup(
+            `Thao tác thành công! Đơn của học sinh ${req.studentName || req.parentName} đã được chuyển sang trạng thái "Đang dạy thử". Lớp học thử (TRIAL) đã được khởi tạo và gửi thông báo tới gia sư ${req.tutorName}.`
+          );
+          loadData();
+        } catch (err) {
+          showToast(err.message || "Xác nhận đơn thất bại.");
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
+  };
+
+  // === UC-REC-06.1 / UC-ADM-05.1: Duyệt Đơn ghép lớp từ dạy thử sang ghép thành công ===
+  const handleCompleteMatch = (req) => {
+    setConfirmModal({
+      open: true,
+      title: "Xác nhận ghép thành công",
+      message: `Bạn xác nhận thao tác của mình chứ? Xác nhận hoàn tất dạy thử và chuyển đơn sang trạng thái Ghép thành công cho học sinh ${req.studentName || req.parentName} với gia sư ${req.tutorName || "chỉ định"}?`,
+      confirmLabel: "Đồng ý",
+      confirmTone: "emerald",
+      onConfirm: async () => {
+        closeConfirmModal();
+        setIsSubmitting(true);
+        try {
+          await apiCompleteMatchRequest(req.id, currentToken);
+          setDetailModalItem(null);
+          setSuccessPopup(
+            `Thao tác thành công! Đơn của học sinh ${req.studentName || req.parentName} đã hoàn tất dạy thử và chuyển sang trạng thái "Ghép thành công". Lớp học chính thức (ACTIVE) đã được kích hoạt và gửi thông báo tới gia sư ${req.tutorName}.`
+          );
+          loadData();
+        } catch (err) {
+          showToast(err.message || "Xác nhận ghép thành công thất bại.");
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
+  };
+
+  // === UC-REC-07 / UC-ADM-06: Hủy Đơn ghép lớp ===
+  const handleOpenCancelModal = (req) => {
+    setCancelModalItem(req);
+    setCancelReason("");
+    setCancelError("");
+  };
+
+  const handleCancelSubmit = (e) => {
+    e.preventDefault();
+    if (!cancelReason.trim()) {
+      setCancelError("Vui lòng nhập lý do hủy đơn.");
+      return;
+    }
+
+    setConfirmModal({
+      open: true,
+      title: "Hủy đơn ghép lớp",
+      message: "Bạn chắc chắn hủy đơn ghép lớp này chứ? Lớp học liên quan (nếu có) sẽ bị hủy.",
       confirmLabel: "Đồng ý hủy",
       confirmTone: "rose",
-      onConfirm: () => {
-        updateMatchRequest(reqId, { status: "cancelled", cancelledAt: new Date().toISOString() });
-        showToast(`Đã chuyển yêu cầu của ${studentName} sang trạng thái Hủy.`);
+      onConfirm: async () => {
         closeConfirmModal();
+        setIsSubmitting(true);
+        try {
+          await apiCancelMatchRequest(cancelModalItem.id, cancelReason.trim(), currentToken);
+          setCancelModalItem(null);
+          showToast("Đã hủy đơn ghép lớp thành công.");
+          loadData();
+        } catch (err) {
+          setCancelError(err.message || "Hủy đơn thất bại.");
+        } finally {
+          setIsSubmitting(false);
+        }
       },
     });
   };
 
-  // Cancel offer with ConfirmModal (for "offered" status)
-  const handleCancelOffer = (req) => {
-    setConfirmModal({
-      open: true,
-      title: "Hủy đề nghị ghép lớp",
-      message: `Bạn chắc chắn muốn hủy đề nghị đã gửi tới gia sư ${req.matchedTutorName}? Thông tin thanh toán liên quan cũng sẽ bị xóa.`,
-      confirmLabel: "Đồng ý hủy",
-      confirmTone: "rose",
-      onConfirm: () => {
-        cancelMatchOffer(req.id);
-        showToast(`Đã hủy đề nghị tới gia sư ${req.matchedTutorName}. Dữ liệu thanh toán liên quan đã được xóa.`);
-        closeConfirmModal();
-      },
-    });
+  // === Xem chi tiết đơn ===
+  const handleViewDetail = async (req) => {
+    setDetailModalItem(req);
+    setIsDetailLoading(true);
+    try {
+      const detail = await apiGetMatchRequestDetail(req.id, currentToken);
+      if (detail) {
+        setDetailModalItem(detail);
+      }
+    } catch {
+      // Dùng dữ liệu summary sẵn có
+    } finally {
+      setIsDetailLoading(false);
+    }
   };
 
   return (
     <div className="space-y-6">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 rounded-xl border border-blue-200 bg-slate-900 px-4 py-3 text-sm text-white shadow-xl transition-all dark:border-blue-900 dark:bg-slate-900">
-          <CheckCircle2 size={18} className="text-blue-400" />
+        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 rounded-xl border border-blue-200 bg-slate-900 px-4 py-3 text-sm text-white shadow-xl transition-all dark:border-blue-900 dark:bg-slate-900 animate-fade-in">
+          <CheckCircle2 size={18} className="text-blue-400 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -379,7 +402,7 @@ export function MatchRequests() {
         onCancel={() => setSuccessPopup(null)}
       />
 
-      {/* ConfirmModal for all actions */}
+      {/* ConfirmModal for Actions */}
       <ConfirmModal
         open={confirmModal.open}
         title={confirmModal.title}
@@ -390,80 +413,95 @@ export function MatchRequests() {
         onCancel={closeConfirmModal}
       />
 
-      {/* Page Header */}
-      <PageHeader
-        title="Quản lý yêu cầu ghép lớp"
-        description="Tiếp nhận Match Request từ Phụ huynh, phân tích độ phù hợp với AI và tạo Match Offer cho Gia sư (FR-16)."
-      />
+      {/* Page Header & Action Button on the top-left */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <PageHeader
+            title="Quản lý Đơn ghép lớp"
+            description="Tiếp nhận, xử lý và ghép lớp chỉ định theo UC-REC-05..07 & UC-ADM-04..06."
+            className="mb-3"
+          />
+          <Button
+            onClick={handleOpenCreateModal}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-4 py-2.5 rounded-xl inline-flex items-center gap-2 shadow-sm cursor-pointer"
+          >
+            <PlusCircle size={18} />
+            <span>Tạo mới đơn ghép lớp</span>
+          </Button>
+        </div>
+      </div>
 
       {/* KPI Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           icon={ClipboardList}
-          label="Tổng yêu cầu tiếp nhận"
-          value={totalCount}
+          label="Tổng đơn tiếp nhận"
+          value={counts.total}
           hint="Toàn bộ lịch sử"
           tone="blue"
         />
         <StatCard
           icon={Clock}
-          label="Chờ xử lý ghép lớp"
-          value={pendingCount}
-          hint="Cần tạo đề nghị"
+          label="Chờ xử lý"
+          value={counts.pending}
+          hint="Cần gọi xác nhận gia sư"
           tone="amber"
         />
         <StatCard
-          icon={Globe}
-          label="Đã gửi lên hệ thống"
-          value={publishedCount}
-          hint="Gia sư đang apply"
-          tone="violet"
-        />
-        <StatCard
-          icon={Send}
-          label="Đang gửi đề nghị"
-          value={offeredCount}
-          hint="Chờ gia sư phản hồi"
+          icon={BookOpen}
+          label="Đang dạy thử"
+          value={counts.trial}
+          hint="Gia sư đang dạy thử"
           tone="blue"
         />
         <StatCard
           icon={CheckCircle2}
-          label="Ghép lớp thành công"
-          value={matchedCount}
-          hint="Đã kết nối gia sư"
+          label="Ghép thành công"
+          value={counts.matched}
+          hint="Đã chốt lịch chính thức"
           tone="emerald"
+        />
+        <StatCard
+          icon={XCircle}
+          label="Đã hủy"
+          value={counts.cancelled}
+          hint="Không ghép được / PH hủy"
+          tone="slate"
         />
       </div>
 
       {/* Filters & Search Toolbar */}
       <Card padded={false} className="p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          {/* Status Tabs */}
+          {/* Status Tabs per Use Case */}
           <div className="flex flex-wrap gap-2">
             {[
-              { key: "all", label: "Tất cả" },
-              { key: "pending", label: "Chờ xử lý", count: pendingCount },
-              { key: "published", label: "Đã gửi lên hệ thống", count: publishedCount },
-              { key: "offered", label: "Đã gửi đề nghị", count: offeredCount },
-              { key: "matched", label: "Đã ghép thành công", count: matchedCount },
-              { key: "cancelled", label: "Đã hủy" },
+              { key: "all", label: "Tất cả", count: counts.total },
+              { key: "pending", label: "Chờ xử lý", count: counts.pending },
+              { key: "trial", label: "Đang dạy thử", count: counts.trial },
+              { key: "matched", label: "Ghép thành công", count: counts.matched },
+              { key: "cancelled", label: "Đã hủy", count: counts.cancelled },
             ].map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setStatusFilter(tab.key)}
-                className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition active:scale-[0.98] ${
+                type="button"
+                onClick={() => {
+                  setStatusFilter(tab.key);
+                  setPage(0);
+                }}
+                className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition active:scale-[0.98] cursor-pointer ${
                   statusFilter === tab.key
-                    ? "border-blue-600 bg-blue-600 text-white shadow-sm"
-                    : "border-slate-200 text-slate-600 hover:border-blue-300 dark:border-slate-700 dark:text-slate-300"
+                    ? "border-primary bg-primary text-primary-foreground shadow-xs"
+                    : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
                 }`}
               >
                 <span>{tab.label}</span>
                 {tab.count !== undefined && (
                   <span
-                    className={`ml-1 rounded-full px-1.5 py-0.2 text-[10px] ${
+                    className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                       statusFilter === tab.key
-                        ? "bg-blue-700 text-white"
-                        : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                        ? "bg-primary-foreground/20 text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
                     }`}
                   >
                     {tab.count}
@@ -473,715 +511,688 @@ export function MatchRequests() {
             ))}
           </div>
 
-          {/* Search */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative min-w-[240px] flex-1 sm:w-64">
+          {/* Search Form */}
+          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
+            <div className="relative min-w-[240px] flex-1 sm:w-72">
               <Search
                 size={15}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
               />
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm học sinh, phụ huynh..."
-                className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:focus:ring-blue-950"
+                placeholder="Tìm theo PH, SĐT, HS, Gia sư..."
+                className="w-full rounded-xl border border-border bg-background py-2 pl-9 pr-3 text-xs text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </div>
-          </div>
+            <Button type="submit" variant="secondary" size="sm" className="cursor-pointer">
+              Tìm kiếm
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSearchQuery("");
+                setPage(0);
+                loadData();
+              }}
+              title="Làm mới danh sách"
+              className="cursor-pointer"
+            >
+              <RotateCcw size={14} />
+            </Button>
+          </form>
         </div>
       </Card>
 
       {/* Match Requests List */}
-      <div className="space-y-4">
-        {filtered.map((req, idx) => {
-          const meta = statusMeta[req.status] || { label: req.status, tone: "neutral" };
-          const monthlyEstimate = (req.sessionsPerWeek || 3) * 4 * (req.budgetPerSession || 250000);
-          const platformFeeEstimate = req.matchOfferFee || Math.round(monthlyEstimate * (req.platformFeeRate || 0.15));
-          const daysRemaining = req.status === "cancelled" ? getDaysRemaining(req.cancelledAt) : null;
-          const publishedTimeRemaining = req.status === "published" ? getPublishedHoursRemaining(req.publishedAt) : null;
-          const isOpenMatch = req.registrationType === "open_match";
-          const isDirectMatch = req.registrationType === "direct_match";
-
-          return (
+      {isLoading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
             <div
-              key={req.id}
-              style={{ animationDelay: `${idx * 50}ms` }}
-              className="fade-slide-in rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-blue-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+              key={i}
+              className="h-44 rounded-2xl border border-border bg-card p-6 animate-pulse space-y-4"
             >
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                {/* Left: Student & Parent Info */}
-                <div className="space-y-3 lg:max-w-xl">
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-50">
-                      {req.studentName}
-                    </h3>
-                    <Badge tone={levelTone[req.currentLevel] || "blue"}>
-                      Trình độ {req.currentLevel}
-                    </Badge>
-                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                      {req.grade}
-                    </span>
-                    <Badge tone={meta.tone}>{meta.label}</Badge>
-                    {/* Registration Type Badge */}
-                    {req.status === "pending" && isOpenMatch && (
-                      <Badge tone="violet">
-                        <Globe size={10} className="mr-1 inline" />
-                        Tìm GS trực quan
-                      </Badge>
-                    )}
-                    {req.status === "pending" && isDirectMatch && (
-                      <Badge tone="sky">
-                        <UserPlus size={10} className="mr-1 inline" />
-                        Chỉ đích danh GS
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Target Goal */}
-                  <p className="text-sm font-medium text-blue-900 dark:text-blue-300">
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">Mục tiêu: </span>
-                    {req.targetGoal}
-                  </p>
-
-                  {/* Schedule & Location Details */}
-                  <div className="grid grid-cols-1 gap-2 text-xs text-slate-600 dark:text-slate-400 sm:grid-cols-2">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={14} className="text-blue-500 shrink-0" />
-                      <span>{req.preferredSchedule}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin size={14} className="text-emerald-500 shrink-0" />
-                      <span>{req.location}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone size={14} className="text-slate-400 shrink-0" />
-                      <span>
-                        PH: {req.parentName} &bull; {req.parentPhone}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MessageCircle size={14} className="text-sky-500 shrink-0" />
-                      <span>Telegram: {req.parentTelegram}</span>
-                    </div>
-                  </div>
-
-                  {/* Notes from parent */}
-                  {req.notes && (
-                    <div className="rounded-lg bg-slate-50 p-2.5 text-xs text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
-                      <span className="font-medium text-slate-700 dark:text-slate-200">Ghi chú từ phụ huynh: </span>
-                      {req.notes}
-                    </div>
-                  )}
-
-                  {/* Designated tutor info for Path 2 pending */}
-                  {req.status === "pending" && isDirectMatch && req.designatedTutorName && (
-                    <div className="flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50/70 p-2.5 text-xs text-sky-800 dark:border-sky-900/40 dark:bg-sky-950/40 dark:text-sky-200">
-                      <UserPlus size={16} className="text-sky-600 dark:text-sky-400 shrink-0" />
-                      <div>
-                        Gia sư được chỉ đích danh: <span className="font-semibold">{req.designatedTutorName}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Matched Tutor Status if already offered or matched */}
-                  {(req.status === "offered" || req.status === "matched") && req.matchedTutorName && (
-                    <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/70 p-2.5 text-xs text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
-                      <UserCheck size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
-                      <div>
-                        Gia sư tiếp nhận: <span className="font-semibold">{req.matchedTutorName}</span>
-                        {req.offeredAt && (
-                          <span className="text-[11px] text-blue-600/80 dark:text-blue-300/80 ml-2">
-                            (Gửi lúc: {formatTs(req.offeredAt)})
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Published: Applied Tutors count & countdown */}
-                  {req.status === "published" && (
-                    <div className="space-y-2">
-                      <div
-                        className={`flex items-center gap-2 rounded-lg border p-2.5 text-xs ${
-                          publishedTimeRemaining?.expired && (!req.appliedTutors || req.appliedTutors.length === 0)
-                            ? "border-amber-200 bg-amber-50/70 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200"
-                            : "border-violet-100 bg-violet-50/70 text-violet-800 dark:border-violet-900/40 dark:bg-violet-950/40 dark:text-violet-200"
-                        }`}
-                      >
-                        <Users
-                          size={16}
-                          className={
-                            publishedTimeRemaining?.expired && (!req.appliedTutors || req.appliedTutors.length === 0)
-                              ? "text-amber-600 dark:text-amber-400 shrink-0"
-                              : "text-violet-600 dark:text-violet-400 shrink-0"
-                          }
-                        />
-                        <div>
-                          <span className="font-semibold">{req.appliedTutors?.length || 0}</span> gia sư đã đăng ký apply
-                          {publishedTimeRemaining && !publishedTimeRemaining.expired && (
-                            <span className="ml-2 text-[11px] text-violet-600/80 dark:text-violet-300/80">
-                              (Còn {publishedTimeRemaining.hours}h{publishedTimeRemaining.minutes}p để đóng)
-                            </span>
-                          )}
-                          {publishedTimeRemaining && publishedTimeRemaining.expired && (
-                            <span className="ml-2 text-[11px] text-rose-500 font-medium">
-                              (Đã hết thời gian đăng ký{(!req.appliedTutors || req.appliedTutors.length === 0) ? " - Chưa có ai nhận" : ""})
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Countdown for cancelled items */}
-                  {req.status === "cancelled" && daysRemaining !== null && (
-                    <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400">
-                      <Timer size={14} className="text-slate-400 shrink-0" />
-                      <span>
-                        {daysRemaining > 0
-                          ? `Tự động xóa sau ${daysRemaining} ngày`
-                          : "Sẽ được xóa trong đợt dọn dẹp tiếp theo"}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Right: Fee Calculation & Action Box */}
-                <div className="flex flex-col justify-between rounded-xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-800 dark:bg-slate-800/40 lg:w-72 shrink-0">
-                  <div className="space-y-2 text-xs">
-                    <div className="flex items-center justify-between font-medium">
-                      <span className="text-slate-500 dark:text-slate-400">Ngân sách / buổi:</span>
-                      <span className="font-semibold text-slate-900 dark:text-white">
-                        {fmtVND(req.budgetPerSession)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between font-medium">
-                      <span className="text-slate-500 dark:text-slate-400">Số buổi dự kiến:</span>
-                      <span className="text-slate-700 dark:text-slate-200">
-                        {req.sessionsPerWeek} buổi/tuần (≈{req.sessionsPerWeek * 4}b/tháng)
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between border-t border-slate-200 pt-2 dark:border-slate-700">
-                      <span className="font-semibold text-slate-700 dark:text-slate-300">
-                        Phí kết nối trung tâm:
-                      </span>
-                      <span className="font-bold text-blue-600 dark:text-blue-400">
-                        {fmtVND(platformFeeEstimate)}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-400">
-                      Tự động tính: 15% học phí tháng đầu khi gia sư nhận lớp
-                    </p>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="mt-4 pt-2 border-t border-slate-200/80 dark:border-slate-700 flex flex-col gap-2">
-                    {/* PENDING — Path 1: Open Match */}
-                    {req.status === "pending" && isOpenMatch && (
-                      <Button
-                        size="sm"
-                        onClick={() => handlePublishToBoard(req)}
-                        className="w-full justify-center bg-violet-600 hover:bg-violet-700 text-white"
-                      >
-                        <Upload size={14} /> Đẩy offer cho trang gia sư
-                      </Button>
-                    )}
-
-                    {/* PENDING — Path 2: Direct Match */}
-                    {req.status === "pending" && isDirectMatch && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleSendDirectOffer(req)}
-                        className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        <Send size={14} /> Gửi offer cho gia sư
-                      </Button>
-                    )}
-
-                    {/* PUBLISHED — Select from applied tutors OR Re-Offer if expired with 0 tutors */}
-                    {req.status === "published" && (
-                      (() => {
-                        const hasApplicants = req.appliedTutors && req.appliedTutors.length > 0;
-                        const isExpired = publishedTimeRemaining?.expired;
-
-                        // Case 2: 0 applicants and expired -> "Re-Offer" button
-                        if (!hasApplicants && isExpired) {
-                          return (
-                            <Button
-                              size="sm"
-                              onClick={() => handleReOfferToBoard(req)}
-                              className="w-full justify-center bg-amber-600 hover:bg-amber-700 text-white shadow-sm font-medium"
-                            >
-                              <RotateCcw size={14} /> Re-Offer (Đẩy lại lên trang GS)
-                            </Button>
-                          );
-                        }
-
-                        // Case 1: 0 applicants and not expired -> Disabled dimmed "Match Offer" button
-                        if (!hasApplicants) {
-                          return (
-                            <Button
-                              size="sm"
-                              disabled
-                              className="w-full justify-center bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-50 cursor-not-allowed border border-slate-200 dark:border-slate-700 shadow-none pointer-events-none"
-                              title="Chưa có gia sư nào đăng ký nhận lớp"
-                            >
-                              <UserCheck size={14} /> Match Offer (0 GS đã đăng ký)
-                            </Button>
-                          );
-                        }
-
-                        // Normal Case: Has applicants -> Active "Match Offer" button
-                        return (
-                          <Button
-                            size="sm"
-                            onClick={() => handleOpenPublishedSelect(req)}
-                            className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                          >
-                            <UserCheck size={14} /> Match Offer ({req.appliedTutors.length} GS đã đăng ký)
-                          </Button>
-                        );
-                      })()
-                    )}
-
-                    {/* OFFERED — Change tutor */}
-                    {req.status === "offered" && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => handleOpenOfferModal(req)}
-                          className="w-full justify-center text-blue-600 hover:text-blue-700"
-                        >
-                          <UserCheck size={14} /> Thay đổi gia sư
-                        </Button>
-                        <button
-                          onClick={() => handleCancelOffer(req)}
-                          className="text-center text-[11px] text-slate-400 hover:text-rose-500 transition"
-                        >
-                          Hủy đề nghị
-                        </button>
-                      </>
-                    )}
-
-                    {/* PENDING — Cancel */}
-                    {req.status === "pending" && (
-                      <button
-                        onClick={() => handleCancelRequest(req.id, req.studentName)}
-                        className="text-center text-[11px] text-slate-400 hover:text-rose-500 transition"
-                      >
-                        Hủy yêu cầu
-                      </button>
-                    )}
-
-                    {/* PUBLISHED — Cancel */}
-                    {req.status === "published" && (
-                      <button
-                        onClick={() => handleCancelRequest(req.id, req.studentName)}
-                        className="text-center text-[11px] text-slate-400 hover:text-rose-500 transition"
-                      >
-                        Hủy yêu cầu
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-
-              {/* Applied Tutors list for Published status */}
-              {req.status === "published" && req.appliedTutors && req.appliedTutors.length > 0 && (
-                <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400">
-                    <Users size={14} />
-                    <span>Gia sư đã đăng ký nhận lớp:</span>
-                  </div>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                    {req.appliedTutors.map((applied) => {
-                      const tutorDetail = tutorList.find((t) => t.id === applied.tutorId);
-                      return (
-                        <div
-                          key={applied.tutorId}
-                          className="flex items-center justify-between rounded-lg border border-violet-100 bg-violet-50/50 p-2.5 text-xs transition hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-950/30 dark:hover:bg-violet-900/40"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <Avatar initials={tutorDetail?.initials || "GS"} size="sm" />
-                            <div className="min-w-0">
-                              <p className="font-semibold text-slate-800 dark:text-slate-100 truncate">
-                                {applied.tutorName}
-                              </p>
-                              <p className="text-[11px] text-slate-400 truncate">{applied.message}</p>
-                              <p className="text-[10px] text-violet-500">
-                                Đăng ký lúc: {formatTs(applied.appliedAt)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Notice when 0 tutors applied for Published status */}
-              {req.status === "published" && (!req.appliedTutors || req.appliedTutors.length === 0) && (
-                <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
-                  <div
-                    className={`flex items-center gap-2 rounded-lg p-2.5 text-xs ${
-                      publishedTimeRemaining?.expired
-                        ? "border border-amber-200 bg-amber-50/60 text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300"
-                        : "border border-dashed border-slate-200 bg-slate-50/50 text-slate-500 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400"
-                    }`}
-                  >
-                    {publishedTimeRemaining?.expired ? (
-                      <>
-                        <AlertCircle size={15} className="text-amber-600 dark:text-amber-400 shrink-0" />
-                        <span>
-                          Thời gian nhận đăng ký 6 giờ đã kết thúc nhưng chưa có gia sư nhận. Vui lòng bấm <strong>"Re-Offer"</strong> để gia hạn và đẩy lại lên trang gia sư.
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <Clock size={15} className="text-slate-400 shrink-0" />
-                        <span>
-                          Đơn đang hiển thị trên bảng tin gia sư. Nút <strong>"Match Offer"</strong> đang tạm khóa và sẽ tự động kích hoạt khi có ít nhất 1 gia sư đăng ký nhận lớp.
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
+              <div className="h-6 w-1/3 bg-muted rounded-md" />
+              <div className="h-4 w-2/3 bg-muted rounded-md" />
+              <div className="h-4 w-1/2 bg-muted rounded-md" />
             </div>
-          );
-        })}
-
-        {filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 p-12 text-center dark:border-slate-800">
-            <ClipboardList size={36} className="text-slate-300 dark:text-slate-600" />
-            <h4 className="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
-              Không tìm thấy yêu cầu ghép lớp
-            </h4>
-            <p className="mt-1 text-xs text-slate-400">
-              Hãy thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm.
+          ))}
+        </div>
+      ) : requests.length === 0 ? (
+        <Card className="text-center py-16 space-y-3">
+          <ClipboardList className="w-12 h-12 text-muted-foreground mx-auto stroke-1" />
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-foreground">Không tìm thấy đơn ghép lớp nào</h3>
+            <p className="text-xs text-muted-foreground">
+              {searchQuery
+                ? "Không có đơn nào khớp với từ khóa tìm kiếm. Vui lòng thử lại với từ khóa khác."
+                : "Chưa có đơn ghép lớp nào trong mục này."}
             </p>
           </div>
-        )}
-      </div>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {requests.map((req) => {
+            const meta = statusMeta[req.status] || { label: req.status, tone: "neutral" };
+            const StatusIcon = meta.icon || Info;
+            const isPending = req.status === "PENDING";
+            const isCancelled = req.status === "CANCELLED";
 
-      {/* Modal: Select Applied Tutor from Published (New) */}
-      {publishedSelectRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="fade-slide-in relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800">
-              <div>
-                <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-                  Chọn gia sư từ danh sách đăng ký
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Chọn gia sư đã đăng ký nhận lớp {publishedSelectRequest.studentName} để gửi đề nghị chính thức.
-                </p>
-              </div>
-              <button
-                onClick={handleClosePublishedSelect}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+            return (
+              <div
+                key={req.id}
+                className="rounded-2xl border border-border bg-card p-5 sm:p-6 shadow-xs hover:border-primary/40 hover:shadow-md transition-all space-y-4"
               >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {/* Summary of Request */}
-              <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-4 text-xs dark:border-violet-900/40 dark:bg-violet-950/30">
-                <p className="font-semibold text-violet-900 dark:text-violet-200">
-                  Học sinh: {publishedSelectRequest.studentName} &bull; {publishedSelectRequest.grade} (Trình độ {publishedSelectRequest.currentLevel})
-                </p>
-                <p className="mt-1 text-violet-800 dark:text-violet-300">
-                  Mục tiêu: {publishedSelectRequest.targetGoal}
-                </p>
-              </div>
-
-              {/* Applied Tutors List */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400 mb-2">
-                  Danh sách gia sư đã đăng ký ({publishedSelectRequest.appliedTutors?.length || 0})
-                </label>
-                <div className="grid gap-2 max-h-60 overflow-y-auto pr-1">
-                  {publishedSelectRequest.appliedTutors && publishedSelectRequest.appliedTutors.length > 0 ? (
-                    publishedSelectRequest.appliedTutors.map((applied) => {
-                      const isSelected = selectedAppliedTutorId === applied.tutorId;
-                      const tutorDetail = tutorList.find((t) => t.id === applied.tutorId);
-
-                      return (
-                        <div
-                          key={applied.tutorId}
-                          onClick={() => setSelectedAppliedTutorId(applied.tutorId)}
-                          className={`flex cursor-pointer items-center justify-between rounded-xl border p-3 transition ${
-                            isSelected
-                              ? "border-blue-600 bg-blue-50/60 dark:border-blue-500 dark:bg-blue-950/40"
-                              : "border-slate-200 hover:border-blue-200 dark:border-slate-800 dark:hover:border-slate-700"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Avatar initials={tutorDetail?.initials || "GS"} size="sm" />
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                {applied.tutorName}
-                              </p>
-                              <p className="text-xs text-slate-400">
-                                {applied.message}
-                              </p>
-                              <p className="text-[10px] text-violet-500 mt-0.5">
-                                Đăng ký lúc: {formatTs(applied.appliedAt)}
-                              </p>
-                            </div>
-                          </div>
-                          <input
-                            type="radio"
-                            name="applied_tutor_select"
-                            checked={isSelected}
-                            onChange={() => setSelectedAppliedTutorId(applied.tutorId)}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                          />
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 p-8 text-center dark:border-slate-800">
-                      <Users size={28} className="text-slate-300 dark:text-slate-600" />
-                      <p className="mt-2 text-xs text-slate-400">
-                        Chưa có gia sư nào đăng ký nhận lớp này.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Fee Calculation */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
-                <div className="flex items-center gap-2">
-                  <Calculator size={16} className="text-blue-600 dark:text-blue-400" />
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                    Phí kết nối dự kiến
-                  </span>
-                </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="rounded-lg bg-white p-2 dark:bg-slate-900">
-                    <p className="text-slate-400">Đơn giá / buổi</p>
-                    <p className="font-semibold text-slate-800 dark:text-slate-100">
-                      {fmtVND(publishedSelectRequest.budgetPerSession)}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-white p-2 dark:bg-slate-900">
-                    <p className="text-slate-400">Tổng buổi tháng</p>
-                    <p className="font-semibold text-slate-800 dark:text-slate-100">
-                      {(publishedSelectRequest.sessionsPerWeek || 3) * 4} buổi
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-blue-100/70 p-2 dark:bg-blue-900/40">
-                    <p className="text-blue-700 dark:text-blue-300">Phí kết nối</p>
-                    <p className="font-bold text-blue-700 dark:text-blue-300">
-                      {fmtVND(
-                        Math.round(
-                          (publishedSelectRequest.sessionsPerWeek || 3) *
-                            4 *
-                            (publishedSelectRequest.budgetPerSession || 250000) *
-                            (publishedSelectRequest.platformFeeRate || 0.15)
-                        )
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                  {/* Left: Info Block */}
+                  <div className="space-y-3 flex-1 min-w-0">
+                    {/* Header line: Code, Date, Badges */}
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="font-mono text-xs font-extrabold px-2.5 py-0.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
+                        {req.requestCode}
+                      </span>
+                      <h3 className="text-base font-bold text-foreground tracking-tight">
+                        {req.className || "Lớp Tiếng Anh chỉ định"}
+                      </h3>
+                      {req.grade && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border">
+                          {req.grade}
+                        </span>
                       )}
-                    </p>
+                      <Badge tone={meta.tone}>
+                        <StatusIcon size={12} className="mr-1 inline" />
+                        {meta.label}
+                      </Badge>
+                      {req.classId && (
+                        <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                          Mã lớp: #{req.classId} ({req.classStatus})
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Details Grid: Parent, Student, Tutor, Schedule */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs pt-1">
+                      {/* Phụ huynh */}
+                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border/70 space-y-1">
+                        <div className="text-muted-foreground font-semibold flex items-center gap-1.5">
+                          <Phone size={13} className="text-primary shrink-0" />
+                          <span>Phụ huynh:</span>
+                        </div>
+                        <div className="font-bold text-foreground truncate">{req.parentName}</div>
+                        <div className="text-muted-foreground font-mono">{req.parentPhone}</div>
+                      </div>
+
+                      {/* Học sinh */}
+                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border/70 space-y-1">
+                        <div className="text-muted-foreground font-semibold flex items-center gap-1.5">
+                          <GraduationCap size={13} className="text-primary shrink-0" />
+                          <span>Học sinh:</span>
+                        </div>
+                        <div className="font-bold text-foreground truncate">{req.studentName || "Chưa tạo tài khoản"}</div>
+                        <div className="text-muted-foreground">{req.grade || "Chưa chọn khối"}</div>
+                      </div>
+
+                      {/* Gia sư chỉ định */}
+                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border/70 space-y-1 sm:col-span-2 lg:col-span-1">
+                        <div className="text-muted-foreground font-semibold flex items-center gap-1.5">
+                          <UserCheck size={13} className="text-primary shrink-0" />
+                          <span>Gia sư chỉ định:</span>
+                        </div>
+                        <div className="font-bold text-foreground truncate">{req.tutorName || `Gia sư #${req.tutorId}`}</div>
+                        <div className="text-muted-foreground">ID: #{req.tutorId}</div>
+                      </div>
+                    </div>
+
+                    {/* Additional meta: Teaching mode, Price, Time */}
+                    <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground pt-1">
+                      <div className="flex items-center gap-1.5">
+                        <MapPin size={13} className="text-emerald-500 shrink-0" />
+                        <span>Hình thức: <strong className="text-foreground">{req.teachingMode ? (req.teachingMode === "ONLINE" ? "Trực tuyến (Online)" : "Tại nhà (Offline)") : "Chưa xác định"}</strong></span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span>Học phí: <strong className="text-primary font-bold">{req.pricePerSession ? fmtVND(req.pricePerSession) + "/buổi" : "Chưa chốt"}</strong></span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-slate-400">
+                        <Clock size={13} className="shrink-0" />
+                        <span>Gửi lúc: {formatTs(req.createdAt)}</span>
+                      </div>
+                    </div>
+
+                    {/* Cancel Reason Box if Cancelled */}
+                    {isCancelled && req.cancelReason && (
+                      <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 text-xs text-rose-700 dark:text-rose-300 space-y-1">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <XCircle size={14} className="text-rose-500 shrink-0" />
+                          <span>Lý do hủy đơn:</span>
+                        </div>
+                        <p className="leading-relaxed">{req.cancelReason}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right: Actions Column */}
+                  <div className="flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0 lg:w-48 justify-center pt-2 lg:pt-0 border-t lg:border-t-0 border-border">
+                    {/* Xác nhận đơn (UC-REC-06 / UC-ADM-05) */}
+                    {isPending && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleConfirmRequest(req)}
+                        disabled={isSubmitting}
+                        className="w-full justify-center bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer shadow-xs active:scale-[0.98]"
+                      >
+                        <CheckCircle2 size={15} />
+                        <span>Xác nhận đơn</span>
+                      </Button>
+                    )}
+
+                    {/* Xác nhận ghép thành công (UC-REC-06.1 / UC-ADM-05.1) */}
+                    {req.status === "TRIAL" && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleCompleteMatch(req)}
+                        disabled={isSubmitting}
+                        className="w-full justify-center bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer shadow-xs active:scale-[0.98]"
+                      >
+                        <CheckCircle2 size={15} />
+                        <span>Xác nhận ghép thành công</span>
+                      </Button>
+                    )}
+
+                    {/* Hủy đơn (UC-REC-07 / UC-ADM-06) */}
+                    {!isCancelled && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOpenCancelModal(req)}
+                        disabled={isSubmitting}
+                        className="w-full justify-center text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 cursor-pointer text-xs"
+                      >
+                        <XCircle size={15} />
+                        <span>Hủy đơn</span>
+                      </Button>
+                    )}
+
+                    {/* Xem chi tiết */}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleViewDetail(req)}
+                      className="w-full justify-center cursor-pointer text-xs"
+                    >
+                      <Eye size={15} />
+                      <span>Xem chi tiết</span>
+                    </Button>
                   </div>
                 </div>
               </div>
+            );
+          })}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between py-4 text-xs">
+              <span className="text-muted-foreground">
+                Trang {page + 1} / {totalPages}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={page <= 0}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  className="cursor-pointer"
+                >
+                  Trang trước
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={page >= totalPages - 1}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="cursor-pointer"
+                >
+                  Trang sau
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── MODAL 1: TẠO MỚI ĐƠN GHÉP LỚP (UC-REC-05 / UC-ADM-04) ──────────────── */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-2xl space-y-6 text-card-foreground">
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              aria-label="Đóng"
+            >
+              <X size={18} />
+            </button>
+
+            <div>
+              <h2 className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight">
+                Tạo mới Đơn ghép lớp
+              </h2>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                Tiếp nhận yêu cầu ghép lớp chỉ đích danh gia sư tại quầy hoặc qua điện thoại (UC-REC-05).
+              </p>
             </div>
 
-            {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800">
-              <Button variant="secondary" size="sm" onClick={handleClosePublishedSelect}>
-                Hủy bỏ
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleConfirmPublishedSelect}
-                disabled={!selectedAppliedTutorId}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Send size={14} /> Gửi đề nghị cho gia sư
-              </Button>
-            </div>
+            <form onSubmit={handleCreateSubmit} className="space-y-4">
+              {/* Row 1: Phụ huynh */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">
+                    Họ tên phụ huynh <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={createFormData.parentName}
+                    onChange={(e) => setCreateFormData({ ...createFormData, parentName: e.target.value })}
+                    placeholder="VD: Nguyễn Văn Toàn"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">
+                    Số điện thoại phụ huynh <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={createFormData.phone}
+                    onChange={(e) => setCreateFormData({ ...createFormData, phone: e.target.value })}
+                    placeholder="VD: 0987654321"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Học sinh */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold text-foreground">
+                    Họ tên học sinh <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={createFormData.studentName}
+                    onChange={(e) => setCreateFormData({ ...createFormData, studentName: e.target.value })}
+                    placeholder="VD: Nguyễn Minh Khôi"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Khối lớp</label>
+                  <select
+                    value={createFormData.grade}
+                    onChange={(e) => setCreateFormData({ ...createFormData, grade: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  >
+                    {["Lớp 6", "Lớp 7", "Lớp 8", "Lớp 9", "Lớp 10", "Lớp 11", "Lớp 12", "Đại học", "Người đi làm"].map(
+                      (g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 3: Chọn Gia sư chỉ định */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">
+                  Gia sư được chỉ định <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={createFormData.tutorId}
+                  onChange={(e) => setCreateFormData({ ...createFormData, tutorId: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">-- Chọn gia sư đang hoạt động --</option>
+                  {activeTutors.map((t) => {
+                    const tid = t.tutorId ?? t.id;
+                    const tname = t.fullName || t.name || `Gia sư #${tid}`;
+                    return (
+                      <option key={tid} value={tid}>
+                        {tname} (ID: #{tid} - {t.university || "Gia sư EnglishPath"})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Row 4: Tên lớp, Hình thức, Học phí */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5 sm:col-span-1">
+                  <label className="text-xs font-semibold text-foreground">
+                    Tên lớp / Môn học <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={createFormData.className}
+                    onChange={(e) => setCreateFormData({ ...createFormData, className: e.target.value })}
+                    placeholder="VD: Tiếng Anh IELTS 6.5"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Hình thức học</label>
+                  <select
+                    value={createFormData.teachingMode}
+                    onChange={(e) => setCreateFormData({ ...createFormData, teachingMode: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="ONLINE">Trực tuyến (Online)</option>
+                    <option value="AT_HOME">Tại nhà (Offline)</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">
+                    Học phí / buổi (VNĐ) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step={10000}
+                    min={10000}
+                    required
+                    value={createFormData.pricePerSession}
+                    onChange={(e) => setCreateFormData({ ...createFormData, pricePerSession: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              {/* Row 5: Lịch học & Ghi chú */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">Lịch học mong muốn</label>
+                <input
+                  type="text"
+                  value={createFormData.preferredSchedule}
+                  onChange={(e) => setCreateFormData({ ...createFormData, preferredSchedule: e.target.value })}
+                  placeholder="VD: Thứ 2 - 4 - 6 từ 19:30 đến 21:00"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">Ghi chú yêu cầu học tập</label>
+                <textarea
+                  rows={2}
+                  value={createFormData.notes}
+                  onChange={(e) => setCreateFormData({ ...createFormData, notes: e.target.value })}
+                  placeholder="Ghi chú thêm về mục tiêu học sinh hoặc yêu cầu đặc biệt..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              {createFormError && (
+                <p role="alert" className="text-xs text-rose-600 dark:text-rose-400 font-semibold">
+                  {createFormError}
+                </p>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  disabled={isSubmitting}
+                  className="cursor-pointer"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold cursor-pointer"
+                >
+                  {isSubmitting ? <Loader2 size={15} className="animate-spin mr-1.5" /> : null}
+                  <span>Tạo đơn</span>
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* Modal: Create Match Offer (FR-16) — for offered tab change tutor */}
-      {selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="fade-slide-in relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800">
-              <div>
-                <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-                  Tạo đề nghị ghép lớp (Match Offer)
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Gửi lời mời nhận lớp kèm tính phí trung tâm tự động tới gia sư được chọn.
-                </p>
-              </div>
-              <button
-                onClick={handleCloseModal}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
-              >
-                <X size={18} />
-              </button>
+      {/* ── MODAL 2: HỦY ĐƠN GHÉP LỚP (UC-REC-07 / UC-ADM-06) ─────────────────── */}
+      {cancelModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-md rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-2xl space-y-5 text-card-foreground">
+            <button
+              type="button"
+              onClick={() => setCancelModalItem(null)}
+              className="absolute top-4 right-4 p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              aria-label="Đóng"
+            >
+              <X size={18} />
+            </button>
+
+            <div>
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <XCircle className="text-rose-500 w-5 h-5" />
+                <span>Hủy đơn ghép lớp</span>
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Đơn mã <strong>{cancelModalItem.requestCode}</strong> của học sinh{" "}
+                <strong>{cancelModalItem.studentName || cancelModalItem.parentName}</strong>.
+              </p>
             </div>
 
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {/* Summary of Request */}
-              <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4 text-xs dark:border-blue-900/40 dark:bg-blue-950/30">
-                <p className="font-semibold text-blue-900 dark:text-blue-200">
-                  Học sinh: {selectedRequest.studentName} &bull; {selectedRequest.grade} (Trình độ {selectedRequest.currentLevel})
-                </p>
-                <p className="mt-1 text-blue-800 dark:text-blue-300">
-                  Mục tiêu: {selectedRequest.targetGoal}
-                </p>
-                <p className="mt-1 text-slate-600 dark:text-slate-400">
-                  Lịch học: {selectedRequest.preferredSchedule} &bull; Địa điểm: {selectedRequest.location}
-                </p>
-              </div>
-
-              {/* Step 1: Choose Tutor */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400 mb-2">
-                  1. Chọn gia sư phù hợp
-                </label>
-                <div className="grid gap-2 max-h-52 overflow-y-auto pr-1">
-                  {activeTutors.map((t) => {
-                    const isSelected = selectedTutorId === t.id;
-                    const suggestion = selectedRequest.suggestedTutors?.find(
-                      (s) => s.tutorId === t.id
-                    );
-
-                    return (
-                      <div
-                        key={t.id}
-                        onClick={() => setSelectedTutorId(t.id)}
-                        className={`flex cursor-pointer items-center justify-between rounded-xl border p-3 transition ${
-                          isSelected
-                            ? "border-blue-600 bg-blue-50/60 dark:border-blue-500 dark:bg-blue-950/40"
-                            : "border-slate-200 hover:border-blue-200 dark:border-slate-800 dark:hover:border-slate-700"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Avatar initials={t.initials} size="sm" />
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                {t.name}
-                              </p>
-                              {suggestion && (
-                                <Badge tone="blue">
-                                  {suggestion.matchScore}% Match
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-xs text-slate-400">
-                              {t.specialization.slice(0, 2).join(", ")} &bull; Học phí: {t.ratePerHour}/buổi
-                            </p>
-                          </div>
-                        </div>
-                        <input
-                          type="radio"
-                          name="tutor_select"
-                          checked={isSelected}
-                          onChange={() => setSelectedTutorId(t.id)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Step 2: Auto-calculate Platform Fee */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Calculator size={16} className="text-blue-600 dark:text-blue-400" />
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                      2. Tính phí tự động (Platform Fee)
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <span>Tỷ lệ phí:</span>
-                    <select
-                      value={customFeeRate}
-                      onChange={(e) => setCustomFeeRate(parseFloat(e.target.value))}
-                      className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs dark:border-slate-700 dark:bg-slate-900"
-                    >
-                      <option value={0.1}>10%</option>
-                      <option value={0.15}>15% (Mặc định)</option>
-                      <option value={0.2}>20%</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="rounded-lg bg-white p-2 dark:bg-slate-900">
-                    <p className="text-slate-400">Đơn giá / buổi</p>
-                    <p className="font-semibold text-slate-800 dark:text-slate-100">
-                      {fmtVND(selectedRequest.budgetPerSession)}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-white p-2 dark:bg-slate-900">
-                    <p className="text-slate-400">Tổng buổi tháng</p>
-                    <p className="font-semibold text-slate-800 dark:text-slate-100">
-                      {(selectedRequest.sessionsPerWeek || 3) * 4} buổi
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-blue-100/70 p-2 dark:bg-blue-900/40">
-                    <p className="text-blue-700 dark:text-blue-300">Phí kết nối nộp</p>
-                    <p className="font-bold text-blue-700 dark:text-blue-300">
-                      {fmtVND(
-                        Math.round(
-                          (selectedRequest.sessionsPerWeek || 3) *
-                            4 *
-                            (selectedRequest.budgetPerSession || 250000) *
-                            customFeeRate
-                        )
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 3: Message to Tutor */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400 mb-1.5">
-                  3. Lời nhắn gửi Gia sư
+            <form onSubmit={handleCancelSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">
+                  Lý do hủy đơn <span className="text-rose-500">*</span>
                 </label>
                 <textarea
-                  rows={2}
-                  value={adminNote}
-                  onChange={(e) => setAdminNote(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900"
-                  placeholder="Nhập thông tin trao đổi bổ sung..."
+                  rows={3}
+                  required
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Nhập lý do hủy (VD: Phụ huynh thay đổi lịch, gia sư bận lịch học...)"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
                 />
               </div>
+
+              {cancelError && (
+                <p role="alert" className="text-xs text-rose-600 dark:text-rose-400 font-semibold">
+                  {cancelError}
+                </p>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCancelModalItem(null)}
+                  disabled={isSubmitting}
+                  className="cursor-pointer"
+                >
+                  Hủy thao tác
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || !cancelReason.trim()}
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold cursor-pointer"
+                >
+                  {isSubmitting ? <Loader2 size={15} className="animate-spin mr-1.5" /> : null}
+                  <span>Đồng ý hủy đơn</span>
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 3: XEM CHI TIẾT ĐƠN GHÉP LỚP ─────────────────────────────────── */}
+      {detailModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-2xl space-y-6 text-card-foreground">
+            <button
+              type="button"
+              onClick={() => setDetailModalItem(null)}
+              className="absolute top-4 right-4 p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              aria-label="Đóng"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="pr-8">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                  {detailModalItem.requestCode}
+                </span>
+                <Badge tone={statusMeta[detailModalItem.status]?.tone || "neutral"}>
+                  {statusMeta[detailModalItem.status]?.label || detailModalItem.status}
+                </Badge>
+              </div>
+              <h2 className="text-xl font-bold text-foreground">
+                {detailModalItem.className || "Lớp Tiếng Anh chỉ định"}
+              </h2>
             </div>
 
-            {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800">
-              <Button variant="secondary" size="sm" onClick={handleCloseModal}>
-                Hủy bỏ
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleConfirmOffer}
-                disabled={!selectedTutorId}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Send size={14} /> Xác nhận & Gửi Match Offer
+            {isDetailLoading ? (
+              <div className="py-10 text-center text-muted-foreground text-xs animate-pulse">
+                Đang tải thông tin chi tiết...
+              </div>
+            ) : (
+              <div className="space-y-4 text-xs">
+                {/* Thông tin Phụ huynh */}
+                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-2">
+                  <div className="font-bold text-foreground uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Phone size={13} className="text-primary" /> Thông tin Phụ huynh
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                    <div>Họ tên: <strong className="text-foreground">{detailModalItem.parentName}</strong></div>
+                    <div>SĐT: <strong className="text-foreground font-mono">{detailModalItem.parentPhone}</strong></div>
+                    {detailModalItem.parentEmail && (
+                      <div className="col-span-2">Email: <span className="text-foreground">{detailModalItem.parentEmail}</span></div>
+                    )}
+                    {detailModalItem.parentAddress && (
+                      <div className="col-span-2">Địa chỉ: <span className="text-foreground">{detailModalItem.parentAddress}</span></div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Thông tin Học sinh */}
+                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-2">
+                  <div className="font-bold text-foreground uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <GraduationCap size={13} className="text-primary" /> Thông tin Học sinh
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                    <div>Họ tên: <strong className="text-foreground">{detailModalItem.studentName || "Chưa có"}</strong></div>
+                    <div>Khối lớp: <strong className="text-foreground">{detailModalItem.grade || "Chưa cập nhật"}</strong></div>
+                    {detailModalItem.school && (
+                      <div className="col-span-2">Trường: <span className="text-foreground">{detailModalItem.school}</span></div>
+                    )}
+                    {detailModalItem.learningGoal && (
+                      <div className="col-span-2">Mục tiêu: <span className="text-foreground">{detailModalItem.learningGoal}</span></div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Thông tin Gia sư chỉ định */}
+                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-2">
+                  <div className="font-bold text-foreground uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <UserCheck size={13} className="text-primary" /> Gia sư chỉ định
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                    <div>Gia sư: <strong className="text-foreground">{detailModalItem.tutorName || `#${detailModalItem.tutorId}`}</strong></div>
+                    <div>Mã gia sư: <strong className="text-foreground font-mono">#{detailModalItem.tutorId}</strong></div>
+                    {detailModalItem.tutorEmail && (
+                      <div>Email: <span className="text-foreground">{detailModalItem.tutorEmail}</span></div>
+                    )}
+                    {detailModalItem.tutorPhone && (
+                      <div>SĐT: <span className="text-foreground font-mono">{detailModalItem.tutorPhone}</span></div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Lịch học & Chi phí */}
+                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-2">
+                  <div className="font-bold text-foreground uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Calendar size={13} className="text-primary" /> Lịch học & Chi phí
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                    <div>Hình thức: <strong className="text-foreground">{detailModalItem.teachingMode === "ONLINE" ? "Trực tuyến" : "Tại nhà"}</strong></div>
+                    <div>Học phí: <strong className="text-primary font-bold">{fmtVND(detailModalItem.pricePerSession)}</strong>/buổi</div>
+                    {detailModalItem.preferredSchedule && (
+                      <div className="col-span-2">Lịch mong muốn: <span className="text-foreground">{detailModalItem.preferredSchedule}</span></div>
+                    )}
+                    {detailModalItem.classId && (
+                      <div className="col-span-2 text-blue-600 dark:text-blue-400 font-semibold">
+                        Lớp học đã liên kết: Mã #{detailModalItem.classId} (Trạng thái: {detailModalItem.classStatus})
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Lý do hủy nếu có */}
+                {detailModalItem.status === "CANCELLED" && detailModalItem.cancelReason && (
+                  <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-rose-700 dark:text-rose-300 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <XCircle size={14} className="text-rose-500" /> Lý do hủy đơn
+                    </div>
+                    <p className="leading-relaxed">{detailModalItem.cancelReason}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border">
+              <div className="flex items-center gap-2">
+                {detailModalItem.status === "PENDING" && (
+                  <Button
+                    size="sm"
+                    onClick={() => handleConfirmRequest(detailModalItem)}
+                    disabled={isSubmitting}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer"
+                  >
+                    <CheckCircle2 size={15} />
+                    <span>Xác nhận đơn</span>
+                  </Button>
+                )}
+                {detailModalItem.status === "TRIAL" && (
+                  <Button
+                    size="sm"
+                    onClick={() => handleCompleteMatch(detailModalItem)}
+                    disabled={isSubmitting}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer"
+                  >
+                    <CheckCircle2 size={15} />
+                    <span>Xác nhận ghép thành công</span>
+                  </Button>
+                )}
+                {detailModalItem.status !== "CANCELLED" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const item = detailModalItem;
+                      setDetailModalItem(null);
+                      handleOpenCancelModal(item);
+                    }}
+                    disabled={isSubmitting}
+                    className="text-rose-600 hover:bg-rose-50 border-rose-200 cursor-pointer text-xs"
+                  >
+                    <XCircle size={15} />
+                    <span>Hủy đơn</span>
+                  </Button>
+                )}
+              </div>
+              <Button onClick={() => setDetailModalItem(null)} variant="secondary" size="sm" className="cursor-pointer">
+                Đóng
               </Button>
             </div>
           </div>

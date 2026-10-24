@@ -68,10 +68,10 @@ export function HireTutorModal({ isOpen, onClose, tutor }) {
           <>
             <div className="pr-8">
               <h2 className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight">
-                Liên hệ gia sư {tutor.name}
+                Đăng ký học với gia sư {tutor.name}
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                Để lại thông tin, trung tâm sẽ liên hệ lại với phụ huynh.
+                Để lại thông tin, trung tâm sẽ liên hệ lại với phụ huynh trong vòng 12 giờ.
               </p>
             </div>
 
@@ -120,7 +120,7 @@ export function HireTutorModal({ isOpen, onClose, tutor }) {
                         isPhoneValid ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"
                       }`}
                     >
-                      {isPhoneValid ? "SĐT hợp lệ" : "Cần 10 số (03x, 05x, 07x, 08x, 09x)"}
+                      {isPhoneValid ? "SĐT hợp lệ" : "Vui lòng nhập đúng số điện thoại."}
                     </span>
                   )}
                 </div>
@@ -154,7 +154,7 @@ export function HireTutorModal({ isOpen, onClose, tutor }) {
                 disabled={!isFormValid || isSubmitting}
                 className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
               >
-                <span>{isSubmitting ? "Đang gửi..." : "Gửi thông tin liên hệ"}</span>
+                <span>{isSubmitting ? "Đang gửi đăng ký..." : "Đăng ký"}</span>
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </button>
             </form>
