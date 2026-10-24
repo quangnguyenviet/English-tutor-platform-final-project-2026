@@ -211,7 +211,7 @@ test("buildUpsertPayload: INCOMPLETE gửi đủ mọi trường", () => {
   form.availabilities = [{ dayOfWeek: 2, timeSlot: "EVENING" }];
   form.credentials = [{ title: "Cert", type: "CERTIFICATE", score: "", fileUrl: "https://file.com/c.pdf" }];
 
-  const payload = buildUpsertPayload(form, PROFILE_STATUS.INCOMPLETE);
+  const payload = buildUpsertPayload(form);
   assert.equal(payload.fullName, "Nguyễn Văn A");
   assert.equal(payload.dateOfBirth, "2000-01-15");
   assert.equal(payload.gender, "MALE");
@@ -225,7 +225,7 @@ test("buildUpsertPayload: INCOMPLETE gửi đủ mọi trường", () => {
   assert.deepEqual(payload.credentials, [{ title: "Cert", type: "CERTIFICATE", score: "", fileUrl: "https://file.com/c.pdf" }]);
 });
 
-test("buildUpsertPayload: ACTIVE KHÔNG gửi trường bị khóa", () => {
+test("buildUpsertPayload: vẫn gửi trường bị khóa (backend tự bỏ qua khi ACTIVE)", () => {
   const form = emptyForm();
   form.fullName = "Nguyễn Văn A";
   form.dateOfBirth = "2000-01-15";
@@ -238,14 +238,14 @@ test("buildUpsertPayload: ACTIVE KHÔNG gửi trường bị khóa", () => {
   form.experienceYears = 3;
   form.bio = "Giới thiệu";
 
-  const payload = buildUpsertPayload(form, PROFILE_STATUS.ACTIVE);
-  // Trường bị khóa không được gửi
-  assert.equal(payload.fullName, undefined);
-  assert.equal(payload.dateOfBirth, undefined);
-  assert.equal(payload.gender, undefined);
-  assert.equal(payload.hometown, undefined);
-  assert.equal(payload.university, undefined);
-  // Trường cho phép vẫn gửi
+  const payload = buildUpsertPayload(form);
+  // @NotBlank của backend yêu cầu các trường này luôn có mặt; backend bỏ qua
+  // giá trị mới ở nhánh ACTIVE nên UI khóa hiển thị là đủ để bảo vệ.
+  assert.equal(payload.fullName, "Nguyễn Văn A");
+  assert.equal(payload.dateOfBirth, "2000-01-15");
+  assert.equal(payload.gender, "MALE");
+  assert.equal(payload.hometown, "Hà Nội");
+  assert.equal(payload.university, "ĐH Quốc gia");
   assert.equal(payload.phone, "0912345678");
   assert.equal(payload.address, "123 Lê Lợi");
   assert.equal(payload.bio, "Giới thiệu");
@@ -255,7 +255,7 @@ test("buildUpsertPayload: luôn gửi đủ 5 mảng, kể cả rỗng", () => {
   const form = emptyForm();
   form.phone = "0912345678";
 
-  const payload = buildUpsertPayload(form, PROFILE_STATUS.REJECTED);
+  const payload = buildUpsertPayload(form);
   assert.deepEqual(payload.serviceAreas, []);
   assert.deepEqual(payload.specialties, []);
   assert.deepEqual(payload.prices, []);

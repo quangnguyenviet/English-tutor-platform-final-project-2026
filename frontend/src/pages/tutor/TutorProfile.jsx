@@ -1,25 +1,33 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { apiGetTutorProfile } from "../../lib/tutorApi";
-import { getEditMode } from "../../lib/tutorProfileModel";
+import { useToast } from "../../hooks/useToast";
+import {
+  apiGetTutorProfile,
+  apiSubmitProfileForReview,
+} from "../../lib/tutorApi";
+import { PROFILE_STATUS, getEditMode } from "../../lib/tutorProfileModel";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import ProfileSkeleton from "../../components/tutor/profile/ProfileSkeleton";
-import ProfileEmptyState from "../../components/tutor/profile/ProfileEmptyState";
 import ProfileView from "../../components/tutor/profile/ProfileView";
-import ProfileEditForm from "../../components/tutor/profile/ProfileEditForm";
 
+/**
+ * TutorProfile — Route /tutor/profile (chỉ xem).
+ * - Chưa có hồ sơ: chuyển sang /tutor/profile/edit (chế độ tạo mới).
+ * - Có hồ sơ: hiển thị ProfileView + các hành động chuyển sang route sửa.
+ */
 export default function TutorProfile() {
   const { token } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notFound, setNotFound] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const loadProfile = useCallback(async function loadProfile() {
     if (!token) {
@@ -58,25 +66,26 @@ export default function TutorProfile() {
 
   const retry = () => loadProfile();
   const handleGoLogin = () => navigate("/login?role=tutor");
-  const handleGoCreate = () => navigate("/tutor/create-profile");
+  const handleGoEdit = () => navigate("/tutor/profile/edit");
 
-  // ── Điều phối chế độ Xem ↔ Sửa (task 6) ──
+  // Chỉ cho vào trang sửa khi trạng thái cho phép (INCOMPLETE / REJECTED / ACTIVE)
   const handleEdit = () => {
-    // Chỉ vào chế độ sửa khi trạng thái cho phép (INCOMPLETE / REJECTED / ACTIVE)
     if (getEditMode(profile?.profileStatus) === "locked") return;
-    setEditing(true);
+    navigate("/tutor/profile/edit");
   };
-  const handleCancelEdit = () => setEditing(false);
 
-  // Hành động lưu / gửi duyệt / hủy duyệt (task 7 sẽ triển khai)
-  const handleSave = async () => {
-    // TODO: task 7 — upload avatar/credentials mới → build payload → apiSubmitTutorProfile → refresh
-  };
-  const handleSubmitForReview = () => {
-    // TODO: task 7 — lưu trước nếu dirty rồi apiSubmitProfileForReview
-  };
-  const handleCancelReview = () => {
-    // TODO: task 7 — gọi cancelProfileForReview
+  const handleSubmitForReview = async () => {
+    if (!token || submitting) return;
+    setSubmitting(true);
+    try {
+      await apiSubmitProfileForReview(token);
+      toast.success("Đã gửi hồ sơ chờ duyệt");
+      await loadProfile();
+    } catch (err) {
+      toast.error(err.message || "Gửi duyệt thất bại. Vui lòng thử lại.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Loading
@@ -84,9 +93,9 @@ export default function TutorProfile() {
     return <ProfileSkeleton />;
   }
 
-  // Empty (chưa có hồ sơ)
-  if (notFound) {
-    return <ProfileEmptyState />;
+  // Chưa có hồ sơ hoặc hồ sơ chưa hoàn thiện → vào thẳng form tạo/sửa
+  if (notFound || profile?.profileStatus === PROFILE_STATUS.INCOMPLETE) {
+    return <Navigate to="/tutor/profile/edit" replace />;
   }
 
   // Error
@@ -103,7 +112,7 @@ export default function TutorProfile() {
         ) : (
           <div className="mt-6 flex justify-center gap-2">
             <Button onClick={retry}>Thử lại</Button>
-            <Button variant="outline" onClick={handleGoCreate}>
+            <Button variant="outline" onClick={handleGoEdit}>
               Tạo hồ sơ mới
             </Button>
           </div>
@@ -112,24 +121,11 @@ export default function TutorProfile() {
     );
   }
 
-  // Chế độ sửa (task 6): full edit cho INCOMPLETE/REJECTED, restricted cho ACTIVE
-  if (editing) {
-    return (
-      <ProfileEditForm
-        profile={profile}
-        onCancel={handleCancelEdit}
-        onSave={handleSave}
-        onSubmitForReview={handleSubmitForReview}
-      />
-    );
-  }
-
   return (
     <ProfileView
       profile={profile}
       onEdit={handleEdit}
       onSubmitForReview={handleSubmitForReview}
-      onCancelReview={handleCancelReview}
     />
   );
 }

@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   ShieldAlert,
   Sparkles,
-  Info,
 } from "lucide-react";
 import ThemeToggle from "../../components/theme-toggle";
 
@@ -71,9 +70,9 @@ export default function TutorRegisterPage() {
       setLoading(false);
       setIsSuccess(true);
 
-      // Chuyển sang trang tạo hồ sơ sau 1.5 giây
+      // Chuyển sang trang hồ sơ sau 1.5 giây (tự vào form tạo mới nếu chưa có hồ sơ)
       setTimeout(() => {
-        navigate("/tutor/create-profile");
+        navigate("/tutor/profile");
       }, 1500);
     } catch (err) {
       setLoading(false);
@@ -87,7 +86,7 @@ export default function TutorRegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between p-4 sm:p-6 select-none relative overflow-hidden">
+    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between p-4 sm:p-6 relative overflow-hidden">
       {/* Background Decorative Blur Gradients */}
       <div className="absolute top-10 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl pointer-events-none -z-10" />
@@ -125,11 +124,6 @@ export default function TutorRegisterPage() {
             <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
               Đăng ký làm gia sư
             </h1>
-            {/* Cam kết thu phí sau khi nhận lương */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs sm:text-sm font-medium">
-              <Info className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-              <span>Trung tâm luôn thu phí sau khi gia sư nhận lương</span>
-            </div>
           </div>
 
           {/* Success Banner */}
@@ -138,7 +132,7 @@ export default function TutorRegisterPage() {
               <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <div>
                 <p className="font-bold">Đăng ký tài khoản thành công!</p>
-                <p className="text-xs opacity-90">Đang chuyển sang màn hình đăng nhập...</p>
+                <p className="text-xs opacity-90">Đang chuyển đến trang hoàn thiện hồ sơ...</p>
               </div>
             </div>
           )}

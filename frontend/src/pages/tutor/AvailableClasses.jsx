@@ -117,7 +117,7 @@ export default function AvailableClasses() {
         type: "7c",
         title: "Hồ sơ chưa được phê duyệt",
         message: "Hồ sơ của bạn chưa được phê duyệt. Vui lòng hoàn tất và chờ Admin xác thực hồ sơ trước khi ứng tuyển nhận lớp.",
-        actionUrl: "/tutor/create-profile",
+        actionUrl: "/tutor/profile",
         actionLabel: "Thiết lập / Hoàn tất hồ sơ",
       });
       return;
@@ -545,7 +545,7 @@ export default function AvailableClasses() {
               </div>
             </div>
             <Link
-              to="/tutor/create-profile"
+              to="/tutor/profile"
               className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-blue-700 shrink-0 transition-colors"
             >
               <FileText size={14} /> Hoàn tất hồ sơ gia sư

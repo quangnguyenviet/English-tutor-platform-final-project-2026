@@ -182,28 +182,21 @@ export function mapApiToForm(api) {
  * Luôn gửi đủ 5 mảng (serviceAreas, specialties, prices, availabilities, credentials),
  * kể cả rỗng `[]`.
  *
- * Khi profileStatus = ACTIVE: loại bỏ các trường bị khóa (fullName, dateOfBirth,
- * gender, hometown, university) khỏi payload — backend cũng sẽ bỏ qua, nhưng FE
- * không gửi để tránh nhầm lẫn (defense in depth).
+ * Các trường bị khóa khi ACTIVE (fullName, dateOfBirth, gender, hometown,
+ * university) vẫn được gửi nguyên giá trị hiện tại vì backend yêu cầu
+ * `fullName`/`university` không được rỗng (@NotBlank) và tự bỏ qua các trường
+ * này ở nhánh restricted. UI đã khóa các trường đó nên giá trị không đổi.
  *
  * @param {Object} form - form state
- * @param {string} profileStatus - trạng thái hiện tại của hồ sơ
  * @returns {Object} payload gửi lên backend
  */
-export function buildUpsertPayload(form, profileStatus) {
-  const isActive = profileStatus === PROFILE_STATUS.ACTIVE;
-
+export function buildUpsertPayload(form) {
   const payload = {
-    // Trường được sửa ở mọi chế độ (trừ khi ACTIVE thì bỏ qua trường khóa)
-    ...(!isActive
-      ? {
-          fullName: form.fullName,
-          dateOfBirth: form.dateOfBirth || null,
-          gender: form.gender || null,
-          hometown: form.hometown || null,
-          university: form.university || null,
-        }
-      : {}),
+    fullName: form.fullName,
+    dateOfBirth: form.dateOfBirth || null,
+    gender: form.gender || null,
+    hometown: form.hometown || null,
+    university: form.university || null,
     phone: form.phone,
     avatarUrl: form.avatarUrl,
     address: form.address,
@@ -281,6 +274,47 @@ export function validate(form, profileStatus) {
     Number(form.experienceYears) < 0
   ) {
     setError("experienceYears", "Số năm kinh nghiệm phải >= 0");
+  }
+
+  return errors;
+}
+
+/**
+ * Validate các mảng con (khu vực dạy, chuyên môn, lịch rảnh, chứng chỉ)
+ * trước khi lưu hồ sơ ở chế độ tạo mới / chỉnh sửa đầy đủ.
+ * Các section edit không render lỗi theo mảng nên page hiển thị
+ * thông điệp đầu tiên qua toast.
+ *
+ * @param {Object} form - form state
+ * @returns {string[]} Danh sách thông điệp lỗi, rỗng nếu hợp lệ
+ */
+export function validateCollections(form) {
+  const errors = [];
+
+  const serviceAreas = Array.isArray(form.serviceAreas) ? form.serviceAreas : [];
+  if (!serviceAreas.some((area) => area?.province)) {
+    errors.push("Vui lòng chọn ít nhất 1 khu vực dạy (tỉnh/thành).");
+  }
+
+  const specialties = Array.isArray(form.specialties) ? form.specialties : [];
+  if (!specialties.some((sp) => sp?.specialty && sp?.gradeLevel)) {
+    errors.push("Vui lòng thêm ít nhất 1 môn học kèm cấp lớp.");
+  }
+
+  const availabilities = Array.isArray(form.availabilities)
+    ? form.availabilities
+    : [];
+  if (availabilities.length === 0) {
+    errors.push("Vui lòng chọn ít nhất 1 khung giờ rảnh.");
+  }
+
+  const credentials = Array.isArray(form.credentials) ? form.credentials : [];
+  if (
+    !credentials.some(
+      (c) => c?.title?.trim() && (c?.file || c?.fileUrl),
+    )
+  ) {
+    errors.push("Vui lòng thêm ít nhất 1 chứng chỉ có file đính kèm.");
   }
 
   return errors;
