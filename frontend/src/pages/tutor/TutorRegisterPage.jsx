@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   ShieldAlert,
   Sparkles,
-  Info,
 } from "lucide-react";
 import ThemeToggle from "../../components/theme-toggle";
 
@@ -125,11 +124,6 @@ export default function TutorRegisterPage() {
             <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight">
               Đăng ký làm gia sư
             </h1>
-            {/* Cam kết thu phí sau khi nhận lương */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs sm:text-sm font-medium">
-              <Info className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
-              <span>Trung tâm luôn thu phí sau khi gia sư nhận lương</span>
-            </div>
           </div>
 
           {/* Success Banner */}
