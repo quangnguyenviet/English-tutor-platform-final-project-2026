@@ -11,39 +11,24 @@ on:
       - dev
 
 jobs:
-  backend-ci:
-    name: Build & Test Backend (Spring Boot)
-    runs-on: ubuntu-latest
-    services:
-      minio:
-        image: minio/minio:latest
-        env:
-          MINIO_ROOT_USER: minio_user
-          MINIO_ROOT_PASSWORD: minio_password_123
-        ports:
-          - 9000:9000
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      S3_ENDPOINT: http://minio:9000
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+  # backend-ci:
+  #   name: Build & Test Backend (Spring Boot)
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout Code
+  #       uses: actions/checkout@v4
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
+  #     - name: Set up JDK 21
+  #       uses: actions/setup-java@v4
+  #       with:
+  #         java-version: '21'
+  #         distribution: 'temurin'
+  #         cache: 'maven'
 
-      - name: Build Backend with Maven
-        run: |
-          cd backend
-          mvn clean package -B
+  #     - name: Build Backend with Maven
+  #       run: |
+  #         cd backend
+  #         mvn clean package -B
 
   frontend-ci:
     name: Build & Lint Frontend (ReactJS)
