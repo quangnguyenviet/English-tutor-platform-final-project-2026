@@ -32,6 +32,17 @@ public enum ErrorCode {
             1102,
             "Số điện thoại này đã gửi quá 5 yêu cầu trong 1 giờ. Vui lòng thử lại sau",
             HttpStatus.TOO_MANY_REQUESTS),
+    TUTOR_NOT_ACTIVE(
+            1103,
+            "Hồ sơ gia sư của bạn chưa được duyệt hoạt động. Vui lòng hoàn tất hồ sơ và chờ trung tâm duyệt trước khi ứng tuyển.",
+            HttpStatus.FORBIDDEN),
+    CLASS_ALREADY_APPLIED(1104, "Bạn đã ứng tuyển lớp này rồi.", HttpStatus.CONFLICT),
+    APPLICATION_NOT_FOUND(1105, "Đơn ứng tuyển không tồn tại.", HttpStatus.NOT_FOUND),
+    APPLICATION_NOT_WITHDRAWABLE(
+            1106,
+            "Không thể rút đơn ứng tuyển: lớp đã chốt gia sư hoặc đơn ứng tuyển đã có kết quả.",
+            HttpStatus.CONFLICT),
+    CLASS_REQUEST_NOT_OPEN(1107, "Lớp này không còn nhận đơn ứng tuyển.", HttpStatus.CONFLICT),
     PAYMENT_NOT_FOUND(1200, "Khoản phí nhận lớp không tồn tại", HttpStatus.NOT_FOUND),
     PAYMENT_INVALID_STATE(1201, "Khoản phí không ở trạng thái cho phép thao tác này", HttpStatus.CONFLICT),
     PAYMENT_SAME_ACTOR(1202, "Người duyệt không được trùng với người nộp hoặc thu hộ minh chứng", HttpStatus.FORBIDDEN),

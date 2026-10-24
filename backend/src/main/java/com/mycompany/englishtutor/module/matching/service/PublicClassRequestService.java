@@ -4,7 +4,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -115,21 +114,6 @@ public class PublicClassRequestService {
                 .orElseThrow(() -> new AppException(ErrorCode.CLASS_REQUEST_NOT_FOUND));
     }
 
-    private static String toGeneralLocation(String address) {
-        if (address == null || address.isBlank()) {
-            return null;
-        }
-
-        String[] parts = Arrays.stream(address.split(","))
-                .map(String::trim)
-                .filter(part -> !part.isBlank())
-                .toArray(String[]::new);
-        if (parts.length <= 2) {
-            return String.join(", ", parts);
-        }
-        return String.join(", ", Arrays.copyOfRange(parts, parts.length - 2, parts.length));
-    }
-
     private static class PublicClassRowMapper implements RowMapper<PublicClassRequestResponse> {
         @Override
         public PublicClassRequestResponse mapRow(ResultSet resultSet, int rowNum) throws SQLException {
@@ -141,7 +125,7 @@ public class PublicClassRequestService {
                     .gradeLevel(resultSet.getString("grade"))
                     .studentGender(resultSet.getString("gender"))
                     .teachingMode(resultSet.getString("teaching_mode"))
-                    .generalLocation(toGeneralLocation(resultSet.getString("address")))
+                    .generalLocation(PublicSearchSupport.toGeneralLocation(resultSet.getString("address")))
                     .pricePerSession(resultSet.getBigDecimal("price_per_session"))
                     .preferredSchedule(resultSet.getString("preferred_schedule"))
                     .tutorRequirement(resultSet.getString("tutor_requirement"))

@@ -1,6 +1,7 @@
 package com.mycompany.englishtutor.shared.util;
 
 import java.text.Normalizer;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -54,5 +55,24 @@ public final class PublicSearchSupport {
             return List.of();
         }
         return GRADE_GROUPS.getOrDefault(gradeGroup.trim().toLowerCase(Locale.ROOT), List.of());
+    }
+
+    /**
+     * Rút gọn địa chỉ phụ huynh thành khu vực chung (2 phần cuối, ví dụ "Quận Cầu Giấy, Hà Nội")
+     * để không lộ địa chỉ nhà cụ thể khi hiển thị công khai / cho gia sư.
+     */
+    public static String toGeneralLocation(String address) {
+        if (address == null || address.isBlank()) {
+            return null;
+        }
+
+        String[] parts = Arrays.stream(address.split(","))
+                .map(String::trim)
+                .filter(part -> !part.isBlank())
+                .toArray(String[]::new);
+        if (parts.length <= 2) {
+            return String.join(", ", parts);
+        }
+        return String.join(", ", Arrays.copyOfRange(parts, parts.length - 2, parts.length));
     }
 }

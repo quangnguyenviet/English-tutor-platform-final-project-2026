@@ -268,7 +268,7 @@ Validate SĐT: regex `^(0|\+84|84)(3|5|7|8|9)\d{8}$`, sai trả 400 "Số điệ
 | POST | `/api/v1/classes/{id}/cancel` | RECEPTIONIST, ADMIN | Body `{ reason }`. Hủy lớp ở `TRIAL`/`ACTIVE`, thông báo các bên. Nếu đơn gốc còn hiệu lực → cho phép về `OPEN` (ghép lại) | FR-30 |
 | GET | `/api/v1/tutors/me/open-requests` | TUTOR | Lớp `OPEN` đang tuyển, kèm cờ `applied` | FR-08 |
 | GET | `/api/v1/tutors/me/open-requests/{id}` | TUTOR | Chi tiết lớp tuyển (ẩn SĐT phụ huynh) | FR-08 |
-| POST | `/api/v1/tutors/me/open-requests/{id}/apply` | TUTOR | Body `{ message }`. 409 nếu đã ứng tuyển hoặc đơn không còn `OPEN` | FR-08 |
+| POST | `/api/v1/tutors/me/open-requests/{id}/apply` | TUTOR | Body `{ message }` (tùy chọn). 409 nếu đã ứng tuyển hoặc đơn không còn `OPEN` | FR-08 |
 | DELETE | `/api/v1/tutors/me/applications/{id}` | TUTOR | Rút ứng tuyển khi đơn còn `OPEN` và chưa chọn gia sư | FR-08 |
 | GET | `/api/v1/tutors/me/applications` | TUTOR | Lịch sử ứng tuyển và kết quả | FR-08 |
 
