@@ -179,7 +179,7 @@ Không cho phép vòng phụ thuộc. `common` không phụ thuộc gói nào kh
 - **Quy tắc:** thông tin liên hệ phụ huynh trả cho gia sư luôn bị che cho đến khi trung tâm chọn gia sư (QT-3); phần mở khóa gắn với phí được kế toán xác nhận (QT-4).
 - Trạng thái phí: `NOT_SUBMITTED` → `SUBMITTED` (gia sư nộp hoặc lễ tân thu hộ) → `APPROVED` (kế toán xác nhận). Yêu cầu gửi lại chuyển `RESUBMIT_REQUIRED` kèm lý do, nộp lại thì về `SUBMITTED`.
 - Xác nhận phí là **một giao dịch** gồm: kiểm tra `reviewed_by != uploaded_by`, kiểm tra `received_amount >= amount`, đổi trạng thái, lưu số tiền thực nhận, mở khóa liên hệ, ghi audit log, tạo thông báo.
-- Khoản phí tạo khi lớp chuyển `ACTIVE` (sự kiện `ClassActivatedEvent`, mục 3). `fee_percentage` mặc định 40, kế toán chỉnh trong khoảng **35 đến 40** khi còn `NOT_SUBMITTED`. `amount = fee_percentage / 100 × số ca mỗi tuần × 4 × price_per_session`, làm tròn đến nghìn đồng.
+- Khoản phí tạo khi lớp chuyển `ACTIVE` (sự kiện `ClassActivatedEvent`, mục 3). `fee_percentage` mặc định 40, Lễ tân hoặc Admin chỉnh trong khoảng **0 đến 50** khi còn `NOT_SUBMITTED` (kế toán không được chỉnh). `amount = fee_percentage / 100 × số ca mỗi tuần × 4 × price_per_session`, làm tròn đến nghìn đồng.
 - Lớp online do phụ huynh đóng trước dùng cùng công thức và cùng thời điểm tạo; lớp tại nhà thì gia sư nộp khi tròn 30 ngày dạy chính thức.
 
 ### AD-6. Tệp qua liên kết ký có hạn

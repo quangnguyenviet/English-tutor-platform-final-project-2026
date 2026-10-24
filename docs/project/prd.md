@@ -31,7 +31,7 @@ Các thay đổi so với PRD v1 (2026-09-19):
 | Tài khoản học sinh | Không nêu | Trung tâm cấp, **đổi mật khẩu bắt buộc** ở lần đầu |
 | Lịch học | Lịch dạy cố định | Thêm **lịch dạy thử** (một buổi) trước khi chốt lịch cố định |
 | Ôn tập ngắt quãng | SM-2 là tính năng chính | Chỉ còn **danh sách ôn tập** từ câu sai (UC-ST-08). **Bỏ lập lịch SM-2** vì không có use case |
-| Phí nhận lớp | Hệ thống tự tính, quy tắc chưa rõ | **35 - 40% học phí tháng đầu** của lớp |
+| Phí nhận lớp | Hệ thống tự tính, quy tắc chưa rõ | Mặc định **40% học phí tháng đầu** của lớp, Lễ tân chỉnh trong 0 - 50% |
 | Trạng thái lớp cần gia sư | Có "Chưa đủ thời gian" | **Bỏ**. Sau khi lễ tân tạo lớp thì lớp ở "Đã đăng" |
 | Trạng thái khiếu nại | "Chưa xử lý" và "Chờ xử lý" lẫn lộn | Thống nhất **"Chờ xử lý"** |
 
@@ -78,7 +78,7 @@ Nền tảng Web **single-tenant** cho một trung tâm gia sư tiếng Anh 1-1,
 4. Các gia sư ứng tuyển kèm lời nhắn. Lễ tân trao đổi với chị Lan và **chọn gia sư**.
 5. Hệ thống tự tạo **đơn ghép lớp** "Đang dạy thử" và lớp học ở trạng thái TRIAL.
 6. Gia sư liên hệ chị Lan, **đặt lịch dạy thử**, dạy thử, rồi **chốt lịch cố định**. Lớp chuyển ACTIVE.
-7. Khi gia sư chốt lịch, hệ thống tạo khoản phí nhận lớp (35 - 40% học phí tháng đầu). Sau 30 ngày dạy chính thức, gia sư nộp minh chứng chuyển khoản, kế toán đối chiếu sao kê và xác nhận.
+7. Khi gia sư chốt lịch, hệ thống tạo khoản phí nhận lớp (mặc định 40% học phí tháng đầu). Sau 30 ngày dạy chính thức, gia sư nộp minh chứng chuyển khoản, kế toán đối chiếu sao kê và xác nhận.
 
 **UJ-2. Anh Hùng (phụ huynh) đã chọn sẵn gia sư**
 1. Anh xem hồ sơ gia sư trong kết quả tìm kiếm và bấm "Đăng ký", nhập họ tên và SĐT.
@@ -131,7 +131,7 @@ Nền tảng Web **single-tenant** cho một trung tâm gia sư tiếng Anh 1-1,
 | **Số tiền thực nhận** | Số tiền kế toán thấy về tài khoản (hoặc vào quỹ) sau khi đối chiếu sao kê. Chỉ xác nhận khoản phí khi số này không nhỏ hơn số phải nộp; là cơ sở tính doanh thu |
 | **Yêu cầu hoàn tiền** | Lễ tân tạo từ khiếu nại hoàn tiền (số tiền đề xuất, tài khoản nhận); kế toán chốt số tiền, chuyển khoản, tải biên lai hoặc từ chối |
 | **Công nợ** | Tổng số tiền của các khoản phí chưa nộp hoặc bị yêu cầu gửi lại |
-| **Phí nhận lớp** | Khoản gia sư nộp cho trung tâm sau 30 ngày dạy chính thức, bằng **35 - 40% học phí tháng đầu** của lớp. Với lớp online, phụ huynh đóng tiền trước |
+| **Phí nhận lớp** | Khoản gia sư nộp cho trung tâm sau 30 ngày dạy chính thức, bằng **40% học phí tháng đầu** của lớp (mặc định, Lễ tân chỉnh trong 0 - 50%). Với lớp online, phụ huynh đóng tiền trước |
 | **Thẻ kỹ năng** | Nhãn kỹ năng gắn với câu hỏi (ví dụ thì quá khứ đơn, từ vựng du lịch) |
 | **CEFR** | Thang A1, A2, B1, B2, C1, C2 dùng làm độ khó câu hỏi |
 | **Elo** | Điểm năng lực của học sinh, thay đổi sau mỗi câu trả lời theo độ khó |
@@ -173,7 +173,7 @@ Hai yêu cầu FR-08 (gia sư ứng tuyển lớp) và FR-15 (gia sư nộp minh
 | FR-12 | Quản lý buổi học thực tế: danh sách buổi đánh số tăng dần; trang chi tiết gồm thông tin chung, tài liệu đính kèm, quiz, nhật ký dạy học. Tải tài liệu (.pdf, .docx, âm thanh), báo lỗi và cho tải lại khi mất mạng. Lưu nhật ký thì học sinh và phụ huynh xem được ngay | UC-T02 | M |
 | FR-13 | Soạn quiz với trợ lý AI: màn hình chia đôi (xem trước câu hỏi / chat AI), đính kèm tài liệu PDF hoặc ảnh, ngăn kéo "Bảng thống kê hồ sơ học sinh" (sắp theo tỷ lệ sai và thời gian chưa ôn). Sửa trực tiếp câu hỏi hoặc chat để AI sửa. Lưu nháp hoặc giao bài kèm hạn nộp. AI quá 60 giây thì báo lỗi và cho thử lại | UC-T03 | M |
 | FR-14 | Import quiz từ công cụ AI ngoài: sao chép prompt mẫu (đã nhúng kỹ năng cần củng cố và chuẩn JSON CEFR), dán kết quả, hệ thống kiểm định cấu trúc và báo lỗi cụ thể (ví dụ "thiếu đáp án đúng tại câu 2"), cho sửa rồi nạp lại | UC-T03b | M |
-| FR-15 | Xem khoản phí nhận lớp (35 - 40% học phí tháng đầu) theo 4 tab (Chưa nộp minh chứng, Yêu cầu gửi lại, Chờ xác nhận, Đã xác nhận), nộp ảnh biên lai khi tròn 30 ngày dạy chính thức để kế toán xác nhận; nộp lại khi kế toán yêu cầu gửi lại kèm lý do | UC-T08 | M |
+| FR-15 | Xem khoản phí nhận lớp (mặc định 40% học phí tháng đầu) theo 4 tab (Chưa nộp minh chứng, Yêu cầu gửi lại, Chờ xác nhận, Đã xác nhận), nộp ảnh biên lai khi tròn 30 ngày dạy chính thức để kế toán xác nhận; nộp lại khi kế toán yêu cầu gửi lại kèm lý do | UC-T08 | M |
 
 ### 4.4. Cổng Học sinh
 
@@ -221,7 +221,7 @@ Admin có toàn bộ FR-24 đến FR-37 của Lễ tân và FR-40 đến FR-44 c
 | FR | Yêu cầu | UC nguồn | Ưu tiên |
 | --- | --- | --- | --- |
 | FR-40 | Dashboard kế toán: lời chào kèm mã nhân viên, thẻ chỉ số (khoản phí chờ xác nhận, yêu cầu hoàn tiền chờ xử lý, tiền thu và tiền hoàn trong tháng, công nợ), biểu đồ thu - hoàn 6 tháng, lối tắt. Khối nào lỗi thì báo riêng | UC-ACC-01 | S |
-| FR-41 | Quản lý khoản phí nhận lớp: 4 tab (Chưa nộp minh chứng, Chờ xác nhận, Đã xác nhận, Yêu cầu gửi lại), tìm kiếm và lọc theo người nộp, tháng; xem chi tiết kèm cách tính phí; chỉnh tỷ lệ phí trong khoảng 35 - 40% khi khoản phí chưa có minh chứng, số tiền tính lại, thông báo người nộp, ghi audit log | UC-ACC-02 | S |
+| FR-41 | Quản lý khoản phí nhận lớp: 4 tab (Chưa nộp minh chứng, Chờ xác nhận, Đã xác nhận, Yêu cầu gửi lại), tìm kiếm và lọc theo người nộp, tháng; xem chi tiết kèm cách tính phí; Lễ tân hoặc Admin chỉnh tỷ lệ phí (mặc định 40%, trong khoảng 0 - 50%) khi khoản phí chưa có minh chứng, số tiền tính lại, thông báo người nộp, ghi audit log | UC-REC-10, UC-ACC-02 | S |
 | FR-42 | Xác nhận khoản phí đã nhận: xem ảnh biên lai hoặc phiếu thu, nhập số tiền thực nhận. Đủ tiền thì "Đã xác nhận", mở khóa liên hệ, thông báo, ghi audit log; thiếu tiền thì không cho xác nhận. **Yêu cầu gửi lại** bắt buộc nhập lý do, thông báo người nộp hoặc lễ tân đã thu hộ. Người tải minh chứng không được tự xác nhận | UC-ACC-03 | M |
 | FR-43 | Xử lý yêu cầu hoàn tiền: 3 tab (Chờ xử lý, Đã hoàn tiền, Đã từ chối); xem khiếu nại, khoản bị hoàn (thực nhận, đã hoàn, còn lại), tài khoản nhận; nhập số tiền hoàn (không vượt số còn lại), tải biên lai (bắt buộc) rồi xác nhận: khiếu nại tự "Đã xử lý". **Từ chối** bắt buộc nhập lý do, khiếu nại về "Chờ xử lý". Người tạo yêu cầu không được tự xử lý | UC-ACC-04 | M |
 | FR-44 | Thống kê tài chính: lọc theo tháng, quý, năm hoặc khoảng ngày, người nộp, hình thức dạy; thẻ tổng hợp (tiền thu, tiền hoàn, doanh thu thuần, số khoản đã xác nhận, công nợ), biểu đồ theo tháng, bảng theo gia sư, danh sách giao dịch có phân trang; xuất Excel theo bộ lọc, ghi audit log. Không có dữ liệu thì khóa nút xuất | UC-ACC-05 | M |
@@ -231,7 +231,7 @@ Admin có toàn bộ FR-24 đến FR-37 của Lễ tân và FR-40 đến FR-44 c
 - **QT-1.** Mọi thao tác thay đổi dữ liệu của lễ tân, kế toán và admin đều có hộp thoại xác nhận trước khi thực hiện; hủy thì quay về màn hình trước, không đổi gì.
 - **QT-2.** Hủy lớp hoặc hủy đơn luôn bắt buộc nhập lý do và thông báo cho bên liên quan.
 - **QT-3.** Thông tin liên hệ của phụ huynh chỉ mở cho gia sư sau khi trung tâm chọn gia sư. Thông tin phụ huynh và học sinh trong lớp cần gia sư đã đăng thì ẩn.
-- **QT-4.** Phí nhận lớp = **35 - 40% học phí tháng đầu** của lớp. Phí được kế toán xác nhận thì mở khóa liên hệ.
+- **QT-4.** Phí nhận lớp mặc định **40% học phí tháng đầu** của lớp, Lễ tân hoặc Admin chỉnh được trong 0 - 50%. Phí được kế toán xác nhận thì mở khóa liên hệ.
 - **QT-5.** Bản ghi buổi học chỉ tạo khi gia sư chủ động khởi tạo, không sinh tự động từ lịch cố định.
 - **QT-6.** Một gia sư không được có hai ca trùng giờ: kiểm tra khi đặt lịch dạy thử và khi chốt lịch cố định.
 - **QT-7.** Quiz chỉ mở cho học sinh khi ở trạng thái `assigned` và còn hạn. Mỗi câu chỉ chọn một lần.
@@ -341,7 +341,7 @@ Những điểm use case chưa nêu rõ. Nhóm đã chọn một phương án m�
 | QĐ-1 | Học sinh có nhiều gia sư cùng lúc không (UC-ST-04, UC-ST-05 cho lọc theo gia sư) | Có. Mỗi cặp gia sư - học sinh là một lớp học. **Elo và hồ sơ kỹ năng theo học sinh** (dùng chung giữa các gia sư), không tách theo gia sư | `student_skill_stats`, `students.elo` |
 | QĐ-2 | Tham số Elo | Elo khởi đầu 1000, K = 32, độ khó A1 = 800, A2 = 1000, B1 = 1200, B2 = 1400, C1 = 1600, C2 = 1800. Cấu hình trong `application.yml` | Chỉ cấu hình |
 | QĐ-3 | Use case cho gia sư ứng tuyển lớp và nộp minh chứng phí | **Đã bổ sung** `UC-T07` và `UC-T08` vào `Usecase_Tutor.docx`; FR-08 và FR-15 bám hai use case này | Không |
-| QĐ-4 | Ai chọn tỷ lệ phí trong khoảng 35 - 40% | Hệ thống tạo khoản phí với tỷ lệ **mặc định 40%**; **kế toán** chỉnh trong khoảng 35 - 40% khi khoản phí chưa có minh chứng (UC-ACC-02). Số tiền = tỷ lệ × số ca/tuần (số dòng `class_schedules`) × 4 × học phí mỗi buổi, làm tròn đến nghìn đồng | `payments.fee_percentage`, UC-ACC-02 |
+| QĐ-4 | Ai chọn tỷ lệ phí | Hệ thống tạo khoản phí với tỷ lệ **mặc định 40%**; **Lễ tân hoặc Admin** chỉnh trong khoảng 0 - 50% khi khoản phí chưa có minh chứng; **kế toán không được chỉnh** (theo use case kế toán v1.1). Số tiền = tỷ lệ × số ca/tuần (số dòng `class_schedules`) × 4 × học phí mỗi buổi, làm tròn đến nghìn đồng | `payments.fee_percentage`, UC-ACC-02 |
 | QĐ-5 | Lớp online phụ huynh đóng trước | Cùng công thức. Khoản phí tạo khi gia sư chốt lịch cố định (lớp chuyển ACTIVE) cho mọi lớp; lớp tại nhà thì gia sư nộp khi tròn 30 ngày dạy chính thức | Thời điểm tạo `payments` |
 | QĐ-6 | Lỗi tham chiếu và tên gọi trong `Usecase_Tutor.docx` | **Đã sửa**: UC-T04 trỏ tới màn hình chi tiết buổi học (UC-T02), và bỏ cụm "Lễ tân/Lễ tân" | Không |
 | QĐ-7 | Tài khoản học sinh được cấp thế nào khi chưa có use case tạo tài khoản | Lễ tân không tạo tài khoản trên giao diện. Dữ liệu ban đầu do script khởi tạo (seed) theo quy tắc chung: tên đăng nhập sinh từ họ tên và mã học sinh, mật khẩu mặc định dùng một lần (FR-06). Khi cần tạo tài khoản trên giao diện thì viết thêm use case | `auth`, dữ liệu mẫu |
