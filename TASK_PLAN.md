@@ -215,21 +215,21 @@ Chưa có bảng cho quiz/Elo nên cả luồng học sinh và gia sư soạn qu
 
 ### T7-C2 — Phí nhận lớp (backend)
 
-`feature/payment-backend` · FR-15, FR-33, FR-41, FR-42 · API 3.8 · Phụ thuộc: T7-A1 (V8 do C tự thêm vào cùng PR nếu cần), T7-B3 (gọi `createForClass`)
+`feature/payment-backend` · FR-15, FR-33, FR-41, FR-42 · API 3.8 · Phụ thuộc: T7-A1 (`AuditLogService`), T7-B3 (gọi `createForClass`)
 
 **Problem**
-Khi gia sư chốt lịch, trung tâm phải thu phí nhận lớp (35–40% học phí tháng đầu). Hiện không có bảng, không có API nộp minh chứng, thu hộ tại quầy hay đối soát.
+Khi gia sư chốt lịch, trung tâm phải thu phí nhận lớp (mặc định 40% học phí tháng đầu, Lễ tân chỉnh được trong 0–50%). Hiện chưa có API nộp minh chứng, thu hộ tại quầy hay đối soát.
 
 **Requirement**
-- Flyway V8 (phần `payments`; các bảng khiếu nại do A thêm ở T9-A1 bằng V9).
-- `PaymentService.createForClass(classId)`: tạo khoản `NOT_SUBMITTED`, `TUTOR`, 40%, `amount = fee% × số_ca × 4 × price_per_session` làm tròn nghìn đồng.
-- Endpoint API 3.8: gia sư nộp biên lai, lễ tân thu hộ, danh sách/chi tiết/tìm kiếm, kế toán chỉnh tỷ lệ (35–40%, chỉ khi `NOT_SUBMITTED`), `approve` (có `receivedAmount`), `request-resubmit`.
-- Ràng buộc `reviewed_by ≠ uploaded_by` (`PAYMENT_SAME_ACTOR`). Ghi audit cho mọi thao tác.
-- Phí `APPROVED` → mở cờ `contactUnlocked` của lớp.
+- Bảng `payments` đã có từ V5; Flyway V9 chỉ nới `fee_percentage` thành 0–50 và `amount >= 0`. Các bảng khiếu nại do A thêm ở T9-A1 bằng migration kế tiếp.
+- `PaymentService.createForClass(classId)`: tạo khoản `NOT_SUBMITTED`, `TUTOR`, 40% (cấu hình `app.payment.default-fee-percentage`), `amount = fee% × số_ca × 4 × price_per_session` làm tròn nghìn đồng.
+- Endpoint API 3.8: gia sư nộp biên lai (Lễ tân/Admin nộp thay), Lễ tân thu hộ, danh sách/chi tiết/tìm kiếm, **Lễ tân/Admin** chỉnh tỷ lệ (0–50%, chỉ khi `NOT_SUBMITTED`, kế toán không được chỉnh), `approve` (có `receivedAmount`), `request-resubmit` (Kế toán và Admin). Admin gọi được mọi API.
+- Ràng buộc `reviewed_by ≠ uploaded_by` (`PAYMENT_SAME_ACTOR`, áp dụng cả Admin). Ghi audit cho mọi thao tác.
+- Phí `APPROVED` → mở cờ `contactUnlocked` (suy ra từ `payments.status`, gia sư chỉ thấy SĐT phụ huynh sau đó).
 
 **Acceptance Criteria**
 - Công thức: lớp 2 ca/tuần, 200.000đ/buổi, 40% → `0.4 × 2 × 4 × 200000 = 640.000đ`; có unit test cho 2 tỷ lệ và một trường hợp làm tròn.
-- Tỷ lệ ngoài [35, 40] hoặc sửa khi đã nộp minh chứng trả 400/409.
+- Tỷ lệ ngoài [0, 50] trả 400; sửa khi đã nộp minh chứng trả 409.
 - `approve` với `receivedAmount < amount` chuyển `RESUBMIT_REQUIRED` kèm lý do; `≥ amount` chuyển `APPROVED`.
 - Cùng một user vừa thu hộ vừa duyệt bị từ chối.
 - Upload biên lai sai định dạng hoặc > 5 MB bị từ chối bằng `FILE_INVALID_TYPE`/`FILE_TOO_LARGE`.
@@ -244,8 +244,8 @@ Backend phí có API nhưng chưa có màn hình cho ba vai trò; các trang `Pa
 
 **Requirement**
 - Gia sư: trang "Phí nhận lớp" với 4 tab (Chưa nộp minh chứng, Yêu cầu gửi lại, Chờ xác nhận, Đã xác nhận), nộp ảnh biên lai, hiện lý do khi bị yêu cầu gửi lại.
-- Lễ tân: tìm khoản phí theo mã lớp/tên gia sư/SĐT phụ huynh, thu hộ tại quầy (chọn tiền mặt/chuyển khoản, ảnh phiếu thu).
-- Kế toán (dùng chung component với Admin): 4 tab, xem ảnh biên lai, nhập số tiền thực nhận, xác nhận hoặc yêu cầu gửi lại, chỉnh tỷ lệ phí.
+- Lễ tân: tìm khoản phí theo mã lớp/tên gia sư/SĐT phụ huynh, thu hộ hoặc nộp thay tại quầy (chọn tiền mặt/chuyển khoản, ảnh phiếu thu), chỉnh tỷ lệ phí khi chưa có minh chứng.
+- Kế toán (dùng chung component với Admin): 4 tab, xem ảnh biên lai, nhập số tiền thực nhận, xác nhận hoặc yêu cầu gửi lại; tỷ lệ phí chỉ đọc (Lễ tân/Admin mới chỉnh được).
 - Tái sử dụng `Badge`, `Card`, `Button`, `StatCard`; skeleton khi tải; tiếng Việt.
 
 **Acceptance Criteria**

@@ -450,15 +450,15 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `payments`
 
-> Khoản thu của trung tâm: phí nhận lớp của gia sư (35-40% học phí tháng đầu) hoặc học phí phụ huynh đóng trước cho lớp online. Hệ thống tạo khoản phí khi gia sư chốt lịch cố định (UC-T06). Gia sư nộp minh chứng (UC-T08) hoặc Lễ tân thu hộ tại quầy (UC-REC-10), **Kế toán đối chiếu số tiền thực nhận và xác nhận** (UC-ACC-03). Kế toán chỉnh tỷ lệ phí khi khoản phí chưa có minh chứng (UC-ACC-02).
+> Khoản thu của trung tâm: phí nhận lớp của gia sư (mặc định 40% học phí tháng đầu) hoặc học phí phụ huynh đóng trước cho lớp online. Hệ thống tạo khoản phí khi gia sư chốt lịch cố định (UC-T06). Gia sư nộp minh chứng (UC-T08) hoặc Lễ tân thu hộ tại quầy (UC-REC-10), **Kế toán đối chiếu số tiền thực nhận và xác nhận** (UC-ACC-03). Lễ tân hoặc Admin chỉnh tỷ lệ phí khi khoản phí chưa có minh chứng; Kế toán không được chỉnh.
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
 | `id` | `BIGSERIAL` | PK | Khóa chính tự tăng |
 | `class_id` | `BIGINT` | FK → classes.id, NN | FK tới lớp học, phí gắn với lớp |
 | `payer_type` | `VARCHAR(20)` | NN | Người nộp phí: `TUTOR` (gia sư nộp phí nhận lớp), `PARENT` (phụ huynh nộp học phí trước cho lớp online — Quy định nền tảng I.4, II.6) |
-| `fee_percentage` | `DECIMAL(5,2)` | | Tỷ lệ phí nhận lớp, trong khoảng 35-40%, mặc định 40% (Quy định nền tảng I.6). Kế toán được chỉnh khi `status = NOT_SUBMITTED` (UC-ACC-02) |
-| `amount` | `DECIMAL(12,0)` | NN | Số tiền phải nộp (VNĐ), lưu cố định. Backend tính = `fee_percentage * COUNT(class_schedules của lớp) * 4 * price_per_session`, làm tròn đến nghìn đồng. Chỉ tính lại khi Kế toán đổi `fee_percentage` lúc chưa có minh chứng |
+| `fee_percentage` | `DECIMAL(5,2)` | | Tỷ lệ phí nhận lớp, trong khoảng 0-50%, mặc định 40% (Quy định nền tảng I.6). Lễ tân hoặc Admin được chỉnh khi `status = NOT_SUBMITTED`, Kế toán không được chỉnh |
+| `amount` | `DECIMAL(12,0)` | NN | Số tiền phải nộp (VNĐ), lưu cố định. Backend tính = `fee_percentage * COUNT(class_schedules của lớp) * 4 * price_per_session`, làm tròn đến nghìn đồng. Chỉ tính lại khi Lễ tân hoặc Admin đổi `fee_percentage` lúc chưa có minh chứng |
 | `payment_method` | `VARCHAR(20)` | | Cách nộp: `BANK_TRANSFER` (chuyển khoản, kèm ảnh biên lai), `CASH` (tiền mặt tại quầy, Lễ tân thu hộ — UC-REC-10). Ghi khi nộp minh chứng |
 | `proof_url` | `VARCHAR(500)` | | Đường dẫn ảnh biên lai chuyển khoản (QR Proof) hoặc ảnh phiếu thu tiền mặt trên S3 |
 | `received_amount` | `DECIMAL(12,0)` | | Số tiền **thực nhận** do Kế toán nhập sau khi đối chiếu sao kê ngân hàng hoặc quỹ tiền mặt (UC-ACC-03). Chỉ xác nhận được khi `received_amount >= amount`; thiếu thì yêu cầu nộp lại. Là nguồn số liệu doanh thu (UC-ACC-05) |
@@ -1089,7 +1089,7 @@ erDiagram
 | C-10 | `SUM(approved_amount)` của các `refunds` `PAID` cùng `payment_id` ≤ `payments.received_amount` | `refunds` | Không hoàn quá số tiền trung tâm đã thực nhận, kiểm tra ở backend khi Kế toán chốt hoàn |
 | C-11 | `processed_by != requested_by`; `processed_by` có role `ACCOUNTANT` hoặc `ADMIN`; `proof_url` NOT NULL khi `status = 'PAID'` | `refunds` | Lễ tân đề xuất, Kế toán chi tiền — kiểm soát chéo |
 | C-12 | Partial UNIQUE (`complaint_id`) WHERE `status IN ('PENDING','PAID')` | `refunds` | Mỗi khiếu nại chỉ có 1 yêu cầu hoàn tiền đang chờ hoặc đã chi. `refunds` `PAID` thì khiếu nại chuyển `RESOLVED`; `REJECTED` thì khiếu nại quay về `PENDING` |
-| C-13 | `fee_percentage` BETWEEN 35 AND 40; chỉ sửa khi `status = 'NOT_SUBMITTED'` | `payments` | Kế toán chỉnh tỷ lệ phí trước khi có minh chứng, `amount` tính lại theo công thức |
+| C-13 | `fee_percentage` BETWEEN 0 AND 50 (V9); `amount >= 0`; chỉ sửa khi `status = 'NOT_SUBMITTED'` | `payments` | Lễ tân hoặc Admin chỉnh tỷ lệ phí trước khi có minh chứng, `amount` tính lại theo công thức |
 
 ---
 
