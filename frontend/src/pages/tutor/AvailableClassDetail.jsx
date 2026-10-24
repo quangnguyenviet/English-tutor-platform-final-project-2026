@@ -1,64 +1,186 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   CheckCircle2,
   AlertCircle,
-  HelpCircle,
   X,
   Send,
   Ban,
   ShieldAlert,
   FileText,
   Clock,
-  Check,
   UserCheck,
   Building,
   MapPin,
   Calendar,
   BookOpen,
+  Loader2,
 } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import clsx from "clsx";
+import { useAuth } from "../../context/AuthContext";
+import { apiGetTutorProfile } from "../../lib/tutorApi";
 import {
-  getClassById,
-  applyForClass,
-  cancelApplication,
-  getTutorProfileStatus,
-} from "./mockAvailableClasses";
+  apiGetOpenClassRequest,
+  apiApplyForClass,
+  apiWithdrawApplication,
+  mapTutorOpenClass,
+} from "../../lib/tutorClassApi";
+
+function formatFee(value) {
+  return value ? `${Number(value).toLocaleString("vi-VN")} ₫/buổi` : "Thỏa thuận";
+}
 
 export default function AvailableClassDetail() {
   const { classId } = useParams();
   const navigate = useNavigate();
+  const { token } = useAuth();
+
   const [clsData, setClsData] = useState(null);
-  const [profileStatus, setProfileStatus] = useState(getTutorProfileStatus());
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [profileStatus, setProfileStatus] = useState(null);
 
-  // Form states inside Apply Modal
+  const [toast, setToast] = useState(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
+  const [applyMessage, setApplyMessage] = useState("");
+  const [applyError, setApplyError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [scheduleConfirmed, setScheduleConfirmed] = useState(true);
-  const [tutorNote, setTutorNote] = useState("");
-  const [proposedSchedule, setProposedSchedule] = useState("");
-  const [proposedTuition, setProposedTuition] = useState("");
-  const [toastMessage, setToastMessage] = useState("");
+  const [withdrawing, setWithdrawing] = useState(false);
 
-  const refreshClass = () => {
-    const found = getClassById(classId);
-    if (found) {
-      setClsData(found);
-      setProposedSchedule(found.schedule || "");
-      setProposedTuition(found.tuition ? String(found.tuition) : "");
+  const showToast = (type, message) => setToast({ type, message });
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = setTimeout(() => setToast(null), 4500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  const loadDetail = useCallback(async () => {
+    if (!token) return;
+    if (!/^\d+$/.test(String(classId))) {
+      setLoading(false);
+      setNotFound(true);
+      return;
+    }
+
+    setLoading(true);
+    setNotFound(false);
+    setLoadError("");
+    try {
+      const result = await apiGetOpenClassRequest(token, classId);
+      setClsData(mapTutorOpenClass(result));
+    } catch (error) {
+      if (error.status === 404) {
+        setNotFound(true);
+      } else {
+        setLoadError(error.message || "Không thể tải chi tiết lớp học.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [token, classId]);
+
+  useEffect(() => {
+    loadDetail();
+  }, [loadDetail]);
+
+  useEffect(() => {
+    if (!token) return;
+    apiGetTutorProfile(token)
+      .then((profile) => setProfileStatus(profile?.profileStatus || "INCOMPLETE"))
+      .catch(() => setProfileStatus("INCOMPLETE"));
+  }, [token]);
+
+  const isProfileActive = profileStatus === "ACTIVE";
+
+  const handleOpenApplyModal = () => {
+    if (!isProfileActive) {
+      showToast(
+        "error",
+        "Hồ sơ của bạn chưa được duyệt hoạt động. Vui lòng hoàn tất hồ sơ trước khi ứng tuyển.",
+      );
+      return;
+    }
+    setApplyMessage("");
+    setApplyError("");
+    setShowApplyModal(true);
+  };
+
+  const handleConfirmApply = async (event) => {
+    event.preventDefault();
+    if (submitting) return;
+
+    if (!applyMessage.trim()) {
+      setApplyError("Vui lòng nhập lời nhắn giới thiệu bản thân tới trung tâm.");
+      return;
+    }
+
+    setSubmitting(true);
+    setApplyError("");
+    try {
+      await apiApplyForClass(token, clsData.id, applyMessage.trim());
+      setShowApplyModal(false);
+      showToast(
+        "success",
+        "Đơn ứng tuyển của bạn đã được gửi thành công. Trung tâm sẽ xem xét và thông báo kết quả.",
+      );
+      loadDetail();
+    } catch (error) {
+      setApplyError(error.message || "Gửi đơn ứng tuyển thất bại.");
+      if (error.status === 404) {
+        setShowApplyModal(false);
+        setNotFound(true);
+      } else if (error.status === 409) {
+        loadDetail();
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  useEffect(() => {
-    refreshClass();
-    setProfileStatus(getTutorProfileStatus());
-  }, [classId]);
+  const handleConfirmWithdraw = async () => {
+    if (!clsData?.applicationId || withdrawing) return;
+    setWithdrawing(true);
+    try {
+      await apiWithdrawApplication(token, clsData.applicationId);
+      setShowCancelModal(false);
+      showToast("success", "Đã rút đơn ứng tuyển thành công.");
+      loadDetail();
+    } catch (error) {
+      setShowCancelModal(false);
+      showToast("error", error.message || "Không thể rút đơn ứng tuyển.");
+      loadDetail();
+    } finally {
+      setWithdrawing(false);
+    }
+  };
 
-  if (!clsData) {
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-4 w-40 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+        <Card className="space-y-4 border-slate-200/80 p-6 dark:border-slate-800">
+          <div className="h-6 w-2/3 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+          <div className="h-4 w-1/3 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+        </Card>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <Card className="h-48 animate-pulse border-slate-200/80 dark:border-slate-800" />
+            <Card className="h-48 animate-pulse border-slate-200/80 dark:border-slate-800" />
+          </div>
+          <Card className="h-64 animate-pulse border-slate-200/80 dark:border-slate-800" />
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2">
@@ -69,103 +191,88 @@ export default function AvailableClassDetail() {
             <ArrowLeft size={16} /> Quay lại danh sách lớp học
           </Link>
         </div>
-        <Card className="py-12 text-center space-y-3">
+        <Card className="space-y-3 py-12 text-center">
           <AlertCircle size={32} className="mx-auto text-slate-400" />
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">Không tìm thấy mã lớp học này</h3>
-          <p className="text-xs text-slate-500">Lớp học có thể đã đóng hoặc không tồn tại trên hệ thống.</p>
-          <Button variant="primary" onClick={() => navigate("/tutor/available-classes")} className="bg-blue-600 text-xs font-semibold">
-            Về Bảng Tin Lớp Học
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
+            Không tìm thấy lớp học này
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Lớp học có thể đã chốt gia sư, bị hủy hoặc không còn nhận ứng tuyển.
+          </p>
+          <Button
+            variant="primary"
+            onClick={() => navigate("/tutor/available-classes")}
+            className="cursor-pointer bg-blue-600 text-xs font-semibold"
+          >
+            Về bảng tin lớp cần gia sư
           </Button>
         </Card>
       </div>
     );
   }
 
-  const isFilled = clsData.status === "FILLED" || clsData.status === "CLOSED";
-
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(""), 4500);
-  };
-
-  // Click Apply Button Handler (With exception checks 7a, 7b, 7c)
-  const handleOpenApplyModal = () => {
-    if (profileStatus !== "APPROVED") {
-      alert("Hồ sơ của bạn chưa được phê duyệt. Vui lòng hoàn tất và chờ Admin xác thực hồ sơ trước khi ứng tuyển nhận lớp.");
-      return;
-    }
-
-    if (isFilled) {
-      alert("Lớp học này đã chọn được gia sư phù hợp và ngưng nhận đơn ứng tuyển.");
-      return;
-    }
-
-    if (clsData.applied) {
-      alert("Bạn đã gửi đơn ứng tuyển cho lớp học này rồi. Vui lòng chờ phản hồi từ Trung tâm.");
-      return;
-    }
-
-    setScheduleConfirmed(true);
-    setTutorNote(`Em có kinh nghiệm gia sư môn ${clsData.subject}, cam kết giảng dạy đúng phương pháp và bám sát mục tiêu của phụ huynh.`);
-    setShowApplyModal(true);
-  };
-
-  // Submit Application
-  const handleConfirmApply = (e) => {
-    e.preventDefault();
-
-    if (!scheduleConfirmed) {
-      alert("Vui lòng tích xác nhận khả năng đáp ứng khung giờ học!");
-      return;
-    }
-
-    if (!tutorNote.trim()) {
-      alert("Vui lòng nhập lời nhắn giới thiệu bản thân tới Admin / Trung tâm!");
-      return;
-    }
-
-    applyForClass(clsData.id, {
-      proposedSchedule,
-      proposedTuition,
-      note: tutorNote.trim(),
-      scheduleConfirmed,
-    });
-
-    refreshClass();
-    setShowApplyModal(false);
-    showToast(`🎉 Đơn ứng tuyển của bạn đã được gửi thành công. Trung tâm sẽ xem xét và thông báo kết quả trong vòng 24h.`);
-  };
-
-  // Cancel Application (Flow 6a)
-  const handleConfirmCancel = () => {
-    cancelApplication(clsData.id);
-    refreshClass();
-    setShowCancelModal(false);
-    showToast("Đã hủy đơn ứng tuyển thành công.");
-  };
+  if (loadError || !clsData) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Link
+            to="/tutor/available-classes"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+          >
+            <ArrowLeft size={16} /> Quay lại danh sách lớp học
+          </Link>
+        </div>
+        <Card className="space-y-3 py-12 text-center">
+          <AlertCircle size={32} className="mx-auto text-rose-400" />
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
+            {loadError || "Không thể tải lớp học"}
+          </h3>
+          <Button
+            variant="outline"
+            onClick={loadDetail}
+            className="cursor-pointer text-xs font-semibold"
+          >
+            Thử lại
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 flex items-center gap-3 rounded-xl bg-blue-600 px-4 py-3.5 text-white shadow-2xl animate-in fade-in slide-in-from-top-3 border border-blue-400">
-          <CheckCircle2 size={20} className="text-white shrink-0" />
-          <span className="text-xs font-semibold">{toastMessage}</span>
+      {toast && (
+        <div
+          className={clsx(
+            "fixed right-5 top-5 z-50 flex max-w-md items-center gap-3 rounded-xl px-4 py-3.5 text-white shadow-2xl",
+            toast.type === "error" ? "bg-rose-600" : "bg-blue-600",
+          )}
+        >
+          {toast.type === "error" ? (
+            <AlertCircle size={20} className="shrink-0" />
+          ) : (
+            <CheckCircle2 size={20} className="shrink-0" />
+          )}
+          <span className="text-xs font-semibold">{toast.message}</span>
         </div>
       )}
 
-      {/* MODAL HỦY ĐƠN ỨNG TUYỂN (Luồng thay thế 6a) */}
       {showCancelModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 space-y-4 border border-slate-200 dark:border-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400">
                   <Ban size={20} />
                 </div>
-                <h4 className="font-bold text-slate-900 dark:text-slate-50 text-sm">Xác Nhận Hủy Đơn Ứng Tuyển</h4>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                  Xác nhận hủy đơn ứng tuyển
+                </h4>
               </div>
-              <button onClick={() => setShowCancelModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -174,131 +281,155 @@ export default function AvailableClassDetail() {
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                 Bạn có chắc chắn muốn hủy đơn ứng tuyển cho lớp học này không?
               </p>
-              <div className="rounded-xl bg-slate-50 p-3.5 dark:bg-slate-800/60 space-y-1.5 border border-slate-100 dark:border-slate-800">
-                <p><span className="text-slate-400">Mã lớp:</span> <strong className="font-mono text-blue-600 dark:text-blue-400">{clsData.id}</strong></p>
-                <p><span className="text-slate-400">Tên lớp:</span> <strong className="text-slate-800 dark:text-slate-200">{clsData.title}</strong></p>
+              <div className="space-y-1.5 rounded-xl border border-slate-100 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/60">
+                <p>
+                  <span className="text-slate-400">Mã lớp:</span>{" "}
+                  <strong className="font-mono text-blue-600 dark:text-blue-400">
+                    {clsData.code}
+                  </strong>
+                </p>
+                <p>
+                  <span className="text-slate-400">Tên lớp:</span>{" "}
+                  <strong className="text-slate-800 dark:text-slate-200">{clsData.subject}</strong>
+                </p>
               </div>
-              <p className="text-[11px] text-slate-400 italic">
-                Sau khi hủy, đơn ứng tuyển của bạn sẽ bị loại bỏ khỏi danh sách chờ duyệt của Admin.
+              <p className="text-[11px] italic text-slate-400">
+                Sau khi hủy, đơn ứng tuyển sẽ bị xóa khỏi danh sách chờ duyệt của trung tâm.
               </p>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <Button variant="outline" size="sm" onClick={() => setShowCancelModal(false)} className="text-xs font-semibold cursor-pointer">
+            <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-2 dark:border-slate-800">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCancelModal(false)}
+                className="cursor-pointer text-xs font-semibold"
+              >
                 Đóng
               </Button>
-              <Button variant="danger" size="sm" onClick={handleConfirmCancel} className="text-xs font-bold px-4 cursor-pointer">
-                Xác Nhận Hủy Đơn
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleConfirmWithdraw}
+                disabled={withdrawing}
+                className="cursor-pointer px-4 text-xs font-bold"
+              >
+                {withdrawing ? <Loader2 size={14} className="animate-spin" /> : null}
+                {withdrawing ? "Đang xử lý..." : "Xác nhận hủy đơn"}
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL ỨNG TUYỂN NHẬN LỚP (Luồng chính Bước 5 & 6) */}
       {showApplyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900 space-y-4 border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
                   <Send size={18} />
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 dark:text-slate-50 text-sm">Xác Nhận Đăng Ký Ứng Tuyển</h4>
-                  <p className="text-[11px] text-slate-400">Mã lớp: <strong className="font-mono text-blue-600 dark:text-blue-400">{clsData.id}</strong></p>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                    Gửi đơn ứng tuyển nhận lớp
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    Mã lớp:{" "}
+                    <strong className="font-mono text-blue-600 dark:text-blue-400">
+                      {clsData.code}
+                    </strong>
+                  </p>
                 </div>
               </div>
-              <button onClick={() => setShowApplyModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+              <button
+                onClick={() => setShowApplyModal(false)}
+                className="cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
                 <X size={18} />
               </button>
             </div>
 
             <form onSubmit={handleConfirmApply} className="space-y-4 text-xs">
-              <div className="rounded-xl bg-slate-50 p-3.5 dark:bg-slate-800/60 space-y-1.5 border border-slate-100 dark:border-slate-800">
-                <p className="font-bold text-sm text-slate-900 dark:text-slate-100">{clsData.title}</p>
-                <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 text-slate-600 dark:text-slate-300">
-                  <p><span className="text-slate-400">Chương trình:</span> <strong>{clsData.subject}</strong></p>
-                  <p><span className="text-slate-400">Hình thức:</span> <strong>{clsData.teachingMode}</strong></p>
-                  <p><span className="text-slate-400">Khu vực:</span> <strong>{clsData.city} ({clsData.district})</strong></p>
-                  <p><span className="text-slate-400">Học phí:</span> <strong className="text-blue-600 dark:text-blue-400">{clsData.tuitionType === "fixed" ? `${clsData.tuition.toLocaleString()} VNĐ/buổi` : "Thỏa thuận"}</strong></p>
-                  <p className="col-span-2"><span className="text-slate-400">Khung giờ:</span> <strong>{clsData.schedule}</strong></p>
+              <div className="space-y-1.5 rounded-xl border border-slate-100 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/60">
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  {clsData.subject}
+                </p>
+                <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-slate-600 dark:text-slate-300">
+                  <p>
+                    <span className="text-slate-400">Hình thức:</span>{" "}
+                    <strong>{clsData.teachingMode}</strong>
+                  </p>
+                  <p>
+                    <span className="text-slate-400">Khu vực:</span> <strong>{clsData.address}</strong>
+                  </p>
+                  <p>
+                    <span className="text-slate-400">Học phí:</span>{" "}
+                    <strong className="text-blue-600 dark:text-blue-400">
+                      {formatFee(clsData.feePerSession)}
+                    </strong>
+                  </p>
+                  <p>
+                    <span className="text-slate-400">Cấp lớp:</span>{" "}
+                    <strong>{clsData.gradeLevel || "Đang cập nhật"}</strong>
+                  </p>
+                  <p className="col-span-2">
+                    <span className="text-slate-400">Khung giờ học:</span>{" "}
+                    <strong>{clsData.schedule}</strong>
+                  </p>
                 </div>
               </div>
 
-              {/* Step 5: Checkbox Confirming Schedule Commitment */}
-              <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3.5 dark:border-blue-900/60 dark:bg-blue-950/40 space-y-2">
-                <label className="flex items-start gap-2.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    required
-                    checked={scheduleConfirmed}
-                    onChange={(e) => setScheduleConfirmed(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                  />
-                  <span className="text-xs font-semibold text-blue-900 dark:text-blue-200 leading-snug">
-                    Tôi xác nhận có thể đáp ứng đúng khung thời gian học dự kiến ({clsData.schedule}) và sẵn sàng dạy theo cam kết. <span className="text-rose-500">*</span>
-                  </span>
-                </label>
-              </div>
-
-              {/* Step 5: Note / Intro message to Admin / Center */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Lời nhắn / Ghi chú giới thiệu bản thân tới Admin / Trung tâm <span className="text-rose-500">*</span>
+                <label
+                  htmlFor="apply-message"
+                  className="block text-xs font-bold text-slate-800 dark:text-slate-200"
+                >
+                  Lời nhắn giới thiệu bản thân tới trung tâm{" "}
+                  <span className="text-rose-500">*</span>
                 </label>
                 <textarea
-                  rows={3}
+                  id="apply-message"
+                  rows={4}
                   required
-                  value={tutorNote}
-                  onChange={(e) => setTutorNote(e.target.value)}
-                  placeholder="Nhập giới thiệu tóm tắt về năng lực, điểm chứng chỉ, kinh nghiệm dạy học của bạn..."
+                  value={applyMessage}
+                  onChange={(event) => setApplyMessage(event.target.value)}
+                  placeholder="Nhập giới thiệu tóm tắt về năng lực, chứng chỉ, kinh nghiệm dạy học của bạn..."
                   className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
                 />
               </div>
 
-              {/* Negotiable Fields if applicable */}
-              {clsData.scheduleType === "negotiable" && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Lịch dạy đề xuất thêm:
-                  </label>
-                  <input
-                    type="text"
-                    value={proposedSchedule}
-                    onChange={(e) => setProposedSchedule(e.target.value)}
-                    placeholder="VD: Thứ 2 & Thứ 4 (18:00 - 19:30)"
-                    className="w-full rounded-lg border border-slate-200 bg-white p-2 text-xs outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900"
-                  />
+              {applyError && (
+                <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-[11px] text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+                  <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                  <span>{applyError}</span>
                 </div>
               )}
 
-              {clsData.tuitionType === "negotiable" && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Mức học phí đề xuất (VNĐ / buổi):
-                  </label>
-                  <input
-                    type="number"
-                    step="10000"
-                    value={proposedTuition}
-                    onChange={(e) => setProposedTuition(e.target.value)}
-                    placeholder="VD: 250000"
-                    className="w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-mono outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900"
-                  />
-                </div>
-              )}
-
-              <p className="text-[11px] text-slate-400 italic">
-                Sau khi xác nhận, đơn ứng tuyển của bạn sẽ được lưu ở trạng thái <strong>Chờ duyệt (APPLIED)</strong> để Admin/Trung tâm ghép lớp.
+              <p className="text-[11px] italic text-slate-400">
+                Sau khi gửi, đơn ứng tuyển ở trạng thái <strong>Chờ duyệt</strong>. Trung tâm sẽ xem
+                xét và thông báo kết quả cho bạn.
               </p>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <Button variant="outline" size="sm" type="button" onClick={() => setShowApplyModal(false)} className="text-xs font-semibold cursor-pointer">
-                  Hủy Bỏ
+              <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-2 dark:border-slate-800">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={() => setShowApplyModal(false)}
+                  className="cursor-pointer text-xs font-semibold"
+                >
+                  Hủy bỏ
                 </Button>
-                <Button variant="primary" size="sm" type="submit" className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-5 cursor-pointer">
-                  Xác Nhận Gửi Đơn Ứng Tuyển
+                <Button
+                  variant="primary"
+                  size="sm"
+                  type="submit"
+                  disabled={submitting}
+                  className="cursor-pointer bg-blue-600 px-5 text-xs font-bold text-white hover:bg-blue-700"
+                >
+                  {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
+                  {submitting ? "Đang gửi..." : "Xác nhận gửi đơn"}
                 </Button>
               </div>
             </form>
@@ -306,70 +437,67 @@ export default function AvailableClassDetail() {
         </div>
       )}
 
-      {/* Top Navigation */}
       <div className="flex items-center justify-between">
         <Link
           to="/tutor/available-classes"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 transition-colors hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400"
         >
           <ArrowLeft size={16} /> Quay lại danh sách lớp học
         </Link>
-        <span className="font-mono text-xs text-slate-400">Mã Lớp: {clsData.id}</span>
+        <span className="font-mono text-xs text-slate-400">Mã lớp: {clsData.code}</span>
       </div>
 
-      {/* Profile Exception 7c Warning Banner if unapproved */}
-      {profileStatus !== "APPROVED" && (
+      {!isProfileActive && profileStatus !== null && (
         <div className="rounded-xl border border-slate-300 bg-slate-50 p-4 text-slate-900 shadow-xs dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
-              <ShieldAlert size={20} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <ShieldAlert size={20} className="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" />
               <div>
                 <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                  Cảnh báo Tiền điều kiện (Luồng ngoại lệ 7c): Hồ sơ Gia sư của bạn chưa được phê duyệt!
+                  Hồ sơ gia sư chưa được duyệt hoạt động
                 </p>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                  Hồ sơ của bạn chưa được phê duyệt. Vui lòng hoàn tất và chờ Admin xác thực hồ sơ trước khi ứng tuyển nhận lớp.
+                <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">
+                  Bạn vẫn xem được chi tiết lớp, nhưng cần chờ trung tâm duyệt hồ sơ trước khi ứng
+                  tuyển.
                 </p>
               </div>
             </div>
             <Link
               to="/tutor/profile"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-blue-700 shrink-0 transition-colors"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-blue-700"
             >
-              <FileText size={14} /> Hoàn tất hồ sơ gia sư
+              <FileText size={14} /> Xem hồ sơ gia sư
             </Link>
           </div>
         </div>
       )}
 
-      {/* Exception 7b Banner if Filled */}
-      {isFilled && (
-        <div className="rounded-xl border border-slate-300 bg-slate-100 p-4 text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
-          <div className="flex items-center gap-2 font-bold text-xs">
-            <AlertCircle size={18} className="text-slate-500" />
-            <span>Thông báo (Luồng ngoại lệ 7b): Lớp học này đã chọn được gia sư phù hợp và ngưng nhận đơn ứng tuyển.</span>
-          </div>
-        </div>
-      )}
-
-      {/* Exception 7a Banner if Applied */}
       {clsData.applied && (
         <div className="rounded-xl border border-blue-300 bg-blue-50/80 p-4 text-blue-950 shadow-xs dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-100">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
-              <CheckCircle2 size={20} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <CheckCircle2
+                size={20}
+                className="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400"
+              />
               <div>
                 <p className="text-xs font-bold text-blue-900 dark:text-blue-200">
-                  Thông báo (Luồng ngoại lệ 7a): Bạn đã gửi đơn ứng tuyển cho lớp học này rồi!
+                  Bạn đã gửi đơn ứng tuyển cho lớp học này
                 </p>
-                <p className="text-xs text-blue-800/90 dark:text-blue-300/90 mt-0.5">
-                  Đơn ứng tuyển đang ở trạng thái <strong>Chờ duyệt (`APPLIED`)</strong>. Trung tâm sẽ xem xét và thông báo kết quả cho bạn trong vòng 24h.
+                <p className="mt-0.5 text-xs text-blue-800/90 dark:text-blue-300/90">
+                  Đơn ứng tuyển đang ở trạng thái <strong>Chờ duyệt</strong>. Trung tâm sẽ xem xét và
+                  thông báo kết quả cho bạn.
                 </p>
+                {clsData.myMessage && (
+                  <p className="mt-1 text-[11px] italic text-slate-600 dark:text-slate-400">
+                    Lời nhắn: {clsData.myMessage}
+                  </p>
+                )}
               </div>
             </div>
             <button
               onClick={() => setShowCancelModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900 shrink-0 transition-colors cursor-pointer"
+              className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-slate-800 px-3.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
             >
               <Ban size={14} /> Hủy ứng tuyển
             </button>
@@ -377,206 +505,154 @@ export default function AvailableClassDetail() {
         </div>
       )}
 
-      {/* Title Header Card */}
-      <Card className="border-slate-200/80 dark:border-slate-800 p-6 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="rounded-md bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-900/50">
-              {clsData.subject}
-            </span>
-            {clsData.badges.includes("urgent") && (
-              <span className="rounded-md bg-slate-800 text-white px-2.5 py-1 text-xs font-bold dark:bg-slate-200 dark:text-slate-900">
-                Cần gấp
-              </span>
-            )}
-            {clsData.badges.includes("high_tuition") && (
-              <span className="rounded-md bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200/60">
-                Học phí cao
-              </span>
-            )}
-            {isFilled && (
-              <span className="rounded-md bg-slate-200 px-2.5 py-1 text-xs font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                Đã chốt gia sư
-              </span>
-            )}
-          </div>
-          <span className="text-xs text-slate-400">Đăng lúc {clsData.postedAt}</span>
-        </div>
+      <PageHeader
+        eyebrow="Chi tiết lớp cần gia sư"
+        title={clsData.subject || "Lớp cần gia sư"}
+        description={`Mã lớp ${clsData.code} · Đăng ${clsData.postedDate}`}
+      />
 
-        <h1 className="text-xl font-extrabold text-slate-900 dark:text-slate-50 leading-snug">
-          {clsData.title}
-        </h1>
-
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          Khu vực: <strong className="text-slate-700 dark:text-slate-300">{clsData.city} ({clsData.district})</strong>
-        </p>
-      </Card>
-
-      {/* Main 2-Column Grid */}
-      <div className="grid gap-6 lg:grid-cols-3 items-start">
-        {/* Left 2 Columns: Detailed Specifications */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Section 1: Thông tin địa điểm & thời gian học */}
-          <Card className="p-6 border-slate-200/80 dark:border-slate-800 space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 border-b border-slate-100 pb-2.5 dark:border-slate-800 flex items-center gap-2">
+      <div className="grid items-start gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <Card className="space-y-4 border-slate-200/80 p-6 dark:border-slate-800">
+            <h2 className="flex items-center gap-2 border-b border-slate-100 pb-2.5 text-sm font-bold uppercase tracking-wider text-slate-900 dark:border-slate-800 dark:text-slate-100">
               <MapPin size={16} className="text-blue-600" />
-              Địa Điểm & Lịch Học Dự Kiến
+              Địa điểm & lịch học dự kiến
             </h2>
-            <div className="grid gap-4 sm:grid-cols-2 text-xs text-slate-700 dark:text-slate-300">
+            <div className="grid gap-4 text-xs text-slate-700 dark:text-slate-300 sm:grid-cols-2">
               <div>
-                <span className="block text-slate-400 text-[11px] mb-0.5">Tỉnh / Thành phố & Quận</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">{clsData.city} - {clsData.district}</p>
+                <span className="mb-0.5 block text-[11px] text-slate-400">Khu vực</span>
+                <p className="font-semibold text-slate-900 dark:text-slate-100">{clsData.address}</p>
               </div>
-
               <div>
-                <span className="block text-slate-400 text-[11px] mb-0.5">Địa chỉ nhà học sinh</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">{clsData.addressDetail}</p>
-              </div>
-
-              <div>
-                <span className="block text-slate-400 text-[11px] mb-0.5">Hình thức học</span>
+                <span className="mb-0.5 block text-[11px] text-slate-400">Hình thức học</span>
                 <p className="font-semibold text-blue-600 dark:text-blue-400">
-                  {clsData.teachingMode === "Online" ? "Online (Zoom / Meet)" : "Offline (Tại nhà học sinh)"}
+                  {clsData.teachingMode}
                 </p>
               </div>
-
-              <div>
-                <span className="block text-slate-400 text-[11px] mb-0.5">Thời lượng & Tần suất</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">{clsData.sessionsPerWeek} buổi / tuần ({clsData.durationPerSession})</p>
-              </div>
-
               <div className="sm:col-span-2">
-                <span className="block text-slate-400 text-[11px] mb-0.5">Lịch học mong muốn</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">
-                  {clsData.scheduleType === "fixed" ? clsData.schedule : "Linh hoạt / Thỏa thuận trực tiếp với Gia sư"}
-                </p>
+                <span className="mb-0.5 block text-[11px] text-slate-400">Lịch học mong muốn</span>
+                <p className="font-semibold text-slate-900 dark:text-slate-100">{clsData.schedule}</p>
               </div>
+              <p className="text-[11px] italic text-slate-400 sm:col-span-2">
+                Thông tin liên hệ và địa chỉ cụ thể của phụ huynh sẽ do trung tâm mở sau khi ghép lớp.
+              </p>
             </div>
           </Card>
 
-          {/* Section 2: Thông tin học sinh & mục tiêu */}
-          <Card className="p-6 border-slate-200/80 dark:border-slate-800 space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 border-b border-slate-100 pb-2.5 dark:border-slate-800 flex items-center gap-2">
+          <Card className="space-y-4 border-slate-200/80 p-6 dark:border-slate-800">
+            <h2 className="flex items-center gap-2 border-b border-slate-100 pb-2.5 text-sm font-bold uppercase tracking-wider text-slate-900 dark:border-slate-800 dark:text-slate-100">
               <UserCheck size={16} className="text-blue-600" />
-              Trình Độ Chi Tiết Học Sinh & Mục Tiêu
+              Thông tin học sinh & mục tiêu
             </h2>
-            <div className="grid gap-4 sm:grid-cols-2 text-xs text-slate-700 dark:text-slate-300">
+            <div className="grid gap-4 text-xs text-slate-700 dark:text-slate-300 sm:grid-cols-2">
               <div>
-                <span className="block text-slate-400 text-[11px] mb-0.5">Độ tuổi & Giới tính</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">{clsData.studentAge} tuổi ({clsData.studentGender})</p>
+                <span className="mb-0.5 block text-[11px] text-slate-400">Giới tính</span>
+                <p className="font-semibold text-slate-900 dark:text-slate-100">
+                  {clsData.studentGender || "Đang cập nhật"}
+                </p>
               </div>
-
               <div>
-                <span className="block text-slate-400 text-[11px] mb-0.5">Trình độ hiện tại</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">{clsData.studentLevel}</p>
+                <span className="mb-0.5 block text-[11px] text-slate-400">Cấp lớp</span>
+                <p className="font-semibold text-slate-900 dark:text-slate-100">
+                  {clsData.gradeLevel || "Đang cập nhật"}
+                </p>
               </div>
-
+              <div>
+                <span className="mb-0.5 block text-[11px] text-slate-400">Trường</span>
+                <p className="font-semibold text-slate-900 dark:text-slate-100">
+                  {clsData.school || "Đang cập nhật"}
+                </p>
+              </div>
               <div className="sm:col-span-2">
-                <span className="block text-slate-400 text-[11px] mb-0.5">Mục tiêu học tập cụ thể từ Phụ huynh</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100 leading-relaxed bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
-                  {clsData.studentGoal}
+                <span className="mb-0.5 block text-[11px] text-slate-400">Mục tiêu học tập</span>
+                <p className="rounded-xl border border-slate-200 bg-slate-50 p-3 font-semibold leading-relaxed text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
+                  {clsData.learningGoal || "Trao đổi thêm với trung tâm"}
                 </p>
               </div>
             </div>
           </Card>
 
-          {/* Section 3: Yêu cầu đối với Gia sư */}
-          <Card className="p-6 border-slate-200/80 dark:border-slate-800 space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100 border-b border-slate-100 pb-2.5 dark:border-slate-800 flex items-center gap-2">
+          <Card className="space-y-4 border-slate-200/80 p-6 dark:border-slate-800">
+            <h2 className="flex items-center gap-2 border-b border-slate-100 pb-2.5 text-sm font-bold uppercase tracking-wider text-slate-900 dark:border-slate-800 dark:text-slate-100">
               <BookOpen size={16} className="text-blue-600" />
-              Yêu Cầu Cụ Thể Từ Phụ Huynh & Gia Sư
+              Yêu cầu đối với gia sư
             </h2>
-            <div className="grid gap-4 sm:grid-cols-2 text-xs text-slate-700 dark:text-slate-300">
+            <div className="space-y-3 text-xs text-slate-700 dark:text-slate-300">
               <div>
-                <span className="block text-slate-400 text-[11px] mb-0.5">Đối tượng gia sư yêu cầu</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">{clsData.tutorTypeRequirement}</p>
+                <span className="mb-0.5 block text-[11px] text-slate-400">
+                  Yêu cầu về năng lực & kinh nghiệm
+                </span>
+                <p className="font-medium leading-relaxed text-slate-800 dark:text-slate-200">
+                  {clsData.teacherRequirement || "Không có yêu cầu riêng"}
+                </p>
               </div>
-
               <div>
-                <span className="block text-slate-400 text-[11px] mb-0.5">Giới tính gia sư</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">{clsData.tutorGenderRequirement}</p>
+                <span className="mb-0.5 block text-[11px] text-slate-400">
+                  Nội dung lớp / yêu cầu của phụ huynh
+                </span>
+                <p className="font-medium leading-relaxed text-slate-800 dark:text-slate-200">
+                  {clsData.subject || "Đang cập nhật"}
+                </p>
               </div>
-
-              <div className="sm:col-span-2">
-                <span className="block text-slate-400 text-[11px] mb-0.5">Yêu cầu về năng lực & kinh nghiệm</span>
-                <p className="font-medium text-slate-800 dark:text-slate-200 leading-relaxed">{clsData.requirements}</p>
-              </div>
-
-              {clsData.additionalNotes && (
-                <div className="sm:col-span-2">
-                  <span className="block text-slate-400 text-[11px] mb-0.5">Ghi chú bổ sung từ Phụ huynh</span>
-                  <p className="italic text-slate-600 dark:text-slate-400">{clsData.additionalNotes}</p>
-                </div>
-              )}
             </div>
           </Card>
         </div>
 
-        {/* Right 1 Column: Sidebar Application Actions */}
-        <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-6">
-          <Card className="p-6 border-slate-200/80 dark:border-slate-800 space-y-5 shadow-sm">
-            <div className="space-y-3 pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <span className="text-[11px] font-medium text-slate-400">Mức học phí đề xuất</span>
-                <div className="mt-1">
-                  {clsData.tuitionType === "fixed" ? (
-                    <span className="text-xl font-extrabold text-blue-600 dark:text-blue-400">
-                      {clsData.tuition.toLocaleString()} <span className="text-xs font-semibold text-slate-500">VNĐ / buổi</span>
-                    </span>
-                  ) : (
-                    <span className="inline-block rounded bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                      Thỏa thuận với Phụ huynh
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="pt-2 text-xs text-slate-600 dark:text-slate-400">
-                <span className="text-slate-400 text-[11px]">Phí nhận lớp (trung tâm):</span>
-                <p className="font-semibold text-slate-900 dark:text-slate-100">{clsData.classFeeRate}</p>
-              </div>
+        <div className="space-y-6 lg:sticky lg:top-6">
+          <Card className="space-y-5 border-slate-200/80 p-6 shadow-sm dark:border-slate-800">
+            <div className="space-y-2 border-b border-slate-100 pb-4 dark:border-slate-800">
+              <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+                <Building size={13} /> Học phí mỗi buổi
+              </span>
+              <span className="block text-xl font-extrabold text-blue-600 dark:text-blue-400">
+                {formatFee(clsData.feePerSession)}
+              </span>
+              <span className="flex items-center gap-1.5 pt-1 text-[11px] text-slate-400">
+                <Calendar size={13} /> {clsData.schedule}
+              </span>
+              <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                <Clock size={13} /> Đăng {clsData.postedDate}
+              </span>
             </div>
 
-            {/* Application State Action Controls */}
             {clsData.applied ? (
-              <div className="rounded-xl bg-blue-50/80 p-4 text-xs text-blue-950 dark:bg-blue-950/60 dark:text-blue-200 border border-blue-200 dark:border-blue-900/60 space-y-3">
-                <p className="font-bold flex items-center gap-1.5 text-blue-800 dark:text-blue-300 text-sm">
-                  <CheckCircle2 size={16} className="text-blue-600 dark:text-blue-400" /> Bạn đã ứng tuyển lớp này
+              <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/80 p-4 text-xs text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/60 dark:text-blue-200">
+                <p className="flex items-center gap-1.5 text-sm font-bold text-blue-800 dark:text-blue-300">
+                  <CheckCircle2 size={16} className="text-blue-600 dark:text-blue-400" /> Bạn đã ứng
+                  tuyển lớp này
                 </p>
                 <p className="text-slate-600 dark:text-slate-400">
-                  Đơn ứng tuyển của bạn đang ở trạng thái <strong>Chờ duyệt (`APPLIED`)</strong>.
+                  Đơn ứng tuyển đang ở trạng thái <strong>Chờ duyệt</strong>.
                 </p>
-                {clsData.userNote && (
-                  <p className="text-[11px] text-slate-500 italic">"Lời nhắn: {clsData.userNote}"</p>
+                {clsData.myMessage && (
+                  <p className="text-[11px] italic text-slate-500 dark:text-slate-400">
+                    Lời nhắn: {clsData.myMessage}
+                  </p>
                 )}
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowCancelModal(true)}
-                  className="w-full justify-center text-xs font-bold border-slate-300 hover:bg-slate-100 dark:border-slate-700"
+                  className="w-full cursor-pointer justify-center border-slate-300 text-xs font-bold hover:bg-slate-100 dark:border-slate-700"
                 >
-                  <Ban size={14} /> Hủy Đơn Ứng Tuyển
+                  <Ban size={14} /> Hủy đơn ứng tuyển
                 </Button>
-              </div>
-            ) : isFilled ? (
-              <div className="rounded-xl bg-slate-100 p-4 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-400 space-y-2 text-center">
-                <p className="font-bold text-slate-700 dark:text-slate-300">Đã chốt gia sư / Đóng đơn tuyển</p>
-                <p className="text-[11px]">Lớp học này đã chọn được gia sư phù hợp và ngưng nhận đơn ứng tuyển.</p>
               </div>
             ) : (
               <div className="space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                  Thao Tác Ứng Tuyển
+                  Thao tác ứng tuyển
                 </h3>
                 <Button
                   onClick={handleOpenApplyModal}
                   variant="primary"
-                  className="w-full justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 text-xs border-none shadow-md cursor-pointer"
+                  disabled={!isProfileActive}
+                  className="w-full cursor-pointer justify-center border-none bg-blue-600 py-3 text-xs font-bold text-white shadow-md hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-800"
                 >
-                  <Send size={16} /> Ứng Tuyển Nhận Lớp Ngay
+                  <Send size={16} /> Ứng tuyển nhận lớp
                 </Button>
-                <p className="text-[11px] text-slate-400 text-center italic">
-                  Đơn ứng tuyển sau khi gửi sẽ được lưu ở trạng thái Chờ duyệt (`APPLIED`) để Admin xem xét ghép lớp.
+                <p className="text-center text-[11px] italic text-slate-400">
+                  Đơn ứng tuyển sau khi gửi sẽ được lưu ở trạng thái Chờ duyệt để trung tâm xem xét.
                 </p>
               </div>
             )}
@@ -586,5 +662,3 @@ export default function AvailableClassDetail() {
     </div>
   );
 }
-
-
