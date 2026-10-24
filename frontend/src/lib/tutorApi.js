@@ -275,3 +275,200 @@ export async function apiSubmitProfileForReview(token) {
 
   return data.result ?? data;
 }
+
+/**
+ * Lấy danh sách gia sư có phân trang và bộ lọc — GET /api/v1/tutors
+ *
+ * @param {Object} params - { status, keyword, page, size }
+ * @param {string} token - JWT token của Lễ tân / Admin
+ * @returns {Promise<Object>} PageResponse { items, page, size, totalItems, totalPages }
+ */
+export async function apiGetTutors({ status, keyword, page = 0, size = 20 } = {}, token) {
+  const query = new URLSearchParams();
+  if (status && status !== "ALL") query.set("status", status);
+  if (keyword && keyword.trim()) query.set("keyword", keyword.trim());
+  query.set("page", page);
+  query.set("size", size);
+
+  const res = await fetch(`${BASE}/api/v1/tutors?${query.toString()}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...bearerHeader(token),
+    },
+  });
+
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    throw new Error(extractErrorMessage(data, `Không thể tải danh sách gia sư (${res.status})`));
+  }
+
+  return data.result ?? data;
+}
+
+/**
+ * Lấy số lượng gia sư theo từng trạng thái để làm badge tab — GET /api/v1/tutors/counts
+ *
+ * @param {string} token - JWT token
+ * @returns {Promise<Object>} Map counts { PENDING, ACTIVE, INACTIVE, REJECTED, ALL }
+ */
+export async function apiGetTutorCounts(token) {
+  const res = await fetch(`${BASE}/api/v1/tutors/counts`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...bearerHeader(token),
+    },
+  });
+
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    throw new Error(extractErrorMessage(data, `Không thể lấy số lượng gia sư (${res.status})`));
+  }
+
+  return data.result ?? data;
+}
+
+/**
+ * Lấy chi tiết hồ sơ gia sư đầy đủ (kèm chứng chỉ, bảng giá...) — GET /api/v1/tutors/{id}
+ *
+ * @param {number|string} tutorId - ID gia sư
+ * @param {string} token - JWT token
+ * @returns {Promise<Object>} TutorProfileResponse
+ */
+export async function apiGetTutorDetail(tutorId, token) {
+  const res = await fetch(`${BASE}/api/v1/tutors/${tutorId}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...bearerHeader(token),
+    },
+  });
+
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    const err = new Error(extractErrorMessage(data, `Không thể lấy chi tiết gia sư (${res.status})`));
+    err.status = res.status;
+    throw err;
+  }
+
+  return data.result ?? data;
+}
+
+/**
+ * Duyệt hồ sơ gia sư: PENDING -> ACTIVE — POST /api/v1/tutors/{id}/approve
+ *
+ * @param {number|string} tutorId - ID gia sư
+ * @param {string} token - JWT token
+ * @returns {Promise<Object>} TutorProfileResponse
+ */
+export async function apiApproveTutor(tutorId, token) {
+  const res = await fetch(`${BASE}/api/v1/tutors/${tutorId}/approve`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...bearerHeader(token),
+    },
+  });
+
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    const err = new Error(extractErrorMessage(data, `Duyệt hồ sơ thất bại (${res.status})`));
+    err.status = res.status;
+    throw err;
+  }
+
+  return data.result ?? data;
+}
+
+/**
+ * Từ chối hồ sơ gia sư kèm lý do: PENDING -> REJECTED — POST /api/v1/tutors/{id}/reject
+ *
+ * @param {number|string} tutorId - ID gia sư
+ * @param {string} rejectionReason - Lý do từ chối bắt buộc
+ * @param {string} token - JWT token
+ * @returns {Promise<Object>} TutorProfileResponse
+ */
+export async function apiRejectTutor(tutorId, rejectionReason, token) {
+  const res = await fetch(`${BASE}/api/v1/tutors/${tutorId}/reject`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...bearerHeader(token),
+    },
+    body: JSON.stringify({ rejectionReason }),
+  });
+
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    const err = new Error(extractErrorMessage(data, `Từ chối hồ sơ thất bại (${res.status})`));
+    err.status = res.status;
+    throw err;
+  }
+
+  return data.result ?? data;
+}
+
+/**
+ * Đổi trạng thái hoạt động: ACTIVE <-> INACTIVE — PATCH /api/v1/tutors/{id}/status
+ *
+ * @param {number|string} tutorId - ID gia sư
+ * @param {Object} payload - { status: 'ACTIVE' | 'INACTIVE', note: string }
+ * @param {string} token - JWT token
+ * @returns {Promise<Object>} TutorProfileResponse
+ */
+export async function apiUpdateTutorStatus(tutorId, { status, note }, token) {
+  const res = await fetch(`${BASE}/api/v1/tutors/${tutorId}/status`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...bearerHeader(token),
+    },
+    body: JSON.stringify({ status, note }),
+  });
+
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    const err = new Error(extractErrorMessage(data, `Cập nhật trạng thái thất bại (${res.status})`));
+    err.status = res.status;
+    throw err;
+  }
+
+  return data.result ?? data;
+}
+
+/**
+ * Quản trị viên cập nhật thông tin hồ sơ gia sư — PATCH /api/v1/tutors/{id}
+ *
+ * @param {number|string} tutorId - ID gia sư
+ * @param {Object} updateData - Dữ liệu cập nhật
+ * @param {string} token - JWT token
+ * @returns {Promise<Object>} TutorProfileResponse
+ */
+export async function apiUpdateTutorProfile(tutorId, updateData, token) {
+  const res = await fetch(`${BASE}/api/v1/tutors/${tutorId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...bearerHeader(token),
+    },
+    body: JSON.stringify(updateData),
+  });
+
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    const err = new Error(extractErrorMessage(data, `Cập nhật thông tin thất bại (${res.status})`));
+    err.status = res.status;
+    throw err;
+  }
+
+  return data.result ?? data;
+}
+

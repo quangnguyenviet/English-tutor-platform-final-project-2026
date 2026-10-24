@@ -1,5 +1,6 @@
 package com.mycompany.englishtutor.shared.api;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
@@ -12,18 +13,32 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
-/** Kết quả phân trang dùng chung cho các API danh sách. {@code page} bắt đầu từ 0. */
+/**
+ * Định dạng phân trang chuẩn cho tất cả API theo API_DESIGN.md Mục 2.2.
+ * {@code page} bắt đầu từ 0.
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class PageResponse<T> {
-    List<T> items;
+    @Builder.Default
+    List<T> items = Collections.emptyList();
     int page;
     int size;
     long totalItems;
     int totalPages;
+
+    public static <T> PageResponse<T> from(Page<T> page) {
+        return PageResponse.<T>builder()
+                .items(page.getContent())
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalItems(page.getTotalElements())
+                .totalPages(page.getTotalPages())
+                .build();
+    }
 
     public static <S, T> PageResponse<T> from(Page<S> source, Function<S, T> mapper) {
         return of(source.getContent().stream().map(mapper).toList(), source.getNumber(), source.getSize(),
