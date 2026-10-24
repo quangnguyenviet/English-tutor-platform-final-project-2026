@@ -135,15 +135,6 @@ class TutorClassRequestControllerTest {
                 .andExpect(jsonPath("$.result.status").value("APPLIED"));
     }
 
-    @Test
-    void apply_blankMessage_returns400() throws Exception {
-        mockMvc.perform(post("/api/v1/tutors/me/open-requests/7/apply")
-                        .with(jwt().authorities(() -> "ROLE_TUTOR"))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"message\":\"   \"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Lời nhắn giới thiệu không được để trống"));
-    }
 
     @Test
     void apply_alreadyApplied_returns409() throws Exception {

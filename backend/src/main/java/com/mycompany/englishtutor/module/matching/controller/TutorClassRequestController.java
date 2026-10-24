@@ -67,7 +67,7 @@ public class TutorClassRequestController {
 
     @PostMapping("/open-requests/{classRequestId}/apply")
     @Operation(
-            summary = "Ứng tuyển lớp đang mở kèm lời nhắn",
+            summary = "Ứng tuyển lớp đang mở (lời nhắn kèm theo tùy chọn)",
             security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<TutorApplicationResponse>> apply(
             @PathVariable Long classRequestId, @Valid @RequestBody ApplyClassRequest request) {

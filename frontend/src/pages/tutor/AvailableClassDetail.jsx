@@ -116,11 +116,6 @@ export default function AvailableClassDetail() {
     event.preventDefault();
     if (submitting) return;
 
-    if (!applyMessage.trim()) {
-      setApplyError("Vui lòng nhập lời nhắn giới thiệu bản thân tới trung tâm.");
-      return;
-    }
-
     setSubmitting(true);
     setApplyError("");
     try {
@@ -385,16 +380,14 @@ export default function AvailableClassDetail() {
                   htmlFor="apply-message"
                   className="block text-xs font-bold text-slate-800 dark:text-slate-200"
                 >
-                  Lời nhắn giới thiệu bản thân tới trung tâm{" "}
-                  <span className="text-rose-500">*</span>
+                  Lời nhắn
                 </label>
                 <textarea
                   id="apply-message"
                   rows={4}
-                  required
                   value={applyMessage}
                   onChange={(event) => setApplyMessage(event.target.value)}
-                  placeholder="Nhập giới thiệu tóm tắt về năng lực, chứng chỉ, kinh nghiệm dạy học của bạn..."
+                  placeholder="Nhập lời nhắn kèm theo đơn ứng tuyển (tùy chọn)..."
                   className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
                 />
               </div>

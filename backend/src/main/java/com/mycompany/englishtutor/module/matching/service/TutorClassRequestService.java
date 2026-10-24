@@ -84,7 +84,7 @@ public class TutorClassRequestService {
             throw new AppException(ErrorCode.CLASS_REQUEST_NOT_OPEN);
         }
 
-        String message = request.getMessage().trim();
+        String message = (request.getMessage() == null) ? "" : request.getMessage().trim();
         Long applicationId;
         try {
             applicationId = applicationRepository.insert(classRequestId, user.getId(), message);

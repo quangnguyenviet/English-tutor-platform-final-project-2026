@@ -81,7 +81,7 @@ export function apiGetOpenClassRequest(token, classRequestId) {
   return request(token, `/api/v1/tutors/me/open-requests/${encodeURIComponent(classRequestId)}`);
 }
 
-/** Ứng tuyển lớp kèm lời nhắn. */
+/** Ứng tuyển lớp (lời nhắn kèm theo tùy chọn). */
 export function apiApplyForClass(token, classRequestId, message) {
   return request(token, `/api/v1/tutors/me/open-requests/${encodeURIComponent(classRequestId)}/apply`, {
     method: "POST",
