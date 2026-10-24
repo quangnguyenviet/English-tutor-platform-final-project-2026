@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate, useLocation, useParams } from "react-router-dom";
 import clsx from "clsx";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { apiGetMatchRequestCounts } from "../../lib/matchRequestApi";
 import {
   LayoutDashboard,
   Users,
@@ -58,7 +59,7 @@ export default function AppShell() {
 }
 
 function AppShellInner() {
-  const { session, logout, matchRequestList, paymentProofList, notificationList, complaintList } = useAuth();
+  const { session, token, logout, matchRequestList, paymentProofList, notificationList, complaintList } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { studentId } = useParams();
@@ -77,10 +78,49 @@ function AppShellInner() {
   const isReceptionist = session?.role === "receptionist";
   const showAssistant = isTutor;
 
+  const currentToken = token || session?.token || localStorage.getItem("gsa_access_token");
+  const [realPendingMatchCount, setRealPendingMatchCount] = useState(null);
+
+  useEffect(() => {
+    if (!isAdmin && !isReceptionist) return;
+    let isMounted = true;
+
+    async function loadCounts() {
+      try {
+        const counts = await apiGetMatchRequestCounts(currentToken);
+        if (isMounted && counts && counts.pending !== undefined) {
+          setRealPendingMatchCount(Number(counts.pending));
+        }
+      } catch {
+        // keep current count
+      }
+    }
+
+    loadCounts();
+    const interval = setInterval(loadCounts, 10000);
+
+    const handleUpdate = (e) => {
+      if (e?.detail?.pending !== undefined) {
+        setRealPendingMatchCount(Number(e.detail.pending));
+      } else {
+        loadCounts();
+      }
+    };
+    window.addEventListener("match-requests-updated", handleUpdate);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener("match-requests-updated", handleUpdate);
+    };
+  }, [isAdmin, isReceptionist, currentToken, location.pathname]);
+
   // Build dynamic nav items
   let items = [];
   if (isAdmin) {
-    const pendingMatchCount = matchRequestList?.filter((r) => r.status === "pending").length || 0;
+    const pendingMatchCount = realPendingMatchCount !== null
+      ? realPendingMatchCount
+      : (matchRequestList?.filter((r) => r.status === "pending").length || 0);
     const pendingPaymentCount = paymentProofList?.filter((p) => p.status === "pending").length || 0;
     const unreadNotifCount = notificationList?.filter((n) => !n.read).length || 0;
 
@@ -88,7 +128,7 @@ function AppShellInner() {
       { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
       {
         to: "/admin/match-requests",
-        label: "Yêu cầu ghép lớp",
+        label: "Quản lý đơn ghép lớp",
         icon: ClipboardList,
         badge: () => (pendingMatchCount > 0 ? pendingMatchCount : null),
       },
@@ -114,7 +154,9 @@ function AppShellInner() {
       { to: "/admin/settings", label: "Cài đặt", icon: Settings },
     ];
   } else if (isReceptionist) {
-    const pendingMatchCount = matchRequestList?.filter((r) => r.status === "pending").length || 0;
+    const pendingMatchCount = realPendingMatchCount !== null
+      ? realPendingMatchCount
+      : (matchRequestList?.filter((r) => r.status === "pending").length || 0);
     const pendingPaymentCount = paymentProofList?.filter((p) => p.status === "pending").length || 0;
     const pendingComplaintCount = complaintList?.filter((c) => c.status === "pending").length || 0;
     const unreadNotifCount = notificationList?.filter((n) => !n.read).length || 0;
@@ -123,7 +165,7 @@ function AppShellInner() {
       { to: "/receptionist", label: "Tổng quan", icon: LayoutDashboard, end: true },
       {
         to: "/receptionist/match-requests",
-        label: "Yêu cầu ghép lớp",
+        label: "Quản lý đơn ghép lớp",
         icon: ClipboardList,
         badge: () => (pendingMatchCount > 0 ? pendingMatchCount : null),
       },

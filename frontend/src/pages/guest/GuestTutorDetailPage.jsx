@@ -98,7 +98,7 @@ export function GuestTutorDetailPage() {
               onClick={handleOpenHireModal}
               className="px-5 py-2 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-all shadow-xs cursor-pointer active:scale-[0.98]"
             >
-              Liên hệ ngay
+              Đăng ký học thử
             </button>
           </div>
         </div>
@@ -409,7 +409,7 @@ export function GuestTutorDetailPage() {
                   onClick={handleOpenHireModal}
                   className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all shadow-md cursor-pointer text-center active:scale-98"
                 >
-                  Liên hệ ngay
+                  Đăng ký học thử
                 </button>
                 <Link
                   to="/tutors"
