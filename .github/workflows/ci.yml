@@ -14,6 +14,21 @@ jobs:
   backend-ci:
     name: Build & Test Backend (Spring Boot)
     runs-on: ubuntu-latest
+    services:
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: minio_user
+          MINIO_ROOT_PASSWORD: minio_password_123
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      S3_ENDPOINT: http://minio:9000
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
