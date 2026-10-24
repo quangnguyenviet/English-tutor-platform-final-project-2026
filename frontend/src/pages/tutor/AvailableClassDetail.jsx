@@ -333,7 +333,7 @@ export default function AvailableClassDetail() {
               </div>
             </div>
             <Link
-              to="/tutor/create-profile"
+              to="/tutor/profile"
               className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-blue-700 shrink-0 transition-colors"
             >
               <FileText size={14} /> Hoàn tất hồ sơ gia sư

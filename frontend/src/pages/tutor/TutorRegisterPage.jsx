@@ -70,9 +70,9 @@ export default function TutorRegisterPage() {
       setLoading(false);
       setIsSuccess(true);
 
-      // Chuyển sang trang tạo hồ sơ sau 1.5 giây
+      // Chuyển sang trang hồ sơ sau 1.5 giây (tự vào form tạo mới nếu chưa có hồ sơ)
       setTimeout(() => {
-        navigate("/tutor/create-profile");
+        navigate("/tutor/profile");
       }, 1500);
     } catch (err) {
       setLoading(false);
@@ -132,7 +132,7 @@ export default function TutorRegisterPage() {
               <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <div>
                 <p className="font-bold">Đăng ký tài khoản thành công!</p>
-                <p className="text-xs opacity-90">Đang chuyển sang màn hình đăng nhập...</p>
+                <p className="text-xs opacity-90">Đang chuyển đến trang hoàn thiện hồ sơ...</p>
               </div>
             </div>
           )}

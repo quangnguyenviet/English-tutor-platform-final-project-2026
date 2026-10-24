@@ -20,18 +20,21 @@ import {
 } from "../../../lib/tutorProfileModel";
 
 /**
- * ProfileEditForm — Chế độ chỉnh sửa hồ sơ gia sư (plan.md task 6).
+ * ProfileEditForm — Chế độ chỉnh sửa / tạo mới hồ sơ gia sư.
+ * - Tạo mới (profile = null): form rỗng, không hiện banner trạng thái.
  * - Full edit (INCOMPLETE / REJECTED): sửa tất cả trường, có nút "Gửi duyệt".
  * - Restricted edit (ACTIVE): trường khóa (fullName, dateOfBirth, gender,
  *   hometown, university) hiển thị read-only; Lưu trực tiếp không cần duyệt lại.
  *
- * @param {Object} profile - Dữ liệu hồ sơ từ backend (TutorProfileResponse)
- * @param {function} onCancel - Trở về chế độ xem, bỏ thay đổi
- * @param {function} onSave - ({ form, avatarFile }) => void — lưu hồ sơ (task 7)
- * @param {function} onSubmitForReview - ({ form, avatarFile }) => void — gửi duyệt (task 7)
+ * @param {Object|null} profile - Dữ liệu hồ sơ từ backend; null = chưa có hồ sơ
+ * @param {Object} [initialForm] - Form state khởi tạo (dùng cho chế độ tạo mới)
+ * @param {function} onCancel - Trở về trang trước, bỏ thay đổi
+ * @param {function} onSave - ({ form, avatarFile }) => Promise — lưu hồ sơ
+ * @param {function} onSubmitForReview - ({ form, avatarFile }) => Promise — gửi duyệt
  */
 export default function ProfileEditForm({
   profile,
+  initialForm,
   onCancel,
   onSave,
   onSubmitForReview,
@@ -39,8 +42,11 @@ export default function ProfileEditForm({
   const status = profile?.profileStatus || PROFILE_STATUS.INCOMPLETE;
   const editMode = getEditMode(status);
   const isFullEdit = editMode === "full";
+  const isCreate = !profile;
 
-  const [form, setForm] = useState(() => mapApiToForm(profile));
+  const [form, setForm] = useState(
+    () => initialForm || mapApiToForm(profile),
+  );
   const [avatarFile, setAvatarFile] = useState(null);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
@@ -64,17 +70,13 @@ export default function ProfileEditForm({
     return !firstError;
   };
 
-  /** Loại File object (không serialize được) khỏi credentials trước khi trả cho parent. */
-  const cleanForm = () => ({
-    ...form,
-    credentials: (form.credentials || []).map(({ file: _file, ...rest }) => rest),
-  });
-
+  // Trả nguyên form (gồm File object trong credentials) — parent chịu trách nhiệm
+  // upload file mới rồi loại bỏ trước khi build payload gửi backend.
   const handleSave = async () => {
     if (!runValidation()) return;
     setSaving(true);
     try {
-      await onSave?.({ form: cleanForm(), avatarFile });
+      await onSave?.({ form, avatarFile });
     } finally {
       setSaving(false);
     }
@@ -84,7 +86,7 @@ export default function ProfileEditForm({
     if (!runValidation()) return;
     setSaving(true);
     try {
-      await onSubmitForReview?.({ form: cleanForm(), avatarFile });
+      await onSubmitForReview?.({ form, avatarFile });
     } finally {
       setSaving(false);
     }
@@ -94,19 +96,23 @@ export default function ProfileEditForm({
     <div className="space-y-6">
       <PageHeader
         eyebrow="Hồ sơ gia sư"
-        title="Chỉnh sửa hồ sơ"
+        title={isCreate ? "Tạo hồ sơ gia sư" : "Chỉnh sửa hồ sơ"}
         description={
-          isFullEdit
-            ? "Chỉnh sửa đầy đủ thông tin, sau đó gửi duyệt để cập nhật hồ sơ."
-            : "Hồ sơ đã được duyệt — chỉ sửa được các trường cho phép, lưu trực tiếp không cần duyệt lại."
+          isCreate
+            ? "Điền đầy đủ thông tin bên dưới để hoàn thiện hồ sơ giảng dạy và bắt đầu nhận lớp."
+            : isFullEdit
+              ? "Chỉnh sửa đầy đủ thông tin, sau đó gửi duyệt để cập nhật hồ sơ."
+              : "Hồ sơ đã được duyệt — chỉ sửa được các trường cho phép, lưu trực tiếp không cần duyệt lại."
         }
       />
 
-      <ProfileStatusBanner
-        profileStatus={status}
-        rejectionReason={profile?.rejectionReason}
-        reviewedAt={profile?.reviewedAt || profile?.updatedAt}
-      />
+      {!isCreate && (
+        <ProfileStatusBanner
+          profileStatus={status}
+          rejectionReason={profile?.rejectionReason}
+          reviewedAt={profile?.reviewedAt || profile?.updatedAt}
+        />
+      )}
 
       {/* Ghi chú chế độ restricted (ACTIVE) */}
       {!isFullEdit && (
@@ -159,9 +165,12 @@ export default function ProfileEditForm({
                 : "Thay đổi được lưu trực tiếp, không cần duyệt lại."}
             </p>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={onCancel} disabled={saving}>
-                <X size={16} /> Hủy
-              </Button>
+              {/* Hồ sơ chưa hoàn thiện: không cho hủy, buộc phải lưu/gửi duyệt */}
+              {status !== PROFILE_STATUS.INCOMPLETE && (
+                <Button variant="outline" onClick={onCancel} disabled={saving}>
+                  <X size={16} /> Hủy
+                </Button>
+              )}
               {isFullEdit && (
                 <Button
                   variant="secondary"

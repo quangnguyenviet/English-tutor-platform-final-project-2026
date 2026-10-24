@@ -37,6 +37,7 @@ import LibraryPathDetail from "./pages/tutor/LibraryPathDetail";
 import LibraryExercises from "./pages/tutor/LibraryExercises";
 import LibraryMaterials from "./pages/tutor/LibraryMaterials";
 import TutorProfile from "./pages/tutor/TutorProfile";
+import TutorProfileEditPage from "./pages/tutor/TutorProfileEditPage";
 import TutorSchedule from "./pages/tutor/TutorSchedule";
 import TutorLessonSessions from "./pages/tutor/TutorLessonSessions";
 import ParentLearningProgress from "./pages/parent/ParentLearningProgress";
@@ -71,7 +72,6 @@ import ReceptionistNotifications from "./pages/receptionist/ReceptionistNotifica
 import ReceptionistComplaints from "./pages/receptionist/ReceptionistComplaints";
 
 import TutorRegisterPage from "./pages/tutor/TutorRegisterPage";
-import CreateTutorProfilePage from "./pages/tutor/CreateTutorProfilePage";
 
 function RequireRole({ role, children }) {
   const { session, authLoading } = useAuth();
@@ -128,16 +128,8 @@ export default function App() {
           {/* Trang Đăng nhập */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Tutor Registration & Profile Setup Routes (Public - onboarding flow) */}
+          {/* Tutor Registration Route (Public - onboarding flow) */}
           <Route path="/tutor/register" element={<TutorRegisterPage />} />
-          <Route
-            path="/tutor/create-profile"
-            element={
-              <RequireRole role="tutor">
-                <CreateTutorProfilePage />
-              </RequireRole>
-            }
-          />
 
           {/* Admin Routes */}
           <Route
@@ -211,6 +203,7 @@ export default function App() {
             <Route path="library/exercises" element={<LibraryExercises />} />
             <Route path="library/materials" element={<LibraryMaterials />} />
             <Route path="profile" element={<TutorProfile />} />
+            <Route path="profile/edit" element={<TutorProfileEditPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 
