@@ -24,6 +24,8 @@ public enum ErrorCode {
     FILE_INVALID_TYPE(1014, "Định dạng tệp không hợp lệ", HttpStatus.BAD_REQUEST),
     TUTOR_PROFILE_PENDING(1030, "Hồ sơ đang chờ duyệt, không thể chỉnh sửa", HttpStatus.CONFLICT),
     TUTOR_PROFILE_NOT_PENDING(1031, "Hồ sơ không ở trạng thái chờ duyệt", HttpStatus.CONFLICT),
+    INVALID_STATUS_TRANSITION(1032, "Chuyển trạng thái hồ sơ không hợp lệ", HttpStatus.CONFLICT),
+    MISSING_REJECTION_REASON(1033, "Lý do từ chối không được để trống", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

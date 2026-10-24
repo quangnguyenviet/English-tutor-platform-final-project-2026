@@ -48,6 +48,9 @@ class AdminTutorServiceTest {
     @Mock
     TutorProfileMapper tutorProfileMapper;
 
+    @Mock
+    com.mycompany.englishtutor.module.audit.service.AuditLogService auditLogService;
+
     @InjectMocks
     AdminTutorService adminTutorService;
 
@@ -272,4 +275,42 @@ class AdminTutorServiceTest {
         // THEN
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_EXISTED);
     }
+
+    @Test
+    void updateStatus_activeToInactive_success() {
+        // GIVEN
+        tutor.setProfileStatus("ACTIVE");
+        when(userRepository.findByUsername(anyString())).thenReturn(Optional.of(reviewer));
+        when(tutorRepository.findById(TUTOR_ID)).thenReturn(Optional.of(tutor));
+        when(tutorProfileMapper.mapToResponse(any(), any())).thenReturn(TutorProfileResponse.builder().profileStatus("INACTIVE").build());
+
+        var req = com.mycompany.englishtutor.module.tutor.api.request.TutorStatusUpdateRequest.builder()
+                .status("INACTIVE")
+                .note("Gia sư bận việc cá nhân")
+                .build();
+
+        // WHEN
+        var response = adminTutorService.updateStatus(TUTOR_ID, req);
+
+        // THEN
+        assertThat(response.getProfileStatus()).isEqualTo("INACTIVE");
+        assertThat(tutor.getProfileStatus()).isEqualTo("INACTIVE");
+    }
+
+    @Test
+    void updateStatus_invalidTransition_throwsConflict() {
+        // GIVEN: đang ở PENDING mà cố tình gọi updateStatus sang INACTIVE
+        tutor.setProfileStatus("PENDING");
+        when(userRepository.findByUsername(anyString())).thenReturn(Optional.of(reviewer));
+        when(tutorRepository.findById(TUTOR_ID)).thenReturn(Optional.of(tutor));
+
+        var req = com.mycompany.englishtutor.module.tutor.api.request.TutorStatusUpdateRequest.builder()
+                .status("INACTIVE")
+                .build();
+
+        // WHEN & THEN
+        var exception = assertThrows(AppException.class, () -> adminTutorService.updateStatus(TUTOR_ID, req));
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION);
+    }
 }
+
