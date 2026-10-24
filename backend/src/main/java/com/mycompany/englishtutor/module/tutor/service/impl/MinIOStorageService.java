@@ -50,7 +50,11 @@ public class MinIOStorageService implements StorageService {
                 .forcePathStyle(properties.isPathStyleAccessEnabled())
                 .build();
 
-        createBucketIfNotExists();
+        try {
+            createBucketIfNotExists();
+        } catch (Exception e) {
+            log.warn("Could not initialize S3 bucket (MinIO may not be running): {}", e.getMessage());
+        }
         applyPublicReadPolicy();
     }
 
