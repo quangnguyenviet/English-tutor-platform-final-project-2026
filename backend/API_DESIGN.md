@@ -340,13 +340,15 @@ Công thức `payments.amount`: `fee_percentage × số_dòng_class_schedules ×
 | Method | Path | Quyền | Mô tả | FR |
 | --- | --- | --- | --- | --- |
 | GET | `/api/v1/tutors/me/payments` | TUTOR | Query `tab` (`NOT_SUBMITTED`/`RESUBMIT_REQUIRED`/`SUBMITTED`/`APPROVED`) | FR-15 |
-| POST | `/api/v1/payments/{id}/proof` | TUTOR | Gia sư nộp biên lai (multipart `file`, `paymentMethod = BANK_TRANSFER`). Chỉ khi `NOT_SUBMITTED`/`RESUBMIT_REQUIRED` → `SUBMITTED` | FR-15 |
+| POST | `/api/v1/payments/{id}/proof` | TUTOR (sở hữu), RECEPTIONIST, ADMIN | Nộp biên lai (multipart `file` jpg/png/pdf ≤ 5 MB, sai → `FILE_INVALID_TYPE`/`FILE_TOO_LARGE`; `paymentMethod` mặc định `BANK_TRANSFER`, gia sư chỉ được `BANK_TRANSFER`). Lễ tân/Admin nộp thay gia sư hoặc phụ huynh, audit có `onBehalfOf`. Chỉ khi `NOT_SUBMITTED`/`RESUBMIT_REQUIRED` → `SUBMITTED`; nộp lại thì xóa kết quả đối chiếu cũ | FR-15, FR-33 |
 | GET | `/api/v1/payments` | RECEPTIONIST, ADMIN, ACCOUNTANT | Tìm theo mã lớp, tên gia sư, SĐT phụ huynh, `status`, `month`; phân trang | FR-33, FR-41 |
 | GET | `/api/v1/payments/{id}` | RECEPTIONIST, ADMIN, ACCOUNTANT, TUTOR (sở hữu) | Chi tiết kèm cách tính | FR-41 |
 | POST | `/api/v1/payments/{id}/collect-proof` | RECEPTIONIST, ADMIN | Lễ tân thu hộ tại quầy (`CASH` hoặc `BANK_TRANSFER`, ảnh phiếu thu). → `SUBMITTED`, `uploaded_by` = lễ tân, audit `COLLECT_PAYMENT_PROOF` | FR-33 |
-| PATCH | `/api/v1/payments/{id}/fee-percentage` | ACCOUNTANT | Body `{ feePercentage }` ∈ [35, 40]; chỉ khi `NOT_SUBMITTED`; tính lại `amount`; audit `UPDATE_FEE_RATE` | FR-41 |
-| POST | `/api/v1/payments/{id}/approve` | ACCOUNTANT | Body `{ receivedAmount }`. `receivedAmount ≥ amount` → `APPROVED`, ghi `reviewed_by/at`, thông báo, audit; thiếu → `RESUBMIT_REQUIRED` + `rejectReason`. **`reviewed_by ≠ uploaded_by`** (lỗi `PAYMENT_SAME_ACTOR`) | FR-42 |
-| POST | `/api/v1/payments/{id}/request-resubmit` | ACCOUNTANT | Body `{ reason }`. → `RESUBMIT_REQUIRED` | FR-42 |
+| PATCH | `/api/v1/payments/{id}/fee-percentage` | RECEPTIONIST, ADMIN | Body `{ feePercentage }` ∈ [0, 50] (mặc định 40, ngoài khoảng → 400 `FEE_PERCENTAGE_OUT_OF_RANGE`); chỉ khi `NOT_SUBMITTED` (sai trạng thái → 409); tính lại `amount`; audit `UPDATE_FEE_RATE`. Kế toán không được chỉnh | FR-41 |
+| POST | `/api/v1/payments/{id}/approve` | ACCOUNTANT, ADMIN | Body `{ receivedAmount }`. `receivedAmount ≥ amount` → `APPROVED`, ghi `reviewed_by/at`, thông báo, audit; thiếu → `RESUBMIT_REQUIRED` + `rejectReason`. **`reviewed_by ≠ uploaded_by`** (lỗi `PAYMENT_SAME_ACTOR`, áp dụng cả Admin) | FR-42 |
+| POST | `/api/v1/payments/{id}/request-resubmit` | ACCOUNTANT, ADMIN | Body `{ reason }`. Từ `SUBMITTED` → `RESUBMIT_REQUIRED`; cũng áp dụng `PAYMENT_SAME_ACTOR` | FR-42 |
+
+`PaymentService.createForClass(classId)` (gọi trong cùng transaction chốt lịch, T7-B3): tạo khoản `NOT_SUBMITTED`, `TUTOR`, tỷ lệ mặc định 40% (`app.payment.default-fee-percentage`), idempotent theo lớp. Khoảng chỉnh tỷ lệ cấu hình ở `app.payment.min/max-fee-percentage` (0–50). ADMIN gọi được mọi endpoint của mục này.
 
 Khi phí `APPROVED` → mở khóa thông tin liên hệ phụ huynh cho gia sư (cờ `contactUnlocked` trong `GET /api/v1/classes/{id}`).
 
@@ -406,8 +408,9 @@ Khi phí `APPROVED` → mở khóa thông tin liên hệ phụ huynh cho gia sư
 | V6 | `sessions` (partial unique index buổi thử), `session_materials`, `notifications`, `audit_logs` |
 | V7 | `skills` (seed), `quizzes`, `quiz_questions`, `quiz_answers`, view `v_student_skill_stats` |
 | V8 | `payments`, `complaints`, `complaint_attachments`, `refunds` |
+| V9 | `payments`: nới `fee_percentage` thành 0–50 và `amount >= 0` (T7-C2) |
 
-> `db/migration/` hiện đã có V1–V3; mọi file mới phải tăng version, không sửa file đã merge.
+> Thực tế `payments`, `complaints`, `refunds` đã được tạo trong V5; V7–V8 là seed và `unaccent`. `db/migration/` hiện đã có V1–V8, mọi file mới phải tăng version, không sửa file đã merge.
 
 ## 6. Ma trận phân quyền tổng hợp
 
@@ -419,8 +422,9 @@ Khi phí `APPROVED` → mở khóa thông tin liên hệ phụ huynh cho gia sư
 | Lớp cần gia sư, ghép lớp (3.4) | | | | x | | x |
 | Ứng tuyển, lịch dạy, buổi học (3.4–3.6 TUTOR) | | | x | | | |
 | Lịch học, làm quiz (3.6–3.7 STUDENT) | | x | | | | |
-| Nộp minh chứng phí (3.8) | | | x | thu hộ | | |
-| Duyệt phí, hoàn tiền, thống kê (3.8–3.9) | | | | | x | |
+| Nộp minh chứng phí (3.8) | | | x | thu hộ / nộp thay | | x |
+| Chỉnh tỷ lệ phí (3.8) | | | | x | | x |
+| Duyệt phí, hoàn tiền, thống kê (3.8–3.9) | | | | | x | x |
 | Khiếu nại (3.9) | | | | x | xem | x |
 | Quản lý học sinh (3.10) | | | | x | | x |
 | Quản lý nhân sự (3.10) | | | | | | x |

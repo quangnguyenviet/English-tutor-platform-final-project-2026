@@ -1,6 +1,7 @@
 package com.mycompany.englishtutor.module.tutor.service.impl;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -14,7 +15,10 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.*;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import com.mycompany.englishtutor.module.tutor.service.FileStorageProperties;
 import com.mycompany.englishtutor.module.tutor.service.StorageService;
@@ -170,6 +174,35 @@ public class MinIOStorageService implements StorageService {
 
         s3Client.deleteObject(deleteObjectRequest);
         log.info("Deleted file {}", objectKey);
+    }
+
+    @Override
+    public String presignedUrl(String keyOrUrl, Duration ttl) {
+        String objectKey = keyOrUrl;
+        String bucketMarker = "/" + properties.getBucket() + "/";
+        if (keyOrUrl.contains(bucketMarker)) {
+            objectKey = keyOrUrl.substring(keyOrUrl.indexOf(bucketMarker) + bucketMarker.length());
+        }
+
+        AwsBasicCredentials credentials =
+                AwsBasicCredentials.create(properties.getAccessKey(), properties.getSecretKey());
+        try (S3Presigner presigner = S3Presigner.builder()
+                .endpointOverride(java.net.URI.create(properties.getEndpoint()))
+                .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                .region(Region.of(properties.getRegion()))
+                .serviceConfiguration(S3Configuration.builder()
+                        .pathStyleAccessEnabled(properties.isPathStyleAccessEnabled())
+                        .build())
+                .build()) {
+            GetObjectPresignRequest request = GetObjectPresignRequest.builder()
+                    .signatureDuration(ttl)
+                    .getObjectRequest(GetObjectRequest.builder()
+                            .bucket(properties.getBucket())
+                            .key(objectKey)
+                            .build())
+                    .build();
+            return presigner.presignGetObject(request).url().toString();
+        }
     }
 
     private void validateFile(MultipartFile file) {

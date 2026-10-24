@@ -32,6 +32,18 @@ public enum ErrorCode {
             1102,
             "Số điện thoại này đã gửi quá 5 yêu cầu trong 1 giờ. Vui lòng thử lại sau",
             HttpStatus.TOO_MANY_REQUESTS),
+    PAYMENT_NOT_FOUND(1200, "Khoản phí nhận lớp không tồn tại", HttpStatus.NOT_FOUND),
+    PAYMENT_INVALID_STATE(1201, "Khoản phí không ở trạng thái cho phép thao tác này", HttpStatus.CONFLICT),
+    PAYMENT_SAME_ACTOR(1202, "Người duyệt không được trùng với người nộp hoặc thu hộ minh chứng", HttpStatus.FORBIDDEN),
+    FEE_PERCENTAGE_OUT_OF_RANGE(1203, "Tỷ lệ phí nhận lớp nằm ngoài khoảng cho phép", HttpStatus.BAD_REQUEST),
+    PAYMENT_ACCESS_DENIED(1204, "Bạn không có quyền với khoản phí này", HttpStatus.FORBIDDEN),
+    PAYMENT_CLASS_NOT_FOUND(1205, "Lớp học của khoản phí không tồn tại", HttpStatus.NOT_FOUND),
+    PAYMENT_CLASS_INCOMPLETE(
+            1206, "Lớp chưa có học phí mỗi buổi hoặc lịch học cố định để tính phí", HttpStatus.CONFLICT),
+    PAYMENT_PROOF_REQUIRED(1207, "Vui lòng đính kèm ảnh hoặc tệp biên lai", HttpStatus.BAD_REQUEST),
+    RECEIVED_AMOUNT_INVALID(1208, "Số tiền thực nhận không hợp lệ", HttpStatus.BAD_REQUEST),
+    RESUBMIT_REASON_REQUIRED(1209, "Vui lòng nhập lý do yêu cầu nộp lại", HttpStatus.BAD_REQUEST),
+    PAYMENT_METHOD_NOT_ALLOWED(1210, "Phương thức thanh toán không hợp lệ cho vai trò này", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
