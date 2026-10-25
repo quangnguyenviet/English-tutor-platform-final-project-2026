@@ -47,6 +47,12 @@ public enum ErrorCode {
     MATCH_REQUEST_NOT_PENDING(1109, "Đơn ghép lớp không ở trạng thái chờ xử lý", HttpStatus.CONFLICT),
     CLASS_REQUEST_ALREADY_CANCELLED(1110, "Đơn ghép lớp này đã bị hủy trước đó", HttpStatus.CONFLICT),
     MATCH_REQUEST_NOT_TRIAL(1111, "Chỉ có thể duyệt hoàn tất đối với lớp đang ở trạng thái dạy thử", HttpStatus.CONFLICT),
+    CLASS_REQUEST_NOT_NEW(1112, "Chỉ có thể đăng tuyển lớp đang ở trạng thái chờ xử lý", HttpStatus.CONFLICT),
+    CLASS_REQUEST_NOT_READY(
+            1113,
+            "Lớp chưa đủ thông tin (yêu cầu lớp, hình thức, học phí, học sinh) để đăng tuyển",
+            HttpStatus.CONFLICT),
+    APPLICATION_NOT_IN_REQUEST(1114, "Đơn ứng tuyển không thuộc lớp này", HttpStatus.CONFLICT),
     PAYMENT_NOT_FOUND(1200, "Khoản phí nhận lớp không tồn tại", HttpStatus.NOT_FOUND),
     PAYMENT_INVALID_STATE(1201, "Khoản phí không ở trạng thái cho phép thao tác này", HttpStatus.CONFLICT),
     PAYMENT_SAME_ACTOR(1202, "Người duyệt không được trùng với người nộp hoặc thu hộ minh chứng", HttpStatus.FORBIDDEN),

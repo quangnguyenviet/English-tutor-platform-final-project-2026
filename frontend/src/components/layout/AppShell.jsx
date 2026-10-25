@@ -30,6 +30,7 @@ import {
   Bell,
   FileWarning,
   HeadphonesIcon,
+  Megaphone,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { AiAssistantProvider, useAiAssistant } from "../../context/AiAssistantContext";
@@ -127,6 +128,11 @@ function AppShellInner() {
     items = [
       { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
       {
+        to: "/admin/class-requests",
+        label: "Quản lý lớp cần gia sư",
+        icon: Megaphone,
+      },
+      {
         to: "/admin/match-requests",
         label: "Quản lý đơn ghép lớp",
         icon: ClipboardList,
@@ -163,6 +169,11 @@ function AppShellInner() {
 
     items = [
       { to: "/receptionist", label: "Tổng quan", icon: LayoutDashboard, end: true },
+      {
+        to: "/receptionist/class-requests",
+        label: "Quản lý lớp cần gia sư",
+        icon: Megaphone,
+      },
       {
         to: "/receptionist/match-requests",
         label: "Quản lý đơn ghép lớp",

@@ -12,6 +12,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import TutorManagement from "./pages/admin/TutorManagement";
 import StudentManagement from "./pages/admin/StudentManagement";
 import MatchRequests from "./pages/admin/MatchRequests";
+import ClassRequestManagement from "./pages/admin/ClassRequests";
 import PaymentApproval from "./pages/admin/PaymentApproval";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminLogs from "./pages/admin/AdminLogs";
@@ -65,6 +66,7 @@ import GuestContactPage from "./pages/guest/GuestContactPage";
 
 import ReceptionistDashboard from "./pages/receptionist/ReceptionistDashboard";
 import ReceptionistMatchRequests from "./pages/receptionist/ReceptionistMatchRequests";
+import ReceptionistClassRequests from "./pages/receptionist/ReceptionistClassRequests";
 import ReceptionistPaymentApproval from "./pages/receptionist/ReceptionistPaymentApproval";
 import ReceptionistTutorList from "./pages/receptionist/ReceptionistTutorList";
 import ReceptionistStudentList from "./pages/receptionist/ReceptionistStudentList";
@@ -153,6 +155,7 @@ export default function App() {
             <Route path="tutors" element={<TutorManagement />} />
             <Route path="students" element={<StudentManagement />} />
             <Route path="match-requests" element={<MatchRequests />} />
+            <Route path="class-requests" element={<ClassRequestManagement />} />
             <Route path="payments" element={<PaymentApproval />} />
             <Route path="receptionists" element={<ReceptionistManagement />} />
             <Route path="complaints" element={<ComplaintManagement />} />
@@ -240,6 +243,7 @@ export default function App() {
           >
             <Route index element={<ReceptionistDashboard />} />
             <Route path="match-requests" element={<ReceptionistMatchRequests />} />
+            <Route path="class-requests" element={<ReceptionistClassRequests />} />
             <Route path="payments" element={<ReceptionistPaymentApproval />} />
             <Route path="tutors" element={<ReceptionistTutorList />} />
             <Route path="students" element={<ReceptionistStudentList />} />
