@@ -52,7 +52,7 @@ export default function EducationSection({
         />
         <DetailRow
           icon={Building2}
-          label="Địa chỉ dạy"
+          label="Địa chỉ"
           value={address || "–"}
         />
       </div>
@@ -143,7 +143,7 @@ export function EducationSectionEdit({ form, onChange, errors = {}, profileStatu
           />
           <TextField
             fieldId="address"
-            label="Địa chỉ dạy"
+            label="Địa chỉ"
             required
             value={form.address}
             onChange={(e) => onChange("address", e.target.value)}
