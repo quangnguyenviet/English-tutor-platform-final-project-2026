@@ -38,16 +38,16 @@ export default function TutorClassWorkspace() {
 
   // Dữ liệu mock của các tab prototype — giữ nguyên hành vi của workspace cũ.
   const [demoStudent] = useState(() => students[0]);
-  const [pathItems, setPathItems] = useState(demoStudent.learningPath);
-  const [dailySessions, setDailySessions] = useState(demoStudent.dailySessions);
-  const [exercisesList, setExercisesList] = useState(demoStudent.exercises);
-  const [materialsList, setMaterialsList] = useState(demoStudent.materials);
+  const [pathItems, setPathItems] = useState(demoStudent.learningPath || []);
+  const [dailySessions, setDailySessions] = useState(demoStudent.dailySessions || []);
+  const [exercisesList, setExercisesList] = useState(demoStudent.exercises || []);
+  const [materialsList, setMaterialsList] = useState(demoStudent.materials || []);
 
   useEffect(() => {
-    setPathItems(demoStudent.learningPath);
-    setDailySessions(demoStudent.dailySessions);
-    setExercisesList(demoStudent.exercises);
-    setMaterialsList(demoStudent.materials);
+    setPathItems(demoStudent.learningPath || []);
+    setDailySessions(demoStudent.dailySessions || []);
+    setExercisesList(demoStudent.exercises || []);
+    setMaterialsList(demoStudent.materials || []);
   }, [classId, demoStudent]);
 
   const loadDetail = useCallback(async () => {
