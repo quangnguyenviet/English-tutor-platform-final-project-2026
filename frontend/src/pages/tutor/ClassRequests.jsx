@@ -498,7 +498,7 @@ export default function ClassRequests() {
                       </span>
                     </div>
                     <Link
-                      to="/tutor/students"
+                      to="/tutor/classes"
                       className="inline-flex items-center gap-1 font-bold text-emerald-700 hover:text-emerald-900 dark:text-emerald-300 dark:hover:text-emerald-100 whitespace-nowrap"
                     >
                       Xem danh sách <ChevronRight size={14} />

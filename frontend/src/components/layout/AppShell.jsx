@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate, useLocation, useParams } from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import clsx from "clsx";
 import { useState, useEffect } from "react";
 import { apiGetMatchRequestCounts } from "../../lib/matchRequestApi";
@@ -35,11 +35,11 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { AiAssistantProvider, useAiAssistant } from "../../context/AiAssistantContext";
 import { StudentMatchingProvider, useStudentMatching } from "../../context/StudentMatchingContext";
-import { classRequests, getStudentById } from "../../data/mockData";
+import { classRequests } from "../../data/mockData";
 import Avatar from "../ui/Avatar";
 import AiAssistantPanel from "../tutor/AiAssistantPanel";
 import TopBar from "./TopBar";
-import TutorStudentSidebar from "./TutorStudentSidebar";
+import TutorClassSidebar from "./TutorClassSidebar";
 
 const tutorLibraryNav = [
   { to: "/tutor/library/paths", label: "Khung chương trình", icon: Map },
@@ -63,7 +63,6 @@ function AppShellInner() {
   const { session, token, logout, matchRequestList, paymentProofList, notificationList, complaintList } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { studentId } = useParams();
   const { open: chatOpen } = useAiAssistant();
   const [mobileOpen, setMobileOpen] = useState(false);
   let studentMatching = null;
@@ -235,9 +234,9 @@ function AppShellInner() {
     ];
   }
 
-  // Detect if we're on a student detail page
-  const isStudentDetail = isTutor && studentId && location.pathname.includes(`/tutor/students/${studentId}`);
-  const student = isStudentDetail ? getStudentById(studentId) : null;
+  // Detect workspace lớp học. Parse pathname vì useParams() ở layout route không thấy param của route con
+  // (và /tutor/available-classes/:classId cũng có classId nên không được nhầm).
+  const isClassWorkspace = isTutor && /^\/tutor\/classes\/[^/]+/.test(location.pathname);
 
   function handleLogout() {
     logout();
@@ -288,8 +287,8 @@ function AppShellInner() {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3">
-          {isStudentDetail ? (
-            <TutorStudentSidebar student={student} />
+          {isClassWorkspace ? (
+            <TutorClassSidebar />
           ) : (
             <>
               {/* Section Header for Student */}

@@ -20,9 +20,8 @@ import AdminNotifications from "./pages/admin/AdminNotifications";
 import ReceptionistManagement from "./pages/admin/ReceptionistManagement";
 import ComplaintManagement from "./pages/admin/ComplaintManagement";
 import TutorDashboard from "./pages/tutor/TutorDashboard";
-import StudentsList from "./pages/tutor/StudentsList";
-import StudentDetail from "./pages/tutor/StudentDetail";
-import ManageOverview from "./pages/tutor/manage/ManageOverview";
+import TutorClassWorkspace from "./pages/tutor/TutorClassWorkspace";
+import ClassOverview from "./pages/tutor/ClassOverview";
 import ManageLearningPathRoute from "./pages/tutor/manage/ManageLearningPathRoute";
 import ManageSessionsRoute from "./pages/tutor/manage/ManageSessionsRoute";
 import ManageAssignmentsRoute from "./pages/tutor/manage/ManageAssignmentsRoute";
@@ -34,7 +33,6 @@ import ClassRequests from "./pages/tutor/ClassRequests";
 import AvailableClasses from "./pages/tutor/AvailableClasses";
 import AvailableClassDetail from "./pages/tutor/AvailableClassDetail";
 import TutorClasses from "./pages/tutor/TutorClasses";
-import TutorClassDetail from "./pages/tutor/TutorClassDetail";
 import LibraryPaths from "./pages/tutor/LibraryPaths";
 import LibraryPathDetail from "./pages/tutor/LibraryPathDetail";
 import LibraryExercises from "./pages/tutor/LibraryExercises";
@@ -95,9 +93,9 @@ function RequireRole({ role, children }) {
   return children;
 }
 
-function StudentDetailDefaultTab() {
-  const { studentId } = useParams();
-  return <Navigate to={`/tutor/students/${studentId}/path`} replace />;
+function ClassWorkspaceDefaultTab() {
+  const { classId } = useParams();
+  return <Navigate to={`/tutor/classes/${classId}/overview`} replace />;
 }
 
 export default function App() {
@@ -178,32 +176,30 @@ export default function App() {
             }
           >
             <Route index element={<TutorDashboard />} />
-            <Route path="students" element={<StudentsList />} />
-            <Route path="students/:studentId" element={<StudentDetailDefaultTab />} />
-            <Route path="students/:studentId/overview" element={<StudentDetail />}>
-              <Route index element={<ManageOverview />} />
-            </Route>
-            <Route path="students/:studentId/path" element={<StudentDetail />}>
-              <Route index element={<ManageLearningPathRoute />} />
-            </Route>
-            <Route path="students/:studentId/sessions" element={<StudentDetail />}>
-              <Route index element={<ManageSessionsRoute />} />
-            </Route>
-            <Route path="students/:studentId/exercises" element={<StudentDetail />}>
-              <Route index element={<ManageAssignmentsRoute />} />
-              <Route path="add" element={<AddAssignmentPage />} />
-            </Route>
-            <Route path="students/:studentId/materials" element={<StudentDetail />}>
-              <Route index element={<ManageMaterialsRoute />} />
-            </Route>
-            <Route path="students/:studentId/exercises/:exerciseId" element={<TutorExerciseDetail />} />
             <Route path="schedule" element={<TutorSchedule />} />
             <Route path="lessons" element={<TutorLessonSessions />} />
             <Route path="exercise-generator" element={<ExerciseGenerator />} />
             <Route path="available-classes" element={<AvailableClasses />} />
             <Route path="available-classes/:classId" element={<AvailableClassDetail />} />
             <Route path="classes" element={<TutorClasses />} />
-            <Route path="classes/:classId" element={<TutorClassDetail />} />
+            <Route path="classes/:classId" element={<ClassWorkspaceDefaultTab />} />
+            <Route path="classes/:classId/exercises/:exerciseId" element={<TutorExerciseDetail />} />
+            <Route path="classes/:classId/overview" element={<TutorClassWorkspace />}>
+              <Route index element={<ClassOverview />} />
+            </Route>
+            <Route path="classes/:classId/path" element={<TutorClassWorkspace />}>
+              <Route index element={<ManageLearningPathRoute />} />
+            </Route>
+            <Route path="classes/:classId/sessions" element={<TutorClassWorkspace />}>
+              <Route index element={<ManageSessionsRoute />} />
+            </Route>
+            <Route path="classes/:classId/exercises" element={<TutorClassWorkspace />}>
+              <Route index element={<ManageAssignmentsRoute />} />
+              <Route path="add" element={<AddAssignmentPage />} />
+            </Route>
+            <Route path="classes/:classId/materials" element={<TutorClassWorkspace />}>
+              <Route index element={<ManageMaterialsRoute />} />
+            </Route>
             <Route path="requests" element={<ClassRequests />} />
             <Route path="library/paths" element={<LibraryPaths />} />
             <Route path="library/paths/:templateId" element={<LibraryPathDetail />} />

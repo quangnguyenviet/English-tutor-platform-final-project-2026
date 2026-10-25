@@ -27,7 +27,7 @@ const inputClass =
 
 export default function AddAssignmentPage() {
   const navigate = useNavigate();
-  const { student, pathItems, setExercisesList } = useOutletContext();
+  const { classId, pathItems, setExercisesList } = useOutletContext();
   const [searchParams] = useSearchParams();
   const presetSkill = searchParams.get("skill");
 
@@ -119,13 +119,13 @@ export default function AddAssignmentPage() {
       });
     }
 
-    navigate(`/tutor/students/${student.id}/exercises`);
+    navigate(`/tutor/classes/${classId}/exercises`);
   }
 
   return (
     <div>
       <Link
-        to={`/tutor/students/${student.id}/exercises`}
+        to={`/tutor/classes/${classId}/exercises`}
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
       >
         <ArrowLeft size={16} /> Quay lại bài tập
@@ -211,7 +211,7 @@ export default function AddAssignmentPage() {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" size="sm" onClick={() => navigate(`/tutor/students/${student.id}/exercises`)} type="button">
+            <Button variant="secondary" size="sm" onClick={() => navigate(`/tutor/classes/${classId}/exercises`)} type="button">
               Hủy
             </Button>
             <Button size="sm" onClick={() => setStep(2)} disabled={!form.title.trim()} type="button">

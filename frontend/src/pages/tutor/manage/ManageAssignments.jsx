@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Library, Plus, Trash2, FileText } from "lucide-react";
 import { exerciseBank } from "../../../data/mockData";
 import Card from "../../../components/ui/Card";
@@ -8,12 +8,11 @@ import Button from "../../../components/ui/Button";
 import { exerciseStatus } from "./manageHelpers";
 
 export default function ManageAssignments({
+  classId,
   exercisesList,
   setExercisesList,
   pathItems,
 }) {
-  const { studentId } = useParams();
-
   const [tab, setTab] = useState("assigned");
   const [showExercisePicker, setShowExercisePicker] = useState(false);
 
@@ -54,7 +53,7 @@ export default function ManageAssignments({
       {tab === "assigned" && (
         <div className="flex justify-end gap-2">
           <Link
-            to={`/tutor/students/${studentId}/exercises/add`}
+            to={`/tutor/classes/${classId}/exercises/add`}
             className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
           >
             <Plus size={14} /> Thêm bài tập
@@ -131,7 +130,7 @@ export default function ManageAssignments({
             <div key={ex.id} className="group flex flex-wrap items-center justify-between gap-3 p-4">
               <div className="min-w-0">
                 <Link
-                  to={`/tutor/students/${studentId}/exercises/${ex.id}`}
+                  to={`/tutor/classes/${classId}/exercises/${ex.id}`}
                   state={{ exercise: ex, sessionLabel: sessionLabel(ex.sessionId) }}
                   className="text-sm font-medium text-slate-900 hover:accent-text hover:underline dark:text-slate-50 dark:hover:accent-text-dark"
                 >

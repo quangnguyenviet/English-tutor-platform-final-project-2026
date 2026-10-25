@@ -32,9 +32,10 @@ const inputClass =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:focus:ring-blue-950";
 
 export default function TutorExerciseDetail() {
-  const { studentId, exerciseId } = useParams();
+  const { classId, exerciseId } = useParams();
   const location = useLocation();
-  const student = getStudentById(studentId);
+  // Workspace lớp đang dùng dữ liệu mock của học sinh demo (id "s1") cho các tab prototype.
+  const student = getStudentById("s1");
   // Bài tập vừa thêm/sửa trong phiên làm việc này (chưa có trong mockData tĩnh)
   // được truyền kèm qua router state để trang chi tiết vẫn hiển thị đúng.
   const exercise = location.state?.exercise ?? student?.exercises.find((e) => e.id === exerciseId);
@@ -45,8 +46,8 @@ export default function TutorExerciseDetail() {
       const item = student?.learningPath.find((it) => it.id === exercise?.sessionId);
       return item ? `Buổi ${item.session}: ${item.topic}` : null;
     })();
-  const gradingItem = gradingQueue.find((g) => g.studentId === studentId && g.exerciseId === exerciseId);
-  const contentKey = exercise ? contentKeyFor(studentId, exercise.id) : null;
+  const gradingItem = gradingQueue.find((g) => g.studentId === "s1" && g.exerciseId === exerciseId);
+  const contentKey = exercise ? contentKeyFor(classId, exercise.id) : null;
 
   function initialQuestions() {
     if (!exercise) return [];
@@ -65,12 +66,12 @@ export default function TutorExerciseDetail() {
   const [questions, setQuestions] = useState(initialQuestions);
   const [editingContent, setEditingContent] = useState(false);
 
-  const backTo = `/tutor/students/${studentId}/exercises`;
+  const backTo = `/tutor/classes/${classId}/exercises`;
 
   if (!exercise) {
     return (
       <div>
-        <Link to={`/tutor/students`} className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700">
+        <Link to="/tutor/classes" className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700">
           <ArrowLeft size={16} /> Quay lại
         </Link>
         <p className="mt-4 text-sm text-slate-500">Không tìm thấy bài tập.</p>

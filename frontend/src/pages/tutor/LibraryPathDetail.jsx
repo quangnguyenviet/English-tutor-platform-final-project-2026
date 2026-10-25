@@ -420,10 +420,9 @@ export default function LibraryPathDetail() {
                 {showStudents && studentList.length > 0 && (
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {studentList.map((s) => (
-                      <Link
+                      <div
                         key={s.id}
-                        to={`/tutor/students/${s.id}/path`}
-                        className="flex items-center gap-4 p-4 transition hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                        className="flex items-center gap-4 p-4"
                       >
                         <GraduationCap size={18} className="shrink-0 text-slate-400" />
                         <div className="min-w-0 flex-1">
@@ -443,7 +442,7 @@ export default function LibraryPathDetail() {
                           <Clock size={13} className="mr-1 inline" />
                           {s.schedule?.split(",")[0] || "Linh hoạt"}
                         </div>
-                      </Link>
+                      </div>
                     ))}
                   </div>
                 )}

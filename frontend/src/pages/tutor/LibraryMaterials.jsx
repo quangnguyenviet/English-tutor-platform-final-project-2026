@@ -67,8 +67,8 @@ export default function LibraryMaterials() {
       </div>
 
       <div className="mt-4">
-        <Link to="/tutor/students" className="text-sm font-medium accent-link">
-          Chọn học sinh để gán tài liệu →
+        <Link to="/tutor/classes" className="text-sm font-medium accent-link">
+          Chọn lớp để gán tài liệu →
         </Link>
       </div>
     </div>
