@@ -329,7 +329,14 @@ public class TutorProfileService {
     }
 
     private void updateAvailabilities(Tutor tutor, List<TutorProfileUpsertRequest.AvailabilityDto> dtos) {
-        tutorAvailabilityRepository.deleteByTutorId(tutor.getId());
+        // Xoá hết availabilities cũ của tutor trước khi lưu danh sách mới.
+        // Dùng find + deleteAll (thay vì bulk deleteByTutorId) để xóa sạch trong persistence context,
+        // tránh bị trùng khóa unique (tutor_id, day_of_week, time_slot) khi insert lại trong cùng transaction.
+        List<TutorAvailability> existing = tutorAvailabilityRepository.findByTutorId(tutor.getId());
+        if (!existing.isEmpty()) {
+            tutorAvailabilityRepository.deleteAll(existing);
+            tutorAvailabilityRepository.flush();
+        }
 
         if (dtos == null || dtos.isEmpty()) {
             return;

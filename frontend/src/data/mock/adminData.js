@@ -111,7 +111,7 @@ export const notifications = [
     body: "Phạm Gia Hân có buổi học 'Debate: Ưu nhược điểm làm việc từ xa' vào 2026-03-05.",
     time: "2026-03-04 08:00",
     read: true,
-    link: "/tutor/students/s3",
+    link: "/tutor/classes",
   },
   {
     id: "n5",

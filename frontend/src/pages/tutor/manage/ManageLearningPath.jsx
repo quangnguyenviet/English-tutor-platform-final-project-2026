@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   CheckCircle2,
   Circle,
@@ -14,7 +14,7 @@ import {
   PlayCircle as PlayCircleIcon,
   Save,
 } from "lucide-react";
-import { getStudentById, pathTemplates, skillList, computeActualUsage } from "../../../data/mockData";
+import { pathTemplates, skillList, computeActualUsage } from "../../../data/mockData";
 import Card from "../../../components/ui/Card";
 import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
@@ -49,6 +49,8 @@ const DETAIL_TABS = [
 ];
 
 export default function ManageLearningPath({
+  student,
+  classId,
   pathItems,
   setPathItems,
   exercisesList,
@@ -57,9 +59,6 @@ export default function ManageLearningPath({
   setMaterialsList,
   onSessionAdded,
 }) {
-  const { studentId } = useParams();
-  const student = getStudentById(studentId);
-
   // UI state — editing session
   const [editingItemId, setEditingItemId] = useState(null);
   const [editForm, setEditForm] = useState(null);
@@ -251,8 +250,8 @@ export default function ManageLearningPath({
     // Cập nhật studentsUsing và templateSource cho học sinh
     const templateInStore = pathTemplates.find((t) => t.id === tpl.id);
     if (templateInStore) {
-      if (!templateInStore.studentsUsing.includes(studentId)) {
-        templateInStore.studentsUsing.push(studentId);
+      if (!templateInStore.studentsUsing.includes(student?.id)) {
+        templateInStore.studentsUsing.push(student?.id);
       }
       templateInStore.usageCount = computeActualUsage(tpl.id) || templateInStore.usageCount;
     }
@@ -269,7 +268,7 @@ export default function ManageLearningPath({
       level: saveForm.level,
       goal: saveForm.goal.trim() || student?.goal || "Tùy chỉnh",
       usageCount: 0,
-      studentsUsing: [studentId],
+      studentsUsing: [student?.id],
       sessions: pathItems.map((it) => ({
         phase: it.phase,
         topic: it.topic,
@@ -710,7 +709,7 @@ export default function ManageLearningPath({
                         {exercisesBySession[selectedSession.id].map((ex) => (
                           <li key={ex.id}>
                             <Link
-                              to={`/tutor/students/${studentId}/exercises/${ex.id}`}
+                              to={classId ? `/tutor/classes/${classId}/exercises/${ex.id}` : `/tutor/classes`}
                               state={{ exercise: ex, studentName: student?.name, sessionLabel: sessionLabel(ex.sessionId) }}
                               className="flex items-start gap-2 rounded-lg p-2.5 text-sm text-slate-600 hover:bg-slate-100 hover:accent-text dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:accent-text-dark"
                             >

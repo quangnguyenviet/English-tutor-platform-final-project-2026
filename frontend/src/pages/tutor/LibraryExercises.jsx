@@ -60,8 +60,8 @@ export default function LibraryExercises() {
           )}
         </div>
         <div className="border-t border-slate-100 p-4 dark:border-slate-800">
-          <Link to="/tutor/students" className="text-sm font-medium accent-link">
-            Chọn học sinh để giao bài tập →
+          <Link to="/tutor/classes" className="text-sm font-medium accent-link">
+            Chọn lớp để giao bài tập →
           </Link>
         </div>
       </Card>
