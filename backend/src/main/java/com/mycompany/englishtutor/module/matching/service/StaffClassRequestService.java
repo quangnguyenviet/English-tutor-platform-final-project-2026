@@ -224,9 +224,12 @@ public class StaffClassRequestService {
                 id, request.getApplicationId());
 
         Long currentUserId = getCurrentUserId();
+        // Gán gia sư được chọn để lớp đồng thời trở thành một "Đơn ghép lớp" (hiện ở
+        // trang Quản lý đơn ghép lớp, tab "Đang dạy thử"). Lớp vẫn ở lại trang Lớp cần
+        // gia sư (tab "Đã xử lý") nhờ bộ lọc dựa trên lịch sử đơn ứng tuyển.
         jdbcTemplate.update(
-                "UPDATE class_requests SET status = 'MATCHED', handled_by = ?, updated_at = NOW() WHERE id = ?",
-                currentUserId, id);
+                "UPDATE class_requests SET status = 'MATCHED', requested_tutor_id = ?, handled_by = ?, updated_at = NOW() WHERE id = ?",
+                tutorId, currentUserId, id);
 
         Long classId = jdbcTemplate.queryForObject(
                 """
@@ -288,7 +291,13 @@ public class StaffClassRequestService {
 
     private void requireExists(Long id) {
         Integer exists = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM class_requests WHERE id = ? AND requested_tutor_id IS NULL", Integer.class, id);
+                """
+                SELECT COUNT(*) FROM class_requests cr
+                WHERE cr.id = ?
+                  AND (cr.requested_tutor_id IS NULL
+                       OR EXISTS (SELECT 1 FROM class_applications cax WHERE cax.class_request_id = cr.id))
+                """,
+                Integer.class, id);
         if (exists == null || exists == 0) {
             throw new AppException(ErrorCode.CLASS_REQUEST_NOT_FOUND);
         }

@@ -87,12 +87,22 @@ public class StaffClassRequestQueryRepository {
 
     JdbcTemplate jdbcTemplate;
 
+    /**
+     * Phạm vi "Lớp cần gia sư": lớp chưa chỉ định gia sư (đang tuyển/chờ xử lý), HOẶC lớp đã từng
+     * nhận đơn ứng tuyển (tức là lớp đăng tuyển đã được chọn gia sư — vẫn hiển thị ở tab "Đã xử lý").
+     * Nhờ đó khi chọn gia sư (gán {@code requested_tutor_id}), lớp vừa vào trang Đơn ghép lớp vừa
+     * ở lại trang này; còn Đơn ghép lớp chỉ định (không có đơn ứng tuyển) thì bị loại trừ.
+     */
+    private static final String SCOPE =
+            "(cr.requested_tutor_id IS NULL "
+                    + "OR EXISTS (SELECT 1 FROM class_applications cax WHERE cax.class_request_id = cr.id))";
+
     public PageResponse<ClassRequestSummaryResponse> findClassRequests(
             String tab, String keyword, String sort, Integer page, Integer size) {
         int pageIndex = PublicSearchSupport.clampPage(page);
         int pageSize = PublicSearchSupport.clampSize(size);
 
-        StringBuilder where = new StringBuilder(" WHERE cr.requested_tutor_id IS NULL ");
+        StringBuilder where = new StringBuilder(" WHERE " + SCOPE + " ");
         List<Object> params = new ArrayList<>();
         applyTabFilter(where, tab);
         applyKeywordFilter(where, keyword, params);
@@ -117,7 +127,7 @@ public class StaffClassRequestQueryRepository {
     }
 
     public Optional<ClassRequestDetailResponse> findDetailById(Long id) {
-        String sql = SELECT_BASE + " WHERE cr.requested_tutor_id IS NULL AND cr.id = ?";
+        String sql = SELECT_BASE + " WHERE " + SCOPE + " AND cr.id = ?";
         List<ClassRequestDetailResponse> list = jdbcTemplate.query(sql, new DetailRowMapper(), id);
         if (list.isEmpty()) {
             return Optional.empty();
@@ -133,11 +143,11 @@ public class StaffClassRequestQueryRepository {
 
     public Map<String, Long> getTabCounts() {
         Map<String, Long> counts = new HashMap<>();
-        String base = "SELECT COUNT(*) FROM class_requests WHERE requested_tutor_id IS NULL";
-        counts.put("new", count(base + " AND status = 'NEW'"));
-        counts.put("open", count(base + " AND status = 'OPEN'"));
-        counts.put("matched", count(base + " AND status = 'MATCHED'"));
-        counts.put("cancelled", count(base + " AND status = 'CANCELLED'"));
+        String base = "SELECT COUNT(*) FROM class_requests cr WHERE " + SCOPE;
+        counts.put("new", count(base + " AND cr.status = 'NEW'"));
+        counts.put("open", count(base + " AND cr.status = 'OPEN'"));
+        counts.put("matched", count(base + " AND cr.status = 'MATCHED'"));
+        counts.put("cancelled", count(base + " AND cr.status = 'CANCELLED'"));
         counts.put("total", count(base));
         return counts;
     }
