@@ -33,6 +33,8 @@ import ExerciseGenerator from "./pages/tutor/ExerciseGenerator";
 import ClassRequests from "./pages/tutor/ClassRequests";
 import AvailableClasses from "./pages/tutor/AvailableClasses";
 import AvailableClassDetail from "./pages/tutor/AvailableClassDetail";
+import TutorClasses from "./pages/tutor/TutorClasses";
+import TutorClassDetail from "./pages/tutor/TutorClassDetail";
 import LibraryPaths from "./pages/tutor/LibraryPaths";
 import LibraryPathDetail from "./pages/tutor/LibraryPathDetail";
 import LibraryExercises from "./pages/tutor/LibraryExercises";
@@ -200,6 +202,8 @@ export default function App() {
             <Route path="exercise-generator" element={<ExerciseGenerator />} />
             <Route path="available-classes" element={<AvailableClasses />} />
             <Route path="available-classes/:classId" element={<AvailableClassDetail />} />
+            <Route path="classes" element={<TutorClasses />} />
+            <Route path="classes/:classId" element={<TutorClassDetail />} />
             <Route path="requests" element={<ClassRequests />} />
             <Route path="library/paths" element={<LibraryPaths />} />
             <Route path="library/paths/:templateId" element={<LibraryPathDetail />} />
