@@ -29,7 +29,6 @@ import {
   Banknote,
   Bell,
   FileWarning,
-  HeadphonesIcon,
   Megaphone,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -146,7 +145,7 @@ function AppShellInner() {
       { to: "/admin/tutors", label: "Quản lý gia sư", icon: UserCog },
       { to: "/admin/students", label: "Quản lý học sinh", icon: Users },
       { to: "/admin/lessons", label: "Theo dõi buổi học", icon: BookOpenCheck },
-      { to: "/admin/receptionists", label: "Quản lý lễ tân", icon: HeadphonesIcon },
+      { to: "/admin/staff", label: "Quản lý nhân sự", icon: IdCard },
       { to: "/admin/complaints", label: "Xử lý khiếu nại", icon: FileWarning },
       { to: "/admin/analytics", label: "Báo cáo & Phân tích", icon: BarChart2 },
       {

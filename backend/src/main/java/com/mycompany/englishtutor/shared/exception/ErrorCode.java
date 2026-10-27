@@ -86,6 +86,12 @@ public enum ErrorCode {
     RECEIVED_AMOUNT_INVALID(1208, "Số tiền thực nhận không hợp lệ", HttpStatus.BAD_REQUEST),
     RESUBMIT_REASON_REQUIRED(1209, "Vui lòng nhập lý do yêu cầu nộp lại", HttpStatus.BAD_REQUEST),
     PAYMENT_METHOD_NOT_ALLOWED(1210, "Phương thức thanh toán không hợp lệ cho vai trò này", HttpStatus.BAD_REQUEST),
+    // --- Quản lý nhân sự (Lễ tân / Kế toán) - module staff (UC-ADM-11, UC-ADM-12) ---
+    PHONE_EXISTED(1300, "Số điện thoại đã được đăng ký trong hệ thống", HttpStatus.BAD_REQUEST),
+    EMPLOYEE_NOT_FOUND(1301, "Nhân sự không tồn tại", HttpStatus.NOT_FOUND),
+    INVALID_EMPLOYEE_ROLE(1302, "Vai trò nhân sự không hợp lệ (chỉ RECEPTIONIST hoặc ACCOUNTANT)", HttpStatus.BAD_REQUEST),
+    INVALID_EMPLOYEE_STATUS(1303, "Trạng thái nhân sự không hợp lệ", HttpStatus.CONFLICT),
+    ACCOUNT_INACTIVE(1304, "Tài khoản đã bị vô hiệu hóa, vui lòng liên hệ quản trị viên", HttpStatus.FORBIDDEN),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

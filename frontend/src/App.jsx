@@ -17,7 +17,7 @@ import PaymentApproval from "./pages/admin/PaymentApproval";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminLogs from "./pages/admin/AdminLogs";
 import AdminNotifications from "./pages/admin/AdminNotifications";
-import ReceptionistManagement from "./pages/admin/ReceptionistManagement";
+import StaffManagement from "./pages/admin/StaffManagement";
 import ComplaintManagement from "./pages/admin/ComplaintManagement";
 import TutorDashboard from "./pages/tutor/TutorDashboard";
 import TutorClassWorkspace from "./pages/tutor/TutorClassWorkspace";
@@ -157,7 +157,9 @@ export default function App() {
             <Route path="match-requests" element={<MatchRequests />} />
             <Route path="class-requests" element={<ClassRequestManagement />} />
             <Route path="payments" element={<PaymentApproval />} />
-            <Route path="receptionists" element={<ReceptionistManagement />} />
+            <Route path="staff" element={<StaffManagement />} />
+            {/* Giữ đường dẫn cũ để không vỡ link đã lưu */}
+            <Route path="receptionists" element={<StaffManagement />} />
             <Route path="complaints" element={<ComplaintManagement />} />
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="lessons" element={<LessonOperations />} />
