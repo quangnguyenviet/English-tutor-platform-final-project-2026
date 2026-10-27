@@ -73,6 +73,8 @@ import ReceptionistStudentList from "./pages/receptionist/ReceptionistStudentLis
 import ReceptionistNotifications from "./pages/receptionist/ReceptionistNotifications";
 import ReceptionistComplaints from "./pages/receptionist/ReceptionistComplaints";
 
+import AccountantDashboard from "./pages/accountant/AccountantDashboard";
+
 import TutorRegisterPage from "./pages/tutor/TutorRegisterPage";
 
 function RequireRole({ role, children }) {
@@ -252,6 +254,19 @@ export default function App() {
             <Route path="lessons" element={<LessonOperations />} />
             <Route path="complaints" element={<ReceptionistComplaints />} />
             <Route path="notifications" element={<ReceptionistNotifications />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
+
+          {/* Accountant Routes */}
+          <Route
+            path="/accountant"
+            element={
+              <RequireRole role="accountant">
+                <AppShell />
+              </RequireRole>
+            }
+          >
+            <Route index element={<AccountantDashboard />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 

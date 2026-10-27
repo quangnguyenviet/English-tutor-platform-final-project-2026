@@ -46,7 +46,7 @@ const tutorLibraryNav = [
   { to: "/tutor/library/materials", label: "Kho video & tài liệu", icon: Video },
 ];
 
-const roleLabel = { admin: "Quản trị viên", tutor: "Gia sư", student: "Học sinh", receptionist: "Lễ tân" };
+const roleLabel = { admin: "Quản trị viên", tutor: "Gia sư", student: "Học sinh", receptionist: "Lễ tân", accountant: "Kế toán" };
 
 export default function AppShell() {
   return (
@@ -75,6 +75,7 @@ function AppShellInner() {
   const isStudent = session?.role === "student";
   const isAdmin = session?.role === "admin";
   const isReceptionist = session?.role === "receptionist";
+  const isAccountant = session?.role === "accountant";
   const showAssistant = isTutor;
 
   const currentToken = token || session?.token || localStorage.getItem("gsa_access_token");
@@ -200,6 +201,11 @@ function AppShellInner() {
         badge: () => (unreadNotifCount > 0 ? unreadNotifCount : null),
       },
       { to: "/receptionist/settings", label: "Cài đặt", icon: Settings },
+    ];
+  } else if (isAccountant) {
+    items = [
+      { to: "/accountant", label: "Tổng quan", icon: LayoutDashboard, end: true },
+      { to: "/accountant/settings", label: "Cài đặt", icon: Settings },
     ];
   } else if (isTutor) {
     items = [
