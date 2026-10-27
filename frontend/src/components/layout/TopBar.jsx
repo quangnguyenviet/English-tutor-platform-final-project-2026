@@ -1,9 +1,8 @@
-import { useLocation, useParams, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ChevronRight, Bot, SlidersHorizontal, Menu, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useAiAssistant } from "../../context/AiAssistantContext";
 import { useStudentMatching } from "../../context/StudentMatchingContext";
-import { getStudentById } from "../../data/mockData";
 import ThemeSwitcher from "../ui/ThemeSwitcher";
 import Avatar from "../ui/Avatar";
 import Button from "../ui/Button";
@@ -24,8 +23,8 @@ const routeMeta = {
   },
   tutor: {
     "/tutor": { label: "Tổng quan" },
-    "/tutor/students": { label: "Học sinh" },
-    "/tutor/students/:studentId": { label: "Chi tiết học sinh" },
+    "/tutor/classes": { label: "Lớp học của tôi" },
+    "/tutor/classes/:classId": { label: "Chi tiết lớp học" },
     "/tutor/schedule": { label: "Lịch dạy" },
     "/tutor/requests": { label: "Yêu cầu lớp" },
     "/tutor/exercise-generator": { label: "Soạn bài tập AI" },
@@ -49,15 +48,15 @@ const routeMeta = {
   },
 };
 
-const studentSubTabs = {
+const classSubTabs = {
   overview: "Tổng quan",
   path: "Lộ trình học",
+  sessions: "Buổi học thực tế",
   exercises: "Bài tập",
-  progress: "Kết quả & tiến bộ",
   materials: "Tài liệu & video",
 };
 
-function buildBreadcrumbs(pathname, studentId) {
+function buildBreadcrumbs(pathname, classId) {
   const crumbs = [];
 
   if (pathname.startsWith("/admin")) {
@@ -68,15 +67,16 @@ function buildBreadcrumbs(pathname, studentId) {
     crumbs.push({ label: "Học sinh", to: "/student" });
   }
 
-  if (studentId) {
-    const student = getStudentById(studentId);
-    const name = student?.name ?? "Học sinh";
-    crumbs.push({ label: name, to: `/tutor/students/${studentId}` });
+  if (classId && pathname.startsWith("/tutor/classes/")) {
+    crumbs.push({ label: "Lớp học của tôi", to: "/tutor/classes" });
+    crumbs.push({ label: "Chi tiết lớp học", to: `/tutor/classes/${classId}` });
 
     const segments = pathname.split("/").filter(Boolean);
     const subTabKey = segments[segments.length - 1];
-    if (subTabKey && studentSubTabs[subTabKey]) {
-      crumbs.push({ label: studentSubTabs[subTabKey] });
+    if (classSubTabs[subTabKey]) {
+      crumbs.push({ label: classSubTabs[subTabKey] });
+    } else if (classSubTabs[segments[segments.length - 2]]) {
+      crumbs.push({ label: classSubTabs[segments[segments.length - 2]] });
     }
   } else {
     const role = pathname.startsWith("/admin") ? "admin" : pathname.startsWith("/tutor") ? "tutor" : "student";
@@ -98,7 +98,9 @@ function buildBreadcrumbs(pathname, studentId) {
 
 export default function TopBar({ onMenuToggle }) {
   const location = useLocation();
-  const { studentId } = useParams();
+  // Parse pathname vì useParams() ở layout route không thấy param của route con
+  const classIdMatch = location.pathname.match(/^\/tutor\/classes\/([^/]+)/);
+  const classId = classIdMatch ? classIdMatch[1] : null;
   const { session, logout } = useAuth();
   const navigate = useNavigate();
   const { open: chatOpen, setOpen: setChatOpen } = useAiAssistant();
@@ -115,7 +117,7 @@ export default function TopBar({ onMenuToggle }) {
   const isStudent = session?.role === "student";
   const isAdmin = session?.role === "admin";
 
-  const crumbs = buildBreadcrumbs(location.pathname, studentId);
+  const crumbs = buildBreadcrumbs(location.pathname, classId);
 
   function handleLogout() {
     logout();

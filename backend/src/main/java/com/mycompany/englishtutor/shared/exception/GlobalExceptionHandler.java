@@ -38,7 +38,8 @@ public class GlobalExceptionHandler {
         ApiResponse apiResponse = new ApiResponse();
 
         apiResponse.setCode(errorCode.getCode());
-        apiResponse.setMessage(errorCode.getMessage());
+        // Dùng getMessage() để hỗ trợ thông điệp động qua constructor AppException(ErrorCode, String).
+        apiResponse.setMessage(exception.getMessage() != null ? exception.getMessage() : errorCode.getMessage());
 
         return ResponseEntity.status(errorCode.getStatusCode()).body(apiResponse);
     }

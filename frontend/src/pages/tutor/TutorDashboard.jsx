@@ -157,16 +157,16 @@ export default function TutorDashboard() {
       {/* --- Stats Row --- */}
       <div className="grid grid-cols-3 gap-3">
         {/* Stat: Học sinh đang dạy */}
-        <Link to="/tutor/students" className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 transition-colors group">
+        <Link to="/tutor/classes" className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 transition-colors group">
           <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center mb-3">
             <Users size={18} className="text-blue-600 dark:text-blue-400" strokeWidth={1.75} />
           </div>
           <p className="text-2xl font-bold text-slate-900 dark:text-white leading-none">{students.length}</p>
-          <p className="text-xs text-slate-500 mt-1 leading-tight">Học sinh đang dạy</p>
+          <p className="text-xs text-slate-500 mt-1 leading-tight">Lớp học của tôi</p>
         </Link>
 
         {/* Stat: Bài đã giao */}
-        <Link to="/tutor/students" className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-800 transition-colors group">
+        <Link to="/tutor/classes" className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-800 transition-colors group">
           <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center mb-3">
             <svg className="w-[18px] h-[18px] text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
           </div>
@@ -214,15 +214,15 @@ export default function TutorDashboard() {
             </p>
           </Link>
 
-          {/* Secondary: Học sinh */}
+          {/* Secondary: Lớp học */}
           <Link
-            to="/tutor/students"
+            to="/tutor/classes"
             className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-2xl p-4 flex flex-col items-start gap-2 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 transition-all active:scale-[0.98]"
           >
             <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center">
               <Users size={16} className="text-blue-600 dark:text-blue-400" strokeWidth={1.75} />
             </div>
-            <p className="text-sm font-semibold leading-tight">Xem học sinh</p>
+            <p className="text-sm font-semibold leading-tight">Xem lớp học</p>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{students.length} học sinh</p>
           </Link>
 

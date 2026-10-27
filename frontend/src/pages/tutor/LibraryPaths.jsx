@@ -267,15 +267,13 @@ export default function LibraryPaths() {
                     {tpl.studentsUsing.slice(0, 6).map((sid) => {
                       const s = getStudentById(sid);
                       return s ? (
-                        <Link
+                        <span
                           key={sid}
-                          to={`/tutor/students/${sid}/path`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                          className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"
                         >
                           <GraduationCap size={12} />
                           {s.name}
-                        </Link>
+                        </span>
                       ) : null;
                     })}
                     {tpl.studentsUsing.length > 6 && (
