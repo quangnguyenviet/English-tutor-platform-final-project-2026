@@ -29,7 +29,6 @@ import {
   Banknote,
   Bell,
   FileWarning,
-  HeadphonesIcon,
   Megaphone,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -47,7 +46,7 @@ const tutorLibraryNav = [
   { to: "/tutor/library/materials", label: "Kho video & tài liệu", icon: Video },
 ];
 
-const roleLabel = { admin: "Quản trị viên", tutor: "Gia sư", student: "Học sinh", receptionist: "Lễ tân" };
+const roleLabel = { admin: "Quản trị viên", tutor: "Gia sư", student: "Học sinh", receptionist: "Lễ tân", accountant: "Kế toán" };
 
 export default function AppShell() {
   return (
@@ -76,6 +75,7 @@ function AppShellInner() {
   const isStudent = session?.role === "student";
   const isAdmin = session?.role === "admin";
   const isReceptionist = session?.role === "receptionist";
+  const isAccountant = session?.role === "accountant";
   const showAssistant = isTutor;
 
   const currentToken = token || session?.token || localStorage.getItem("gsa_access_token");
@@ -146,7 +146,7 @@ function AppShellInner() {
       { to: "/admin/tutors", label: "Quản lý gia sư", icon: UserCog },
       { to: "/admin/students", label: "Quản lý học sinh", icon: Users },
       { to: "/admin/lessons", label: "Theo dõi buổi học", icon: BookOpenCheck },
-      { to: "/admin/receptionists", label: "Quản lý lễ tân", icon: HeadphonesIcon },
+      { to: "/admin/staff", label: "Quản lý nhân sự", icon: IdCard },
       { to: "/admin/complaints", label: "Xử lý khiếu nại", icon: FileWarning },
       { to: "/admin/analytics", label: "Báo cáo & Phân tích", icon: BarChart2 },
       {
@@ -201,6 +201,11 @@ function AppShellInner() {
         badge: () => (unreadNotifCount > 0 ? unreadNotifCount : null),
       },
       { to: "/receptionist/settings", label: "Cài đặt", icon: Settings },
+    ];
+  } else if (isAccountant) {
+    items = [
+      { to: "/accountant", label: "Tổng quan", icon: LayoutDashboard, end: true },
+      { to: "/accountant/settings", label: "Cài đặt", icon: Settings },
     ];
   } else if (isTutor) {
     items = [

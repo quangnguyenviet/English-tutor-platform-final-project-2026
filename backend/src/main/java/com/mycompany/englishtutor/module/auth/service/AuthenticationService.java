@@ -84,6 +84,11 @@ public class AuthenticationService {
 
         if (!authenticated) throw new AppException(ErrorCode.UNAUTHENTICATED);
 
+        // Chặn đăng nhập với tài khoản đã bị vô hiệu hóa (UC-ADM-11 / Luồng 25)
+        if (!"ACTIVE".equalsIgnoreCase(user.getStatus())) {
+            throw new AppException(ErrorCode.ACCOUNT_INACTIVE);
+        }
+
         var token = generateToken(user);
 
         return AuthenticationResponse.builder().token(token).authenticated(true).build();

@@ -17,7 +17,7 @@ import PaymentApproval from "./pages/admin/PaymentApproval";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminLogs from "./pages/admin/AdminLogs";
 import AdminNotifications from "./pages/admin/AdminNotifications";
-import ReceptionistManagement from "./pages/admin/ReceptionistManagement";
+import StaffManagement from "./pages/admin/StaffManagement";
 import ComplaintManagement from "./pages/admin/ComplaintManagement";
 import TutorDashboard from "./pages/tutor/TutorDashboard";
 import TutorClassWorkspace from "./pages/tutor/TutorClassWorkspace";
@@ -72,6 +72,8 @@ import ReceptionistTutorList from "./pages/receptionist/ReceptionistTutorList";
 import ReceptionistStudentList from "./pages/receptionist/ReceptionistStudentList";
 import ReceptionistNotifications from "./pages/receptionist/ReceptionistNotifications";
 import ReceptionistComplaints from "./pages/receptionist/ReceptionistComplaints";
+
+import AccountantDashboard from "./pages/accountant/AccountantDashboard";
 
 import TutorRegisterPage from "./pages/tutor/TutorRegisterPage";
 
@@ -157,7 +159,9 @@ export default function App() {
             <Route path="match-requests" element={<MatchRequests />} />
             <Route path="class-requests" element={<ClassRequestManagement />} />
             <Route path="payments" element={<PaymentApproval />} />
-            <Route path="receptionists" element={<ReceptionistManagement />} />
+            <Route path="staff" element={<StaffManagement />} />
+            {/* Giữ đường dẫn cũ để không vỡ link đã lưu */}
+            <Route path="receptionists" element={<StaffManagement />} />
             <Route path="complaints" element={<ComplaintManagement />} />
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="lessons" element={<LessonOperations />} />
@@ -250,6 +254,19 @@ export default function App() {
             <Route path="lessons" element={<LessonOperations />} />
             <Route path="complaints" element={<ReceptionistComplaints />} />
             <Route path="notifications" element={<ReceptionistNotifications />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
+
+          {/* Accountant Routes */}
+          <Route
+            path="/accountant"
+            element={
+              <RequireRole role="accountant">
+                <AppShell />
+              </RequireRole>
+            }
+          >
+            <Route index element={<AccountantDashboard />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 
