@@ -2,7 +2,7 @@
 
 > **Tác giả:** Chuyên gia kiến trúc phần mềm  
 > **Ngày tạo:** 12/10/2026  
-> **Phiên bản:** 2.4 — bảng `class_requests` bổ sung `sessions_per_week` (số buổi/tuần) và `fee_percentage` (tỷ lệ phí nhận lớp, DEFAULT 40, 0–50, migration V10) + trạng thái `REMATCH` (ghép lại sau khi dạy thử thất bại); `class_applications` thêm trạng thái `TERMINATED` (dạy thử không thành công, loại khỏi danh sách ứng viên); `tutors` thêm `is_open_to_teaching` (migration V10). (2.3: bổ sung `tutors.submitted_at` (V4); làm rõ kế thừa `users` → `tutors`/`employees`/`students`; ghi luồng form công khai) (2.2: bỏ `current_address` khỏi `tutors` — V3; giữ `hometown` — V2)
+> **Phiên bản:** 2.5 — `class_schedules` bổ sung `valid_from` (DATE, NOT NULL) + `valid_to` (DATE, NULL = không giới hạn): khoảng hiệu lực **từng ca** dùng để render lịch và kiểm tra session on-demand, thay thế vai trò render của `classes.active_from` (trường này chỉ còn ghi nhận ngày kích hoạt lớp). (2.4: bảng `class_requests` bổ sung `sessions_per_week` (số buổi/tuần) và `fee_percentage` (tỷ lệ phí nhận lớp, DEFAULT 40, 0–50, migration V10) + trạng thái `REMATCH` (ghép lại sau khi dạy thử thất bại); `class_applications` thêm trạng thái `TERMINATED` (dạy thử không thành công, loại khỏi danh sách ứng viên); `tutors` thêm `is_open_to_teaching` (migration V10). (2.3: bổ sung `tutors.submitted_at` (V4); làm rõ kế thừa `users` → `tutors`/`employees`/`students`; ghi luồng form công khai) (2.2: bỏ `current_address` khỏi `tutors` — V3; giữ `hometown` — V2)
 > **Cơ sở dữ liệu:** PostgreSQL (26 bảng chính + 1 view) + MongoDB (1 collection `ai_chat_messages`)
 
 ---
@@ -291,7 +291,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `class_name` | `VARCHAR(200)` | | Tên hiển thị của lớp |
 | `status` | `VARCHAR(20)` | NN | Trạng thái lớp: `TRIAL` (Đang dạy thử — UC-T05), `ACTIVE` (Đang hoạt động — UC-T06), `COMPLETED` (Kết thúc), `CANCELLED` (Đã hủy) |
 | `teaching_mode` | `VARCHAR(20)` | NN | Hình thức: `ONLINE`, `AT_HOME` |
-| `active_from` | `DATE` | | Ngày bắt đầu dạy chính thức, khi lớp chuyển sang ACTIVE (UC-T06 bước 3) |
+| `active_from` | `DATE` | | Ngày kích hoạt lớp (ghi nhận thời điểm chuyển sang ACTIVE — UC-T06 bước 3). **Không dùng cho render lịch**: lịch render theo `class_schedules.valid_from`/`valid_to` (mỗi ca có khoảng hiệu lực riêng) |
 | `price_per_session` | `DECIMAL(12,0)` | | Học phí mỗi buổi thực tế đã thỏa thuận |
 | `tutor_note` | `TEXT` | | Ghi chú riêng của gia sư về học sinh (tính cách, thói quen). Chỉ gia sư và trung tâm thấy (mô tả đề tài: "Ghi chú riêng về học sinh") |
 | `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm tạo lớp |
@@ -301,7 +301,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `class_schedules`
 
-> **Mẫu lịch dạy hằng tuần** (thứ, giờ) chốt giữa phụ huynh và gia sư. Dùng để hệ thống **sinh trước các `sessions`** cho tuần/tháng tiếp theo, và để kiểm tra trùng ca (UC-T06). Không phải lịch thực tế: buổi nào đổi giờ, hình thức hay địa điểm thì sửa trực tiếp trên `sessions`, không ảnh hưởng mẫu. Hình thức, link và địa chỉ nằm ở `sessions`; khi sinh buổi, `teaching_mode` lấy mặc định từ `classes.teaching_mode`.
+> **Mẫu lịch dạy hằng tuần** (thứ, giờ) kèm **khoảng hiệu lực** từng ca (`valid_from`/`valid_to`), chốt giữa phụ huynh và gia sư. Dùng để FE **render lịch tuần** và kiểm tra trùng ca (UC-T06). **Render lịch + session on-demand (kế hoạch fixed_schedule_plan) dựa vào `valid_from`/`valid_to` trên từng ca**, không dựa vào `classes.active_from` (trường này chỉ còn ghi nhận ngày kích hoạt). `valid_to = NULL` nghĩa là ca áp dụng không giới hạn (cho tới khi sửa lịch). Không phải lịch thực tế: buổi nào đổi giờ, hình thức hay địa điểm thì sửa trực tiếp trên `sessions`, không ảnh hưởng mẫu. Hình thức, link và địa chỉ nằm ở `sessions`; khi sinh buổi, `teaching_mode` lấy mặc định từ `classes.teaching_mode`.
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -310,12 +310,14 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `day_of_week` | `SMALLINT` | NN | Ngày trong tuần (1=Thứ 2 ... 7=Chủ nhật). Gia sư chốt khi thiết lập lịch cố định (UC-T06 bước 3) |
 | `start_time` | `TIME` | NN | Giờ bắt đầu ca dạy (VD: 19:30) |
 | `end_time` | `TIME` | NN | Giờ kết thúc ca dạy (VD: 21:00) |
+| `valid_from` | `DATE` | NN | Ngày ca bắt đầu hiệu lực (không ở quá khứ). FE render ca này từ ngày này; on-demand session phải `session_date ≥ valid_from` |
+| `valid_to` | `DATE` | CHECK (`valid_to` IS NULL OR `valid_to` ≥ `valid_from`) | Ngày ca hết hiệu lực. NULL = ca áp dụng không giới hạn (cho tới khi sửa lịch). FE không render ca này sau ngày này; on-demand session phải `session_date ≤ valid_to` (nếu có). Dữ liệu cũ: backfill `valid_from` từ `classes.active_from` (fallback hôm nay) |
 
 ---
 
 #### Bảng `sessions`
 
-> Một **buổi dạy thực tế**, được sinh trước từ `class_schedules` (theo tuần/tháng) hoặc gia sư tạo thủ công, và có thể sửa ngày, giờ, hình thức, địa điểm riêng từng buổi. Chứa nhật ký dạy học hiển thị cho cả gia sư, học sinh và phụ huynh (UC-T02, UC-ST-06).
+> Một **buổi dạy thực tế**. Buổi chính thức được tạo **on-demand** (gia sư bấm "Tạo buổi học" cho ngày + ca theo mẫu `class_schedules`, ngày phải nằm trong khoảng hiệu lực `valid_from`/`valid_to` của ca) hoặc gia sư tạo thủ công; buổi dạy thử (`is_trial = TRUE`) do gia sư đặt trước khi kích hoạt lớp. Buổi nào đổi giờ, hình thức hay địa điểm thì sửa trực tiếp trên dòng này. Chứa nhật ký dạy học hiển thị cho cả gia sư, học sinh và phụ huynh (UC-T02, UC-ST-06).
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -453,7 +455,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `payments`
 
-> Khoản thu của trung tâm: phí nhận lớp của gia sư (mặc định 40% học phí tháng đầu) hoặc học phí phụ huynh đóng trước cho lớp online. Hệ thống tạo khoản phí khi gia sư chốt lịch cố định (UC-T06). Gia sư nộp minh chứng (UC-T08) hoặc Lễ tân thu hộ tại quầy (UC-REC-10), **Kế toán đối chiếu số tiền thực nhận và xác nhận** (UC-ACC-03). Lễ tân hoặc Admin chỉnh tỷ lệ phí khi khoản phí chưa có minh chứng; Kế toán không được chỉnh.
+> Khoản thu của trung tâm: phí nhận lớp của gia sư (mặc định 40% học phí tháng đầu) hoặc học phí phụ huynh đóng trước cho lớp online. Hệ thống **tạo khoản phí `NEW` ngay khi ghép lớp (tạo lớp `TRIAL`)** để snapshot `fee_percentage` + `price_per_session` tại thời điểm ghép — tránh phí bị thay đổi sau đó. `amount` để trống (`NULL`) cho đến khi Lễ tân/Admin kích hoạt lớp (`TRIAL → ACTIVE`), bổ sung `sessions_per_week` và tính `amount` theo công thức → payment chuyển `NEW → NOT_SUBMITTED`. Gia sư nộp minh chứng (UC-T08) hoặc Lễ tân thu hộ tại quầy (UC-REC-10), **Kế toán đối chiếu số tiền thực nhận và xác nhận** (UC-ACC-03). Lễ tân hoặc Admin chỉnh tỷ lệ phí khi khoản phí `NEW` hoặc `NOT_SUBMITTED`; Kế toán không được chỉnh.
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -461,11 +463,11 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `class_id` | `BIGINT` | FK → classes.id, NN | FK tới lớp học, phí gắn với lớp |
 | `payer_type` | `VARCHAR(20)` | NN | Người nộp phí: `TUTOR` (gia sư nộp phí nhận lớp), `PARENT` (phụ huynh nộp học phí trước cho lớp online — Quy định nền tảng I.4, II.6) |
 | `fee_percentage` | `DECIMAL(5,2)` | | Tỷ lệ phí nhận lớp, trong khoảng 0-50%, mặc định 40% (Quy định nền tảng I.6). Lễ tân hoặc Admin được chỉnh khi `status = NOT_SUBMITTED`, Kế toán không được chỉnh |
-| `amount` | `DECIMAL(12,0)` | NN | Số tiền phải nộp (VNĐ), lưu cố định. Backend tính = `fee_percentage * COUNT(class_schedules của lớp) * 4 * price_per_session`, làm tròn đến nghìn đồng. Chỉ tính lại khi Lễ tân hoặc Admin đổi `fee_percentage` lúc chưa có minh chứng |
+| `amount` | `DECIMAL(12,0)` | | Số tiền phải nộp (VNĐ), lưu cố định. **`NULL` khi payment ở trạng thái `NEW`** (chưa kích hoạt lớp, chưa có đủ dữ liệu tính). Khi kích hoạt lớp (`TRIAL → ACTIVE`), backend tính = `fee_percentage × sessions_per_week × 4 × price_per_session`, làm tròn đến nghìn đồng → payment chuyển `NEW → NOT_SUBMITTED`. Chỉ tính lại khi Lễ tân hoặc Admin đổi `fee_percentage` lúc chưa có minh chứng. **NOT NULL khi status ≠ NEW** (enforced ở backend) |
 | `payment_method` | `VARCHAR(20)` | | Cách nộp: `BANK_TRANSFER` (chuyển khoản, kèm ảnh biên lai), `CASH` (tiền mặt tại quầy, Lễ tân thu hộ — UC-REC-10). Ghi khi nộp minh chứng |
 | `proof_url` | `VARCHAR(500)` | | Đường dẫn ảnh biên lai chuyển khoản (QR Proof) hoặc ảnh phiếu thu tiền mặt trên S3 |
 | `received_amount` | `DECIMAL(12,0)` | | Số tiền **thực nhận** do Kế toán nhập sau khi đối chiếu sao kê ngân hàng hoặc quỹ tiền mặt (UC-ACC-03). Chỉ xác nhận được khi `received_amount >= amount`; thiếu thì yêu cầu nộp lại. Là nguồn số liệu doanh thu (UC-ACC-05) |
-| `status` | `VARCHAR(20)` | NN | Trạng thái: `NOT_SUBMITTED` (Chưa nộp minh chứng), `SUBMITTED` (Chờ Kế toán xác nhận), `APPROVED` (Đã xác nhận), `RESUBMIT_REQUIRED` (Yêu cầu gửi lại) |
+| `status` | `VARCHAR(20)` | NN | Trạng thái: `NEW` (Đã tạo khi ghép lớp, chưa kích hoạt — `amount` = NULL, chỉ lưu `fee_percentage` + `price_per_session` snapshot), `NOT_SUBMITTED` (Lớp đã kích hoạt, `amount` đã tính, chưa nộp minh chứng), `SUBMITTED` (Chờ Kế toán xác nhận), `APPROVED` (Đã xác nhận), `RESUBMIT_REQUIRED` (Yêu cầu gửi lại), `CANCELLED` (Hủy — khi lớp `TRIAL` bị hủy hoặc ghép lại) |
 | `reject_reason` | `TEXT` | | Lý do Kế toán yêu cầu gửi lại minh chứng: ảnh không hợp lệ, số tiền thực nhận thiếu, chưa thấy tiền về tài khoản (UC-ACC-03) |
 | `uploaded_by` | `BIGINT` | FK → users.id | ID người tải minh chứng (gia sư, hoặc Lễ tân thu hộ) |
 | `uploaded_at` | `TIMESTAMPTZ` | | Thời điểm nộp minh chứng |
@@ -768,6 +770,8 @@ erDiagram
         SMALLINT day_of_week
         TIME start_time
         TIME end_time
+        DATE valid_from
+        DATE valid_to
     }
 
     sessions {
@@ -1036,7 +1040,7 @@ erDiagram
 | R-19 | `class_requests` | `classes` | 1 : 0..* | Một đơn sinh ra lớp khi đã xác định gia sư (chỉ định hoặc được Lễ tân chọn). `0..*` vì khi lớp bị hủy và ghép lại sẽ có lớp mới; tối đa 1 lớp `TRIAL`/`ACTIVE` mỗi đơn. |
 | R-20 | `tutors` | `classes` | 1 : 0..* | Một gia sư dạy nhiều lớp (nhiều HS khác nhau). Mỗi cặp gia sư — HS là 1 lớp riêng. |
 | R-21 | `students` | `classes` | 1 : 0..* | Một học sinh có thể học nhiều gia sư (nhiều lớp). Mỗi lớp = 1 quan hệ 1-1 riêng biệt. |
-| R-22 | `classes` | `class_schedules` | 1 : 0..* | Lịch cố định là "kế hoạch tuần" — một lớp có nhiều ca dạy mỗi tuần (VD: T2 + T5). Dùng để sinh trước `sessions` cho các tuần/tháng tiếp theo; buổi thực tế vẫn sửa được độc lập. |
+| R-22 | `classes` | `class_schedules` | 1 : 0..* | Lịch cố định là "kế hoạch tuần" — một lớp có nhiều ca dạy mỗi tuần (VD: T2 + T5), mỗi ca có khoảng hiệu lực riêng (`valid_from`/`valid_to`). FE render lịch theo khoảng hiệu lực; session chính thức được tạo **on-demand** (gia sư bấm "Tạo buổi học") cho ngày nằm trong khoảng hiệu lực; buổi thực tế vẫn sửa được độc lập. |
 | R-23 | `classes` | `sessions` | 1 : 0..* | `sessions` là "buổi học thực tế đã diễn ra" — một lớp có nhiều buổi theo thời gian. |
 | R-24 | `sessions` | `session_materials` | 1 : 0..* | Một buổi học có nhiều tài liệu đính kèm (PDF, Word, audio...). |
 | R-25 | `users` | `session_materials` | 1 : 0..* | Ghi nhận người tải lên tài liệu (gia sư). |
@@ -1095,7 +1099,7 @@ erDiagram
 | C-10 | `SUM(approved_amount)` của các `refunds` `PAID` cùng `payment_id` ≤ `payments.received_amount` | `refunds` | Không hoàn quá số tiền trung tâm đã thực nhận, kiểm tra ở backend khi Kế toán chốt hoàn |
 | C-11 | `processed_by != requested_by`; `processed_by` có role `ACCOUNTANT` hoặc `ADMIN`; `proof_url` NOT NULL khi `status = 'PAID'` | `refunds` | Lễ tân đề xuất, Kế toán chi tiền — kiểm soát chéo |
 | C-12 | Partial UNIQUE (`complaint_id`) WHERE `status IN ('PENDING','PAID')` | `refunds` | Mỗi khiếu nại chỉ có 1 yêu cầu hoàn tiền đang chờ hoặc đã chi. `refunds` `PAID` thì khiếu nại chuyển `RESOLVED`; `REJECTED` thì khiếu nại quay về `PENDING` |
-| C-13 | `fee_percentage` BETWEEN 0 AND 50 (V9); `amount >= 0`; chỉ sửa khi `status = 'NOT_SUBMITTED'` | `payments` | Lễ tân hoặc Admin chỉnh tỷ lệ phí trước khi có minh chứng, `amount` tính lại theo công thức |
+| C-13 | `fee_percentage` BETWEEN 0 AND 50 (V9); `amount >= 0` khi NOT NULL; chỉ sửa phí khi `status IN ('NEW', 'NOT_SUBMITTED')`; `amount` NOT NULL khi `status != 'NEW'` (backend enforce) | `payments` | Lễ tân hoặc Admin chỉnh tỷ lệ phí trước khi có minh chứng. Payment tạo ở `NEW` khi ghép lớp (snapshot `fee_percentage`); chuyển `NOT_SUBMITTED` + tính `amount` khi kích hoạt lớp. Lớp `TRIAL` bị hủy → payment `NEW` → `CANCELLED` |
 | C-14 | `class_requests.status` transitions (V10): `NEW → OPEN / MATCHED / CANCELLED`; `OPEN → MATCHED / CANCELLED`; `MATCHED → REMATCH / CANCELLED` (lớp `TRIAL` thất bại: phụ huynh muốn tìm gia sư khác → `REMATCH`, không muốn → `CANCELLED`); `REMATCH → MATCHED / CANCELLED`. `CANCELLED` là trạng thái cuối | `class_requests` | Khi `REMATCH`, lượt ứng tuyển `SELECTED` cũ chuyển `TERMINATED` (gia sư cũ bị loại khỏi đơn); kiểm tra ở backend |
 
 ---
@@ -1131,4 +1135,4 @@ erDiagram
                                                     [Spaced Repetition + AI Sinh bài]
 ```
 
-> **Đọc từ trên xuống:** Phụ huynh gửi yêu cầu → Lễ tân gọi lại, hoàn thiện đơn yêu cầu lớp → chọn/chỉ định gia sư và tạo lớp → Tạo buổi học → Giao quiz → HS làm bài → Cập nhật SKP → Ôn tập ngắt quãng → AI sinh bài mới. Nhánh tài chính: gia sư chốt lịch → hệ thống tạo `payments` → gia sư nộp hoặc Lễ tân thu hộ minh chứng → Kế toán đối chiếu và xác nhận; khiếu nại `REFUND` → Lễ tân tạo `refunds` → Kế toán hoàn tiền → khiếu nại tự đóng.
+> **Đọc từ trên xuống:** Phụ huynh gửi yêu cầu → Lễ tân gọi lại, hoàn thiện đơn yêu cầu lớp → chọn/chỉ định gia sư và tạo lớp `TRIAL` → **hệ thống tạo `payments` `NEW`** (snapshot `fee_percentage`) → Dạy thử → Lễ tân kích hoạt lớp (`TRIAL → ACTIVE`, bổ sung `sessions_per_week`) → **payment `NEW → NOT_SUBMITTED`** (tính `amount`) → gia sư nộp hoặc Lễ tân thu hộ minh chứng → Kế toán đối chiếu và xác nhận; khiếu nại `REFUND` → Lễ tân tạo `refunds` → Kế toán hoàn tiền → khiếu nại tự đóng. Nếu dạy thử thất bại → lớp `CANCELLED` → payment `NEW → CANCELLED`.
