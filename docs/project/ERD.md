@@ -2,7 +2,7 @@
 
 > **Tác giả:** Chuyên gia kiến trúc phần mềm  
 > **Ngày tạo:** 12/10/2026  
-> **Phiên bản:** 2.3 — bổ sung `tutors.submitted_at` (migration V4) còn thiếu trong tài liệu; làm rõ kế thừa `users` → `tutors`/`employees`/`students`; ghi luồng form công khai (họ tên + SĐT [+ gia sư]) tạo `parents` + `class_requests` `NEW`. (2.2: bỏ `current_address` khỏi `tutors` — V3; giữ `hometown` — V2)
+> **Phiên bản:** 2.4 — bảng `class_requests` bổ sung `sessions_per_week` (số buổi/tuần) và `fee_percentage` (tỷ lệ phí nhận lớp, DEFAULT 40, 0–50, migration V10) + trạng thái `REMATCH` (ghép lại sau khi dạy thử thất bại); `class_applications` thêm trạng thái `TERMINATED` (dạy thử không thành công, loại khỏi danh sách ứng viên); `tutors` thêm `is_open_to_teaching` (migration V10). (2.3: bổ sung `tutors.submitted_at` (V4); làm rõ kế thừa `users` → `tutors`/`employees`/`students`; ghi luồng form công khai) (2.2: bỏ `current_address` khỏi `tutors` — V3; giữ `hometown` — V2)
 > **Cơ sở dữ liệu:** PostgreSQL (26 bảng chính + 1 view) + MongoDB (1 collection `ai_chat_messages`)
 
 ---
@@ -137,6 +137,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `experience_years` | `SMALLINT` | | Số năm kinh nghiệm gia sư, dùng hiển thị và lọc tìm kiếm (UC-PA-01) |
 | `bio` | `TEXT` | | Bài giới thiệu bản thân, hiển thị trên hồ sơ công khai (UC-PA-02) |
 | `video_url` | `VARCHAR(500)` | | Đường dẫn video giới thiệu (Youtube). Hồ sơ có video được ưu tiên khi ghép lớp (Quy định nền tảng I.2) |
+| `is_open_to_teaching` | `BOOLEAN` | NN, DEFAULT TRUE | Cờ "đang mở sẵn sàng nhận lớp" (migration V10): gia sư tự bật/tắt trên hồ sơ. Chỉ gia sư `is_open_to_teaching = TRUE` mới thấy đơn ghép lớp đăng tuyển (`class_requests` `OPEN`) và được ứng tuyển; gia sư tắt vẫn giữ được các lớp đang dạy, chỉ không nhận đơn mới |
 | `profile_status` | `VARCHAR(20)` | NN | Trạng thái hồ sơ: `INCOMPLETE` (Chưa hoàn thiện), `PENDING` (Chờ duyệt), `ACTIVE` (Đang hoạt động), `INACTIVE` (Ngưng hoạt động), `REJECTED` (Bị từ chối). Chuyển đổi bởi Lễ tân (UC-REC-07, UC-REC-08) |
 | `rejection_reason` | `TEXT` | | Lý do từ chối hồ sơ, chỉ có giá trị khi `profile_status = REJECTED` |
 | `reviewed_by` | `BIGINT` | FK → users.id | ID của Lễ tân/Admin đã duyệt hồ sơ, ghi nhận trách nhiệm duyệt (UC-REC-07) |
@@ -239,9 +240,11 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `class_requirement` | `TEXT` | | Yêu cầu lớp học: mục tiêu, trình độ hiện tại... Lễ tân điền sau cuộc gọi (UC-REC-01 form tạo lớp). Bắt buộc trước khi đăng (`OPEN`) hoặc tạo lớp |
 | `teaching_mode` | `VARCHAR(20)` | | Hình thức học: `ONLINE`, `AT_HOME` |
 | `price_per_session` | `DECIMAL(12,0)` | | Mức phí mong muốn mỗi buổi (VNĐ) |
+| `sessions_per_week` | `SMALLINT` | | Số buổi học trong tuần (migration V10), dùng tính phí nhận lớp: `fee_percentage × sessions_per_week × 4 × price_per_session` (Quy định nền tảng I.6) |
+| `fee_percentage` | `DECIMAL(5,2)` | NN, DEFAULT 40 | Tỷ lệ phí nhận lớp (0–50%, mặc định 40% — cùng chuẩn với `payments.fee_percentage`, migration V9/V10). Lễ tân/Admin chỉnh trước khi có minh chứng |
 | `preferred_schedule` | `TEXT` | | Số buổi/tuần và thời gian mong muốn, ghi tự do (ví dụ: "2 buổi/tuần, tối T3-T5 19h-21h"). Chỉ là nguyện vọng ban đầu; số buổi/tuần thực tế suy ra từ số dòng `class_schedules` của lớp |
 | `tutor_requirement` | `TEXT` | | Yêu cầu về gia sư (giới tính, kinh nghiệm, chuyên môn...) |
-| `status` | `VARCHAR(20)` | NN | `NEW` (Mới tiếp nhận, chờ gọi lại), `OPEN` (Đã đăng cho gia sư ứng tuyển), `MATCHED` (Đã ghép, đã có lớp), `CANCELLED` (Đã hủy) |
+| `status` | `VARCHAR(20)` | NN | `NEW` (Mới tiếp nhận, chờ gọi lại), `OPEN` (Đã đăng cho gia sư ứng tuyển), `MATCHED` (Đã ghép, đã có lớp), `REMATCH` (Đang ghép lại — lớp đang dạy thử thất bại và phụ huynh muốn trung tâm tìm gia sư khác; ở trạng thái này đơn chờ ghép lại với gia sư mới, khi ghép xong chuyển `MATCHED`; migration V10), `CANCELLED` (Đã hủy — hủy đơn, hoặc khi dạy thử thất bại phụ huynh không muốn nhờ trung tâm tìm gia sư nữa; trạng thái cuối) |
 | `cancel_reason` | `TEXT` | | Lý do hủy, nhập khi Lễ tân hủy (UC-REC-03, UC-REC-06) |
 | `created_by` | `BIGINT` | FK → users.id | Lễ tân tạo đơn. NULL nếu đơn do phụ huynh tự gửi qua form |
 | `handled_by` | `BIGINT` | FK → users.id | Lễ tân phụ trách xử lý đơn (UC-REC-04, UC-REC-05) |
@@ -252,7 +255,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 >
 > **Luồng 1 (chỉ đích danh):** `NEW` (có `requested_tutor_id`) → Lễ tân gọi, bổ sung `student_id` → tạo `classes` (`TRIAL`) → `MATCHED`.
 > **Luồng 2 (đăng tuyển):** `NEW` → Lễ tân gọi, bổ sung `student_id` + yêu cầu → `OPEN` → gia sư ứng tuyển (`class_applications`) → Lễ tân chọn → tạo `classes` (`TRIAL`) → `MATCHED`.
-> **Ghép lại:** khi lớp bị hủy (khiếu nại `REMATCH`), đơn chuyển lại `OPEN` để chọn gia sư khác.
+> **Ghép lại (dạy thử thất bại):** khi lớp đang `TRIAL` thất bại, đơn (đang `MATCHED`) đi theo một trong hai hướng: (1) phụ huynh không muốn nhờ trung tâm tìm gia sư nữa → đơn về `CANCELLED`; (2) phụ huynh muốn tìm gia sư khác → đơn về `REMATCH`, gia sư cũ bị loại khỏi danh sách ứng viên (lượt `SELECTED` của đơn chuyển `TERMINATED`), Lễ tân ghép lại gia sư mới → `MATCHED`.
 
 ---
 
@@ -266,7 +269,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `class_request_id` | `BIGINT` | FK → class_requests.id, NN | FK tới đơn yêu cầu lớp mà gia sư ứng tuyển |
 | `tutor_id` | `BIGINT` | FK → tutors.id, NN | FK tới hồ sơ gia sư ứng tuyển |
 | `message` | `TEXT` | | Lời nhắn của gia sư gửi kèm khi đăng ký (UC-REC-02: "Lời nhắn của GS") |
-| `status` | `VARCHAR(20)` | NN, DEFAULT 'APPLIED' | `APPLIED` (Đã ứng tuyển), `SELECTED` (Được chọn), `REJECTED` (Không được chọn) |
+| `status` | `VARCHAR(20)` | NN, DEFAULT 'APPLIED' | `APPLIED` (Đã ứng tuyển), `SELECTED` (Được chọn), `REJECTED` (Không được chọn), `TERMINATED` (Đã loại — gia sư đã được chọn nhưng dạy thử không thành công, bị loại khỏi đơn khi đơn chuyển `REMATCH`; do UNIQUE (`class_request_id`, `tutor_id`) (C-01) nên không thể ứng tuyển lại đơn đó) |
 | `applied_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời gian ứng tuyển, hiển thị cho Lễ tân sắp xếp (UC-REC-02) |
 
 > **Ràng buộc:** UNIQUE (`class_request_id`, `tutor_id`) — mỗi gia sư chỉ ứng tuyển 1 lần cho mỗi đơn.
@@ -656,6 +659,7 @@ erDiagram
         SMALLINT experience_years
         TEXT bio
         VARCHAR video_url
+        BOOLEAN is_open_to_teaching
         VARCHAR profile_status
         TEXT rejection_reason
         BIGINT reviewed_by FK
@@ -721,6 +725,8 @@ erDiagram
         TEXT class_requirement
         VARCHAR teaching_mode
         DECIMAL price_per_session
+        SMALLINT sessions_per_week
+        DECIMAL fee_percentage
         TEXT preferred_schedule
         TEXT tutor_requirement
         VARCHAR status
@@ -1090,6 +1096,7 @@ erDiagram
 | C-11 | `processed_by != requested_by`; `processed_by` có role `ACCOUNTANT` hoặc `ADMIN`; `proof_url` NOT NULL khi `status = 'PAID'` | `refunds` | Lễ tân đề xuất, Kế toán chi tiền — kiểm soát chéo |
 | C-12 | Partial UNIQUE (`complaint_id`) WHERE `status IN ('PENDING','PAID')` | `refunds` | Mỗi khiếu nại chỉ có 1 yêu cầu hoàn tiền đang chờ hoặc đã chi. `refunds` `PAID` thì khiếu nại chuyển `RESOLVED`; `REJECTED` thì khiếu nại quay về `PENDING` |
 | C-13 | `fee_percentage` BETWEEN 0 AND 50 (V9); `amount >= 0`; chỉ sửa khi `status = 'NOT_SUBMITTED'` | `payments` | Lễ tân hoặc Admin chỉnh tỷ lệ phí trước khi có minh chứng, `amount` tính lại theo công thức |
+| C-14 | `class_requests.status` transitions (V10): `NEW → OPEN / MATCHED / CANCELLED`; `OPEN → MATCHED / CANCELLED`; `MATCHED → REMATCH / CANCELLED` (lớp `TRIAL` thất bại: phụ huynh muốn tìm gia sư khác → `REMATCH`, không muốn → `CANCELLED`); `REMATCH → MATCHED / CANCELLED`. `CANCELLED` là trạng thái cuối | `class_requests` | Khi `REMATCH`, lượt ứng tuyển `SELECTED` cũ chuyển `TERMINATED` (gia sư cũ bị loại khỏi đơn); kiểm tra ở backend |
 
 ---
 
