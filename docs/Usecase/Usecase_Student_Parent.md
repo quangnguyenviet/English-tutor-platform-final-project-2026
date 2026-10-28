@@ -253,3 +253,22 @@ HỌC SINH VÀ PHỤ HUYNH**
 | ---                | ---                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Ngoại lệ**       | 3.1. Thiếu trường bắt buộc hoặc số điện thoại sai định dạng: hệ thống yêu cầu phụ huynh nhập lại.<br><br>3.2. Lỗi mạng hoặc máy chủ: hệ thống thông báo chưa thể hoàn tất thao tác, giữ lại dữ liệu đã nhập (nếu có) và cho phép thử lại.                                                                                                                                                                                 |
 | ---                | ---                                                                                                                                                                                                                                                                                                                                                                                                                       |
+ 
+## **UC-PA-05: Xử lý kết quả dạy thử không thành công**
+
+| **Mã UC**          | UC-PA-05 |
+| ------------------ | ------------------------------------------------------------- |
+| **Tên UC**         | Xử lý kết quả dạy thử không thành công |
+| ---                | --- |
+| **Mô tả**          | Khi buổi dạy thử của gia sư ghép lớp không thành công, trung tâm (Lễ tân/Admin) hỏi ý kiến phụ huynh về hướng xử lý tiếp theo của đơn; phụ huynh chọn tìm gia sư khác hoặc không tìm nữa. |
+| ---                | --- |
+| **Actor**          | Phụ huynh (khách), Lễ tân / Admin (tác nhân phụ) |
+| ---                | --- |
+| **Tiền điều kiện** | Đã có lớp dạy thử thất bại từ đơn ghép lớp của phụ huynh. |
+| ---                | --- |
+| **Hậu điều kiện**  | Trạng thái đơn ghép lớp được cập nhật theo lựa chọn của phụ huynh: "Đang ghép lại (REMATCH)" hoặc "Đã hủy (CANCELLED)". |
+| ---                | --- |
+| **Kịch bản chính** | 1\. Trung tâm (Lễ tân/Admin) liên hệ phụ huynh và hỏi ý kiến về kết quả dạy thử không thành công.<br><br>2\. Phụ huynh chọn một trong hai phương án: "Tìm gia sư khác" hoặc "Không tìm nữa".<br><br>3\. Hệ thống cập nhật trạng thái đơn ghép lớp theo lựa chọn: ◦ "Tìm gia sư khác": đơn chuyển sang "Đang ghép lại (REMATCH)", lớp dạy thử bị hủy, gia sư mới có thể ứng tuyển lại vào đơn; khi ghép được gia sư mới, đơn chuyển về "Đã ghép (MATCHED)". ◦ "Không tìm nữa": đơn chuyển sang "Đã hủy (CANCELLED)" (trạng thái cuối của đơn). |
+| ---                | --- |
+| **Ngoại lệ**       | 1.1. Chưa có kết quả dạy thử: hệ thống không mở thao tác xử lý.<br><br>2.1. Phụ huynh chưa quyết định: trung tâm giữ đơn ở trạng thái hiện tại và liên hệ lại.<br><br>3.1. Lỗi mạng hoặc máy chủ: hệ thống thông báo chưa thể hoàn tất thao tác, giữ lại dữ liệu đã nhập (nếu có) và cho phép thử lại. |
+| ---                | --- |
