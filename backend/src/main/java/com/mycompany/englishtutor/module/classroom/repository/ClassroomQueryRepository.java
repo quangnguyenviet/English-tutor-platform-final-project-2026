@@ -165,7 +165,7 @@ public class ClassroomQueryRepository {
             WHERE c.tutor_id = ?
               AND c.id <> ?
               AND s.session_date >= ?
-              AND (? IS NULL OR s.session_date <= ?)
+              AND (?::date IS NULL OR s.session_date <= ?::date)
               AND s.status IN ('SCHEDULED', 'IN_PROGRESS')
               AND s.start_time < ?
               AND s.end_time > ?
