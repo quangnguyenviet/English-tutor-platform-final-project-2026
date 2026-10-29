@@ -42,6 +42,8 @@ public class StaffMatchRequestQueryRepository {
                    cr.class_requirement,
                    cr.teaching_mode,
                    cr.price_per_session,
+                   cr.fee_percentage,
+                   cr.sessions_per_week,
                    cr.preferred_schedule,
                    cr.status AS request_status,
                    cr.cancel_reason,
@@ -61,7 +63,9 @@ public class StaffMatchRequestQueryRepository {
                    tu.avatar_url AS tutor_avatar_url,
                    hu.full_name AS handled_by_name,
                    c.id AS class_id,
-                   c.status AS class_status
+                   c.status AS class_status,
+                   c.sessions_per_week AS class_sessions_per_week,
+                   c.price_per_session AS class_price_per_session
             FROM class_requests cr
             JOIN parents p ON p.id = cr.parent_id
             LEFT JOIN students s ON s.id = cr.student_id
@@ -303,6 +307,14 @@ public class StaffMatchRequestQueryRepository {
                     .className(rs.getString("class_requirement"))
                     .teachingMode(rs.getString("teaching_mode"))
                     .pricePerSession(price)
+                    .feePercentage(rs.getBigDecimal("fee_percentage"))
+                    .sessionsPerWeek(rs.getObject("sessions_per_week") != null
+                            ? ((Number) rs.getObject("sessions_per_week")).intValue()
+                            : null)
+                    .classSessionsPerWeek(rs.getObject("class_sessions_per_week") != null
+                            ? ((Number) rs.getObject("class_sessions_per_week")).intValue()
+                            : null)
+                    .classPricePerSession(rs.getBigDecimal("class_price_per_session"))
                     .preferredSchedule(rs.getString("preferred_schedule"))
                     .cancelReason(rs.getString("cancel_reason"))
                     .createdAt(createdAt)

@@ -162,6 +162,221 @@ class PaymentServiceTest {
         assertError(ErrorCode.PAYMENT_CLASS_INCOMPLETE, () -> service.createForClass(CLASS_ID));
     }
 
+    // ---- draft payment lifecycle (kế hoạch Phase 1, mục 4.1.2 / 4.5) ----
+
+    @Test
+    void createDraftForClass_createsNewPaymentWithNullAmountAndSnapshot() {
+        when(paymentRepository.findFirstByClassIdAndPayerTypeAndStatus(CLASS_ID, PayerType.TUTOR, PaymentStatus.NEW))
+                .thenReturn(Optional.empty());
+        when(paymentRepository.saveAndFlush(any(Payment.class))).thenAnswer(inv -> {
+            Payment p = inv.getArgument(0);
+            p.setId(PAYMENT_ID);
+            return p;
+        });
+        loginAs("letan");
+
+        service.createDraftForClass(CLASS_ID, BigDecimal.valueOf(40), BigDecimal.valueOf(300_000));
+
+        ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).saveAndFlush(captor.capture());
+        Payment saved = captor.getValue();
+        assertThat(saved.getStatus()).isEqualTo(PaymentStatus.NEW);
+        assertThat(saved.getAmount()).isNull();
+        assertThat(saved.getFeePercentage()).isEqualByComparingTo("40");
+        verify(auditLogService)
+                .log(eq(RECEPTIONIST_ID), eq("CREATE_PAYMENT_DRAFT"), eq("PAYMENT"), any(), any(), any());
+    }
+
+    @Test
+    void createDraftForClass_nullFeeFallsBackToDefaultPercentage() {
+        when(paymentRepository.findFirstByClassIdAndPayerTypeAndStatus(CLASS_ID, PayerType.TUTOR, PaymentStatus.NEW))
+                .thenReturn(Optional.empty());
+        when(paymentRepository.saveAndFlush(any(Payment.class))).thenAnswer(inv -> {
+            Payment p = inv.getArgument(0);
+            p.setId(PAYMENT_ID);
+            return p;
+        });
+
+        service.createDraftForClass(CLASS_ID, null, BigDecimal.valueOf(300_000));
+
+        ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getFeePercentage())
+                .isEqualByComparingTo(String.valueOf(properties.getDefaultFeePercentage()));
+    }
+
+    @Test
+    void createDraftForClass_isIdempotentPerClass() {
+        Payment draft = Payment.builder()
+                .id(PAYMENT_ID)
+                .classId(CLASS_ID)
+                .payerType(PayerType.TUTOR)
+                .feePercentage(BigDecimal.valueOf(40))
+                .status(PaymentStatus.NEW)
+                .build();
+        when(paymentRepository.findFirstByClassIdAndPayerTypeAndStatus(CLASS_ID, PayerType.TUTOR, PaymentStatus.NEW))
+                .thenReturn(Optional.of(draft));
+        lenient().when(queryRepository.findDetail(PAYMENT_ID))
+                .thenReturn(Optional.of(PaymentResponse.builder()
+                        .id(PAYMENT_ID)
+                        .tutorId(TUTOR_ID)
+                        .status(PaymentStatus.NEW)
+                        .build()));
+
+        service.createDraftForClass(CLASS_ID, BigDecimal.valueOf(40), BigDecimal.valueOf(300_000));
+
+        verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
+    }
+
+    @Test
+    void createForClassWithFeeInfo_activatesDraftAndComputesAmount() {
+        Payment draft = Payment.builder()
+                .id(PAYMENT_ID)
+                .classId(CLASS_ID)
+                .payerType(PayerType.TUTOR)
+                .feePercentage(BigDecimal.valueOf(40))
+                .status(PaymentStatus.NEW)
+                .build();
+        when(paymentRepository.findFirstByClassIdAndPayerTypeAndStatus(CLASS_ID, PayerType.TUTOR, PaymentStatus.NEW))
+                .thenReturn(Optional.of(draft));
+        when(paymentRepository.findFirstByClassIdAndPayerTypeAndStatus(CLASS_ID, PayerType.TUTOR, PaymentStatus.NOT_SUBMITTED))
+                .thenReturn(Optional.empty());
+        lenient().when(queryRepository.findDetail(PAYMENT_ID))
+                .thenReturn(Optional.of(PaymentResponse.builder()
+                        .id(PAYMENT_ID)
+                        .tutorId(TUTOR_ID)
+                        .status(PaymentStatus.NOT_SUBMITTED)
+                        .build()));
+        loginAs("letan");
+
+        service.createForClassWithFeeInfo(
+                CLASS_ID, BigDecimal.valueOf(40), 2, BigDecimal.valueOf(300_000));
+
+        assertThat(draft.getStatus()).isEqualTo(PaymentStatus.NOT_SUBMITTED);
+        // 40% x 2 buoi/tuan x 4 tuan x 300.000dong = 960.000dong (FeeCalculator).
+        assertThat(draft.getAmount()).isEqualByComparingTo("960000");
+        verify(auditLogService)
+                .log(eq(RECEPTIONIST_ID), eq("ACTIVATE_PAYMENT"), eq("PAYMENT"), eq(PAYMENT_ID), any(), any());
+    }
+
+    @Test
+    void createForClassWithFeeInfo_noDraftForLegacyDataCreatesNotSubmitted() {
+        when(paymentRepository.findFirstByClassIdAndPayerTypeAndStatus(CLASS_ID, PayerType.TUTOR, PaymentStatus.NEW))
+                .thenReturn(Optional.empty());
+        when(paymentRepository.findFirstByClassIdAndPayerTypeAndStatus(CLASS_ID, PayerType.TUTOR, PaymentStatus.NOT_SUBMITTED))
+                .thenReturn(Optional.empty());
+        when(paymentRepository.saveAndFlush(any(Payment.class))).thenAnswer(inv -> {
+            Payment p = inv.getArgument(0);
+            p.setId(PAYMENT_ID);
+            return p;
+        });
+        lenient().when(queryRepository.findDetail(PAYMENT_ID))
+                .thenReturn(Optional.of(PaymentResponse.builder()
+                        .id(PAYMENT_ID)
+                        .tutorId(TUTOR_ID)
+                        .status(PaymentStatus.NOT_SUBMITTED)
+                        .build()));
+        loginAs("admin");
+
+        service.createForClassWithFeeInfo(
+                CLASS_ID, BigDecimal.valueOf(40), 2, BigDecimal.valueOf(300_000));
+
+        ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).saveAndFlush(captor.capture());
+        Payment saved = captor.getValue();
+        assertThat(saved.getStatus()).isEqualTo(PaymentStatus.NOT_SUBMITTED);
+        assertThat(saved.getAmount()).isEqualByComparingTo("960000");
+        verify(auditLogService)
+                .log(eq(ADMIN_ID), eq("CREATE_PAYMENT"), eq("PAYMENT"), any(), any(), any());
+    }
+
+    @Test
+    void createForClassWithFeeInfo_feeOverrideReplacesSnapshot() {
+        Payment draft = Payment.builder()
+                .id(PAYMENT_ID)
+                .classId(CLASS_ID)
+                .payerType(PayerType.TUTOR)
+                .feePercentage(BigDecimal.valueOf(40))
+                .status(PaymentStatus.NEW)
+                .build();
+        when(paymentRepository.findFirstByClassIdAndPayerTypeAndStatus(CLASS_ID, PayerType.TUTOR, PaymentStatus.NEW))
+                .thenReturn(Optional.of(draft));
+        when(paymentRepository.findFirstByClassIdAndPayerTypeAndStatus(CLASS_ID, PayerType.TUTOR, PaymentStatus.NOT_SUBMITTED))
+                .thenReturn(Optional.empty());
+        loginAs("letan");
+
+        service.createForClassWithFeeInfo(
+                CLASS_ID, BigDecimal.valueOf(30), 2, BigDecimal.valueOf(300_000));
+
+        assertThat(draft.getFeePercentage()).isEqualByComparingTo("30");
+        // 30% x 2 x 4 x 300.000 = 720.000dong.
+        assertThat(draft.getAmount()).isEqualByComparingTo("720000");
+    }
+
+    @Test
+    void createForClassWithFeeInfo_incompleteDataIsRejected() {
+        assertError(ErrorCode.CLASS_FEE_INCOMPLETE,
+                () -> service.createForClassWithFeeInfo(CLASS_ID, BigDecimal.valueOf(40), 0, BigDecimal.valueOf(300_000)));
+        assertError(ErrorCode.CLASS_FEE_INCOMPLETE,
+                () -> service.createForClassWithFeeInfo(CLASS_ID, BigDecimal.valueOf(40), 2, null));
+        verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
+    }
+
+    @Test
+    void createForClassWithFeeInfo_alreadyActivatedKeepsPayment() {
+        Payment activated = Payment.builder()
+                .id(PAYMENT_ID)
+                .classId(CLASS_ID)
+                .payerType(PayerType.TUTOR)
+                .feePercentage(BigDecimal.valueOf(40))
+                .amount(BigDecimal.valueOf(960_000))
+                .status(PaymentStatus.NOT_SUBMITTED)
+                .build();
+        when(paymentRepository.findFirstByClassIdAndPayerTypeAndStatus(CLASS_ID, PayerType.TUTOR, PaymentStatus.NOT_SUBMITTED))
+                .thenReturn(Optional.of(activated));
+        lenient().when(queryRepository.findDetail(PAYMENT_ID))
+                .thenReturn(Optional.of(PaymentResponse.builder()
+                        .id(PAYMENT_ID)
+                        .tutorId(TUTOR_ID)
+                        .status(PaymentStatus.NOT_SUBMITTED)
+                        .build()));
+
+        service.createForClassWithFeeInfo(
+                CLASS_ID, BigDecimal.valueOf(40), 2, BigDecimal.valueOf(300_000));
+
+        verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
+    }
+
+    @Test
+    void cancelDraftPayment_cancelsNewDraftWithAudit() {
+        Payment draft = Payment.builder()
+                .id(PAYMENT_ID)
+                .classId(CLASS_ID)
+                .payerType(PayerType.TUTOR)
+                .feePercentage(BigDecimal.valueOf(40))
+                .status(PaymentStatus.NEW)
+                .build();
+        when(paymentRepository.findFirstByClassIdAndPayerTypeAndStatus(CLASS_ID, PayerType.TUTOR, PaymentStatus.NEW))
+                .thenReturn(Optional.of(draft));
+        loginAs("letan");
+
+        service.cancelDraftPayment(CLASS_ID);
+
+        assertThat(draft.getStatus()).isEqualTo(PaymentStatus.CANCELLED);
+        verify(auditLogService)
+                .log(eq(RECEPTIONIST_ID), eq("CANCEL_PAYMENT_DRAFT"), eq("PAYMENT"), eq(PAYMENT_ID), any(), any());
+    }
+
+    @Test
+    void cancelDraftPayment_withoutDraftDoesNothing() {
+        when(paymentRepository.findFirstByClassIdAndPayerTypeAndStatus(CLASS_ID, PayerType.TUTOR, PaymentStatus.NEW))
+                .thenReturn(Optional.empty());
+
+        service.cancelDraftPayment(CLASS_ID);
+
+        verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
+    }
+
     // ---- fee percentage ----
 
     @Test

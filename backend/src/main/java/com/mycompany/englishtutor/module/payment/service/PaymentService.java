@@ -84,7 +84,10 @@ public class PaymentService {
             throw new AppException(ErrorCode.PAYMENT_CLASS_INCOMPLETE);
         }
 
-        BigDecimal feePercentage = properties.getDefaultFeePercentage();
+        BigDecimal feePercentage = paymentQueryRepository.findRequestFeePercentageForClass(classId);
+        if (feePercentage == null) {
+            feePercentage = properties.getDefaultFeePercentage();
+        }
         Payment payment = paymentRepository.saveAndFlush(Payment.builder()
                 .classId(classId)
                 .payerType(PayerType.TUTOR)
@@ -108,6 +111,120 @@ public class PaymentService {
 
         log.info("Created payment {} for class {}, amount {}", payment.getId(), classId, payment.getAmount());
         return getDetail(payment.getId(), null);
+    }
+
+    /**
+     * Tạo bản nháp {@code NEW} khi ghép lớp {@code TRIAL} (kế hoạch mục 4.1.2): snapshot
+     * {@code fee_percentage} + {@code price_per_session}, {@code amount = NULL} cho tới khi kích hoạt.
+     * Idempotent theo {@code (class_id, payer_type = TUTOR, status = NEW)} — gọi lại trả bản đã có.
+     * Không gửi thông báo khoản phí (chưa có số tiền cụ thể).
+     */
+    @Transactional
+    public PaymentResponse createDraftForClass(Long classId, BigDecimal feePercentage, BigDecimal pricePerSession) {
+        Optional<Payment> existing = paymentRepository
+                .findFirstByClassIdAndPayerTypeAndStatus(classId, PayerType.TUTOR, PaymentStatus.NEW);
+        if (existing.isPresent()) {
+            return getDetail(existing.get().getId(), null);
+        }
+
+        BigDecimal fee = feePercentage != null ? feePercentage : properties.getDefaultFeePercentage();
+        Payment payment = paymentRepository.saveAndFlush(Payment.builder()
+                .classId(classId)
+                .payerType(PayerType.TUTOR)
+                .feePercentage(fee)
+                .amount(null)
+                .status(PaymentStatus.NEW)
+                .build());
+
+        Actor actor = currentActorOrNull();
+        if (actor != null) {
+            audit(actor, "CREATE_PAYMENT_DRAFT", payment.getId(), Map.of(
+                    "classId", classId,
+                    "feePercentage", fee,
+                    "pricePerSession", String.valueOf(pricePerSession)));
+        }
+        log.info("Created draft payment {} for class {} (fee {}, price {})",
+                payment.getId(), classId, fee, pricePerSession);
+        return getDetail(payment.getId(), null);
+    }
+
+    /**
+     * Kích hoạt bản nháp {@code NEW} (kế hoạch mục 4.5): tính {@code amount} bằng {@link FeeCalculator}
+     * rồi chuyển {@code NEW -> NOT_SUBMITTED}. Nếu lớp chưa có bản nháp (dữ liệu cũ) thì tạo thẳng
+     * {@code NOT_SUBMITTED}. {@code feePercentage} (nếu khác null) ghi đè lên snapshot. Idempotent:
+     * khoản đã {@code NOT_SUBMITTED} thì giữ nguyên, không nhân đôi payment.
+     */
+    @Transactional
+    public PaymentResponse createForClassWithFeeInfo(
+            Long classId, BigDecimal feePercentage, int sessionsPerWeek, BigDecimal pricePerSession) {
+        if (pricePerSession == null || sessionsPerWeek <= 0) {
+            throw new AppException(ErrorCode.CLASS_FEE_INCOMPLETE);
+        }
+        // Idempotent (kế hoạch mục 4.5): kích hoạt lại lớp đã kích hoạt không nhân đôi payment.
+        Optional<Payment> alreadyActivated =
+                paymentRepository.findFirstByClassIdAndPayerTypeAndStatus(
+                        classId, PayerType.TUTOR, PaymentStatus.NOT_SUBMITTED);
+        if (alreadyActivated.isPresent()) {
+            return getDetail(alreadyActivated.get().getId(), null);
+        }
+
+        Optional<Payment> existing = paymentRepository
+                .findFirstByClassIdAndPayerTypeAndStatus(classId, PayerType.TUTOR, PaymentStatus.NEW);
+        BigDecimal fee = feePercentage != null ? feePercentage : properties.getDefaultFeePercentage();
+        BigDecimal amount = FeeCalculator.calculate(fee, sessionsPerWeek, pricePerSession);
+
+        Payment payment;
+        String action;
+        if (existing.isPresent()) {
+            payment = existing.get();
+            payment.setFeePercentage(fee);
+            payment.setAmount(amount);
+            payment.setStatus(PaymentStatus.NOT_SUBMITTED);
+            paymentRepository.saveAndFlush(payment);
+            action = "ACTIVATE_PAYMENT";
+        } else {
+            payment = paymentRepository.saveAndFlush(Payment.builder()
+                    .classId(classId)
+                    .payerType(PayerType.TUTOR)
+                    .feePercentage(fee)
+                    .amount(amount)
+                    .status(PaymentStatus.NOT_SUBMITTED)
+                    .build());
+            action = "CREATE_PAYMENT";
+        }
+
+        Actor actor = currentActorOrNull();
+        if (actor != null) {
+            audit(actor, action, payment.getId(), Map.of(
+                    "classId", classId,
+                    "feePercentage", fee,
+                    "sessionsPerWeek", sessionsPerWeek,
+                    "pricePerSession", String.valueOf(pricePerSession),
+                    "amount", amount));
+        }
+        paymentQueryRepository.findClassFeeInfo(classId)
+                .ifPresent(info -> paymentQueryRepository.notifyUser(
+                        info.tutorId(),
+                        "Khoản phí nhận lớp mới",
+                        "Bạn cần nộp phí nhận lớp " + formatVnd(amount) + " để mở thông tin liên hệ phụ huynh.",
+                        payment.getId()));
+        return getDetail(payment.getId(), null);
+    }
+
+    /** Hủy bản nháp {@code NEW} khi lớp {@code TRIAL} bị hủy / ghép lại (kế hoạch mục 4.1.2). Không có → không làm gì. */
+    @Transactional
+    public void cancelDraftPayment(Long classId) {
+        paymentRepository
+                .findFirstByClassIdAndPayerTypeAndStatus(classId, PayerType.TUTOR, PaymentStatus.NEW)
+                .ifPresent(payment -> {
+                    payment.setStatus(PaymentStatus.CANCELLED);
+                    paymentRepository.saveAndFlush(payment);
+                    Actor actor = currentActorOrNull();
+                    if (actor != null) {
+                        audit(actor, "CANCEL_PAYMENT_DRAFT", payment.getId(), Map.of("classId", classId));
+                    }
+                    log.info("Cancelled draft payment {} for class {}", payment.getId(), classId);
+                });
     }
 
     @Transactional(readOnly = true)

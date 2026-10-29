@@ -67,6 +67,12 @@ public class ClassRequestDetailResponse {
     @Schema(description = "Mức học phí mỗi buổi (VNĐ)")
     BigDecimal pricePerSession;
 
+    @Schema(description = "Tỷ lệ phí nhận lớp (%) — default 40, khoảng 0–50 (V10)", example = "40")
+    BigDecimal feePercentage;
+
+    @Schema(description = "Số buổi mỗi tuần (do phụ huynh gợi ý khi gửi đơn; số buổi dùng tính phí nằm trên lớp)")
+    Integer sessionsPerWeek;
+
     @Schema(description = "Lịch học mong muốn")
     String preferredSchedule;
 

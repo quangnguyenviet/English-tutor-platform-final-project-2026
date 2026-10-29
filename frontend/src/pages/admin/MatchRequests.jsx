@@ -22,6 +22,7 @@ import {
   Loader2,
   Send,
   Eye,
+  Percent,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/ui/PageHeader";
@@ -72,6 +73,7 @@ const INITIAL_CREATE_FORM = {
   durationMinutes: 90,
   teachingMode: "ONLINE",
   pricePerSession: 250000,
+  feePercentage: 40,
   preferredSchedule: "Thứ 2 - 4 - 6 (19:30 - 21:00)",
   notes: "",
 };
@@ -114,6 +116,12 @@ export function MatchRequests() {
     confirmTone: "blue",
     onConfirm: null,
   });
+
+  // Modal kích hoạt lớp (Xác nhận ghép thành công + bổ sung dữ liệu tính phí)
+  const [activateReq, setActivateReq] = useState(null);
+  const [activateDetail, setActivateDetail] = useState(null);
+  const [activateForm, setActivateForm] = useState({ sessionsPerWeek: "", pricePerSession: "", feePercentage: 40 });
+  const [activateError, setActivateError] = useState("");
 
   // Success Toast & Popup
   const [toastMessage, setToastMessage] = useState(null);
@@ -253,6 +261,7 @@ export function MatchRequests() {
               durationMinutes: Number(createFormData.durationMinutes) || 90,
               teachingMode: createFormData.teachingMode,
               pricePerSession: Number(createFormData.pricePerSession) || 250000,
+              feePercentage: Number(createFormData.feePercentage) || 40,
               preferredSchedule: createFormData.preferredSchedule,
               notes: createFormData.notes,
             },
@@ -300,30 +309,67 @@ export function MatchRequests() {
   };
 
   // === UC-REC-06.1 / UC-ADM-05.1: Duyệt Đơn ghép lớp từ dạy thử sang ghép thành công ===
+  // === UC-REC-06.1 / UC-ADM-05.1: Kích hoạt lớp TRIAL → ACTIVE (modal bổ sung dữ liệu tính phí) ===
+  const openActivateModal = async (req) => {
+    setActivateReq(req);
+    setActivateDetail(null);
+    setActivateError("");
+    setActivateForm({ sessionsPerWeek: "", pricePerSession: "", feePercentage: req.feePercentage ?? 40 });
+    try {
+      const detail = await apiGetMatchRequestDetail(req.id, currentToken);
+      setActivateDetail(detail);
+      if (detail.classSessionsPerWeek) {
+        setActivateForm((f) => ({ ...f, sessionsPerWeek: String(detail.classSessionsPerWeek) }));
+      }
+      if (detail.classPricePerSession) {
+        setActivateForm((f) => ({ ...f, pricePerSession: String(detail.classPricePerSession) }));
+      }
+      if (detail.feePercentage != null) {
+        setActivateForm((f) => ({ ...f, feePercentage: detail.feePercentage }));
+      }
+    } catch {
+      // Không tải được chi tiết vẫn mở modal với dữ liệu sẵn có trên hàng.
+    }
+  };
+
   const handleCompleteMatch = (req) => {
-    setConfirmModal({
-      open: true,
-      title: "Xác nhận ghép thành công",
-      message: `Bạn xác nhận thao tác của mình chứ? Xác nhận hoàn tất dạy thử và chuyển đơn sang trạng thái Ghép thành công cho học sinh ${req.studentName || req.parentName} với gia sư ${req.tutorName || "chỉ định"}?`,
-      confirmLabel: "Đồng ý",
-      confirmTone: "emerald",
-      onConfirm: async () => {
-        closeConfirmModal();
-        setIsSubmitting(true);
-        try {
-          await apiCompleteMatchRequest(req.id, currentToken);
-          setDetailModalItem(null);
-          setSuccessPopup(
-            `Thao tác thành công! Đơn của học sinh ${req.studentName || req.parentName} đã hoàn tất dạy thử và chuyển sang trạng thái "Ghép thành công". Lớp học chính thức (ACTIVE) đã được kích hoạt và gửi thông báo tới gia sư ${req.tutorName}.`
-          );
-          loadData();
-        } catch (err) {
-          showToast(err.message || "Xác nhận ghép thành công thất bại.");
-        } finally {
-          setIsSubmitting(false);
-        }
-      },
-    });
+    openActivateModal(req);
+  };
+
+  const activateFee = (() => {
+    if (!activateDetail) return null;
+    const sessions = Number(activateForm.sessionsPerWeek || activateDetail.classSessionsPerWeek) || 0;
+    const price = Number(activateForm.pricePerSession || activateDetail.classPricePerSession || activateDetail.pricePerSession) || 0;
+    const fee = Number(activateForm.feePercentage) || 0;
+    if (!sessions || !price) return null;
+    const raw = price * sessions * 4 * (fee / 100);
+    return Math.round(raw / 1000) * 1000;
+  })();
+
+  const handleActivateSubmit = async (e) => {
+    e.preventDefault();
+    if (!activateReq) return;
+    setActivateError("");
+    setIsSubmitting(true);
+    try {
+      const body = {};
+      if (activateForm.sessionsPerWeek.trim()) body.sessionsPerWeek = Number(activateForm.sessionsPerWeek);
+      if (activateForm.pricePerSession.trim()) body.pricePerSession = Number(activateForm.pricePerSession);
+      if (activateForm.feePercentage != null && activateForm.feePercentage !== "") {
+        body.feePercentage = Number(activateForm.feePercentage);
+      }
+      await apiCompleteMatchRequest(activateReq.id, currentToken, Object.keys(body).length ? body : undefined);
+      setActivateReq(null);
+      setDetailModalItem(null);
+      setSuccessPopup(
+        `Thao tác thành công! Đơn của học sinh ${activateReq.studentName || activateReq.parentName} đã hoàn tất dạy thử và chuyển sang trạng thái "Ghép thành công". Lớp học chính thức (ACTIVE) đã được kích hoạt, khoản phí nhận lớp đã được tạo và thông báo đã gửi tới gia sư ${activateReq.tutorName} cùng học sinh.`
+      );
+      loadData();
+    } catch (err) {
+      setActivateError(err.message || "Xác nhận ghép thành công thất bại.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // === UC-REC-07 / UC-ADM-06: Hủy Đơn ghép lớp ===
@@ -913,6 +959,28 @@ export function MatchRequests() {
                 </div>
               </div>
 
+              {/* Row 4b: Tỷ lệ phí nhận lớp */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Percent size={13} className="text-primary" />
+                    Tỷ lệ phí nhận lớp (%)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    step={0.5}
+                    value={createFormData.feePercentage}
+                    onChange={(e) => setCreateFormData({ ...createFormData, feePercentage: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Dải 0–50, mặc định 40. Phí = tỷ lệ × số buổi/tuần × 4 × học phí/buổi.
+                  </p>
+                </div>
+              </div>
+
               {/* Row 5: Lịch học & Ghi chú */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">Lịch học mong muốn</label>
@@ -1035,6 +1103,134 @@ export function MatchRequests() {
         </div>
       )}
 
+      {/* ── MODAL KÍCH HOẠT LỚP (Xác nhận ghép thành công + dữ liệu tính phí) ── */}
+      {activateReq && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-md rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-2xl space-y-5 text-card-foreground">
+            <button
+              type="button"
+              onClick={() => setActivateReq(null)}
+              className="absolute top-4 right-4 p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              aria-label="Đóng"
+            >
+              <X size={18} />
+            </button>
+
+            <div>
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <CheckCircle2 className="text-emerald-500 w-5 h-5" />
+                <span>Xác nhận ghép thành công</span>
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Lớp của học sinh <strong>{activateReq.studentName || activateReq.parentName}</strong> với gia sư{" "}
+                <strong>{activateReq.tutorName || "chỉ định"}</strong> sẽ chuyển sang chính thức. Khoản phí
+                nhận lớp được tính theo công thức, không nhập tay.
+              </p>
+            </div>
+
+            {activateDetail ? (
+              <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/40 text-xs space-y-1.5">
+                <div className="font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
+                  <Info size={13} />
+                  <span>Khoản phí nhận lớp sẽ được tạo</span>
+                </div>
+                <div className="text-blue-700/90 dark:text-blue-300/90 space-y-0.5">
+                  <div>
+                    Công thức: tỷ lệ phí × số buổi/tuần × 4 × học phí/buổi (làm tròn nghìn đồng)
+                  </div>
+                  <div>
+                    Tỷ lệ phí: <strong>{Number(activateForm.feePercentage) || 0}%</strong>
+                    {" · "}Số buổi/tuần: <strong>{activateForm.sessionsPerWeek || activateDetail.classSessionsPerWeek || "chưa có"}</strong>
+                    {" · "}Học phí:{" "}
+                    <strong>{fmtVND(activateForm.pricePerSession || activateDetail.classPricePerSession || activateDetail.pricePerSession)}</strong>
+                  </div>
+                  <div>
+                    {activateFee != null ? (
+                      <>Số phí tính được: <strong className="text-emerald-600 dark:text-emerald-400">{fmtVND(activateFee)}</strong></>
+                    ) : (
+                      <>Chưa đủ thông tin tính phí — vui lòng bổ sung số buổi/tuần và học phí bên dưới.</>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <form onSubmit={handleActivateSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Số buổi / tuần</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={activateForm.sessionsPerWeek}
+                    onChange={(e) => setActivateForm({ ...activateForm, sessionsPerWeek: e.target.value })}
+                    placeholder={activateDetail?.classSessionsPerWeek || "VD: 2"}
+                    className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Học phí / buổi (VNĐ)</label>
+                  <input
+                    type="number"
+                    min={10000}
+                    step={10000}
+                    value={activateForm.pricePerSession}
+                    onChange={(e) => setActivateForm({ ...activateForm, pricePerSession: e.target.value })}
+                    placeholder={fmtVND(activateDetail?.classPricePerSession || activateDetail?.pricePerSession)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <Percent size={13} className="text-primary" />
+                  Tỷ lệ phí nhận lớp (%)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={50}
+                  step={0.5}
+                  value={activateForm.feePercentage}
+                  onChange={(e) => setActivateForm({ ...activateForm, feePercentage: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Chỉ sửa khi cần ghi đè tỷ lệ đang lưu trên đơn (mặc định 40%, dải 0–50).
+                </p>
+              </div>
+
+              {activateError && (
+                <p role="alert" className="text-xs text-rose-600 dark:text-rose-400 font-semibold">
+                  {activateError}
+                </p>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setActivateReq(null)}
+                  disabled={isSubmitting}
+                  className="cursor-pointer"
+                >
+                  Hủy thao tác
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer"
+                >
+                  {isSubmitting ? <Loader2 size={15} className="animate-spin mr-1.5" /> : null}
+                  <span>Xác nhận ghép thành công</span>
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ── MODAL 3: XEM CHI TIẾT ĐƠN GHÉP LỚP ─────────────────────────────────── */}
       {detailModalItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
@@ -1127,6 +1323,32 @@ export function MatchRequests() {
                   <div className="grid grid-cols-2 gap-2 text-muted-foreground">
                     <div>Hình thức: <strong className="text-foreground">{detailModalItem.teachingMode === "ONLINE" ? "Trực tuyến" : "Tại nhà"}</strong></div>
                     <div>Học phí: <strong className="text-primary font-bold">{fmtVND(detailModalItem.pricePerSession)}</strong>/buổi</div>
+                    <div>Tỷ lệ phí: <strong className="text-foreground">{detailModalItem.feePercentage != null ? detailModalItem.feePercentage + "%" : "40% (mặc định)"}</strong></div>
+                    <div>
+                      Buổi/tuần (lớp):{" "}
+                      <strong className="text-foreground">
+                        {detailModalItem.classSessionsPerWeek || "chưa có"}
+                      </strong>
+                    </div>
+                    {detailModalItem.status === "TRIAL" && (() => {
+                      const sessions = Number(detailModalItem.classSessionsPerWeek) || 0;
+                      const price = Number(detailModalItem.classPricePerSession || detailModalItem.pricePerSession) || 0;
+                      const fee = Number(detailModalItem.feePercentage ?? 40) || 0;
+                      if (!sessions || !price) {
+                        return (
+                          <div className="col-span-2 text-amber-600 dark:text-amber-400 font-semibold">
+                            Chưa đủ thông tin tính phí nhận lớp — lễ tân bổ sung tại bước kích hoạt.
+                          </div>
+                        );
+                      }
+                      const raw = price * sessions * 4 * (fee / 100);
+                      const amount = Math.round(raw / 1000) * 1000;
+                      return (
+                        <div className="col-span-2 text-emerald-600 dark:text-emerald-400 font-semibold">
+                          Phí nhận lớp dự kiến: {fmtVND(amount)} = {fee}% × {sessions} buổi/tuần × 4 × {fmtVND(price)}
+                        </div>
+                      );
+                    })()}
                     {detailModalItem.preferredSchedule && (
                       <div className="col-span-2">Lịch mong muốn: <span className="text-foreground">{detailModalItem.preferredSchedule}</span></div>
                     )}

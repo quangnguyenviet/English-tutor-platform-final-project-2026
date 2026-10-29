@@ -78,8 +78,17 @@ public class MatchRequestDetailResponse {
     @Schema(description = "Mức học phí mỗi buổi (VNĐ)")
     BigDecimal pricePerSession;
 
-    @Schema(description = "Số buổi mỗi tuần")
+    @Schema(description = "Tỷ lệ phí nhận lớp (%) — default 40, khoảng 0–50 (V10)", example = "40")
+    BigDecimal feePercentage;
+
+    @Schema(description = "Số buổi mỗi tuần (do phụ huynh gợi ý khi gửi đơn; số buổi dùng tính phí nằm trên lớp)")
     Integer sessionsPerWeek;
+
+    @Schema(description = "Số buổi mỗi tuần hiện có trên lớp (nguồn tính phí, V11; null = lễ tân bổ sung tại modal kích hoạt)")
+    Integer classSessionsPerWeek;
+
+    @Schema(description = "Học phí mỗi buổi snapshot trên lớp (nguồn tính phí, V11)")
+    BigDecimal classPricePerSession;
 
     @Schema(description = "Thời lượng mỗi buổi (phút)")
     Integer durationMinutes;

@@ -71,6 +71,7 @@ const INITIAL_FORM = {
   classRequirement: "",
   teachingMode: "ONLINE",
   pricePerSession: 300000,
+  feePercentage: 40,
   preferredSchedule: "",
   tutorRequirement: "",
 };
@@ -162,6 +163,7 @@ export function ClassRequestManagement() {
       classRequirement: item.classRequirement || "",
       teachingMode: item.teachingMode || "ONLINE",
       pricePerSession: item.pricePerSession || 300000,
+      feePercentage: item.feePercentage ?? 40,
       preferredSchedule: item.preferredSchedule || "",
       tutorRequirement: item.tutorRequirement || "",
     });
@@ -215,6 +217,7 @@ export function ClassRequestManagement() {
                 classRequirement: formData.classRequirement.trim(),
                 teachingMode: formData.teachingMode,
                 pricePerSession: Number(formData.pricePerSession),
+                feePercentage: Number(formData.feePercentage) || 40,
                 preferredSchedule: formData.preferredSchedule.trim(),
                 tutorRequirement: formData.tutorRequirement.trim(),
               },
@@ -235,6 +238,7 @@ export function ClassRequestManagement() {
                 classRequirement: formData.classRequirement.trim(),
                 teachingMode: formData.teachingMode,
                 pricePerSession: Number(formData.pricePerSession),
+                feePercentage: Number(formData.feePercentage) || 40,
                 preferredSchedule: formData.preferredSchedule.trim(),
                 tutorRequirement: formData.tutorRequirement.trim(),
               },
@@ -830,6 +834,21 @@ export function ClassRequestManagement() {
                     className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Tỷ lệ phí nhận lớp (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    step={0.5}
+                    value={formData.feePercentage}
+                    onChange={(e) => setFormData({ ...formData, feePercentage: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Dải 0–50, mặc định 40. Phí = tỷ lệ × số buổi/tuần × 4 × học phí/buổi.
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -1068,6 +1087,7 @@ export function ClassRequestManagement() {
                   <div className="grid grid-cols-2 gap-2 text-muted-foreground">
                     <div>Hình thức: <strong className="text-foreground">{teachingLabel(detailModalItem.teachingMode)}</strong></div>
                     <div>Học phí: <strong className="text-primary font-bold">{fmtVND(detailModalItem.pricePerSession)}</strong>/buổi</div>
+                    <div>Tỷ lệ phí: <strong className="text-foreground">{detailModalItem.feePercentage != null ? detailModalItem.feePercentage + "%" : "40% (mặc định)"}</strong></div>
                     {detailModalItem.preferredSchedule && <div className="col-span-2">Lịch mong muốn: <span className="text-foreground">{detailModalItem.preferredSchedule}</span></div>}
                     {detailModalItem.tutorRequirement && <div className="col-span-2">Yêu cầu gia sư: <span className="text-foreground">{detailModalItem.tutorRequirement}</span></div>}
                     {detailModalItem.classId && (
