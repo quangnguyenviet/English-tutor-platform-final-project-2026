@@ -3,6 +3,7 @@ package com.mycompany.englishtutor.module.matching.api.request;
 import java.math.BigDecimal;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Pattern;
 import lombok.AccessLevel;
@@ -49,4 +50,9 @@ public class UpdateClassRequest {
 
     @Schema(description = "Yêu cầu đối với gia sư", example = "Gia sư IELTS 7.5 trở lên")
     String tutorRequirement;
+
+    @DecimalMin(value = "0", message = "Tỷ lệ phí nhận lớp không được âm")
+    @DecimalMax(value = "50", message = "Tỷ lệ phí nhận lớp tối đa 50%")
+    @Schema(description = "Tỷ lệ phí nhận lớp (%) — khoảng 0–50, cập nhật khi còn NEW", example = "40")
+    BigDecimal feePercentage;
 }

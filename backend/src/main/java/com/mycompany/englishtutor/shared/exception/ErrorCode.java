@@ -53,6 +53,10 @@ public enum ErrorCode {
             "Lớp chưa đủ thông tin (yêu cầu lớp, hình thức, học phí, học sinh) để đăng tuyển",
             HttpStatus.CONFLICT),
     APPLICATION_NOT_IN_REQUEST(1114, "Đơn ứng tuyển không thuộc lớp này", HttpStatus.CONFLICT),
+    CLASS_FEE_INCOMPLETE(
+            1115,
+            "Lớp chưa đủ thông tin tính phí nhận lớp (thiếu số buổi/tuần hoặc học phí mỗi buổi)",
+            HttpStatus.CONFLICT),
     CLASS_NOT_FOUND(1120, "Lớp học không tồn tại", HttpStatus.NOT_FOUND),
     CLASS_NOT_OWNED(1121, "Bạn không có quyền truy cập lớp học này", HttpStatus.FORBIDDEN),
     CLASS_NOT_TRIAL(1122, "Lớp học không ở trạng thái dạy thử", HttpStatus.CONFLICT),

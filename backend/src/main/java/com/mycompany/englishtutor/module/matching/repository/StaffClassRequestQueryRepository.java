@@ -39,6 +39,8 @@ public class StaffClassRequestQueryRepository {
                    cr.class_requirement,
                    cr.teaching_mode,
                    cr.price_per_session,
+                   cr.fee_percentage,
+                   cr.sessions_per_week,
                    cr.preferred_schedule,
                    cr.tutor_requirement,
                    cr.status,
@@ -259,6 +261,10 @@ public class StaffClassRequestQueryRepository {
                     .classRequirement(rs.getString("class_requirement"))
                     .teachingMode(rs.getString("teaching_mode"))
                     .pricePerSession(rs.getBigDecimal("price_per_session"))
+                    .feePercentage(rs.getBigDecimal("fee_percentage"))
+                    .sessionsPerWeek(rs.getObject("sessions_per_week") != null
+                            ? ((Number) rs.getObject("sessions_per_week")).intValue()
+                            : null)
                     .preferredSchedule(rs.getString("preferred_schedule"))
                     .tutorRequirement(rs.getString("tutor_requirement"))
                     .cancelReason(rs.getString("cancel_reason"))

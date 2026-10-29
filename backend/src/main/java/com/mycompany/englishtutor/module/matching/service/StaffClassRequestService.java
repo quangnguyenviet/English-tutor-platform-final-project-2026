@@ -19,6 +19,7 @@ import com.mycompany.englishtutor.module.matching.api.response.ClassApplicationR
 import com.mycompany.englishtutor.module.matching.api.response.ClassRequestDetailResponse;
 import com.mycompany.englishtutor.module.matching.api.response.ClassRequestSummaryResponse;
 import com.mycompany.englishtutor.module.matching.repository.StaffClassRequestQueryRepository;
+import com.mycompany.englishtutor.module.payment.service.PaymentService;
 import com.mycompany.englishtutor.module.tutor.domain.enums.ProfileStatus;
 import com.mycompany.englishtutor.module.tutor.repository.TutorRepository;
 import com.mycompany.englishtutor.module.user.domain.User;
@@ -52,6 +53,7 @@ public class StaffClassRequestService {
     UserRepository userRepository;
     AuditLogService auditLogService;
     PasswordEncoder passwordEncoder;
+    PaymentService paymentService;
 
     // ------------------------------------------------------------------ READ
 
@@ -93,8 +95,9 @@ public class StaffClassRequestService {
                 INSERT INTO class_requests (
                     parent_id, requested_tutor_id, student_id, class_requirement,
                     teaching_mode, price_per_session, preferred_schedule, tutor_requirement,
+                    fee_percentage,
                     status, created_by
-                ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, 'NEW', ?) RETURNING id
+                ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, COALESCE(?, 40), 'NEW', ?) RETURNING id
                 """,
                 Long.class,
                 parentId,
@@ -104,6 +107,7 @@ public class StaffClassRequestService {
                 request.getPricePerSession(),
                 request.getPreferredSchedule(),
                 request.getTutorRequirement(),
+                request.getFeePercentage(),
                 currentUserId);
 
         auditLogService.log(
@@ -148,6 +152,7 @@ public class StaffClassRequestService {
                     price_per_session  = COALESCE(?, price_per_session),
                     preferred_schedule = COALESCE(?, preferred_schedule),
                     tutor_requirement  = COALESCE(?, tutor_requirement),
+                    fee_percentage     = COALESCE(?, fee_percentage),
                     updated_at         = NOW()
                 WHERE id = ?
                 """,
@@ -156,6 +161,7 @@ public class StaffClassRequestService {
                 request.getPricePerSession(),
                 trimToNull(request.getPreferredSchedule()),
                 trimToNull(request.getTutorRequirement()),
+                request.getFeePercentage(),
                 id);
 
         auditLogService.log(getCurrentUserId(), "UPDATE_CLASS_REQUEST", "CLASS_REQUEST", id, null, httpRequest);
@@ -215,6 +221,9 @@ public class StaffClassRequestService {
         String className = (String) row.get("class_requirement");
         String teachingMode = (String) row.get("teaching_mode");
         BigDecimal price = (BigDecimal) row.get("price_per_session");
+        BigDecimal feePercentage = row.get("fee_percentage") != null
+                ? new BigDecimal(row.get("fee_percentage").toString())
+                : null;
 
         // Chọn đơn này, loại các đơn còn lại.
         jdbcTemplate.update(
@@ -243,6 +252,9 @@ public class StaffClassRequestService {
                 Map.of("applicationId", request.getApplicationId(), "tutorId", tutorId, "classId", classId),
                 httpRequest);
 
+        // Snapshot phí nhận lớp ngay khi ghép (kế hoạch mục 4.1.2): payment NEW, amount NULL.
+        paymentService.createDraftForClass(classId, feePercentage, price);
+
         notifySelectedTutor(tutorId, classId, className);
         notifyRejectedTutors(id, request.getApplicationId());
 
@@ -258,6 +270,15 @@ public class StaffClassRequestService {
 
         String reason = request.getReason().trim();
         Long currentUserId = getCurrentUserId();
+
+        // Hủy bản nháp phí NEW của các lớp TRIAL (kế hoạch mục 4.1.2, 5.1).
+        List<Long> classIds = jdbcTemplate.queryForList(
+                "SELECT id FROM classes WHERE class_request_id = ? AND status = 'TRIAL'",
+                Long.class, id);
+        for (Long classId : classIds) {
+            paymentService.cancelDraftPayment(classId);
+        }
+
         jdbcTemplate.update(
                 "UPDATE class_requests SET status = 'CANCELLED', cancel_reason = ?, handled_by = ?, updated_at = NOW() WHERE id = ?",
                 reason, currentUserId, id);
@@ -277,7 +298,7 @@ public class StaffClassRequestService {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 """
                 SELECT id, parent_id, student_id, class_requirement, teaching_mode,
-                       price_per_session, status
+                       price_per_session, fee_percentage, status
                 FROM class_requests
                 WHERE id = ? AND requested_tutor_id IS NULL
                 FOR UPDATE
