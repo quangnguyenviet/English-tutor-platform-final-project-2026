@@ -14,9 +14,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.mycompany.englishtutor.module.classroom.api.request.CreateSessionRequest;
+import com.mycompany.englishtutor.module.classroom.api.request.FinalizeScheduleRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpsertTrialSessionRequest;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassDetailResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassSummaryResponse;
+import com.mycompany.englishtutor.module.classroom.api.response.FinalizeScheduleResponse;
+import com.mycompany.englishtutor.module.classroom.api.response.OnDemandSessionResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.TrialSessionResponse;
 import com.mycompany.englishtutor.module.classroom.service.TutorClassService;
 import com.mycompany.englishtutor.shared.api.ApiResponse;
@@ -24,10 +28,11 @@ import com.mycompany.englishtutor.shared.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-/** API lớp học của gia sư và lịch dạy thử (API_DESIGN mục 3.5, UC-T08). */
+/** API lớp học của gia sư, lịch dạy thử (UC-T08) và lịch dạy cố định (UC-T09). */
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -78,6 +83,55 @@ public class TutorClassController {
             @PathVariable Long id, @Valid @RequestBody UpsertTrialSessionRequest request) {
         return ResponseEntity.ok(ApiResponse.<TrialSessionResponse>builder()
                 .result(tutorClassService.updateTrialSession(id, request))
+                .build());
+    }
+
+    // ------------------------------------------------------------ UC-T09
+
+    @PostMapping("/classes/{id}/finalize-schedule")
+    @Operation(
+            summary = "Chốt lịch dạy cố định lần đầu cho lớp ACTIVE (UC-T09)",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<FinalizeScheduleResponse>> finalizeSchedule(
+            @PathVariable Long id,
+            @Valid @RequestBody FinalizeScheduleRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.<FinalizeScheduleResponse>builder()
+                        .message("Chốt lịch học cố định thành công")
+                        .result(tutorClassService.finalizeSchedule(id, request, httpRequest))
+                        .build());
+    }
+
+    @PutMapping("/classes/{id}/schedules")
+    @Operation(
+            summary = "Cập nhật (ghi đè) lịch dạy cố định của lớp ACTIVE (UC-T09)",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<FinalizeScheduleResponse>> updateSchedule(
+            @PathVariable Long id,
+            @Valid @RequestBody FinalizeScheduleRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.<FinalizeScheduleResponse>builder()
+                .message("Cập nhật lịch học cố định thành công")
+                .result(tutorClassService.updateSchedule(id, request, httpRequest))
+                .build());
+    }
+
+    @PostMapping("/classes/{id}/sessions")
+    @Operation(
+            summary = "Tạo buổi học chính thức on-demand theo lịch cố định (idempotent)",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<OnDemandSessionResponse>> createSessionOnDemand(
+            @PathVariable Long id,
+            @Valid @RequestBody CreateSessionRequest request,
+            HttpServletRequest httpRequest) {
+        OnDemandSessionResponse result =
+                tutorClassService.createSessionOnDemand(id, request, httpRequest);
+        return ResponseEntity.ok(ApiResponse.<OnDemandSessionResponse>builder()
+                .message(result.getCreatedNow()
+                        ? "Đã tạo buổi học chính thức"
+                        : "Buổi học đã tồn tại")
+                .result(result)
                 .build());
     }
 }

@@ -78,6 +78,20 @@ public enum ErrorCode {
             1130, "Vui lòng xác nhận địa chỉ cho buổi học tại nhà", HttpStatus.BAD_REQUEST),
     TRIAL_SESSION_INVALID_MODE(1131, "Hình thức học không hợp lệ", HttpStatus.BAD_REQUEST),
     INVALID_CLASS_STATUS(1132, "Trạng thái lớp không hợp lệ", HttpStatus.BAD_REQUEST),
+    CLASS_NOT_ACTIVE(1133, "Lớp học chưa được kích hoạt", HttpStatus.CONFLICT),
+    SCHEDULE_ALREADY_EXISTS(1134, "Lớp học đã có lịch dạy cố định", HttpStatus.CONFLICT),
+    SCHEDULE_NOT_FOUND(1135, "Lớp học chưa có lịch dạy cố định", HttpStatus.NOT_FOUND),
+    SCHEDULE_INVALID_TIME(1136, "Giờ kết thúc phải sau giờ bắt đầu", HttpStatus.BAD_REQUEST),
+    SCHEDULE_DATE_IN_PAST(1137, "Ngày bắt đầu hiệu lực không được trong quá khứ", HttpStatus.BAD_REQUEST),
+    SCHEDULE_INVALID_RANGE(
+            1138, "Ngày kết thúc hiệu lực phải sau hoặc bằng ngày bắt đầu", HttpStatus.BAD_REQUEST),
+    SCHEDULE_DUPLICATE(1139, "Các ca dạy trong tuần bị trùng nhau", HttpStatus.BAD_REQUEST),
+    SESSION_DATE_NOT_IN_SCHEDULE(
+            1140,
+            "Ngày này không có ca dạy trong khoảng hiệu lực của lịch cố định lớp",
+            HttpStatus.BAD_REQUEST),
+    SESSION_AMBIGUOUS_TIME(
+            1141, "Ngày này có nhiều ca, cần chỉ định giờ bắt đầu", HttpStatus.BAD_REQUEST),
     PAYMENT_NOT_FOUND(1200, "Khoản phí nhận lớp không tồn tại", HttpStatus.NOT_FOUND),
     PAYMENT_INVALID_STATE(1201, "Khoản phí không ở trạng thái cho phép thao tác này", HttpStatus.CONFLICT),
     PAYMENT_SAME_ACTOR(1202, "Người duyệt không được trùng với người nộp hoặc thu hộ minh chứng", HttpStatus.FORBIDDEN),
