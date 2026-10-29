@@ -296,10 +296,8 @@ export function validateCollections(form) {
     errors.push("Vui lòng chọn ít nhất 1 khu vực dạy (tỉnh/thành).");
   }
 
-  const specialties = Array.isArray(form.specialties) ? form.specialties : [];
-  if (!specialties.some((sp) => sp?.specialty && sp?.gradeLevel)) {
-    errors.push("Vui lòng thêm ít nhất 1 môn học kèm cấp lớp.");
-  }
+  // Chuyên môn là tùy chọn: không bắt buộc khi lưu, cho phép lưu hồ sơ
+  // ngay cả khi chưa thêm chuyên môn nào.
 
   const availabilities = Array.isArray(form.availabilities)
     ? form.availabilities
@@ -308,14 +306,8 @@ export function validateCollections(form) {
     errors.push("Vui lòng chọn ít nhất 1 khung giờ rảnh.");
   }
 
-  const credentials = Array.isArray(form.credentials) ? form.credentials : [];
-  if (
-    !credentials.some(
-      (c) => c?.title?.trim() && (c?.file || c?.fileUrl),
-    )
-  ) {
-    errors.push("Vui lòng thêm ít nhất 1 chứng chỉ có file đính kèm.");
-  }
+  // Chứng chỉ là tùy chọn: không bắt buộc khi lưu, cho phép lưu hồ sơ
+  // ngay cả khi chưa thêm chứng chỉ nào.
 
   return errors;
 }
