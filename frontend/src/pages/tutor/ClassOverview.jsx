@@ -14,9 +14,21 @@ import {
 import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
+import FixedScheduleGrid from "../../components/tutor/FixedScheduleGrid";
+import {
+  dayOfWeekLabel,
+  formatSessionDate,
+} from "../../lib/classroomApi";
 
 function formatFee(value) {
   return value ? `${Number(value).toLocaleString("vi-VN")} ₫/buổi` : "Thỏa thuận";
+}
+
+/** Nhãn khoảng hiệu lực của một ca dạy cố định (hiển thị chế độ xem read-only). */
+function scheduleValidityLabel(slot) {
+  if (!slot.validFrom) return "";
+  const text = `từ ${formatSessionDate(slot.validFrom)}`;
+  return slot.validTo ? `${text} đến ${formatSessionDate(slot.validTo)}` : text;
 }
 
 function InfoItem({ icon: Icon, label, value }) {
@@ -33,11 +45,20 @@ function InfoItem({ icon: Icon, label, value }) {
   );
 }
 
-/** Tab Tổng quan của workspace lớp học (UC-T08) — nối API thật. */
+/** Tab Tổng quan của workspace lớp học (UC-T08/UC-T09) — nối API thật. */
 export default function ClassOverview() {
-  const { detail, openTrialForm } = useOutletContext();
+  const {
+    detail,
+    classId,
+    openTrialForm,
+    openScheduleForm,
+    onCreateSession,
+    creatingSessionDate,
+    createError,
+  } = useOutletContext();
 
   const canEditTrial = detail.status === "TRIAL" && detail.trialSession?.status === "SCHEDULED";
+  const showFixedSchedule = detail.status === "ACTIVE";
 
   const initialFromTrial = () =>
     detail.trialSession
@@ -187,6 +208,86 @@ export default function ClassOverview() {
           </p>
         )}
       </Card>
+
+      {/* Lịch dạy cố định (UC-T09) — chỉ lớp ACTIVE */}
+      {showFixedSchedule && !detail.hasSchedules && (
+        <Card className="border-slate-200/80 dark:border-slate-800">
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 py-10 text-center dark:border-slate-700 dark:bg-slate-900/40">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
+              <CalendarDays size={22} />
+            </span>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                Lớp học đã được kích hoạt nhưng chưa có lịch dạy cố định
+              </p>
+              <p className="max-w-md text-xs text-slate-500 dark:text-slate-400">
+                Chọn các ca dạy trong tuần và khoảng hiệu lực của từng ca. Sau đó bạn có thể tạo
+                từng buổi học chính thức theo lịch.
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => openScheduleForm(null)}
+              className="cursor-pointer bg-blue-600 px-5 text-xs font-bold text-white hover:bg-blue-700"
+            >
+              <CalendarPlus size={14} /> Thiết lập lịch dạy cố định
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {showFixedSchedule && detail.hasSchedules && (
+        <>
+          <Card className="border-slate-200/80 dark:border-slate-800">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <CalendarDays size={16} className="text-blue-600 dark:text-blue-400" />
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                  Lịch dạy cố định
+                </h2>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => openScheduleForm(detail.schedules)}
+                className="cursor-pointer text-xs font-semibold"
+              >
+                <Pencil size={13} /> Chỉnh sửa lịch
+              </Button>
+            </div>
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {detail.schedules.map((slot, index) => (
+                <div
+                  key={`${slot.dayOfWeek}-${slot.startTime}-${index}`}
+                  className="rounded-xl border border-blue-200 bg-blue-50/70 p-3.5 dark:border-blue-900/60 dark:bg-blue-950/30"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-bold text-blue-800 dark:text-blue-300">
+                      {dayOfWeekLabel(slot.dayOfWeek)}
+                    </p>
+                    <Badge tone="blue">{slot.startTime} - {slot.endTime}</Badge>
+                  </div>
+                  <p className="mt-1 text-[11px] text-blue-600/80 dark:text-blue-400/80">
+                    {scheduleValidityLabel(slot) || "Không có khoảng hiệu lực"}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <FixedScheduleGrid
+            classId={classId}
+            schedules={detail.schedules}
+            sessionDates={detail.sessionDates}
+            todaySlots={detail.todaySlots}
+            onCreateSession={onCreateSession}
+            onEditSchedules={() => openScheduleForm(detail.schedules)}
+            creatingSessionDate={creatingSessionDate}
+            createError={createError}
+          />
+        </>
+      )}
     </div>
   );
 }

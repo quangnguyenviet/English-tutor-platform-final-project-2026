@@ -83,6 +83,37 @@ export function apiUpdateTrialSession(token, classId, payload) {
   });
 }
 
+/**
+ * Chốt lịch dạy cố định lần đầu cho lớp ACTIVE (UC-T09).
+ * @param {Object} payload - { schedules: [ { dayOfWeek: 1-7, startTime: "HH:mm", endTime: "HH:mm",
+ *                                           validFrom: "YYYY-MM-DD", validTo: "YYYY-MM-DD" | null } ] }
+ */
+export function apiFinalizeSchedule(token, classId, payload) {
+  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/finalize-schedule`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Cập nhật (ghi đè) lịch dạy cố định của lớp ACTIVE. Cùng shape payload với apiFinalizeSchedule. */
+export function apiUpdateClassSchedules(token, classId, payload) {
+  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/schedules`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Tạo buổi học chính thức on-demand theo lịch cố định (idempotent).
+ * @param {Object} payload - { sessionDate: "YYYY-MM-DD", startTime?: "HH:mm" (bắt buộc khi ngày có nhiều ca) }
+ */
+export function apiCreateSession(token, classId, payload) {
+  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/sessions`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export const CLASS_STATUS_META = {
   TRIAL: { label: "Đang dạy thử", tone: "violet" },
   ACTIVE: { label: "Đang hoạt động", tone: "emerald" },
@@ -117,6 +148,29 @@ export function formatSessionTime(value) {
   return String(value).slice(0, 5);
 }
 
+/** Nhãn thứ trong tuần theo ISO backend: 1 = Thứ 2 ... 7 = Chủ nhật. */
+export const DAY_OF_WEEK_LABELS = {
+  1: "Thứ 2",
+  2: "Thứ 3",
+  3: "Thứ 4",
+  4: "Thứ 5",
+  5: "Thứ 6",
+  6: "Thứ 7",
+  7: "Chủ nhật",
+};
+
+export function dayOfWeekLabel(dayOfWeek) {
+  return DAY_OF_WEEK_LABELS[dayOfWeek] || `Thứ ${dayOfWeek}`;
+}
+
+/** Ngày hiện tại dạng "YYYY-MM-DD" (theo máy client, không qua Date.now ISO để tránh lệch múi giờ). */
+export function todayISO() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+    now.getDate(),
+  ).padStart(2, "0")}`;
+}
+
 /** Chuẩn hóa buổi dạy thử từ backend sang model hiển thị. */
 export function mapTrialSession(item) {
   if (!item) return null;
@@ -148,8 +202,23 @@ export function mapClassSummary(item) {
   };
 }
 
+/** Chuẩn hóa một ca dạy cố định (ScheduleInfo) sang model hiển thị. */
+export function mapScheduleInfo(item) {
+  if (!item) return null;
+  return {
+    dayOfWeek: item.dayOfWeek,
+    startTime: formatSessionTime(item.startTime),
+    endTime: formatSessionTime(item.endTime),
+    validFrom: item.validFrom || null,
+    validTo: item.validTo || null,
+  };
+}
+
 /** Map chi tiết lớp học sang model hiển thị. */
 export function mapClassDetail(item) {
+  const schedules = Array.isArray(item?.schedules)
+    ? item.schedules.map(mapScheduleInfo).filter(Boolean)
+    : [];
   return {
     ...mapClassSummary(item),
     activeFrom: item?.activeFrom || null,
@@ -157,5 +226,15 @@ export function mapClassDetail(item) {
     school: item?.school || "",
     grade: item?.grade || "",
     learningGoal: item?.learningGoal || "",
+    schedules,
+    hasSchedules: schedules.length > 0,
+    sessionDates: Array.isArray(item?.sessionDates) ? item.sessionDates : [],
+    todaySlots: Array.isArray(item?.todaySlots)
+      ? item.todaySlots.map((slot) => ({
+          dayOfWeek: slot.dayOfWeek,
+          startTime: formatSessionTime(slot.startTime),
+          endTime: formatSessionTime(slot.endTime),
+        }))
+      : [],
   };
 }
