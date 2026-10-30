@@ -83,6 +83,100 @@ export function apiUpdateTrialSession(token, classId, payload) {
   });
 }
 
+/**
+ * Chốt lịch dạy cố định lần đầu cho lớp ACTIVE (UC-T09).
+ * @param {Object} payload - { schedules: [ { dayOfWeek: 1-7, startTime: "HH:mm", endTime: "HH:mm",
+ *                                           validFrom: "YYYY-MM-DD", validTo: "YYYY-MM-DD" | null } ] }
+ */
+export function apiFinalizeSchedule(token, classId, payload) {
+  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/finalize-schedule`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Cập nhật (ghi đè) lịch dạy cố định của lớp ACTIVE. Cùng shape payload với apiFinalizeSchedule. */
+export function apiUpdateClassSchedules(token, classId, payload) {
+  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/schedules`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Tạo buổi học on-demand theo lịch cố định (idempotent).
+ * @param {Object} payload - { sessionDate: "YYYY-MM-DD", startTime?: "HH:mm" (bắt buộc khi ngày có nhiều ca) }
+ */
+export function apiCreateSession(token, classId, payload) {
+  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/sessions`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Lattice tuần (occurrences): danh sách ô SESSION / EXCEPTION / OCCURRENCE
+ * trong [weekStart, weekStart+6] (kế hoạch class-sessions mục 4.1).
+ */
+export function apiGetClassSchedule(token, classId, weekStart) {
+  return request(
+    token,
+    `/api/v1/classes/${encodeURIComponent(classId)}/schedule?weekStart=${encodeURIComponent(weekStart)}`,
+  );
+}
+
+/**
+ * Ghi ngoại lệ (overlay) cho 1 ô ảo của ca cố định (mục 4.2).
+ * @param {Object} payload - { scheduleId, exceptionDate, exceptionType: "CANCELLED" | "RESCHEDULED" | "MODIFIED",
+ *                            newDate?, newStartTime?, newEndTime?, newTeachingMode?, newMeetingUrl?, newLocation?, reason? }
+ */
+export function apiCreateException(token, classId, payload) {
+  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/exceptions`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Gỡ ngoại lệ của 1 ô (mục 4.3). */
+export function apiDeleteException(token, classId, scheduleId, exceptionDate) {
+  return request(
+    token,
+    `/api/v1/classes/${encodeURIComponent(classId)}/exceptions/${encodeURIComponent(scheduleId)}/${encodeURIComponent(exceptionDate)}`,
+    { method: "DELETE" },
+  );
+}
+
+/** Danh sách buổi học thật của lớp (mục 4.4). */
+export function apiGetClassSessions(token, classId, { order = "asc" } = {}) {
+  const params = new URLSearchParams();
+  params.set("order", order);
+  return request(
+    token,
+    `/api/v1/classes/${encodeURIComponent(classId)}/sessions?${params.toString()}`,
+  );
+}
+
+/** Chi tiết buổi học (mục 4.5) — học sinh thấy nhật ký nguyên văn khi không null. */
+export function apiGetSession(token, sessionId) {
+  return request(token, `/api/v1/sessions/${encodeURIComponent(sessionId)}`);
+}
+
+/** Sửa / dời buổi học thật, chỉ trạng thái SCHEDULED (mục 4.6). */
+export function apiUpdateSession(token, sessionId, payload) {
+  return request(token, `/api/v1/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Lưu / cập nhật nhật ký buổi học (mục 4.8). */
+export function apiUpdateSessionLog(token, sessionId, payload) {
+  return request(token, `/api/v1/sessions/${encodeURIComponent(sessionId)}/log`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
 export const CLASS_STATUS_META = {
   TRIAL: { label: "Đang dạy thử", tone: "violet" },
   ACTIVE: { label: "Đang hoạt động", tone: "emerald" },
@@ -103,6 +197,13 @@ export const SESSION_STATUS_META = {
   CANCELLED: { label: "Đã hủy", tone: "rose" },
 };
 
+/** Nhãn + tone ngoại lệ lịch dạy (overlay, mục 4.2). */
+export const EXCEPTION_TYPE_META = {
+  CANCELLED: { label: "Đã hủy", tone: "rose" },
+  RESCHEDULED: { label: "Dời sang", tone: "amber" },
+  MODIFIED: { label: "Đã điều chỉnh", tone: "sky" },
+};
+
 /** "2026-10-28" → "28/10/2026" (không qua Date để tránh lệch múi giờ). */
 export function formatSessionDate(value) {
   if (!value) return "";
@@ -115,6 +216,46 @@ export function formatSessionDate(value) {
 export function formatSessionTime(value) {
   if (!value) return "";
   return String(value).slice(0, 5);
+}
+
+/** Nhãn thứ trong tuần theo ISO backend: 1 = Thứ 2 ... 7 = Chủ nhật. */
+export const DAY_OF_WEEK_LABELS = {
+  1: "Thứ 2",
+  2: "Thứ 3",
+  3: "Thứ 4",
+  4: "Thứ 5",
+  5: "Thứ 6",
+  6: "Thứ 7",
+  7: "Chủ nhật",
+};
+
+export function dayOfWeekLabel(dayOfWeek) {
+  return DAY_OF_WEEK_LABELS[dayOfWeek] || `Thứ ${dayOfWeek}`;
+}
+
+/** Ngày hiện tại dạng "YYYY-MM-DD" (theo máy client, không qua Date.now ISO để tránh lệch múi giờ). */
+export function todayISO() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+    now.getDate(),
+  ).padStart(2, "0")}`;
+}
+
+/**
+ * Nhãn tương đối so với hôm nay cho 1 ngày "YYYY-MM-DD":
+ * "Hôm nay", "Hôm qua", "Ngày mai", "Sau N ngày", "N ngày trước".
+ */
+export function relativeDayLabel(dateISO) {
+  if (!dateISO) return "";
+  const today = todayISO();
+  if (String(dateISO) === today) return "Hôm nay";
+  const [y, m, d] = String(dateISO).split("-").map(Number);
+  const [ty, tm, td] = today.split("-").map(Number);
+  const diff = Math.round((new Date(y, m - 1, d) - new Date(ty, tm - 1, td)) / 86400000);
+  if (diff === -1) return "Hôm qua";
+  if (diff === 1) return "Ngày mai";
+  if (diff > 1) return `Sau ${diff} ngày`;
+  return `${Math.abs(diff)} ngày trước`;
 }
 
 /** Chuẩn hóa buổi dạy thử từ backend sang model hiển thị. */
@@ -148,8 +289,23 @@ export function mapClassSummary(item) {
   };
 }
 
+/** Chuẩn hóa một ca dạy cố định (ScheduleInfo) sang model hiển thị. */
+export function mapScheduleInfo(item) {
+  if (!item) return null;
+  return {
+    dayOfWeek: item.dayOfWeek,
+    startTime: formatSessionTime(item.startTime),
+    endTime: formatSessionTime(item.endTime),
+    validFrom: item.validFrom || null,
+    validTo: item.validTo || null,
+  };
+}
+
 /** Map chi tiết lớp học sang model hiển thị. */
 export function mapClassDetail(item) {
+  const schedules = Array.isArray(item?.schedules)
+    ? item.schedules.map(mapScheduleInfo).filter(Boolean)
+    : [];
   return {
     ...mapClassSummary(item),
     activeFrom: item?.activeFrom || null,
@@ -157,5 +313,72 @@ export function mapClassDetail(item) {
     school: item?.school || "",
     grade: item?.grade || "",
     learningGoal: item?.learningGoal || "",
+    schedules,
+    hasSchedules: schedules.length > 0,
+    sessionDates: Array.isArray(item?.sessionDates) ? item.sessionDates : [],
+    todaySlots: Array.isArray(item?.todaySlots)
+      ? item.todaySlots.map((slot) => ({
+          dayOfWeek: slot.dayOfWeek,
+          startTime: formatSessionTime(slot.startTime),
+          endTime: formatSessionTime(slot.endTime),
+        }))
+      : [],
+  };
+}
+
+/** Chuẩn hóa thông tin ngoại lệ (overlay) của 1 ô lattice (mục 4.1). */
+export function mapExceptionInfo(item) {
+  if (!item) return null;
+  const meta = EXCEPTION_TYPE_META[item.type] || { label: item.type, tone: "slate" };
+  const hasNewTime = item.newStartTime && item.newEndTime;
+  return {
+    ...item,
+    typeLabel: meta.label,
+    typeTone: meta.tone,
+    newDateLabel: item.newDate ? formatSessionDate(item.newDate) : "",
+    timeLabel: hasNewTime
+      ? `${formatSessionTime(item.newStartTime)} - ${formatSessionTime(item.newEndTime)}`
+      : "",
+    modeLabel: item.newTeachingMode
+      ? TEACHING_MODE_LABELS[item.newTeachingMode] || item.newTeachingMode
+      : "",
+  };
+}
+
+/**
+ * Chuẩn hóa 1 ô lattice tuần (mục 4.1): gộp dateLabel/timeLabel và — nếu ô
+ * có buổi học thật (source = SESSION) — giữ sessionId/title/hasLog
+ * (Mục -1: bỏ trạng thái buổi học).
+ */
+export function mapOccurrence(item) {
+  if (!item) return null;
+  return {
+    ...item,
+    dateLabel: formatSessionDate(item.date),
+    timeLabel: `${formatSessionTime(item.startTime)} - ${formatSessionTime(item.endTime)}`,
+    exception: mapExceptionInfo(item.exception),
+    session: item.session ? { ...item.session } : null,
+  };
+}
+
+/** Chuẩn hóa 1 buổi học trong danh sách (mục 4.4). */
+export function mapSessionListItem(item) {
+  if (!item) return null;
+  return {
+    ...item,
+    dateLabel: formatSessionDate(item.sessionDate),
+    timeLabel: `${formatSessionTime(item.startTime)} - ${formatSessionTime(item.endTime)}`,
+    modeLabel: TEACHING_MODE_LABELS[item.teachingMode] || item.teachingMode || "",
+  };
+}
+
+/** Chuẩn hóa chi tiết buổi học (mục 4.5). */
+export function mapSessionDetail(item) {
+  if (!item) return null;
+  return {
+    ...item,
+    dateLabel: formatSessionDate(item.sessionDate),
+    timeLabel: `${formatSessionTime(item.startTime)} - ${formatSessionTime(item.endTime)}`,
+    modeLabel: TEACHING_MODE_LABELS[item.teachingMode] || item.teachingMode || "",
   };
 }

@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, Outlet, useParams } from "react-router-dom";
-import { AlertCircle, CalendarPlus, CheckCircle2, X } from "lucide-react";
+import { AlertCircle, CalendarDays, CalendarPlus, CheckCircle2, X } from "lucide-react";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import TrialSessionForm from "../../components/tutor/TrialSessionForm";
+import FixedScheduleForm from "../../components/tutor/FixedScheduleForm";
 import clsx from "clsx";
 import { useAuth } from "../../context/AuthContext";
 import { students } from "../../data/mockData";
 import {
+  apiCreateSession,
   apiCreateTrialSession,
+  apiFinalizeSchedule,
   apiGetClassDetail,
+  apiUpdateClassSchedules,
   apiUpdateTrialSession,
   formatSessionDate,
   mapClassDetail,
@@ -35,6 +39,15 @@ export default function TutorClassWorkspace() {
   const [formInitial, setFormInitial] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+
+  // Lịch dạy cố định (UC-T09): modal form chốt/sửa + tạo buổi học on-demand.
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [scheduleInitial, setScheduleInitial] = useState([]);
+  const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
+  const [scheduleError, setScheduleError] = useState("");
+  const [creatingSessionDate, setCreatingSessionDate] = useState(null);
+  const [createError, setCreateError] = useState("");
+  const [createErrorDate, setCreateErrorDate] = useState(null);
 
   // Dữ liệu mock của các tab prototype — giữ nguyên hành vi của workspace cũ.
   const [demoStudent] = useState(() => students[0]);
@@ -109,6 +122,63 @@ export default function TutorClassWorkspace() {
     }
   };
 
+  const openScheduleForm = (initialSlots) => {
+    setScheduleInitial(initialSlots || []);
+    setScheduleError("");
+    setShowScheduleForm(true);
+  };
+
+  const closeScheduleForm = () => {
+    setShowScheduleForm(false);
+    setScheduleError("");
+  };
+
+  const handleSubmitSchedule = async (payload) => {
+    if (!token || scheduleSubmitting) return;
+    setScheduleSubmitting(true);
+    setScheduleError("");
+    try {
+      if (detail.hasSchedules) {
+        await apiUpdateClassSchedules(token, classId, payload);
+        setToast({ type: "success", message: "Đã cập nhật lịch dạy cố định." });
+      } else {
+        await apiFinalizeSchedule(token, classId, payload);
+        setToast({ type: "success", message: "Đã chốt lịch dạy cố định." });
+      }
+      closeScheduleForm();
+      loadDetail();
+    } catch (err) {
+      setScheduleError(err.message || "Không thể lưu lịch dạy cố định.");
+    } finally {
+      setScheduleSubmitting(false);
+    }
+  };
+
+  const handleCreateSession = async (sessionDate, startTime) => {
+    if (!token || creatingSessionDate) return;
+    setCreatingSessionDate(sessionDate);
+    setCreateError("");
+    setCreateErrorDate(null);
+    try {
+      const created = await apiCreateSession(token, classId, {
+        sessionDate,
+        startTime: startTime || null,
+      });
+      setToast({
+        type: "success",
+        message: `Đã tạo buổi học cho ngày ${formatSessionDate(sessionDate)}.`,
+      });
+      loadDetail();
+      return created?.sessionId ?? null;
+    } catch (err) {
+      setCreateError(err.message || "Không thể tạo buổi học.");
+      // Anchor lỗi ngay ô đã bấm (WP2.4), không phải đáy card.
+      setCreateErrorDate(sessionDate);
+    } finally {
+      setCreatingSessionDate(null);
+    }
+  };
+
   if (loading && !detail) {
     return (
       <div className="space-y-6">
@@ -153,6 +223,8 @@ export default function TutorClassWorkspace() {
   }
 
   const needsTrialSetup = detail.status === "TRIAL" && !detail.trialSession;
+  // Banner "Thiết lập lịch dạy cố định": lớp ACTIVE chưa có class_schedules (kế hoạch Phase 3).
+  const needsScheduleSetup = detail.status === "ACTIVE" && !detail.hasSchedules;
   const basePath = `/tutor/classes/${classId}`;
 
   return (
@@ -160,7 +232,7 @@ export default function TutorClassWorkspace() {
       {toast && (
         <div
           className={clsx(
-            "fixed right-5 top-5 z-50 flex max-w-md items-center gap-3 rounded-xl px-4 py-3.5 text-white shadow-2xl",
+            "fixed bottom-5 right-5 z-50 flex max-w-md items-center gap-3 rounded-xl px-4 py-3.5 text-white shadow-2xl",
             toast.type === "error" ? "bg-rose-600" : "bg-blue-600",
           )}
         >
@@ -236,6 +308,70 @@ export default function TutorClassWorkspace() {
         </div>
       )}
 
+      {/* Banner nhắc thiết lập lịch dạy cố định (lớp ACTIVE chưa có ca) */}
+      {needsScheduleSetup && (
+        <div className="flex flex-col gap-3 rounded-xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-900/60 dark:bg-blue-950/30 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-900/60 dark:text-blue-300">
+              <CalendarDays size={18} />
+            </span>
+            <div>
+              <p className="text-xs font-bold text-blue-900 dark:text-blue-200">
+                Thiết lập lịch dạy cố định
+              </p>
+              <p className="mt-0.5 text-xs text-blue-700 dark:text-blue-300">
+                Lớp đã được kích hoạt. Chọn các ca dạy trong tuần và khoảng hiệu lực của từng ca.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => openScheduleForm(null)}
+            className="shrink-0 cursor-pointer bg-blue-600 px-4 text-xs font-bold text-white hover:bg-blue-700"
+          >
+            <CalendarPlus size={14} /> Thiết lập lịch dạy cố định
+          </Button>
+        </div>
+      )}
+
+      {/* Modal form lịch dạy cố định (chốt lần đầu hoặc sửa) */}
+      {showScheduleForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+                  <CalendarDays size={18} />
+                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                    {detail.hasSchedules ? "Cập nhật lịch dạy cố định" : "Thiết lập lịch dạy cố định"}
+                  </h4>
+                  <p className="text-[11px] text-slate-400">{detail.className}</p>
+                </div>
+              </div>
+              <button
+                onClick={closeScheduleForm}
+                className="cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                aria-label="Đóng"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <FixedScheduleForm
+              initialSlots={scheduleInitial}
+              isUpdate={detail.hasSchedules}
+              submitting={scheduleSubmitting}
+              serverError={scheduleError}
+              onCancel={closeScheduleForm}
+              onSubmit={handleSubmitSchedule}
+            />
+          </div>
+        </div>
+      )}
+
       <Outlet
         context={{
           // API thật
@@ -243,6 +379,11 @@ export default function TutorClassWorkspace() {
           classId,
           basePath,
           openTrialForm,
+          openScheduleForm,
+          onCreateSession: handleCreateSession,
+          creatingSessionDate,
+          createError,
+          createErrorDate,
           // Mock cho 4 tab prototype
           student: demoStudent,
           pathItems,
