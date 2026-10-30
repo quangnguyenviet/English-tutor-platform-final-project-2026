@@ -115,7 +115,7 @@ export default function FixedScheduleGrid({
     onCreateSession(day.iso, slot.startTime, day);
   };
 
-  // Link "Mở buổi học" trỏ tab "Lịch dạy" (API thật), không phải tab mock "Buổi học thực tế".
+  // Link "Mở buổi học" trỏ tab "Lịch dạy" (API thật), không phải tab mock "Nhật ký buổi học".
   const sessionsPath = `/tutor/classes/${classId}/schedule`;
 
   return (
