@@ -136,6 +136,13 @@ Mỗi bảng dưới đây cho biết một đối tượng có những trạng 
 | `INACTIVE` | Ngưng hoạt động | `ACTIVE` |
 | `REJECTED` | Bị từ chối | `INCOMPLETE` (gia sư sửa lại) |
 
+**Tài khoản học sinh** (`users.status`, role `STUDENT`)
+
+| Trạng thái | Ý nghĩa | Chuyển được sang |
+| --- | --- | --- |
+| `ACTIVE` | Đang hoạt động, đăng nhập được | `INACTIVE` (Lễ tân/Admin khóa) |
+| `INACTIVE` | Dừng hoạt động, bị chặn đăng nhập | `ACTIVE` (mở lại) |
+
 **Đơn yêu cầu lớp** (`class_requests.status`)
 
 | Trạng thái | Ý nghĩa | Chuyển được sang |
@@ -380,9 +387,10 @@ Khi phí `APPROVED` → mở khóa thông tin liên hệ phụ huynh cho gia sư
 
 | Method | Path | Quyền | Mô tả | FR |
 | --- | --- | --- | --- | --- |
-| GET | `/api/v1/students` | RECEPTIONIST, ADMIN | Tab `ACTIVE`/`INACTIVE`, tìm kiếm và lọc, phân trang | FR-34 |
-| GET | `/api/v1/students/{id}` | RECEPTIONIST, ADMIN | Cá nhân, phụ huynh, lớp đã và đang học | FR-34 |
-| PATCH | `/api/v1/students/{id}/status` | RECEPTIONIST, ADMIN | Đổi trạng thái; khóa/mở tài khoản | FR-34 |
+| GET | `/api/v1/students` | RECEPTIONIST, ADMIN | Query `status` (`ACTIVE`/`INACTIVE`/`ALL`), `keyword` (tên HS, tên/SĐT phụ huynh, SĐT/email/username HS; không phân biệt dấu, SĐT so theo chữ số), `learning` (`STUDYING` = có lớp `TRIAL`/`ACTIVE`, `NOT_STUDYING`, `ALL`), phân trang. Sai bộ lọc → 400 `INVALID_STUDENT_FILTER` (1308). Item kèm phụ huynh, số lớp đang học, gia sư phụ trách | FR-34 |
+| GET | `/api/v1/students/counts` | RECEPTIONIST, ADMIN | Badge tab `{ ALL, ACTIVE, INACTIVE }`, nhận cùng `keyword`, `learning` | FR-34 |
+| GET | `/api/v1/students/{id}` | RECEPTIONIST, ADMIN | Cá nhân, phụ huynh (`address` lấy từ `parents.address`), `currentClasses` (`TRIAL`/`ACTIVE`), `pastClasses` (`COMPLETED`/`CANCELLED`) kèm gia sư và số buổi đã học. Không phải học sinh → 404 `STUDENT_NOT_FOUND` (1305) | FR-34 |
+| PATCH | `/api/v1/students/{id}/status` | RECEPTIONIST, ADMIN | Body `{ status: ACTIVE\|INACTIVE, note? }`. Khóa/mở tài khoản (`users.status`); cùng trạng thái → 409 `INVALID_STUDENT_STATUS` (1306), giá trị khác → 400 (1307); audit `UPDATE_STUDENT_STATUS`. Tài khoản `INACTIVE` bị chặn đăng nhập, làm mới token và token đang dùng (`ACCOUNT_INACTIVE` 1304). Không tự hủy lớp | FR-34 |
 | GET | `/api/v1/reception/dashboard` | RECEPTIONIST, ADMIN | Lời chào + mã nhân viên, KPI: đơn ghép lớp chờ xử lý, khiếu nại chờ xử lý, khiếu nại chờ hoàn tiền, gia sư đang hoạt động | FR-24 |
 | GET | `/api/v1/employees` | ADMIN | Lọc theo vai trò, trạng thái, tìm kiếm | FR-38 (S) |
 | GET | `/api/v1/employees/{id}` | ADMIN | Chi tiết nhân sự | FR-38 (S) |

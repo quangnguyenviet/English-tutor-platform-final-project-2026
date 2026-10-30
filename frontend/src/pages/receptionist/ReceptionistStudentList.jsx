@@ -1,3 +1,2 @@
-// Receptionist Student List - reuses Admin StudentManagement
-// Lễ tân có quyền xem danh sách học sinh và cập nhật (FR-35)
+// Quản lý học sinh của Lễ tân (UC-REC-11, FR-34) — dùng chung màn hình với Admin (UC-ADM-10)
 export { default } from "../admin/StudentManagement";

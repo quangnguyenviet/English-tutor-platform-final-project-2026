@@ -156,7 +156,11 @@ public enum ErrorCode {
     EMPLOYEE_NOT_FOUND(1301, "Nhân sự không tồn tại", HttpStatus.NOT_FOUND),
     INVALID_EMPLOYEE_ROLE(1302, "Vai trò nhân sự không hợp lệ (chỉ RECEPTIONIST hoặc ACCOUNTANT)", HttpStatus.BAD_REQUEST),
     INVALID_EMPLOYEE_STATUS(1303, "Trạng thái nhân sự không hợp lệ", HttpStatus.CONFLICT),
-    ACCOUNT_INACTIVE(1304, "Tài khoản đã bị vô hiệu hóa, vui lòng liên hệ quản trị viên", HttpStatus.FORBIDDEN),
+    ACCOUNT_INACTIVE(1304, "Tài khoản đã bị vô hiệu hóa, vui lòng liên hệ trung tâm để được hỗ trợ", HttpStatus.FORBIDDEN),
+    STUDENT_NOT_FOUND(1305, "Học sinh không tồn tại", HttpStatus.NOT_FOUND),
+    INVALID_STUDENT_STATUS(1306, "Học sinh đã ở trạng thái này", HttpStatus.CONFLICT),
+    INVALID_STUDENT_STATUS_VALUE(1307, "Trạng thái học sinh không hợp lệ (chỉ ACTIVE hoặc INACTIVE)", HttpStatus.BAD_REQUEST),
+    INVALID_STUDENT_FILTER(1308, "Bộ lọc danh sách học sinh không hợp lệ", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
