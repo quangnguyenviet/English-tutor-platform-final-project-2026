@@ -900,7 +900,7 @@ public class ClassroomQueryRepository {
 
     private static final String MATERIAL_BASE = """
             SELECT m.id, m.session_id, m.file_name, m.file_url, m.file_type, m.file_size,
-                   m.created_at, c.class_id, c.tutor_id, c.student_id, u.full_name AS uploaded_by_name
+                   m.created_at, c.id AS class_id, c.tutor_id, c.student_id, u.full_name AS uploaded_by_name
             FROM session_materials m
             JOIN sessions s ON s.id = m.session_id
             JOIN classes c ON c.id = s.class_id
