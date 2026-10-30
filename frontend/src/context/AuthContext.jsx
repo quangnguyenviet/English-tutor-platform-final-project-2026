@@ -179,6 +179,7 @@ export function AuthProvider({ children }) {
       name: payload.sub,
       initials,
       exp: payload.exp,
+      userId: payload.uid ?? null,
     };
 
     localStorage.setItem(TOKEN_KEY, jwt);
@@ -222,6 +223,7 @@ export function AuthProvider({ children }) {
       name: result.fullName,
       initials,
       exp: payload.exp,
+      userId: payload.uid ?? null,
     };
 
     localStorage.setItem(TOKEN_KEY, jwt);

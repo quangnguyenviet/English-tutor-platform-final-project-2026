@@ -13,7 +13,8 @@ import TutorManagement from "./pages/admin/TutorManagement";
 import StudentManagement from "./pages/admin/StudentManagement";
 import MatchRequests from "./pages/admin/MatchRequests";
 import ClassRequestManagement from "./pages/admin/ClassRequests";
-import PaymentApproval from "./pages/admin/PaymentApproval";
+import AccountantPayments from "./pages/accountant/AccountantPayments";
+import TutorPayments from "./pages/tutor/TutorPayments";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminLogs from "./pages/admin/AdminLogs";
 import AdminNotifications from "./pages/admin/AdminNotifications";
@@ -159,7 +160,7 @@ export default function App() {
             <Route path="students" element={<StudentManagement />} />
             <Route path="match-requests" element={<MatchRequests />} />
             <Route path="class-requests" element={<ClassRequestManagement />} />
-            <Route path="payments" element={<PaymentApproval />} />
+            <Route path="payments" element={<AccountantPayments />} />
             <Route path="staff" element={<StaffManagement />} />
             {/* Giữ đường dẫn cũ để không vỡ link đã lưu */}
             <Route path="receptionists" element={<StaffManagement />} />
@@ -182,6 +183,7 @@ export default function App() {
           >
             <Route index element={<TutorDashboard />} />
             <Route path="schedule" element={<TutorSchedule />} />
+            <Route path="payments" element={<TutorPayments />} />
             <Route path="lessons" element={<TutorLessonSessions />} />
             <Route path="exercise-generator" element={<ExerciseGenerator />} />
             <Route path="available-classes" element={<AvailableClasses />} />
@@ -271,6 +273,7 @@ export default function App() {
             }
           >
             <Route index element={<AccountantDashboard />} />
+            <Route path="payments" element={<AccountantPayments />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 

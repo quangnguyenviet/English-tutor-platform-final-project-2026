@@ -21,7 +21,7 @@ import StatCard from "../../components/ui/StatCard";
 
 const actionMeta = {
   approve_tutor: { label: "Duyệt gia sư", tone: "emerald" },
-  approve_payment: { label: "Duyệt phí VietQR", tone: "emerald" },
+  approve_payment: { label: "Duyệt phí nhận lớp", tone: "emerald" },
   create_match_offer: { label: "Tạo Match Offer", tone: "blue" },
   add_student: { label: "Thêm học sinh", tone: "blue" },
   mark_paid: { label: "Thu học phí", tone: "emerald" },
