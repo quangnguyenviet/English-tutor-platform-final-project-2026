@@ -490,12 +490,6 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
             <Card className="py-12 text-center text-sm text-slate-400">
               Chưa chọn buổi học nào. Vui lòng chọn một buổi học từ danh sách bên trái.
             </Card>
-          ) : detailLoading ? (
-            <div className="space-y-4">
-              <div className="h-24 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
-              <div className="h-40 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
-              <div className="h-32 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
-            </div>
           ) : detailError ? (
             <Card className="py-12 text-center">
               <AlertCircle size={28} className="mx-auto text-rose-400" />
@@ -508,6 +502,12 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                 </Button>
               </div>
             </Card>
+          ) : detailLoading || !detail ? (
+            <div className="space-y-4">
+              <div className="h-24 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
+              <div className="h-40 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
+              <div className="h-32 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
+            </div>
           ) : (
             <div className="space-y-5">
               {/* Header buổi học */}
@@ -543,11 +543,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                       <Clock size={13} /> {detail.timeLabel}
                     </span>
                     <span className="inline-flex items-center gap-1.5">
-                      {detail.teachingMode === "ONLINE" ? (
-                        <MapPin size={13} />
-                      ) : (
-                        <MapPin size={13} />
-                      )}
+                      <MapPin size={13} />
                       {detail.modeLabel}
                       {detail.teachingMode === "ONLINE" && detail.meetingUrl ? (
                         <a
