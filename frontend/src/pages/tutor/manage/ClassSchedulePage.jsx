@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pencil } from "lucide-react";
+import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
 import ClassScheduleLattice from "../../../components/tutor/ClassScheduleLattice";
 import SessionListCard from "../../../components/tutor/SessionListCard";
@@ -19,21 +20,40 @@ export default function ClassSchedulePage({
   onCreateSession,
   creatingSessionDate = null,
   createError = "",
+  createErrorDate = null,
   onEditSchedules,
 }) {
   const [weekStart, setWeekStart] = useState(() => toISO(startOfWeek(todayISO())));
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const detailCardRef = useRef(null);
 
   const bumpRefresh = () => setRefreshKey((key) => key + 1);
 
+  // Khi chọn buổi học (từ lattice hoặc danh sách), cuộn tối thiểu để card
+  // chi tiết nằm trong viewport — dùng "nearest" để không nhảy view khi đã thấy.
+  useEffect(() => {
+    if (!selectedSessionId) return;
+    detailCardRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [selectedSessionId]);
+
   return (
     <div className="space-y-4">
-      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white">Lịch dạy</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+            {detail?.className || "Chi tiết lớp"}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Lịch dạy</h1>
+            {detail && (
+              <Badge tone={detail.statusTone} size="xs">
+                {detail.statusLabel}
+              </Badge>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Quản lý các lần diễn của ca cố định, buổi học thật và nhật ký của lớp.
           </p>
         </div>
@@ -61,14 +81,17 @@ export default function ClassSchedulePage({
             creatingSessionDate={creatingSessionDate}
             createError={createError}
             onSelectSession={setSelectedSessionId}
+            selectedSessionId={selectedSessionId}
             sessionDates={detail?.sessionDates || []}
+            createErrorDate={createErrorDate}
+            onEditSchedules={onEditSchedules}
             onChanged={bumpRefresh}
             refreshKey={refreshKey}
           />
         </div>
 
         {/* Cột phải — danh sách + chi tiết */}
-        <div className="space-y-4 lg:col-span-5">
+        <div className="space-y-4 self-start lg:col-span-5">
           <SessionListCard
             classId={classId}
             statusFilter={statusFilter}
@@ -77,7 +100,9 @@ export default function ClassSchedulePage({
             selectedSessionId={selectedSessionId}
             refreshKey={refreshKey}
           />
-          <SessionDetailCard sessionId={selectedSessionId} onChanged={bumpRefresh} />
+          <div ref={detailCardRef}>
+            <SessionDetailCard sessionId={selectedSessionId} onChanged={bumpRefresh} />
+          </div>
         </div>
       </div>
     </div>

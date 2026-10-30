@@ -250,6 +250,23 @@ export function todayISO() {
   ).padStart(2, "0")}`;
 }
 
+/**
+ * Nhãn tương đối so với hôm nay cho 1 ngày "YYYY-MM-DD":
+ * "Hôm nay", "Hôm qua", "Ngày mai", "Sau N ngày", "N ngày trước".
+ */
+export function relativeDayLabel(dateISO) {
+  if (!dateISO) return "";
+  const today = todayISO();
+  if (String(dateISO) === today) return "Hôm nay";
+  const [y, m, d] = String(dateISO).split("-").map(Number);
+  const [ty, tm, td] = today.split("-").map(Number);
+  const diff = Math.round((new Date(y, m - 1, d) - new Date(ty, tm - 1, td)) / 86400000);
+  if (diff === -1) return "Hôm qua";
+  if (diff === 1) return "Ngày mai";
+  if (diff > 1) return `Sau ${diff} ngày`;
+  return `${Math.abs(diff)} ngày trước`;
+}
+
 /** Chuẩn hóa buổi dạy thử từ backend sang model hiển thị. */
 export function mapTrialSession(item) {
   if (!item) return null;

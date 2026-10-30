@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  ArrowRightLeft,
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
   Clock,
   Eraser,
   Loader2,
+  MoreVertical,
   Pencil,
   Play,
   X,
+  XCircle,
 } from "lucide-react";
 import Card from "../ui/Card";
 import Badge from "../ui/Badge";
@@ -44,7 +47,9 @@ function weekDays(weekStartISO) {
     date.setDate(first.getDate() + index);
     const iso = toISO(date);
     const isoDay = date.getDay() || 7;
-    return { iso, label: dayOfWeekLabel(isoDay), isToday: iso === today };
+    // "03/11" — định dạng DD/MM rút gọn, dùng định hướng trong lưới.
+    const shortDate = formatSessionDate(iso).slice(0, 5);
+    return { iso, label: dayOfWeekLabel(isoDay), shortDate, isToday: iso === today };
   });
 }
 
@@ -52,7 +57,8 @@ function weekDays(weekStartISO) {
  * Lattice tuần (kế hoạch class-sessions Card 1): mỗi ô là 1 lần diễn (ca × ngày),
  * render theo source SESSION / EXCEPTION / OCCURRENCE từ API thật. Ô ảo tác động
  * bằng overlay exception (hủy / dời / sửa chi tiết); ô có buổi học thật chọn vào
- * chi tiết Card 3.
+ * chi tiết Card 3. Responsive: 7 cột 1 hàng từ xl (lattice nằm trong cột 7/12),
+ * 4+3 (2 hàng) từ sm, 7 dòng dọc dưới sm — không bao giờ scroll ngang.
  */
 export default function ClassScheduleLattice({
   classId,
@@ -63,9 +69,12 @@ export default function ClassScheduleLattice({
   creatingSessionDate = null,
   createError = "",
   onSelectSession,
+  selectedSessionId = null,
   onChanged,
   refreshKey = 0,
   sessionDates = [],
+  createErrorDate = null,
+  onEditSchedules,
 }) {
   const { token } = useAuth();
   const [data, setData] = useState(null);
@@ -76,6 +85,7 @@ export default function ClassScheduleLattice({
   const [modalError, setModalError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const [kebabKey, setKebabKey] = useState(null); // ô OCCURRENCE đang mở menu
   const [deleteTarget, setDeleteTarget] = useState(null); // occurrence cần gỡ exception
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -114,7 +124,12 @@ export default function ClassScheduleLattice({
     onWeekStartChange(toISO(next));
   };
 
+  const handleGoToday = () => {
+    onWeekStartChange(toISO(startOfWeek(todayISO())));
+  };
+
   const openExceptionModal = (occ, exceptionType) => {
+    setKebabKey(null);
     setModalError("");
     setModal({ slot: occ, exceptionType });
   };
@@ -123,6 +138,22 @@ export default function ClassScheduleLattice({
     setModal(null);
     setModalError("");
   };
+
+  // Tạo buổi học on-demand + tự chọn buổi mới (WP2.4) để mở chi tiết phía phải.
+  const handleCreateAndSelect = async (occ) => {
+    const result = await onCreateSession?.(occ.date, formatSessionTime(occ.startTime), occ.dateLabel);
+    if (result != null) onSelectSession?.(result);
+  };
+
+  // Đóng modal exception bằng ESC (WP2.6).
+  useEffect(() => {
+    if (!modal) return;
+    const onKey = (event) => {
+      if (event.key === "Escape") closeExceptionModal();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modal]);
 
   const handleCreateException = async (payload) => {
     if (!token || submitting) return;
@@ -164,10 +195,18 @@ export default function ClassScheduleLattice({
     }
   };
 
-  // Render nội dung 1 ô theo source
+  // Nhãn 3 hành động exception dùng chung cho menu kebab (ô OCCURRENCE).
+  const KEBAB_ACTIONS = [
+    { type: "CANCELLED", label: "Hủy ca này", icon: XCircle, tone: "rose" },
+    { type: "RESCHEDULED", label: "Dời ca này", icon: ArrowRightLeft, tone: "amber" },
+    { type: "MODIFIED", label: "Sửa chi tiết ca", icon: Pencil, tone: "sky" },
+  ];
+
+  // Render nội dung 1 ô theo source.
   const renderCellContent = (occ) => {
     if (occ.source === "SESSION") {
       const session = occ.session || {};
+      const isSelected = selectedSessionId != null && session.sessionId === selectedSessionId;
       return (
         <div className="space-y-1.5">
           <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-100">
@@ -179,9 +218,11 @@ export default function ClassScheduleLattice({
           <button
             type="button"
             onClick={() => onSelectSession?.(session.sessionId)}
+            aria-current={isSelected || undefined}
             className={clsx(
-              "inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-all",
-              "bg-blue-50 text-blue-700 hover:bg-blue-100 active:scale-[0.98] dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70",
+              "inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-all active:scale-[0.98]",
+              "bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70",
+              isSelected && "ring-2 ring-blue-600/60",
             )}
           >
             <Play size={12} /> Chi tiết buổi học
@@ -231,18 +272,22 @@ export default function ClassScheduleLattice({
       );
     }
 
-    // OCCURRENCE — ô ảo
+    // OCCURRENCE — ô ảo: CTA "Tạo buổi học" + menu kebab gom 3 hành động exception (WP2.2)
+    const kebabOpen = kebabKey === occ.occurrenceKey;
+    const kebabTone = {
+      rose: "text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40",
+      amber: "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40",
+      sky: "text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/40",
+    };
     return (
-      <div className="space-y-2">
+      <div className="relative space-y-2">
         <p className="flex items-center gap-1 text-[11px] font-semibold text-slate-800 dark:text-slate-100">
           <Clock size={11} className="shrink-0 text-blue-500 dark:text-blue-400" />
           {formatSessionTime(occ.startTime)} - {formatSessionTime(occ.endTime)}
         </p>
         <button
           type="button"
-          onClick={() =>
-            onCreateSession?.(occ.date, formatSessionTime(occ.startTime), occ.dateLabel)
-          }
+          onClick={() => handleCreateAndSelect(occ)}
           disabled={creatingSessionDate !== null}
           className={clsx(
             "inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-all",
@@ -256,29 +301,53 @@ export default function ClassScheduleLattice({
           )}
           Tạo buổi học
         </button>
-        <div className="grid grid-cols-3 gap-1">
+        <div className="flex justify-end">
           <button
             type="button"
-            onClick={() => openExceptionModal(occ, "CANCELLED")}
-            className="cursor-pointer rounded-lg border border-slate-200 px-1 py-1 text-[10px] font-bold text-rose-600 transition-all hover:bg-rose-50 active:scale-[0.98] dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+            aria-label="Hủy / dời / sửa ca này"
+            aria-expanded={kebabOpen}
+            onClick={() => setKebabKey(kebabOpen ? null : occ.occurrenceKey)}
+            className={clsx(
+              "cursor-pointer rounded-lg border border-slate-200 p-1.5 text-slate-500 transition-all active:scale-[0.98]",
+              "hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800",
+            )}
           >
-            Hủy
-          </button>
-          <button
-            type="button"
-            onClick={() => openExceptionModal(occ, "RESCHEDULED")}
-            className="cursor-pointer rounded-lg border border-slate-200 px-1 py-1 text-[10px] font-bold text-amber-600 transition-all hover:bg-amber-50 active:scale-[0.98] dark:border-amber-900/50 dark:text-amber-400 dark:hover:bg-amber-950/40"
-          >
-            Dời
-          </button>
-          <button
-            type="button"
-            onClick={() => openExceptionModal(occ, "MODIFIED")}
-            className="cursor-pointer rounded-lg border border-slate-200 px-1 py-1 text-[10px] font-bold text-sky-600 transition-all hover:bg-sky-50 active:scale-[0.98] dark:border-sky-900/50 dark:text-sky-400 dark:hover:bg-sky-950/40"
-          >
-            Sửa chi tiết
+            <MoreVertical size={13} />
           </button>
         </div>
+        {kebabOpen && (
+          <>
+            {/* Layer bắt click ngoài để đóng menu */}
+            <div
+              className="fixed inset-0 z-30"
+              onClick={() => setKebabKey(null)}
+              aria-hidden="true"
+            />
+            <div
+              role="menu"
+              className="absolute bottom-full left-0 z-40 mb-1 w-40 space-y-0.5 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+            >
+              {KEBAB_ACTIONS.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.type}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => openExceptionModal(occ, action.type)}
+                    className={clsx(
+                      "flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition-all active:scale-[0.98]",
+                      kebabTone[action.tone],
+                    )}
+                  >
+                    <Icon size={12} />
+                    {action.label}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
     );
   };
@@ -286,6 +355,17 @@ export default function ClassScheduleLattice({
   const hasAnyOccurrences = days.some((day) =>
     (occurrencesByDate.get(day.iso) || []).length > 0,
   );
+
+  // Ngày chứa buổi học đang được chọn (để highlight cột khi chọn từ danh sách).
+  const selectedDate = useMemo(() => {
+    if (selectedSessionId == null) return null;
+    for (const [date, occurrences] of occurrencesByDate.entries()) {
+      if (occurrences.some((occ) => occ.session?.sessionId === selectedSessionId)) {
+        return date;
+      }
+    }
+    return null;
+  }, [selectedSessionId, occurrencesByDate]);
 
   return (
     <Card className="border-slate-200/80 dark:border-slate-800">
@@ -314,11 +394,23 @@ export default function ClassScheduleLattice({
           >
             <ChevronRight size={14} />
           </button>
+          <button
+            type="button"
+            onClick={handleGoToday}
+            className={clsx(
+              "cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-bold transition-colors active:scale-[0.98]",
+              weekStart === toISO(startOfWeek(todayISO()))
+                ? "border-blue-600 bg-blue-600 text-white"
+                : "border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800",
+            )}
+          >
+            Hôm nay
+          </button>
         </div>
       </div>
 
       {loading ? (
-        <div className="grid min-w-[860px] grid-cols-7 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 xl:grid-cols-7">
           {Array.from({ length: 7 }, (_, index) => (
             <div
               key={index}
@@ -345,12 +437,22 @@ export default function ClassScheduleLattice({
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
             Tuần này không có ca dạy — ca chỉ áp dụng trong khoảng hiệu lực đã chốt.
           </p>
+          {onEditSchedules && (
+            <button
+              type="button"
+              onClick={onEditSchedules}
+              className="mt-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-100 active:scale-[0.98] dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              <Pencil size={12} /> Chỉnh sửa lịch
+            </button>
+          )}
         </div>
       ) : (
-        <div className="overflow-x-auto pb-1">
-          <div className="grid min-w-[860px] grid-cols-7 gap-2">
+        <div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 xl:grid-cols-7">
             {days.map((day) => {
               const dayOccurrences = occurrencesByDate.get(day.iso) || [];
+              const dayCreateError = createError && createErrorDate === day.iso;
               return (
                 <div
                   key={day.iso}
@@ -358,7 +460,9 @@ export default function ClassScheduleLattice({
                     "flex min-h-[150px] flex-col rounded-xl border p-2.5",
                     day.isToday
                       ? "border-blue-300 bg-blue-50/60 dark:border-blue-800/60 dark:bg-blue-950/30"
-                      : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/40",
+                      : selectedDate === day.iso
+                        ? "border-blue-400 bg-blue-50/40 dark:border-blue-700 dark:bg-blue-950/20"
+                        : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/40",
                   )}
                 >
                   <div className="mb-2 flex items-center justify-between gap-1">
@@ -371,6 +475,9 @@ export default function ClassScheduleLattice({
                       )}
                     >
                       {day.label}
+                      <span className="ml-1 font-mono text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                        {day.shortDate}
+                      </span>
                     </p>
                     {day.isToday && (
                       <Badge tone="blue" size="xs">
@@ -401,6 +508,12 @@ export default function ClassScheduleLattice({
                       </p>
                     )}
                   </div>
+                  {dayCreateError && (
+                    <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-rose-200 bg-rose-50 p-2 text-[10px] leading-snug text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+                      <AlertCircle size={11} className="mt-0.5 shrink-0 text-rose-500" />
+                      <span>{createError}</span>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -408,21 +521,42 @@ export default function ClassScheduleLattice({
         </div>
       )}
 
-      {createError && (
+      {createError && !createErrorDate && (
         <div className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-[11px] text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
           <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-500" />
           <span>{createError}</span>
         </div>
       )}
 
-      {/* Modal form exception (overlay 1 ô) */}
+      {/* Modal form exception (overlay 1 ô) — đóng bằng ESC hoặc click backdrop */}
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+          onClick={closeExceptionModal}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
-                  <Pencil size={18} />
+                <span
+                  className={clsx(
+                    "flex h-9 w-9 items-center justify-center rounded-full",
+                    "bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400",
+                    modal.exceptionType === "CANCELLED" &&
+                      "bg-rose-100 text-rose-600 dark:bg-rose-950 dark:text-rose-400",
+                    modal.exceptionType === "RESCHEDULED" &&
+                      "bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-400",
+                  )}
+                >
+                  {modal.exceptionType === "CANCELLED" ? (
+                    <XCircle size={18} />
+                  ) : modal.exceptionType === "RESCHEDULED" ? (
+                    <ArrowRightLeft size={18} />
+                  ) : (
+                    <Pencil size={18} />
+                  )}
                 </span>
                 <div>
                   <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">

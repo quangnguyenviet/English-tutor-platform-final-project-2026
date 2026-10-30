@@ -47,6 +47,7 @@ export default function TutorClassWorkspace() {
   const [scheduleError, setScheduleError] = useState("");
   const [creatingSessionDate, setCreatingSessionDate] = useState(null);
   const [createError, setCreateError] = useState("");
+  const [createErrorDate, setCreateErrorDate] = useState(null);
 
   // Dữ liệu mock của các tab prototype — giữ nguyên hành vi của workspace cũ.
   const [demoStudent] = useState(() => students[0]);
@@ -157,15 +158,22 @@ export default function TutorClassWorkspace() {
     if (!token || creatingSessionDate) return;
     setCreatingSessionDate(sessionDate);
     setCreateError("");
+    setCreateErrorDate(null);
     try {
-      await apiCreateSession(token, classId, { sessionDate, startTime: startTime || null });
+      const created = await apiCreateSession(token, classId, {
+        sessionDate,
+        startTime: startTime || null,
+      });
       setToast({
         type: "success",
         message: `Đã tạo buổi học chính thức cho ngày ${formatSessionDate(sessionDate)}.`,
       });
       loadDetail();
+      return created?.sessionId ?? null;
     } catch (err) {
       setCreateError(err.message || "Không thể tạo buổi học.");
+      // Anchor lỗi ngay ô đã bấm (WP2.4), không phải đáy card.
+      setCreateErrorDate(sessionDate);
     } finally {
       setCreatingSessionDate(null);
     }
@@ -224,7 +232,7 @@ export default function TutorClassWorkspace() {
       {toast && (
         <div
           className={clsx(
-            "fixed right-5 top-5 z-50 flex max-w-md items-center gap-3 rounded-xl px-4 py-3.5 text-white shadow-2xl",
+            "fixed bottom-5 right-5 z-50 flex max-w-md items-center gap-3 rounded-xl px-4 py-3.5 text-white shadow-2xl",
             toast.type === "error" ? "bg-rose-600" : "bg-blue-600",
           )}
         >
@@ -376,6 +384,7 @@ export default function TutorClassWorkspace() {
           onCreateSession: handleCreateSession,
           creatingSessionDate,
           createError,
+          createErrorDate,
           // Mock cho 4 tab prototype
           student: demoStudent,
           pathItems,

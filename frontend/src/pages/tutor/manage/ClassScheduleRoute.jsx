@@ -14,6 +14,7 @@ export default function ClassScheduleRoute() {
     onCreateSession,
     creatingSessionDate,
     createError,
+    createErrorDate,
     openScheduleForm,
   } = useOutletContext();
 
@@ -24,6 +25,7 @@ export default function ClassScheduleRoute() {
       onCreateSession={onCreateSession}
       creatingSessionDate={creatingSessionDate}
       createError={createError}
+      createErrorDate={createErrorDate}
       onEditSchedules={() => openScheduleForm(detail?.schedules)}
     />
   );
