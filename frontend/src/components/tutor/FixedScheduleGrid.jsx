@@ -21,7 +21,7 @@ import {
 } from "../../lib/classroomApi";
 
 /** Thứ 2 làm mốc đầu tuần (ISO dayOfWeek 1). */
-function startOfWeek(dateISO) {
+export function startOfWeek(dateISO) {
   const [year, month, day] = dateISO.split("-").map(Number);
   const date = new Date(year, month - 1, day);
   const isoDay = date.getDay() || 7; // 0 (Chủ nhật) → 7
@@ -29,7 +29,7 @@ function startOfWeek(dateISO) {
   return date;
 }
 
-function toISO(date) {
+export function toISO(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
     date.getDate(),
   ).padStart(2, "0")}`;
@@ -115,7 +115,8 @@ export default function FixedScheduleGrid({
     onCreateSession(day.iso, slot.startTime, day);
   };
 
-  const sessionsPath = `/tutor/classes/${classId}/sessions`;
+  // Link "Mở buổi học" trỏ tab "Lịch dạy" (API thật), không phải tab mock "Buổi học thực tế".
+  const sessionsPath = `/tutor/classes/${classId}/schedule`;
 
   return (
     <Card className="border-slate-200/80 dark:border-slate-800">

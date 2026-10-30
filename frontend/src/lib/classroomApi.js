@@ -114,6 +114,78 @@ export function apiCreateSession(token, classId, payload) {
   });
 }
 
+/**
+ * Lattice tuần (occurrences): danh sách ô SESSION / EXCEPTION / OCCURRENCE
+ * trong [weekStart, weekStart+6] (kế hoạch class-sessions mục 4.1).
+ */
+export function apiGetClassSchedule(token, classId, weekStart) {
+  return request(
+    token,
+    `/api/v1/classes/${encodeURIComponent(classId)}/schedule?weekStart=${encodeURIComponent(weekStart)}`,
+  );
+}
+
+/**
+ * Ghi ngoại lệ (overlay) cho 1 ô ảo của ca cố định (mục 4.2).
+ * @param {Object} payload - { scheduleId, exceptionDate, exceptionType: "CANCELLED" | "RESCHEDULED" | "MODIFIED",
+ *                            newDate?, newStartTime?, newEndTime?, newTeachingMode?, newMeetingUrl?, newLocation?, reason? }
+ */
+export function apiCreateException(token, classId, payload) {
+  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/exceptions`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Gỡ ngoại lệ của 1 ô (mục 4.3). */
+export function apiDeleteException(token, classId, scheduleId, exceptionDate) {
+  return request(
+    token,
+    `/api/v1/classes/${encodeURIComponent(classId)}/exceptions/${encodeURIComponent(scheduleId)}/${encodeURIComponent(exceptionDate)}`,
+    { method: "DELETE" },
+  );
+}
+
+/** Danh sách buổi học thật của lớp (ROW_NUMBER ổn định khi lọc, mục 4.4). */
+export function apiGetClassSessions(token, classId, { status = "", order = "asc" } = {}) {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  params.set("order", order);
+  return request(
+    token,
+    `/api/v1/classes/${encodeURIComponent(classId)}/sessions?${params.toString()}`,
+  );
+}
+
+/** Chi tiết buổi học (mục 4.5) — học sinh thấy nhật ký nguyên văn khi không null. */
+export function apiGetSession(token, sessionId) {
+  return request(token, `/api/v1/sessions/${encodeURIComponent(sessionId)}`);
+}
+
+/** Sửa / dời buổi học thật, chỉ trạng thái SCHEDULED (mục 4.6). */
+export function apiUpdateSession(token, sessionId, payload) {
+  return request(token, `/api/v1/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Đổi trạng thái buổi học thật theo state machine (mục 4.7). */
+export function apiSetSessionStatus(token, sessionId, status) {
+  return request(token, `/api/v1/sessions/${encodeURIComponent(sessionId)}/status`, {
+    method: "POST",
+    body: JSON.stringify({ status }),
+  });
+}
+
+/** Lưu / cập nhật nhật ký buổi học (mục 4.8). */
+export function apiUpdateSessionLog(token, sessionId, payload) {
+  return request(token, `/api/v1/sessions/${encodeURIComponent(sessionId)}/log`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
 export const CLASS_STATUS_META = {
   TRIAL: { label: "Đang dạy thử", tone: "violet" },
   ACTIVE: { label: "Đang hoạt động", tone: "emerald" },
@@ -132,6 +204,13 @@ export const SESSION_STATUS_META = {
   COMPLETED: { label: "Đã hoàn thành", tone: "emerald" },
   ABSENT: { label: "Vắng mặt", tone: "amber" },
   CANCELLED: { label: "Đã hủy", tone: "rose" },
+};
+
+/** Nhãn + tone ngoại lệ lịch dạy (overlay, mục 4.2). */
+export const EXCEPTION_TYPE_META = {
+  CANCELLED: { label: "Đã hủy", tone: "rose" },
+  RESCHEDULED: { label: "Dời sang", tone: "amber" },
+  MODIFIED: { label: "Đã điều chỉnh", tone: "sky" },
 };
 
 /** "2026-10-28" → "28/10/2026" (không qua Date để tránh lệch múi giờ). */
@@ -236,5 +315,76 @@ export function mapClassDetail(item) {
           endTime: formatSessionTime(slot.endTime),
         }))
       : [],
+  };
+}
+
+/** Chuẩn hóa thông tin ngoại lệ (overlay) của 1 ô lattice (mục 4.1). */
+export function mapExceptionInfo(item) {
+  if (!item) return null;
+  const meta = EXCEPTION_TYPE_META[item.type] || { label: item.type, tone: "slate" };
+  const hasNewTime = item.newStartTime && item.newEndTime;
+  return {
+    ...item,
+    typeLabel: meta.label,
+    typeTone: meta.tone,
+    newDateLabel: item.newDate ? formatSessionDate(item.newDate) : "",
+    timeLabel: hasNewTime
+      ? `${formatSessionTime(item.newStartTime)} - ${formatSessionTime(item.newEndTime)}`
+      : "",
+    modeLabel: item.newTeachingMode
+      ? TEACHING_MODE_LABELS[item.newTeachingMode] || item.newTeachingMode
+      : "",
+  };
+}
+
+/**
+ * Chuẩn hóa 1 ô lattice tuần (mục 4.1): gộp dateLabel/timeLabel và — nếu ô
+ * có buổi học thật (source = SESSION) — statusLabel/statusTone từ SESSION_STATUS_META.
+ */
+export function mapOccurrence(item) {
+  if (!item) return null;
+  const statusMeta = item.session
+    ? SESSION_STATUS_META[item.session.status] || { label: item.session.status, tone: "slate" }
+    : null;
+  return {
+    ...item,
+    dateLabel: formatSessionDate(item.date),
+    timeLabel: `${formatSessionTime(item.startTime)} - ${formatSessionTime(item.endTime)}`,
+    exception: mapExceptionInfo(item.exception),
+    session: item.session
+      ? {
+          ...item.session,
+          statusLabel: statusMeta.label,
+          statusTone: statusMeta.tone,
+        }
+      : null,
+  };
+}
+
+/** Chuẩn hóa 1 buổi học trong danh sách (mục 4.4). */
+export function mapSessionListItem(item) {
+  if (!item) return null;
+  const meta = SESSION_STATUS_META[item.status] || { label: item.status, tone: "slate" };
+  return {
+    ...item,
+    dateLabel: formatSessionDate(item.sessionDate),
+    timeLabel: `${formatSessionTime(item.startTime)} - ${formatSessionTime(item.endTime)}`,
+    modeLabel: TEACHING_MODE_LABELS[item.teachingMode] || item.teachingMode || "",
+    statusLabel: meta.label,
+    statusTone: meta.tone,
+  };
+}
+
+/** Chuẩn hóa chi tiết buổi học (mục 4.5). */
+export function mapSessionDetail(item) {
+  if (!item) return null;
+  const meta = SESSION_STATUS_META[item.status] || { label: item.status, tone: "slate" };
+  return {
+    ...item,
+    dateLabel: formatSessionDate(item.sessionDate),
+    timeLabel: `${formatSessionTime(item.startTime)} - ${formatSessionTime(item.endTime)}`,
+    modeLabel: TEACHING_MODE_LABELS[item.teachingMode] || item.teachingMode || "",
+    statusLabel: meta.label,
+    statusTone: meta.tone,
   };
 }
