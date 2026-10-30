@@ -97,6 +97,9 @@ class ClassOccurrenceServiceTest {
     @Mock
     JdbcTemplate jdbcTemplate;
 
+    @Mock
+    com.mycompany.englishtutor.module.tutor.service.StorageService storageService;
+
     @InjectMocks
     ClassOccurrenceService classOccurrenceService;
 
@@ -773,6 +776,189 @@ class ClassOccurrenceServiceTest {
 
         assertFalse(materialized);
         verify(classroomRepository, never()).deleteSessionException(anyLong(), any());
+    }
+
+    // ---------------------------------------------------------------- MATERIALS
+
+    private com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository
+            .SessionMaterialRow materialRow(Long materialId) {
+        return new com.mycompany.englishtutor.module.classroom.repository
+                .ClassroomQueryRepository.SessionMaterialRow(
+                        materialId, 42L, CLASS_ID, TUTOR_ID, STUDENT_ID,
+                        "bai-hoc.pdf", "https://minio.local/englishpath/x/1.pdf", "PDF",
+                        1_000L, "Trần Gia Sư", OffsetDateTime.now());
+    }
+
+    @Test
+    void uploadMaterial_pdf_success() {
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow()));
+        var file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "bai-hoc.pdf", "application/pdf", "pdf".getBytes());
+        when(storageService.uploadFile(
+                        eq("session-materials/42"), eq(file), anyLong()))
+                .thenReturn("https://minio.local/englishpath/x/1.pdf");
+        when(classroomRepository.insertSessionMaterial(
+                        eq(42L), eq(TUTOR_ID), eq("bai-hoc.pdf"),
+                        eq("https://minio.local/englishpath/x/1.pdf"), eq("PDF"), eq(3L)))
+                .thenReturn(40L);
+        when(classroomRepository.findSessionMaterial(42L, 40L))
+                .thenReturn(Optional.of(materialRow(40L)));
+
+        var result = classOccurrenceService.uploadMaterial(42L, file, httpRequest);
+
+        assertEquals("PDF", result.getFileType());
+        verify(auditLogService)
+                .log(eq(TUTOR_ID), eq("UPLOAD_SESSION_MATERIAL"), eq("SESSION_MATERIAL"),
+                        eq(40L), any(), eq(httpRequest));
+    }
+
+    @Test
+    void uploadMaterial_invalidType_shouldThrow1157() {
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow()));
+        var file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "malware.exe", "application/octet-stream", "x".getBytes());
+
+        assertErrorCode(
+                () -> classOccurrenceService.uploadMaterial(42L, file, httpRequest),
+                ErrorCode.MATERIAL_FILE_TYPE_INVALID);
+    }
+
+    @Test
+    void uploadMaterial_tooLarge_shouldThrow1158() {
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow()));
+        var file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "big.pdf", "application/pdf", new byte[21 * 1024 * 1024]);
+
+        assertErrorCode(
+                () -> classOccurrenceService.uploadMaterial(42L, file, httpRequest),
+                ErrorCode.MATERIAL_FILE_TOO_LARGE);
+    }
+
+    @Test
+    void uploadMaterial_sessionNotFound_shouldThrow404() {
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.empty());
+        var file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "a.pdf", "application/pdf", "x".getBytes());
+
+        assertErrorCode(
+                () -> classOccurrenceService.uploadMaterial(42L, file, httpRequest),
+                ErrorCode.SESSION_NOT_FOUND);
+    }
+
+    @Test
+    void uploadMaterial_tutorNotOwner_shouldThrow403() {
+        LockedSessionRow other = new LockedSessionRow(
+                42L, 2L, 99L, 30L, "Lớp khác", "HS khác", "t", FRI,
+                SLOT_START, SLOT_END, "ONLINE", "u", null, null, null);
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(other));
+        var file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "a.pdf", "application/pdf", "x".getBytes());
+
+        assertErrorCode(
+                () -> classOccurrenceService.uploadMaterial(42L, file, httpRequest),
+                ErrorCode.SESSION_NOT_OWNED);
+    }
+
+    @Test
+    void deleteMaterial_success_shouldDeleteS3AndRowAndAudit() {
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow()));
+        when(classroomRepository.findSessionMaterial(42L, 40L))
+                .thenReturn(Optional.of(materialRow(40L)));
+
+        classOccurrenceService.deleteMaterial(42L, 40L, httpRequest);
+
+        verify(storageService).deleteFile("https://minio.local/englishpath/x/1.pdf");
+        verify(classroomRepository).deleteSessionMaterial(42L, 40L);
+        verify(auditLogService)
+                .log(eq(TUTOR_ID), eq("DELETE_SESSION_MATERIAL"), eq("SESSION_MATERIAL"),
+                        eq(40L), any(), eq(httpRequest));
+    }
+
+    @Test
+    void deleteMaterial_notBelongingToSession_shouldThrow404() {
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow()));
+        when(classroomRepository.findSessionMaterial(42L, 40L)).thenReturn(Optional.empty());
+
+        assertErrorCode(
+                () -> classOccurrenceService.deleteMaterial(42L, 40L, httpRequest),
+                ErrorCode.MATERIAL_NOT_FOUND);
+    }
+
+    @Test
+    void deleteMaterial_s3Failure_stillDeletesRow() {
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow()));
+        when(classroomRepository.findSessionMaterial(42L, 40L))
+                .thenReturn(Optional.of(materialRow(40L)));
+        org.mockito.Mockito.doThrow(new RuntimeException("s3 down"))
+                .when(storageService)
+                .deleteFile(any());
+
+        classOccurrenceService.deleteMaterial(42L, 40L, httpRequest);
+
+        verify(classroomRepository).deleteSessionMaterial(42L, 40L);
+    }
+
+    @Test
+    void getMaterialAccessUrl_tutorOwner_pdfPreviewable() {
+        when(classroomRepository.findMaterialForAccess(40L))
+                .thenReturn(Optional.of(materialRow(40L)));
+        when(storageService.presignedUrl(
+                        eq("https://minio.local/englishpath/x/1.pdf"),
+                        eq(java.time.Duration.ofMinutes(10))))
+                .thenReturn("https://minio.local/presigned");
+
+        var result = classOccurrenceService.getMaterialAccessUrl(40L);
+
+        assertEquals("https://minio.local/presigned", result.getUrl());
+        assertTrue(result.getPreviewable());
+    }
+
+    @Test
+    void getMaterialAccessUrl_docxNotPreviewable() {
+        var docx = new com.mycompany.englishtutor.module.classroom.repository
+                .ClassroomQueryRepository.SessionMaterialRow(
+                        40L, 42L, CLASS_ID, TUTOR_ID, STUDENT_ID,
+                        "de.pdf".replace("pdf", "docx"), "https://minio.local/x/docx", "DOCX",
+                        100L, "Trần Gia Sư", OffsetDateTime.now());
+        when(classroomRepository.findMaterialForAccess(40L)).thenReturn(Optional.of(docx));
+        when(storageService.presignedUrl(any(), eq(java.time.Duration.ofMinutes(10))))
+                .thenReturn("https://minio.local/presigned");
+
+        assertFalse(classOccurrenceService.getMaterialAccessUrl(40L).getPreviewable());
+    }
+
+    @Test
+    void getMaterialAccessUrl_missing_shouldThrow404() {
+        when(classroomRepository.findMaterialForAccess(40L)).thenReturn(Optional.empty());
+
+        assertErrorCode(
+                () -> classOccurrenceService.getMaterialAccessUrl(40L),
+                ErrorCode.MATERIAL_NOT_FOUND);
+    }
+
+    @Test
+    void getMaterialAccessUrl_studentOwner_allowed() {
+        stubStudentContext();
+        when(classroomRepository.findMaterialForAccess(40L))
+                .thenReturn(Optional.of(materialRow(40L)));
+        when(storageService.presignedUrl(any(), eq(java.time.Duration.ofMinutes(10))))
+                .thenReturn("https://minio.local/presigned");
+
+        classOccurrenceService.getMaterialAccessUrl(40L);
+    }
+
+    @Test
+    void getMaterialAccessUrl_studentNotOwner_shouldThrow403() {
+        stubStudentContext();
+        var otherClass = new com.mycompany.englishtutor.module.classroom.repository
+                .ClassroomQueryRepository.SessionMaterialRow(
+                        40L, 42L, 99L, TUTOR_ID, 30L, "a.pdf", "u", "PDF",
+                        1L, "Trần Gia Sư", OffsetDateTime.now());
+        when(classroomRepository.findMaterialForAccess(40L)).thenReturn(Optional.of(otherClass));
+
+        assertErrorCode(
+                () -> classOccurrenceService.getMaterialAccessUrl(40L),
+                ErrorCode.SESSION_NOT_OWNED);
     }
 
     // ------------------------------------------------------------- AUTH STUBS

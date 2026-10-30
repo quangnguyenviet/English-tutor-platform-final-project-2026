@@ -31,6 +31,7 @@ import com.mycompany.englishtutor.module.classroom.api.request.CreateExceptionRe
 import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionLogRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionRequest;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassScheduleResponse;
+import com.mycompany.englishtutor.module.classroom.api.response.MaterialAccessUrlResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionDetailResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionExceptionResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionListItem;
@@ -272,6 +273,42 @@ class ClassOccurrenceControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body))
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_RECEPTIONIST"))))
+                .andExpect(status().isForbidden());
+    }
+
+    // ------------------------------------------------- MATERIALS (FR-12, FR-21)
+
+    @Test
+    void getMaterialAccessUrl_asTutor_shouldReturn200() throws Exception {
+        when(classOccurrenceService.getMaterialAccessUrl(40L))
+                .thenReturn(MaterialAccessUrlResponse.builder()
+                        .url("https://minio.local/englishpath/session-materials/12/a.pdf")
+                        .previewable(Boolean.TRUE)
+                        .build());
+
+        mockMvc.perform(get("/api/v1/materials/40/access-url")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.previewable").value(true));
+    }
+
+    @Test
+    void getMaterialAccessUrl_asStudent_shouldReturn200() throws Exception {
+        when(classOccurrenceService.getMaterialAccessUrl(40L))
+                .thenReturn(MaterialAccessUrlResponse.builder()
+                        .url("https://minio.local/englishpath/session-materials/12/a.pdf")
+                        .previewable(Boolean.FALSE)
+                        .build());
+
+        mockMvc.perform(get("/api/v1/materials/40/access-url")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void getMaterialAccessUrl_asAccountant_shouldReturn403() throws Exception {
+        mockMvc.perform(get("/api/v1/materials/40/access-url")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ACCOUNTANT"))))
                 .andExpect(status().isForbidden());
     }
 }

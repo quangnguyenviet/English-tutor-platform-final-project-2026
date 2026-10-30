@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mycompany.englishtutor.module.classroom.api.response.ClassScheduleResponse;
+import com.mycompany.englishtutor.module.classroom.api.response.MaterialAccessUrlResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionDetailResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionListItem;
 import com.mycompany.englishtutor.module.classroom.service.ClassOccurrenceService;
@@ -73,6 +74,18 @@ public class ClassOccurrenceController {
         return ResponseEntity.ok(
                 ApiResponse.<SessionDetailResponse>builder()
                         .result(classOccurrenceService.getDetail(id))
+                        .build());
+    }
+
+    @GetMapping("/materials/{id}/access-url")
+    @Operation(
+            summary = "Link tải an toàn (ký sẵn 10 phút) cho tài liệu buổi học (FR-21)",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<MaterialAccessUrlResponse>> getMaterialAccessUrl(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(
+                ApiResponse.<MaterialAccessUrlResponse>builder()
+                        .result(classOccurrenceService.getMaterialAccessUrl(id))
                         .build());
     }
 }
