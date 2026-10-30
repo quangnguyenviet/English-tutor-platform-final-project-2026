@@ -539,7 +539,6 @@ class TutorClassServiceTest {
                 .sessionDate(date)
                 .startTime(SLOT_START)
                 .endTime(SLOT_END)
-                .status("SCHEDULED")
                 .isTrial(Boolean.FALSE)
                 .createdNow(Boolean.FALSE)
                 .build();

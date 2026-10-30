@@ -54,15 +54,14 @@ public class ClassOccurrenceController {
 
     @GetMapping("/classes/{id}/sessions")
     @Operation(
-            summary = "Danh sách buổi học thật của lớp (ROW_NUMBER ổn định khi lọc)",
+            summary = "Danh sách buổi học thật của lớp (ROW_NUMBER ổn định)",
             security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<List<SessionListItem>>> getClassSessions(
             @PathVariable Long id,
-            @RequestParam(required = false) String status,
             @RequestParam(required = false, defaultValue = "asc") String order) {
         return ResponseEntity.ok(
                 ApiResponse.<List<SessionListItem>>builder()
-                        .result(classOccurrenceService.listSessions(id, status, order))
+                        .result(classOccurrenceService.listSessions(id, order))
                         .build());
     }
 

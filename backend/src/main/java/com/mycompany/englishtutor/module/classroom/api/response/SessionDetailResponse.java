@@ -58,9 +58,6 @@ public class SessionDetailResponse {
     @Schema(description = "Địa chỉ (AT_HOME)")
     String location;
 
-    @Schema(description = "SCHEDULED | IN_PROGRESS | COMPLETED | ABSENT | CANCELLED")
-    String status;
-
     @Schema(description = "Buổi dạy thử (quản lý ở tab Tổng quan)")
     Boolean isTrial;
 

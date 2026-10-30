@@ -10,12 +10,10 @@ import {
   Loader2,
   MoreVertical,
   Pencil,
-  Play,
   X,
   XCircle,
 } from "lucide-react";
 import Card from "../ui/Card";
-import Badge from "../ui/Badge";
 import ConfirmModal from "../ui/ConfirmModal";
 import ExceptionForm from "./ExceptionForm";
 import clsx from "clsx";
@@ -47,18 +45,31 @@ function weekDays(weekStartISO) {
     date.setDate(first.getDate() + index);
     const iso = toISO(date);
     const isoDay = date.getDay() || 7;
-    // "03/11" — định dạng DD/MM rút gọn, dùng định hướng trong lưới.
-    const shortDate = formatSessionDate(iso).slice(0, 5);
-    return { iso, label: dayOfWeekLabel(isoDay), shortDate, isToday: iso === today };
+    return {
+      iso,
+      label: dayOfWeekLabel(isoDay),
+      shortDate: formatSessionDate(iso).slice(0, 5),
+      dayNumber: String(iso.slice(8, 10)),
+      isToday: iso === today,
+    };
   });
 }
 
+/** Nền chip sự kiện theo tone trạng thái (kiểu Google Calendar: nền nhạt + viền trái đậm). */
+const TONE_SURFACE = {
+  blue: "border-l-blue-500 bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-100",
+  amber: "border-l-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
+  emerald: "border-l-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100",
+  rose: "border-l-rose-500 bg-rose-50 text-rose-900 dark:bg-rose-950/40 dark:text-rose-100",
+  sky: "border-l-sky-500 bg-sky-50 text-sky-900 dark:bg-sky-950/40 dark:text-sky-100",
+  slate: "border-l-slate-400 bg-slate-50 text-slate-800 dark:bg-slate-800/40 dark:text-slate-200",
+};
+
 /**
- * Lattice tuần (kế hoạch class-sessions Card 1): mỗi ô là 1 lần diễn (ca × ngày),
- * render theo source SESSION / EXCEPTION / OCCURRENCE từ API thật. Ô ảo tác động
- * bằng overlay exception (hủy / dời / sửa chi tiết); ô có buổi học thật chọn vào
- * chi tiết Card 3. Responsive: 7 cột 1 hàng từ xl (lattice nằm trong cột 7/12),
- * 4+3 (2 hàng) từ sm, 7 dòng dọc dưới sm — không bao giờ scroll ngang.
+ * Lưới tuần kiểu Google Calendar (thiết kế /tutor/schedule): cột giờ bên trái
+ * (06:00–22:00), 7 cột ngày, mỗi sự kiện là 1 chip đặt đúng vị trí giờ trên trục.
+ * Sự kiện render theo source SESSION / EXCEPTION / OCCURRENCE từ API thật.
+ * Dưới lg: fallback danh sách dọc theo ngày (mobile không có trục giờ).
  */
 export default function ClassScheduleLattice({
   classId,
@@ -139,7 +150,7 @@ export default function ClassScheduleLattice({
     setModalError("");
   };
 
-  // Tạo buổi học on-demand + tự chọn buổi mới (WP2.4) để mở chi tiết phía phải.
+  // Tạo buổi học on-demand + tự chọn buổi mới (WP2.4) để mở chi tiết (modal).
   const handleCreateAndSelect = async (occ) => {
     const result = await onCreateSession?.(occ.date, formatSessionTime(occ.startTime), occ.dateLabel);
     if (result != null) onSelectSession?.(result);
@@ -195,94 +206,100 @@ export default function ClassScheduleLattice({
     }
   };
 
-  // Nhãn 3 hành động exception dùng chung cho menu kebab (ô OCCURRENCE).
   const KEBAB_ACTIONS = [
     { type: "CANCELLED", label: "Hủy ca này", icon: XCircle, tone: "rose" },
     { type: "RESCHEDULED", label: "Dời ca này", icon: ArrowRightLeft, tone: "amber" },
     { type: "MODIFIED", label: "Sửa chi tiết ca", icon: Pencil, tone: "sky" },
   ];
 
-  // Render nội dung 1 ô theo source.
-  const renderCellContent = (occ) => {
+  const kebabTone = {
+    rose: "text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40",
+    amber: "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40",
+    sky: "text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/40",
+  };
+
+  // Chip sự kiện trong ô ngày (không dùng trục giờ): mỗi ca/lượt dạy là 1 chip
+  // hiển thị giờ + trạng thái/nhãn; nhiều ca trong ngày xếp chồng dọc trong ô.
+  const renderDayChip = (occ) => {
     if (occ.source === "SESSION") {
       const session = occ.session || {};
       const isSelected = selectedSessionId != null && session.sessionId === selectedSessionId;
+      // Mục -1: bỏ nhãn/trạng thái buổi — chip SESSION luôn tone emerald (đã có buổi thật).
+      const surface = TONE_SURFACE.emerald;
       return (
-        <div className="space-y-1.5">
-          <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-100">
-            {formatSessionTime(occ.startTime)} - {formatSessionTime(occ.endTime)}
+        <button
+          key={occ.occurrenceKey}
+          type="button"
+          onClick={() => onSelectSession?.(session.sessionId)}
+          aria-current={isSelected || undefined}
+          className={clsx(
+            "block w-full cursor-pointer rounded-lg border border-l-4 px-2 py-1.5 text-left transition-all hover:brightness-[0.97] active:scale-[0.99] dark:hover:brightness-110",
+            surface,
+            isSelected && "ring-2 ring-blue-500/60",
+          )}
+        >
+          <p className="flex items-center justify-between gap-1 font-mono text-[11px] font-semibold">
+            <span>{formatSessionTime(occ.startTime)} - {formatSessionTime(occ.endTime)}</span>
+            <span className="rounded-full bg-white/60 px-1.5 text-[10px] font-bold dark:bg-slate-900/40">
+              {session.title || "Buổi học"}
+            </span>
           </p>
-          <Badge tone={session.statusTone || "slate"} size="xs">
-            {session.statusLabel || session.status}
-          </Badge>
-          <button
-            type="button"
-            onClick={() => onSelectSession?.(session.sessionId)}
-            aria-current={isSelected || undefined}
-            className={clsx(
-              "inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-all active:scale-[0.98]",
-              "bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70",
-              isSelected && "ring-2 ring-blue-600/60",
-            )}
-          >
-            <Play size={12} /> Chi tiết buổi học
-          </button>
-        </div>
+          {session.hasLog && (
+            <p className="mt-0.5 text-[10px] opacity-70">Có nhật ký</p>
+          )}
+        </button>
       );
     }
 
     if (occ.source === "EXCEPTION") {
       const exc = occ.exception || {};
       const meta = EXCEPTION_TYPE_META[exc.type] || { label: exc.type, tone: "slate" };
+      const surface =
+        exc.type === "CANCELLED"
+          ? TONE_SURFACE.rose
+          : exc.type === "RESCHEDULED"
+            ? TONE_SURFACE.amber
+            : TONE_SURFACE.sky;
       return (
-        <div className="space-y-1.5">
-          <Badge tone={meta.tone} size="xs">
-            {meta.label}
-          </Badge>
-          {exc.type === "RESCHEDULED" ? (
-            <p className="text-[11px] text-slate-700 dark:text-slate-200">
-              Sang <strong>{exc.newDateLabel}</strong>
-              {exc.timeLabel ? <span> · {exc.timeLabel}</span> : null}
+        <div key={occ.occurrenceKey} className={clsx("rounded-lg border border-l-4 px-2 py-1.5", surface)}>
+          <p className="flex items-center justify-between gap-1 font-mono text-[11px] font-semibold">
+            <span className="flex items-center gap-1">
+              {formatSessionTime(occ.startTime)} - {formatSessionTime(occ.endTime)}
+              <span className="rounded-full bg-white/60 px-1.5 text-[10px] font-bold dark:bg-slate-900/40">
+                {meta.label}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => askDeleteException(occ)}
+              className="cursor-pointer rounded p-0.5 transition-all hover:bg-white/50 active:scale-[0.98] dark:hover:bg-slate-800/50"
+              aria-label="Gỡ ngoại lệ"
+              title="Gỡ ngoại lệ"
+            >
+              <Eraser size={11} />
+            </button>
+          </p>
+          {exc.type === "RESCHEDULED" && (
+            <p className="mt-0.5 text-[10px] opacity-70">
+              Sang {exc.newDateLabel}
+              {exc.timeLabel ? ` · ${exc.timeLabel}` : ""}
             </p>
-          ) : null}
-          {exc.type === "CANCELLED" && exc.reason ? (
-            <p className="truncate text-[11px] text-slate-500 dark:text-slate-400" title={exc.reason}>
+          )}
+          {exc.type === "CANCELLED" && exc.reason && (
+            <p className="mt-0.5 truncate text-[10px] opacity-70" title={exc.reason}>
               {exc.reason}
             </p>
-          ) : null}
-          {(exc.type === "MODIFIED" || exc.type === "RESCHEDULED") &&
-          exc.newTeachingMode ? (
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              {exc.modeLabel}
-              {exc.newMeetingUrl ? " · có link phòng học" : ""}
-              {exc.newLocation ? ` · ${exc.newLocation}` : ""}
-            </p>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => askDeleteException(occ)}
-            className={clsx(
-              "inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-all",
-              "bg-slate-100 text-slate-600 hover:bg-slate-200 active:scale-[0.98] dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700",
-            )}
-          >
-            <Eraser size={12} /> Gỡ ngoại lệ
-          </button>
+          )}
         </div>
       );
     }
 
-    // OCCURRENCE — ô ảo: CTA "Tạo buổi học" + menu kebab gom 3 hành động exception (WP2.2)
+    // OCCURRENCE — ca cố định chưa có buổi thật: chip giờ + "Tạo buổi học" + kebab
     const kebabOpen = kebabKey === occ.occurrenceKey;
-    const kebabTone = {
-      rose: "text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40",
-      amber: "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40",
-      sky: "text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/40",
-    };
     return (
-      <div className="relative space-y-2">
-        <p className="flex items-center gap-1 text-[11px] font-semibold text-slate-800 dark:text-slate-100">
-          <Clock size={11} className="shrink-0 text-blue-500 dark:text-blue-400" />
+      <div key={occ.occurrenceKey} className="group/occ relative rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-2 py-1.5 transition-colors hover:border-blue-400 hover:bg-blue-50/40 dark:border-slate-600 dark:bg-slate-800/30 dark:hover:border-blue-700 dark:hover:bg-blue-950/20">
+        <p className="flex items-center gap-1 font-mono text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+          <Clock size={10} className="shrink-0 text-blue-500 dark:text-blue-400" />
           {formatSessionTime(occ.startTime)} - {formatSessionTime(occ.endTime)}
         </p>
         <button
@@ -290,42 +307,38 @@ export default function ClassScheduleLattice({
           onClick={() => handleCreateAndSelect(occ)}
           disabled={creatingSessionDate !== null}
           className={clsx(
-            "inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-all",
-            "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 active:scale-[0.98] disabled:opacity-50 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/70",
+            "mt-1 inline-flex w-full cursor-pointer items-center justify-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-bold transition-all active:scale-[0.98]",
+            "bg-emerald-100/80 text-emerald-800 hover:bg-emerald-200/80 disabled:opacity-50 dark:bg-emerald-900/50 dark:text-emerald-200 dark:hover:bg-emerald-900/80",
           )}
         >
           {creatingSessionDate === occ.date ? (
-            <Loader2 size={12} className="animate-spin" />
+            <Loader2 size={11} className="animate-spin" />
           ) : (
-            <CalendarPlus size={12} />
+            <CalendarPlus size={11} />
           )}
           Tạo buổi học
         </button>
-        <div className="flex justify-end">
-          <button
-            type="button"
-            aria-label="Hủy / dời / sửa ca này"
-            aria-expanded={kebabOpen}
-            onClick={() => setKebabKey(kebabOpen ? null : occ.occurrenceKey)}
-            className={clsx(
-              "cursor-pointer rounded-lg border border-slate-200 p-1.5 text-slate-500 transition-all active:scale-[0.98]",
-              "hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800",
-            )}
-          >
-            <MoreVertical size={13} />
-          </button>
-        </div>
+        {/* Nút kebab gom 3 hành động exception (desktop: hiện khi hover ô) */}
+        <button
+          type="button"
+          aria-label="Hủy / dời / sửa ca này"
+          aria-expanded={kebabOpen}
+          onClick={() => setKebabKey(kebabOpen ? null : occ.occurrenceKey)}
+          className={clsx(
+            "absolute right-1.5 top-1.5 hidden cursor-pointer rounded-md border border-slate-200 bg-white p-0.5 text-slate-500 shadow-sm transition-all active:scale-[0.98] lg:block",
+            "hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800",
+            "lg:opacity-0 lg:group-hover/occ:opacity-100 lg:group-focus-within/occ:opacity-100 lg:focus:opacity-100",
+            kebabOpen && "opacity-100 border-blue-300 dark:border-blue-800",
+          )}
+        >
+          <MoreVertical size={11} />
+        </button>
         {kebabOpen && (
           <>
-            {/* Layer bắt click ngoài để đóng menu */}
-            <div
-              className="fixed inset-0 z-30"
-              onClick={() => setKebabKey(null)}
-              aria-hidden="true"
-            />
+            <div className="fixed inset-0 z-30" onClick={() => setKebabKey(null)} aria-hidden="true" />
             <div
               role="menu"
-              className="absolute bottom-full left-0 z-40 mb-1 w-40 space-y-0.5 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+              className="absolute top-full right-0 z-40 mt-1 w-40 space-y-0.5 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
             >
               {KEBAB_ACTIONS.map((action) => {
                 const Icon = action.icon;
@@ -348,6 +361,22 @@ export default function ClassScheduleLattice({
             </div>
           </>
         )}
+        {/* Mobile: 3 nút chữ thay kebab (không có hover trên touch) */}
+        <div className="mt-1 flex gap-1 lg:hidden">
+          {KEBAB_ACTIONS.map((action) => (
+            <button
+              key={action.type}
+              type="button"
+              onClick={() => openExceptionModal(occ, action.type)}
+              className={clsx(
+                "flex-1 cursor-pointer rounded-md px-1 py-0.5 text-[9px] font-bold transition-all active:scale-[0.98]",
+                kebabTone[action.tone],
+              )}
+            >
+              {action.label.replace(" ca này", "").replace(" chi tiết ca", " chi tiết")}
+            </button>
+          ))}
+        </div>
       </div>
     );
   };
@@ -356,7 +385,7 @@ export default function ClassScheduleLattice({
     (occurrencesByDate.get(day.iso) || []).length > 0,
   );
 
-  // Ngày chứa buổi học đang được chọn (để highlight cột khi chọn từ danh sách).
+  // Ngày chứa buổi học đang được chọn (highlight ô khi chọn từ danh sách).
   const selectedDate = useMemo(() => {
     if (selectedSessionId == null) return null;
     for (const [date, occurrences] of occurrencesByDate.entries()) {
@@ -372,7 +401,9 @@ export default function ClassScheduleLattice({
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Clock size={16} className="text-blue-600 dark:text-blue-400" />
-          <h2 className="text-base font-semibold text-slate-900 dark:text-white">Lịch dạy tuần</h2>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+            Lịch dạy tuần
+          </h2>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -410,11 +441,11 @@ export default function ClassScheduleLattice({
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 lg:grid-cols-7">
           {Array.from({ length: 7 }, (_, index) => (
             <div
               key={index}
-              className="h-[150px] animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800"
+              className="h-[110px] animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800"
             />
           ))}
         </div>
@@ -448,76 +479,75 @@ export default function ClassScheduleLattice({
           )}
         </div>
       ) : (
-        <div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 xl:grid-cols-7">
-            {days.map((day) => {
-              const dayOccurrences = occurrencesByDate.get(day.iso) || [];
-              const dayCreateError = createError && createErrorDate === day.iso;
-              return (
-                <div
-                  key={day.iso}
-                  className={clsx(
-                    "flex min-h-[150px] flex-col rounded-xl border p-2.5",
-                    day.isToday
-                      ? "border-blue-300 bg-blue-50/60 dark:border-blue-800/60 dark:bg-blue-950/30"
-                      : selectedDate === day.iso
-                        ? "border-blue-400 bg-blue-50/40 dark:border-blue-700 dark:bg-blue-950/20"
-                        : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/40",
-                  )}
-                >
-                  <div className="mb-2 flex items-center justify-between gap-1">
+        /* ===== 7 ô ngày (1 ô/1 ngày), trong ô hiện chip giờ buổi học ===== */
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 lg:grid-cols-7 lg:gap-3">
+          {days.map((day) => {
+            const dayOccurrences = occurrencesByDate.get(day.iso) || [];
+            const dayCreateError = createError && createErrorDate === day.iso;
+            return (
+              <div
+                key={day.iso}
+                className={clsx(
+                  "flex flex-col rounded-xl border p-2",
+                  day.isToday
+                    ? "border-blue-300 bg-blue-50/50 dark:border-blue-800/60 dark:bg-blue-950/20"
+                    : selectedDate === day.iso
+                      ? "border-blue-400 bg-blue-50/30 dark:border-blue-700 dark:bg-blue-950/15"
+                      : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/40",
+                )}
+              >
+                {/* Header ngày: vòng tròn số kiểu Google Calendar */}
+                <div className="mb-2 flex items-center gap-2">
+                  <span
+                    className={clsx(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-mono text-xs font-bold",
+                      day.isToday
+                        ? "bg-blue-600 text-white"
+                        : "text-slate-800 dark:text-slate-200",
+                    )}
+                  >
+                    {day.dayNumber}
+                  </span>
+                  <div className="min-w-0">
                     <p
                       className={clsx(
-                        "text-[11px] font-bold",
+                        "text-[11px] font-medium leading-tight",
                         day.isToday
                           ? "text-blue-700 dark:text-blue-300"
-                          : "text-slate-700 dark:text-slate-200",
+                          : "text-slate-500 dark:text-slate-400",
                       )}
                     >
                       {day.label}
-                      <span className="ml-1 font-mono text-[10px] font-medium text-slate-400 dark:text-slate-500">
-                        {day.shortDate}
-                      </span>
                     </p>
-                    {day.isToday && (
-                      <Badge tone="blue" size="xs">
-                        Hôm nay
-                      </Badge>
-                    )}
+                    <p className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
+                      {day.shortDate}
+                    </p>
                   </div>
-                  <div className="space-y-2">
-                    {dayOccurrences.length ? (
-                      dayOccurrences.map((occ) => (
-                        <div
-                          key={occ.occurrenceKey}
-                          className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900/60"
-                        >
-                          {renderCellContent(occ)}
-                        </div>
-                      ))
-                    ) : sessionDates.includes(day.iso) ? (
-                      // Buổi học thật nằm ngoài khoảng hiệu lực của ca cố định
-                      // (không có ô lattice) — xem ở danh sách buổi học.
-                      <p className="rounded-lg border border-blue-200 bg-blue-50/70 px-2 py-1.5 text-[11px] font-medium text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300">
-                        Ngày này có buổi học ngoài ca cố định — xem ở danh sách
-                        buổi học.
-                      </p>
-                    ) : (
-                      <p className="text-[11px] text-slate-400 dark:text-slate-600">
-                        Không có ca dạy
-                      </p>
-                    )}
-                  </div>
+                </div>
+
+                {/* Chip sự kiện trong ô */}
+                <div className="flex-1 space-y-1.5">
+                  {dayOccurrences.length ? (
+                    dayOccurrences.map(renderDayChip)
+                  ) : sessionDates.includes(day.iso) ? (
+                    <p className="rounded-lg border border-blue-200 bg-blue-50/70 px-2 py-1.5 text-[10px] font-medium leading-tight text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300">
+                      Có buổi học ngoài ca cố định — xem ở danh sách buổi học.
+                    </p>
+                  ) : (
+                    <p className="px-1 text-[11px] text-slate-400 dark:text-slate-600">
+                      Không có ca dạy
+                    </p>
+                  )}
                   {dayCreateError && (
-                    <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-rose-200 bg-rose-50 p-2 text-[10px] leading-snug text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+                    <div className="flex items-start gap-1.5 rounded-lg border border-rose-200 bg-rose-50 p-2 text-[10px] leading-snug text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
                       <AlertCircle size={11} className="mt-0.5 shrink-0 text-rose-500" />
                       <span>{createError}</span>
                     </div>
                   )}
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

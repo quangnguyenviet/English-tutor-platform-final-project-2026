@@ -95,10 +95,6 @@ public enum ErrorCode {
     SESSION_NOT_FOUND(1142, "Buổi học không tồn tại", HttpStatus.NOT_FOUND),
     SESSION_NOT_OWNED(
             1143, "Bạn không có quyền với buổi học của lớp này", HttpStatus.FORBIDDEN),
-    SESSION_NOT_EDITABLE(
-            1144, "Chỉ có thể sửa/dời khi buổi đang ở trạng thái Đã lên lịch", HttpStatus.CONFLICT),
-    SESSION_INVALID_TRANSITION(
-            1145, "Buổi học không thể chuyển sang trạng thái này", HttpStatus.CONFLICT),
     SESSION_RESCHEDULE_IN_PAST(
             1146, "Không thể dời buổi học sang ngày trong quá khứ", HttpStatus.BAD_REQUEST),
     SESSION_INVALID_TIME(1147, "Giờ kết thúc phải sau giờ bắt đầu", HttpStatus.BAD_REQUEST),

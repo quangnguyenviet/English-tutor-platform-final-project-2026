@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.mycompany.englishtutor.module.classroom.api.request.CreateExceptionRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.CreateSessionRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.FinalizeScheduleRequest;
-import com.mycompany.englishtutor.module.classroom.api.request.SetSessionStatusRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionLogRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpsertTrialSessionRequest;
@@ -30,7 +29,6 @@ import com.mycompany.englishtutor.module.classroom.api.response.OnDemandSessionR
 import com.mycompany.englishtutor.module.classroom.api.response.SessionDetailResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionExceptionResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionLogResponse;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionStatusResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.TrialSessionResponse;
 import com.mycompany.englishtutor.module.classroom.service.ClassOccurrenceService;
 import com.mycompany.englishtutor.module.classroom.service.TutorClassService;
@@ -191,19 +189,6 @@ public class TutorClassController {
         return ResponseEntity.ok(ApiResponse.<SessionDetailResponse>builder()
                 .message("Đã cập nhật buổi học")
                 .result(classOccurrenceService.updateSession(id, request, httpRequest))
-                .build());
-    }
-
-    @PostMapping("/sessions/{id}/status")
-    @Operation(
-            summary = "Đổi trạng thái buổi học thật (state machine; hủy sẽ thông báo học sinh)",
-            security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<SessionStatusResponse>> setSessionStatus(
-            @PathVariable Long id,
-            @Valid @RequestBody SetSessionStatusRequest request,
-            HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(ApiResponse.<SessionStatusResponse>builder()
-                .result(classOccurrenceService.changeStatus(id, request, httpRequest))
                 .build());
     }
 

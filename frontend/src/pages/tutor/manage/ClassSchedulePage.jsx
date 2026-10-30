@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Pencil } from "lucide-react";
 import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
@@ -10,9 +10,8 @@ import { todayISO } from "../../../lib/classroomApi";
 
 /**
  * Tab "Lịch dạy" của workspace lớp gia sư (kế hoạch class-sessions Phase 2).
- * Cột trái: lattice tuần (ô SESSION / EXCEPTION / OCCURRENCE).
- * Cột phải: danh sách buổi học thật + chi tiết & hành động (trạng thái,
- * sửa/dời, nhật ký). 2 cột xếp chồng trên mobile.
+ * Thiết kế theo prototype /tutor/schedule: 1 cột dọc — lưới tuần compact trên,
+ * danh sách buổi học của tuần bên dưới, chi tiết buổi học cuối.
  */
 export default function ClassSchedulePage({
   detail,
@@ -24,36 +23,27 @@ export default function ClassSchedulePage({
   onEditSchedules,
 }) {
   const [weekStart, setWeekStart] = useState(() => toISO(startOfWeek(todayISO())));
-  const [statusFilter, setStatusFilter] = useState("");
   const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const detailCardRef = useRef(null);
 
   const bumpRefresh = () => setRefreshKey((key) => key + 1);
 
-  // Khi chọn buổi học (từ lattice hoặc danh sách), cuộn tối thiểu để card
-  // chi tiết nằm trong viewport — dùng "nearest" để không nhảy view khi đã thấy.
-  useEffect(() => {
-    if (!selectedSessionId) return;
-    detailCardRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [selectedSessionId]);
-
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
             {detail?.className || "Chi tiết lớp"}
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Lịch dạy</h1>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Lịch dạy</h1>
             {detail && (
               <Badge tone={detail.statusTone} size="xs">
                 {detail.statusLabel}
               </Badge>
             )}
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Quản lý các lần diễn của ca cố định, buổi học thật và nhật ký của lớp.
           </p>
         </div>
@@ -69,42 +59,36 @@ export default function ClassSchedulePage({
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        {/* Cột trái — lattice tuần */}
-        <div className="lg:col-span-7">
-          <ClassScheduleLattice
-            classId={classId}
-            weekStart={weekStart}
-            onWeekStartChange={setWeekStart}
-            teachingMode={detail?.teachingMode}
-            onCreateSession={onCreateSession}
-            creatingSessionDate={creatingSessionDate}
-            createError={createError}
-            onSelectSession={setSelectedSessionId}
-            selectedSessionId={selectedSessionId}
-            sessionDates={detail?.sessionDates || []}
-            createErrorDate={createErrorDate}
-            onEditSchedules={onEditSchedules}
-            onChanged={bumpRefresh}
-            refreshKey={refreshKey}
-          />
-        </div>
+      <ClassScheduleLattice
+        classId={classId}
+        weekStart={weekStart}
+        onWeekStartChange={setWeekStart}
+        teachingMode={detail?.teachingMode}
+        onCreateSession={onCreateSession}
+        creatingSessionDate={creatingSessionDate}
+        createError={createError}
+        onSelectSession={setSelectedSessionId}
+        selectedSessionId={selectedSessionId}
+        sessionDates={detail?.sessionDates || []}
+        createErrorDate={createErrorDate}
+        onEditSchedules={onEditSchedules}
+        onChanged={bumpRefresh}
+        refreshKey={refreshKey}
+      />
 
-        {/* Cột phải — danh sách + chi tiết */}
-        <div className="space-y-4 self-start lg:col-span-5">
-          <SessionListCard
-            classId={classId}
-            statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
-            onSelectSession={setSelectedSessionId}
-            selectedSessionId={selectedSessionId}
-            refreshKey={refreshKey}
-          />
-          <div ref={detailCardRef}>
-            <SessionDetailCard sessionId={selectedSessionId} onChanged={bumpRefresh} />
-          </div>
-        </div>
-      </div>
+      <SessionListCard
+        classId={classId}
+        onSelectSession={setSelectedSessionId}
+        selectedSessionId={selectedSessionId}
+        refreshKey={refreshKey}
+      />
+
+      {/* Chi tiết buổi học — modal: chọn buổi từ lưới / danh sách thì mở lên */}
+      <SessionDetailCard
+        sessionId={selectedSessionId}
+        onChanged={bumpRefresh}
+        onClose={() => setSelectedSessionId(null)}
+      />
     </div>
   );
 }

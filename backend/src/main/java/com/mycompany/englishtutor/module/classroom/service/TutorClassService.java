@@ -221,7 +221,6 @@ public class TutorClassService {
                 .sessionDate(date)
                 .startTime(slot.getStartTime())
                 .endTime(slot.getEndTime())
-                .status("SCHEDULED")
                 .isTrial(Boolean.FALSE)
                 .createdNow(Boolean.TRUE)
                 .build();

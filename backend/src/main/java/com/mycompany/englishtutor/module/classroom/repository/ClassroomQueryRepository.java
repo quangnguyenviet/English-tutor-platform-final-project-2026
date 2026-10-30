@@ -106,7 +106,6 @@ public class ClassroomQueryRepository {
             LocalTime startTime,
             LocalTime endTime,
             String title,
-            String status,
             String teachingMode,
             String meetingUrl,
             String location,
@@ -128,7 +127,6 @@ public class ClassroomQueryRepository {
             String teachingMode,
             String meetingUrl,
             String location,
-            String status,
             String logKnowledge,
             String logHomework) {}
 
@@ -144,7 +142,7 @@ public class ClassroomQueryRepository {
 
     /**
      * Buổi học đang khóa (SELECT ... FOR UPDATE), kèm chủ sở hữu lớp và 2 log
-     * — đủ thông tin cho validate quyền / state machine / "lần đầu lưu log".
+     * — đủ thông tin cho validate quyền / "lần đầu lưu log".
      */
     public record LockedSessionRow(
             Long sessionId,
@@ -160,7 +158,6 @@ public class ClassroomQueryRepository {
             String teachingMode,
             String meetingUrl,
             String location,
-            String status,
             String logKnowledge,
             String logHomework) {}
 
@@ -450,7 +447,7 @@ public class ClassroomQueryRepository {
             Long classId, LocalDate date, LocalTime startTime) {
         return jdbcTemplate.query(
                         """
-                        SELECT id, session_date, start_time, end_time, status
+                        SELECT id, session_date, start_time, end_time
                         FROM sessions
                         WHERE class_id = ? AND session_date = ? AND start_time = ?
                           AND is_trial = FALSE
@@ -460,7 +457,6 @@ public class ClassroomQueryRepository {
                                 .sessionDate(rs.getObject("session_date", LocalDate.class))
                                 .startTime(rs.getObject("start_time", LocalTime.class))
                                 .endTime(rs.getObject("end_time", LocalTime.class))
-                                .status(rs.getString("status"))
                                 .isTrial(Boolean.FALSE)
                                 .createdNow(Boolean.FALSE)
                                 .build(),
@@ -533,7 +529,7 @@ public class ClassroomQueryRepository {
     public List<OccurrenceSessionRow> findWeekSessions(Long classId, LocalDate weekStart) {
         return jdbcTemplate.query(
                         """
-                        SELECT id, session_date, start_time, end_time, title, status,
+                        SELECT id, session_date, start_time, end_time, title,
                                teaching_mode, meeting_url, location,
                                (log_knowledge IS NOT NULL OR log_homework IS NOT NULL) AS has_log
                         FROM sessions
@@ -548,7 +544,6 @@ public class ClassroomQueryRepository {
                                         rs.getObject("start_time", LocalTime.class),
                                         rs.getObject("end_time", LocalTime.class),
                                         rs.getString("title"),
-                                        rs.getString("status"),
                                         rs.getString("teaching_mode"),
                                         rs.getString("meeting_url"),
                                         rs.getString("location"),
@@ -587,7 +582,7 @@ public class ClassroomQueryRepository {
             Long classId, LocalDate date, LocalTime startTime) {
         return jdbcTemplate.query(
                         """
-                        SELECT id, session_date, start_time, end_time, title, status,
+                        SELECT id, session_date, start_time, end_time, title,
                                teaching_mode, meeting_url, location,
                                (log_knowledge IS NOT NULL OR log_homework IS NOT NULL) AS has_log
                         FROM sessions
@@ -602,7 +597,6 @@ public class ClassroomQueryRepository {
                                         rs.getObject("start_time", LocalTime.class),
                                         rs.getObject("end_time", LocalTime.class),
                                         rs.getString("title"),
-                                        rs.getString("status"),
                                         rs.getString("teaching_mode"),
                                         rs.getString("meeting_url"),
                                         rs.getString("location"),
@@ -696,19 +690,18 @@ public class ClassroomQueryRepository {
     // ------------------------------------------------- T7-B4: SESSION THẬT
 
     /**
-     * Danh sách buổi của lớp (mục 4.4): ROW_NUMBER trên toàn bộ buổi (kể cả trial),
-     * lọc trạng thái ở lớp ngoài để số thứ tự không nhảy. {@code status} null = không lọc.
+     * Danh sách buổi của lớp (mục 4.4): ROW_NUMBER trên toàn bộ buổi (kể cả
+     * trial) nên số thứ tự liên tục. (Mục -1: bỏ lọc theo trạng thái.)
      */
-    public List<SessionListItem> findSessionList(Long classId, String status, boolean descending) {
-        boolean filtered = status != null;
+    public List<SessionListItem> findSessionList(Long classId, boolean descending) {
         return jdbcTemplate.query(
                 """
                 SELECT x.session_id, x.session_number, x.title, x.session_date,
                        x.start_time, x.end_time, x.is_trial, x.teaching_mode,
-                       x.meeting_url, x.location, x.status, x.has_log
+                       x.meeting_url, x.location, x.has_log
                 FROM (
                   SELECT s.id AS session_id, s.title, s.session_date, s.start_time, s.end_time,
-                         s.is_trial, s.teaching_mode, s.meeting_url, s.location, s.status,
+                         s.is_trial, s.teaching_mode, s.meeting_url, s.location,
                          (s.log_knowledge IS NOT NULL OR s.log_homework IS NOT NULL) AS has_log,
                          ROW_NUMBER() OVER (PARTITION BY s.class_id
                                             ORDER BY s.session_date, s.start_time, s.id)
@@ -716,18 +709,15 @@ public class ClassroomQueryRepository {
                   FROM sessions s
                   WHERE s.class_id = ?
                 ) x
-                WHERE (
-                """
-                        + (filtered ? "x.status = ?" : "TRUE")
-                        + ") ORDER BY x.session_number "
-                        + (descending ? "DESC" : "ASC")
+                ORDER BY x.session_number """
+                        + (descending ? " DESC" : " ASC")
                         + ", x.session_id "
-                        + (descending ? "DESC" : "ASC"),
+                        + (descending ? " DESC" : " ASC"),
                 new SessionListItemRowMapper(),
-                filtered ? new Object[] {classId, status} : new Object[] {classId});
+                classId);
     }
 
-    /** Khóa row buổi (FOR UPDATE) kèm chủ sở hữu lớp, dùng cho sửa/dời/đổi trạng thái/lưu log. */
+    /** Khóa row buổi (FOR UPDATE) kèm chủ sở hữu lớp, dùng cho sửa/dời/lưu log. */
     public Optional<LockedSessionRow> lockSession(Long sessionId) {
         return jdbcTemplate.query(
                         """
@@ -735,7 +725,7 @@ public class ClassroomQueryRepository {
                                u.full_name AS student_name,
                                s.title, s.session_date, s.start_time, s.end_time,
                                s.teaching_mode, s.meeting_url, s.location,
-                               s.status, s.log_knowledge, s.log_homework
+                               s.log_knowledge, s.log_homework
                         FROM sessions s
                         JOIN classes c ON c.id = s.class_id
                         JOIN users u ON u.id = c.student_id
@@ -757,7 +747,6 @@ public class ClassroomQueryRepository {
                                         rs.getString("teaching_mode"),
                                         rs.getString("meeting_url"),
                                         rs.getString("location"),
-                                        rs.getString("status"),
                                         rs.getString("log_knowledge"),
                                         rs.getString("log_homework")),
                         sessionId)
@@ -770,7 +759,7 @@ public class ClassroomQueryRepository {
         return jdbcTemplate.query(
                         """
                         SELECT s.id, s.class_id, s.title, s.session_date, s.start_time, s.end_time,
-                               s.is_trial, s.teaching_mode, s.meeting_url, s.location, s.status,
+                               s.is_trial, s.teaching_mode, s.meeting_url, s.location,
                                c.class_name, u.full_name AS student_name, t.full_name AS tutor_name,
                                s.log_knowledge, s.log_homework,
                                ROW_NUMBER() OVER (PARTITION BY s.class_id
@@ -798,7 +787,6 @@ public class ClassroomQueryRepository {
                                         rs.getString("teaching_mode"),
                                         rs.getString("meeting_url"),
                                         rs.getString("location"),
-                                        rs.getString("status"),
                                         rs.getString("log_knowledge"),
                                         rs.getString("log_homework")),
                         sessionId)
@@ -875,14 +863,6 @@ public class ClassroomQueryRepository {
                         startTime)
                 .stream()
                 .findFirst();
-    }
-
-    /** Đổi trạng thái buổi (state machine validate ở service). */
-    public void updateSessionStatus(Long sessionId, String status) {
-        jdbcTemplate.update(
-                "UPDATE sessions SET status = ?, updated_at = NOW() WHERE id = ?",
-                status,
-                sessionId);
     }
 
     /** Lưu nhật ký buổi (cả 2 nội dung, null = xóa trắng phần đó). */
@@ -1131,7 +1111,6 @@ public class ClassroomQueryRepository {
                     .teachingMode(rs.getString("teaching_mode"))
                     .meetingUrl(rs.getString("meeting_url"))
                     .location(rs.getString("location"))
-                    .status(rs.getString("status"))
                     .isTrial(rs.getBoolean("is_trial"))
                     .hasLog(rs.getBoolean("has_log"))
                     .build();

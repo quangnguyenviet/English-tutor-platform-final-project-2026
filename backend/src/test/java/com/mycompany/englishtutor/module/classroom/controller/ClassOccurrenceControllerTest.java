@@ -28,7 +28,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycompany.englishtutor.module.classroom.api.request.CreateExceptionRequest;
-import com.mycompany.englishtutor.module.classroom.api.request.SetSessionStatusRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionLogRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionRequest;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassScheduleResponse;
@@ -36,7 +35,6 @@ import com.mycompany.englishtutor.module.classroom.api.response.SessionDetailRes
 import com.mycompany.englishtutor.module.classroom.api.response.SessionExceptionResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionListItem;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionLogResponse;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionStatusResponse;
 import com.mycompany.englishtutor.module.classroom.service.ClassOccurrenceService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -72,7 +70,6 @@ class ClassOccurrenceControllerTest {
                 .startTime(LocalTime.of(19, 30))
                 .endTime(LocalTime.of(21, 0))
                 .teachingMode("ONLINE")
-                .status("SCHEDULED")
                 .isTrial(Boolean.FALSE)
                 .hasLog(Boolean.FALSE)
                 .build();
@@ -87,7 +84,6 @@ class ClassOccurrenceControllerTest {
                 .studentName("Nguyễn Văn A")
                 .tutorName("Trần Văn B")
                 .sessionDate(LocalDate.of(2026, 11, 10))
-                .status("SCHEDULED")
                 .isTrial(Boolean.FALSE)
                 .hasLog(Boolean.FALSE)
                 .build();
@@ -146,11 +142,10 @@ class ClassOccurrenceControllerTest {
 
     @Test
     void getClassSessions_asTutor_shouldReturn200() throws Exception {
-        when(classOccurrenceService.listSessions(eq(1L), eq("SCHEDULED"), eq("asc")))
+        when(classOccurrenceService.listSessions(eq(1L), eq("asc")))
                 .thenReturn(List.of(listItem()));
 
         mockMvc.perform(get("/api/v1/classes/1/sessions")
-                        .param("status", "SCHEDULED")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result[0].sessionNumber").value(3));
@@ -251,31 +246,6 @@ class ClassOccurrenceControllerTest {
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.sessionId").value(12));
-    }
-
-    @Test
-    void setSessionStatus_asTutor_shouldReturn200() throws Exception {
-        when(classOccurrenceService.changeStatus(eq(12L), any(), any()))
-                .thenReturn(SessionStatusResponse.builder().sessionId(12L).status("CANCELLED").build());
-        SetSessionStatusRequest body = SetSessionStatusRequest.builder().status("CANCELLED").build();
-
-        mockMvc.perform(post("/api/v1/sessions/12/status")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body))
-                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.result.status").value("CANCELLED"));
-    }
-
-    @Test
-    void setSessionStatus_asStudent_shouldReturn403() throws Exception {
-        SetSessionStatusRequest body = SetSessionStatusRequest.builder().status("IN_PROGRESS").build();
-
-        mockMvc.perform(post("/api/v1/sessions/12/status")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body))
-                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
-                .andExpect(status().isForbidden());
     }
 
     @Test

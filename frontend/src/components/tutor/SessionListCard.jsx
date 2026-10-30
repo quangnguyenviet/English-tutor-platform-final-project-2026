@@ -5,28 +5,18 @@ import Badge from "../ui/Badge";
 import clsx from "clsx";
 import { useAuth } from "../../context/AuthContext";
 import {
-  SESSION_STATUS_META,
   apiGetClassSessions,
   mapSessionListItem,
   relativeDayLabel,
 } from "../../lib/classroomApi";
 
-const STATUS_OPTIONS = [
-  { value: "", label: "Tất cả trạng thái" },
-  ...Object.entries(SESSION_STATUS_META).map(([value, meta]) => ({
-    value,
-    label: meta.label,
-  })),
-];
-
 /**
  * Danh sách buổi học thật của lớp (kế hoạch class-sessions Card 2) — API thật.
- * Số thứ tự = sessionNumber (ROW_NUMBER) của backend nên không nhảy khi lọc.
+ * Số thứ tự = sessionNumber (ROW_NUMBER) của backend nên không nhảy.
+ * (Mục -1: bỏ lọc + nhãn trạng thái buổi học.)
  */
 export default function SessionListCard({
   classId,
-  statusFilter,
-  onStatusFilterChange,
   onSelectSession,
   selectedSessionId,
   refreshKey = 0,
@@ -44,7 +34,7 @@ export default function SessionListCard({
     }
     setLoading(true);
     setError("");
-    apiGetClassSessions(token, classId, { status: statusFilter, order: "asc" })
+    apiGetClassSessions(token, classId, { order: "asc" })
       .then((items) => {
         if (isMounted) setSessions((items || []).map(mapSessionListItem));
       })
@@ -59,7 +49,7 @@ export default function SessionListCard({
     return () => {
       isMounted = false;
     };
-  }, [token, classId, statusFilter, refreshKey]);
+  }, [token, classId, refreshKey]);
 
   return (
     <Card className="border-slate-200/80 dark:border-slate-800">
@@ -70,18 +60,6 @@ export default function SessionListCard({
             Danh sách buổi học
           </h2>
         </div>
-        <select
-          value={statusFilter}
-          onChange={(event) => onStatusFilterChange?.(event.target.value)}
-          className="cursor-pointer rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-          aria-label="Lọc theo trạng thái"
-        >
-          {STATUS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
       </div>
 
       {loading ? (
@@ -101,7 +79,7 @@ export default function SessionListCard({
       ) : sessions.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-5 text-center dark:border-slate-700 dark:bg-slate-900/40">
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Chưa có buổi học {statusFilter ? `trạng thái "${STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label}"` : ""}.
+            Chưa có buổi học nào.
           </p>
         </div>
       ) : (
@@ -154,7 +132,6 @@ export default function SessionListCard({
                       {session.dateLabel} · {session.timeLabel} · {session.modeLabel}
                     </p>
                   </div>
-                  <Badge tone={session.statusTone}>{session.statusLabel}</Badge>
                 </button>
               </li>
             );

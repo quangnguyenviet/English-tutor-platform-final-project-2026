@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.mycompany.englishtutor.module.audit.service.AuditLogService;
 import com.mycompany.englishtutor.module.classroom.api.request.CreateExceptionRequest;
-import com.mycompany.englishtutor.module.classroom.api.request.SetSessionStatusRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionLogRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionRequest;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassScheduleResponse;
@@ -30,7 +29,6 @@ import com.mycompany.englishtutor.module.classroom.api.response.SessionException
 import com.mycompany.englishtutor.module.classroom.api.response.SessionListItem;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionLogResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionMini;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionStatusResponse;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.ClassState;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.ConflictInfo;
@@ -56,34 +54,19 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Nghiệp vụ tab "Lịch dạy" (kế hoạch class-sessions, UC-T05/UC-T07, API_DESIGN 3.6):
  * lattice tuần (occurrences), overlay exception cho ô ảo, quản lý buổi học thật
- * (danh sách, chi tiết, sửa/dời, đổi trạng thái, nhật ký).
+ * (danh sách, chi tiết, sửa/dời, nhật ký).
  *
  * <p>Hai nguồn dữ liệu rạch ròi (mục 0): ô ảo tác động bằng
  * {@code session_exceptions}; ô có session thật quản lý bằng {@code sessions}.
  * Notification học sinh (bản tạm INSERT thẳng, T8-A1 thay bằng NotificationService)
- * chỉ cho 3 sự kiện trên session thật: hủy, dời, lưu nhật ký lần đầu —
- * exception không bao giờ gửi thông báo.
+ * chỉ cho 2 sự kiện trên session thật: dời, lưu nhật ký lần đầu —
+ * exception không bao giờ gửi thông báo. (Mục -1: bỏ trạng thái buổi học / điểm danh.)
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ClassOccurrenceService {
-
-    private static final Set<String> SESSION_STATUSES =
-            Set.of("SCHEDULED", "IN_PROGRESS", "COMPLETED", "ABSENT", "CANCELLED");
-
-    /**
-     * State machine đổi trạng thái buổi (mục 4.7). Key = "FROM->TO";
-     * không có trong tập = không hợp lệ (kể cả same-state và về SCHEDULED).
-     */
-    private static final Set<String> VALID_TRANSITIONS = Set.of(
-            "SCHEDULED->IN_PROGRESS",
-            "SCHEDULED->ABSENT",
-            "SCHEDULED->CANCELLED",
-            "IN_PROGRESS->COMPLETED",
-            "IN_PROGRESS->ABSENT",
-            "IN_PROGRESS->CANCELLED");
 
     /** Exception type hợp lệ (CHK bảng V13). */
     private static final Set<String> EXCEPTION_TYPES = Set.of("CANCELLED", "RESCHEDULED", "MODIFIED");
@@ -150,7 +133,6 @@ public class ClassOccurrenceService {
                     builder.source("SESSION")
                             .session(SessionMini.builder()
                                     .sessionId(session.sessionId())
-                                    .status(session.status())
                                     .title(session.title())
                                     .hasLog(session.hasLog())
                                     .build());
@@ -179,10 +161,10 @@ public class ClassOccurrenceService {
 
     /** Danh sách buổi học thật của lớp (mục 4.4) — số thứ tự ROW_NUMBER toàn bộ buổi. */
     @Transactional(readOnly = true)
-    public List<SessionListItem> listSessions(Long classId, String status, String order) {
+    public List<SessionListItem> listSessions(Long classId, String order) {
         requireReadAccess(classId);
         boolean descending = order != null && "desc".equalsIgnoreCase(order.trim());
-        return classroomRepository.findSessionList(classId, normalizeSessionStatus(status), descending);
+        return classroomRepository.findSessionList(classId, descending);
     }
 
     /**
@@ -330,17 +312,16 @@ public class ClassOccurrenceService {
     // ========================================================= SESSION THẬT (TUTOR)
 
     /**
-     * Sửa / dời buổi (mục 4.6): chỉ SCHEDULED (1144), date >= hôm nay (1146),
-     * start &lt; end (1147), trùng slot cùng lớp (1148), trùng ca khác lớp (1126).
-     * Đổi ngày/giờ → notification học sinh (sự kiện 2/3).
+     * Sửa / dời buổi (mục 4.6): date &gt;= hôm nay (1146), start &lt; end (1147),
+     * trùng slot cùng lớp (1148), trùng ca khác lớp (1126).
+     * Đổi ngày/giờ → notification học sinh.
+     * (Mục -1: bỏ guard SCHEDULED / 1144 — buổi thật luôn ở trạng thái SCHEDULED
+     * vì không còn endpoint đổi trạng thái.)
      */
     @Transactional
     public SessionDetailResponse updateSession(
             Long sessionId, UpdateSessionRequest request, HttpServletRequest httpRequest) {
         LockedSessionRow session = requireOwnedSessionForWrite(sessionId);
-        if (!"SCHEDULED".equals(session.status())) {
-            throw new AppException(ErrorCode.SESSION_NOT_EDITABLE);
-        }
 
         String mode = ClassroomQueryRepository.normalizeMode(request.getTeachingMode());
         String meetingUrl = ClassroomQueryRepository.trimToNull(request.getMeetingUrl());
@@ -425,38 +406,8 @@ public class ClassOccurrenceService {
     }
 
     /**
-     * Đổi trạng thái buổi (mục 4.7) theo state machine; đích = CANCELLED thì
-     * notification học sinh (sự kiện 1/3).
-     */
-    @Transactional
-    public SessionStatusResponse changeStatus(
-            Long sessionId, SetSessionStatusRequest request, HttpServletRequest httpRequest) {
-        LockedSessionRow session = requireOwnedSessionForWrite(sessionId);
-        String to = request.getStatus().trim().toUpperCase(Locale.ROOT);
-        if (!SESSION_STATUSES.contains(to)
-                || "SCHEDULED".equals(to)
-                || !VALID_TRANSITIONS.contains(session.status() + "->" + to)) {
-            throw new AppException(ErrorCode.SESSION_INVALID_TRANSITION);
-        }
-
-        classroomRepository.updateSessionStatus(sessionId, to);
-        auditLogService.log(
-                getCurrentUserId(),
-                "SESSION_STATUS_CHANGED",
-                "SESSION",
-                sessionId,
-                Map.of("from", session.status(), "to", to),
-                httpRequest);
-
-        if ("CANCELLED".equals(to)) {
-            notifySessionCancelled(session);
-        }
-        return SessionStatusResponse.builder().sessionId(sessionId).status(to).build();
-    }
-
-    /**
      * Lưu nhật ký buổi (mục 4.8): ít nhất 1 nội dung (1149); lần đầu (cả 2 log
-     * đang NULL) mới notification học sinh (sự kiện 3/3) — xóa trắng rồi lưu lại
+     * đang NULL) mới notification học sinh — xóa trắng rồi lưu lại
      * được chấp nhận báo thêm (mục 1 dòng 7).
      */
     @Transactional
@@ -631,17 +582,6 @@ public class ClassOccurrenceService {
         }
     }
 
-    private static String normalizeSessionStatus(String status) {
-        if (status == null || status.isBlank()) {
-            return null;
-        }
-        String upper = status.trim().toUpperCase(Locale.ROOT);
-        if (!SESSION_STATUSES.contains(upper)) {
-            throw new AppException(ErrorCode.INVALID_CLASS_STATUS);
-        }
-        return upper;
-    }
-
     private static SessionDetailResponse toDetailResponse(SessionDetailRow row) {
         boolean hasLog = row.logKnowledge() != null || row.logHomework() != null;
         return SessionDetailResponse.builder()
@@ -658,7 +598,6 @@ public class ClassOccurrenceService {
                 .teachingMode(row.teachingMode())
                 .meetingUrl(row.meetingUrl())
                 .location(row.location())
-                .status(row.status())
                 .isTrial(row.isTrial())
                 .logKnowledge(row.logKnowledge())
                 .logHomework(row.logHomework())
@@ -687,20 +626,7 @@ public class ClassOccurrenceService {
 
     // ------------------------------------------------- NOTIFICATION (bản tạm, T8-A1 thay)
 
-    /** Sự kiện 1/3: hủy buổi học thật → báo học sinh. */
-    private void notifySessionCancelled(LockedSessionRow session) {
-        jdbcTemplate.update(
-                """
-                INSERT INTO notifications (user_id, title, content, link_entity_type, link_entity_id)
-                VALUES (?, ?, ?, 'CLASS', ?)
-                """,
-                session.studentId(),
-                "Buổi học đã bị hủy",
-                "Buổi học ngày " + session.sessionDate().format(DATE_FMT) + " đã bị hủy",
-                session.classId());
-    }
-
-    /** Sự kiện 2/3: dời buổi học thật (đổi ngày/giờ) → báo học sinh. */
+    /** Dời buổi học thật (đổi ngày/giờ) → báo học sinh. */
     private void notifySessionRescheduled(
             LockedSessionRow session, LocalDate newDate, LocalTime newStart, LocalTime newEnd) {
         jdbcTemplate.update(

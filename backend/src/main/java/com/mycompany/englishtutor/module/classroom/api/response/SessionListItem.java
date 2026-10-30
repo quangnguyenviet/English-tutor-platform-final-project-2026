@@ -50,9 +50,6 @@ public class SessionListItem {
     @Schema(description = "Địa chỉ (AT_HOME)")
     String location;
 
-    @Schema(description = "SCHEDULED | IN_PROGRESS | COMPLETED | ABSENT | CANCELLED")
-    String status;
-
     @Schema(description = "Buổi dạy thử (hiển thị nhãn riêng, ẩn nút hành động)")
     Boolean isTrial;
 

@@ -19,12 +19,9 @@ public class SessionMini {
     @Schema(example = "8")
     Long sessionId;
 
-    @Schema(description = "SCHEDULED | IN_PROGRESS | COMPLETED | ABSENT | CANCELLED")
-    String status;
-
-    @Schema(example = "Buổi học chính thức")
-    String title;
-
     @Schema(description = "Đã có nhật ký (1 trong 2 nội dung không null)")
     Boolean hasLog;
+
+    @Schema(description = "Tiêu đề buổi học")
+    String title;
 }

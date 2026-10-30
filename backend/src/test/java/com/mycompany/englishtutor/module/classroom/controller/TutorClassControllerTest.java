@@ -236,7 +236,6 @@ class TutorClassControllerTest {
                         .sessionDate(date)
                         .startTime(LocalTime.of(19, 30))
                         .endTime(LocalTime.of(21, 0))
-                        .status("SCHEDULED")
                         .isTrial(Boolean.FALSE)
                         .createdNow(Boolean.TRUE)
                         .build());

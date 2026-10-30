@@ -37,7 +37,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.mycompany.englishtutor.module.audit.service.AuditLogService;
 import com.mycompany.englishtutor.module.classroom.api.request.CreateExceptionRequest;
-import com.mycompany.englishtutor.module.classroom.api.request.SetSessionStatusRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionLogRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionRequest;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassScheduleResponse;
@@ -45,7 +44,6 @@ import com.mycompany.englishtutor.module.classroom.api.response.OccurrenceRespon
 import com.mycompany.englishtutor.module.classroom.api.response.SessionDetailResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionExceptionResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionLogResponse;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionStatusResponse;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.ClassState;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.ConflictInfo;
@@ -129,9 +127,9 @@ class ClassOccurrenceServiceTest {
         when(classroomRepository.findClassState(CLASS_ID)).thenReturn(Optional.of(ACTIVE_STATE));
     }
 
-    private OccurrenceSessionRow sessionRow(Long id, String status) {
+    private OccurrenceSessionRow sessionRow(Long id) {
         return new OccurrenceSessionRow(
-                id, FRI, SLOT_START, SLOT_END, "Buổi học chính thức", status,
+                id, FRI, SLOT_START, SLOT_END, "Buổi học chính thức",
                 "ONLINE", "https://meet.google.com/abc", null, false);
     }
 
@@ -143,18 +141,18 @@ class ClassOccurrenceServiceTest {
                 null, null, null, "giáo viên bận", TUTOR_ID, OffsetDateTime.now());
     }
 
-    private LockedSessionRow lockedRow(String status) {
+    private LockedSessionRow lockedRow() {
         return new LockedSessionRow(
                 42L, CLASS_ID, TUTOR_ID, STUDENT_ID, "IELTS 1 kèm 1", "Lê Hoàng Nam",
                 "Buổi học chính thức", FRI, SLOT_START, SLOT_END,
-                "ONLINE", "https://meet.google.com/abc", null, status, null, null);
+                "ONLINE", "https://meet.google.com/abc", null, null, null);
     }
 
     private SessionDetailRow detailRow(Long sessionId) {
         return new SessionDetailRow(
                 sessionId, 3, CLASS_ID, "IELTS 1 kèm 1", "Lê Hoàng Nam", "Trần Gia Sư",
                 "Buổi học chính thức", FRI, SLOT_START, SLOT_END, false,
-                "ONLINE", "https://meet.google.com/abc", null, "SCHEDULED", null, null);
+                "ONLINE", "https://meet.google.com/abc", null, null, null);
     }
 
     private static void assertErrorCode(Runnable action, ErrorCode expected) {
@@ -169,7 +167,7 @@ class ClassOccurrenceServiceTest {
         mockOwnedClass();
         when(classroomRepository.findScheduleSlotsWithIds(CLASS_ID)).thenReturn(List.of(SCHEDULE_ROW));
         when(classroomRepository.findWeekSessions(CLASS_ID, WEEK_START))
-                .thenReturn(List.of(sessionRow(8L, "SCHEDULED")));
+                .thenReturn(List.of(sessionRow(8L)));
         when(classroomRepository.findWeekExceptions(CLASS_ID, WEEK_START)).thenReturn(List.of());
 
         ClassScheduleResponse result = classOccurrenceService.listOccurrences(CLASS_ID, WEEK_START);
@@ -189,7 +187,7 @@ class ClassOccurrenceServiceTest {
         mockOwnedClass();
         when(classroomRepository.findScheduleSlotsWithIds(CLASS_ID)).thenReturn(List.of(SCHEDULE_ROW));
         when(classroomRepository.findWeekSessions(CLASS_ID, WEEK_START))
-                .thenReturn(List.of(sessionRow(8L, "SCHEDULED")));
+                .thenReturn(List.of(sessionRow(8L)));
         when(classroomRepository.findWeekExceptions(CLASS_ID, WEEK_START))
                 .thenReturn(List.of(exceptionRow("CANCELLED", null)));
 
@@ -321,7 +319,7 @@ class ClassOccurrenceServiceTest {
         mockOwnedClass();
         when(classroomRepository.findScheduleSlot(CLASS_ID, 3L)).thenReturn(Optional.of(SCHEDULE_ROW));
         when(classroomRepository.findOccurrenceSession(CLASS_ID, FRI, SLOT_START))
-                .thenReturn(Optional.of(sessionRow(8L, "SCHEDULED")));
+                .thenReturn(Optional.of(sessionRow(8L)));
 
         assertErrorCode(
                 () -> classOccurrenceService.createException(CLASS_ID, rescheduledRequest(SAT), httpRequest),
@@ -515,22 +513,13 @@ class ClassOccurrenceServiceTest {
     // ------------------------------------------------------------- SESSION LIST
 
     @Test
-    void listSessions_passesFiltersAndOrder() {
+    void listSessions_passesOrder() {
         mockOwnedClass();
-        when(classroomRepository.findSessionList(CLASS_ID, "SCHEDULED", false)).thenReturn(List.of());
+        when(classroomRepository.findSessionList(CLASS_ID, false)).thenReturn(List.of());
 
-        classOccurrenceService.listSessions(CLASS_ID, "scheduled", "asc");
+        classOccurrenceService.listSessions(CLASS_ID, "asc");
 
-        verify(classroomRepository).findSessionList(CLASS_ID, "SCHEDULED", false);
-    }
-
-    @Test
-    void listSessions_invalidStatus_shouldThrow400() {
-        mockOwnedClass();
-
-        assertErrorCode(
-                () -> classOccurrenceService.listSessions(CLASS_ID, "PAUSED", null),
-                ErrorCode.INVALID_CLASS_STATUS);
+        verify(classroomRepository).findSessionList(CLASS_ID, false);
     }
 
     // ------------------------------------------------------------------ DETAIL
@@ -553,7 +542,7 @@ class ClassOccurrenceServiceTest {
         SessionDetailRow withLog = new SessionDetailRow(
                 42L, 3, CLASS_ID, "IELTS 1 kèm 1", "Lê Hoàng Nam", "Trần Gia Sư",
                 "Buổi học chính thức", FRI, SLOT_START, SLOT_END, false,
-                "ONLINE", "https://meet.google.com/abc", null, "COMPLETED",
+                "ONLINE", "https://meet.google.com/abc", null,
                 "Trọng音 phát âm", "Đọc trang 12");
         when(classroomRepository.findSessionDetail(42L)).thenReturn(Optional.of(withLog));
         mockOwnedClass();
@@ -585,7 +574,7 @@ class ClassOccurrenceServiceTest {
 
     @Test
     void updateSession_success_movedShouldNotify() {
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("SCHEDULED")));
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow()));
         when(classroomRepository.countDuplicateSlotInClass(CLASS_ID, SAT, LocalTime.of(20, 0), 42L))
                 .thenReturn(0);
         when(conflictChecker.findConflicts(
@@ -596,7 +585,7 @@ class ClassOccurrenceServiceTest {
         SessionDetailResponse result =
                 classOccurrenceService.updateSession(42L, moveRequest(SAT), httpRequest);
 
-        assertEquals("SCHEDULED", result.getStatus());
+        assertEquals(42L, result.getSessionId());
         verify(jdbcTemplate)
                 .update(
                         eq("""
@@ -609,7 +598,7 @@ class ClassOccurrenceServiceTest {
 
     @Test
     void updateSession_duplicateSlotInClass_shouldThrow1148() {
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("SCHEDULED")));
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow()));
         when(classroomRepository.countDuplicateSlotInClass(CLASS_ID, SAT, LocalTime.of(20, 0), 42L))
                 .thenReturn(1);
 
@@ -620,7 +609,7 @@ class ClassOccurrenceServiceTest {
 
     @Test
     void updateSession_conflictOtherClass_shouldThrow1126() {
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("SCHEDULED")));
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow()));
         when(classroomRepository.countDuplicateSlotInClass(CLASS_ID, SAT, LocalTime.of(20, 0), 42L))
                 .thenReturn(0);
         when(conflictChecker.findConflicts(
@@ -638,7 +627,7 @@ class ClassOccurrenceServiceTest {
 
     @Test
     void updateSession_pastDate_shouldThrow1146() {
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("SCHEDULED")));
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow()));
 
         assertErrorCode(
                 () -> classOccurrenceService.updateSession(
@@ -648,22 +637,13 @@ class ClassOccurrenceServiceTest {
 
     @Test
     void updateSession_invalidTime_shouldThrow1147() {
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("SCHEDULED")));
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow()));
         UpdateSessionRequest request = moveRequest(SAT);
         request.setEndTime(LocalTime.of(19, 0));
 
         assertErrorCode(
                 () -> classOccurrenceService.updateSession(42L, request, httpRequest),
                 ErrorCode.SESSION_INVALID_TIME);
-    }
-
-    @Test
-    void updateSession_notScheduled_shouldThrow1144() {
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("IN_PROGRESS")));
-
-        assertErrorCode(
-                () -> classOccurrenceService.updateSession(42L, moveRequest(SAT), httpRequest),
-                ErrorCode.SESSION_NOT_EDITABLE);
     }
 
     @Test
@@ -679,7 +659,7 @@ class ClassOccurrenceServiceTest {
     void updateSession_tutorNotOwner_shouldThrow403() {
         LockedSessionRow other = new LockedSessionRow(
                 42L, 2L, 99L, 30L, "Lớp khác", "HS khác", "t", FRI,
-                SLOT_START, SLOT_END, "ONLINE", "u", null, "SCHEDULED", null, null);
+                SLOT_START, SLOT_END, "ONLINE", "u", null, null, null);
         when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(other));
 
         assertErrorCode(
@@ -687,100 +667,11 @@ class ClassOccurrenceServiceTest {
                 ErrorCode.SESSION_NOT_OWNED);
     }
 
-    // ----------------------------------------------------------------- STATUS
-
-    @Test
-    void changeStatus_validTransitions_shouldUpdateAndAudit() {
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("SCHEDULED")));
-        SessionStatusResponse result =
-                classOccurrenceService.changeStatus(
-                        42L, SetSessionStatusRequest.builder().status("IN_PROGRESS").build(), httpRequest);
-        assertEquals("IN_PROGRESS", result.getStatus());
-
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("IN_PROGRESS")));
-        classOccurrenceService.changeStatus(
-                42L, SetSessionStatusRequest.builder().status("COMPLETED").build(), httpRequest);
-
-        verify(classroomRepository).updateSessionStatus(42L, "IN_PROGRESS");
-        verify(classroomRepository).updateSessionStatus(42L, "COMPLETED");
-        verify(auditLogService, org.mockito.Mockito.times(2))
-                .log(eq(TUTOR_ID), eq("SESSION_STATUS_CHANGED"), eq("SESSION"),
-                        eq(42L), any(), eq(httpRequest));
-    }
-
-    @Test
-    void changeStatus_cancelledDestination_shouldNotify() {
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("SCHEDULED")));
-
-        classOccurrenceService.changeStatus(
-                42L, SetSessionStatusRequest.builder().status("CANCELLED").build(), httpRequest);
-
-        verify(jdbcTemplate)
-                .update(
-                        eq("""
-                                INSERT INTO notifications (user_id, title, content, link_entity_type, link_entity_id)
-                                VALUES (?, ?, ?, 'CLASS', ?)
-                                """),
-                        eq(STUDENT_ID), eq("Buổi học đã bị hủy"), any(String.class), eq(CLASS_ID));
-    }
-
-    @Test
-    void changeStatus_cancelledDestination_notifiedOnlyForCancelled() {
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("IN_PROGRESS")));
-
-        classOccurrenceService.changeStatus(
-                42L, SetSessionStatusRequest.builder().status("COMPLETED").build(), httpRequest);
-
-        verify(jdbcTemplate, never())
-                .update(
-                        eq("""
-                                INSERT INTO notifications (user_id, title, content, link_entity_type, link_entity_id)
-                                VALUES (?, ?, ?, 'CLASS', ?)
-                                """),
-                        any(), any(), any(), any());
-    }
-
-    @Test
-    void changeStatus_terminalState_shouldThrow1145() {
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("COMPLETED")));
-
-        assertErrorCode(
-                () -> classOccurrenceService.changeStatus(
-                        42L,
-                        SetSessionStatusRequest.builder().status("IN_PROGRESS").build(),
-                        httpRequest),
-                ErrorCode.SESSION_INVALID_TRANSITION);
-    }
-
-    @Test
-    void changeStatus_backToScheduled_shouldThrow1145() {
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("CANCELLED")));
-
-        assertErrorCode(
-                () -> classOccurrenceService.changeStatus(
-                        42L,
-                        SetSessionStatusRequest.builder().status("SCHEDULED").build(),
-                        httpRequest),
-                ErrorCode.SESSION_INVALID_TRANSITION);
-    }
-
-    @Test
-    void changeStatus_scheduledToCompleted_shouldThrow1145() {
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("SCHEDULED")));
-
-        assertErrorCode(
-                () -> classOccurrenceService.changeStatus(
-                        42L,
-                        SetSessionStatusRequest.builder().status("COMPLETED").build(),
-                        httpRequest),
-                ErrorCode.SESSION_INVALID_TRANSITION);
-    }
-
     // -------------------------------------------------------------------- LOG
 
     @Test
     void saveLog_firstPublish_shouldNotifyOnce() {
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("COMPLETED")));
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow()));
         when(classroomRepository.findSessionDetail(42L)).thenReturn(Optional.of(detailRow(42L)));
 
         SessionLogResponse result =
@@ -807,7 +698,7 @@ class ClassOccurrenceServiceTest {
         LockedSessionRow withLog = new LockedSessionRow(
                 42L, CLASS_ID, TUTOR_ID, STUDENT_ID, "IELTS 1 kèm 1", "Lê Hoàng Nam",
                 "Buổi học chính thức", FRI, SLOT_START, SLOT_END, "ONLINE",
-                "https://meet.google.com/abc", null, "COMPLETED", "log cũ", "bt cũ");
+                "https://meet.google.com/abc", null, "log cũ", "bt cũ");
         when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(withLog));
 
         SessionLogResponse result =
@@ -827,7 +718,7 @@ class ClassOccurrenceServiceTest {
         LockedSessionRow cleared = new LockedSessionRow(
                 42L, CLASS_ID, TUTOR_ID, STUDENT_ID, "IELTS 1 kèm 1", "Lê Hoàng Nam",
                 "Buổi học chính thức", FRI, SLOT_START, SLOT_END, "ONLINE",
-                "https://meet.google.com/abc", null, "COMPLETED", null, null);
+                "https://meet.google.com/abc", null, null, null);
         when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(cleared));
 
         SessionLogResponse result =
@@ -841,7 +732,7 @@ class ClassOccurrenceServiceTest {
 
     @Test
     void saveLog_bothEmpty_shouldThrow1149() {
-        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow("COMPLETED")));
+        when(classroomRepository.lockSession(42L)).thenReturn(Optional.of(lockedRow()));
 
         assertErrorCode(
                 () -> classOccurrenceService.saveLog(

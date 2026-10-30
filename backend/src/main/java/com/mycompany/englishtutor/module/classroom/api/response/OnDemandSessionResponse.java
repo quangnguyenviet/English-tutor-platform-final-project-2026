@@ -31,9 +31,6 @@ public class OnDemandSessionResponse {
     @Schema(example = "21:00")
     LocalTime endTime;
 
-    @Schema(description = "Trạng thái buổi học (mới tạo luôn là SCHEDULED)")
-    String status;
-
     @Schema(description = "Luôn false với buổi chính thức")
     Boolean isTrial;
 
