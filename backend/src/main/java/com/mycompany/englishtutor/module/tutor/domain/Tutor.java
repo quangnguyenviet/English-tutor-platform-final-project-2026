@@ -66,7 +66,19 @@ public class Tutor {
     @Column(name = "submitted_at")
     java.time.OffsetDateTime submittedAt;
 
+    /**
+     * Cờ "Đang mở nhận lớp" (V10): gia sư tự bật/tắt. Tắt thì không thấy lớp đang tuyển và không
+     * ứng tuyển được, lớp đang dạy không bị ảnh hưởng. Tách biệt với {@code profileStatus}.
+     */
+    @Builder.Default
+    @Column(name = "is_open_to_teaching", nullable = false)
+    Boolean openToTeaching = Boolean.TRUE;
+
     @Column(name = "updated_at", nullable = false, insertable = false)
     @ColumnDefault("NOW()")
     java.time.OffsetDateTime updatedAt;
+
+    public boolean isOpenToTeaching() {
+        return !Boolean.FALSE.equals(openToTeaching);
+    }
 }

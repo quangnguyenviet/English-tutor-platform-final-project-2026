@@ -3,6 +3,7 @@ package com.mycompany.englishtutor.module.matching.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -190,6 +191,85 @@ class TutorClassRequestServiceTest {
         verify(applicationRepository, never()).notifyReceptionists(anyLong(), any());
     }
 
+    @Test
+    void apply_tutorClosedToTeaching_throwsAndDoesNotLockRequest() {
+        when(tutorRepository.findById(TUTOR_ID))
+                .thenReturn(Optional.of(Tutor.builder()
+                        .profileStatus(ProfileStatus.ACTIVE.name())
+                        .openToTeaching(false)
+                        .build()));
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.apply(REQUEST_ID, new ApplyClassRequest("Lời nhắn hợp lệ")));
+
+        assertEquals(ErrorCode.TUTOR_NOT_OPEN_TO_TEACHING, ex.getErrorCode());
+        verify(applicationRepository, never()).lockRequestStatus(anyLong());
+    }
+
+    @Test
+    void apply_rematchRequest_newTutor_insertsApplication() {
+        givenActiveTutor();
+        when(applicationRepository.lockRequestStatus(REQUEST_ID)).thenReturn(List.of("REMATCH"));
+        when(applicationRepository.insert(REQUEST_ID, TUTOR_ID, "Em nhận lớp")).thenReturn(11L);
+
+        TutorApplicationResponse response = service.apply(REQUEST_ID, new ApplyClassRequest("Em nhận lớp"));
+
+        assertEquals(11L, response.getApplicationId());
+        verify(applicationRepository).notifyReceptionists(REQUEST_ID, "Phạm Ngọc Gia Sư");
+    }
+
+    @Test
+    void apply_terminatedTutor_throwsApplicationTerminated() {
+        givenActiveTutor();
+        when(applicationRepository.lockRequestStatus(REQUEST_ID)).thenReturn(List.of("REMATCH"));
+        when(applicationRepository.findByRequestAndTutor(REQUEST_ID, TUTOR_ID))
+                .thenReturn(Optional.of(new ClassApplicationRepository.ExistingApplication(APPLICATION_ID, "TERMINATED")));
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.apply(REQUEST_ID, new ApplyClassRequest("Cho em thử lại")));
+
+        assertEquals(ErrorCode.APPLICATION_TERMINATED, ex.getErrorCode());
+        verify(applicationRepository, never()).insert(anyLong(), anyLong(), any());
+    }
+
+    @Test
+    void apply_rematchRequest_previouslyRejected_throwsApplicationRejected() {
+        givenActiveTutor();
+        when(applicationRepository.lockRequestStatus(REQUEST_ID)).thenReturn(List.of("REMATCH"));
+        when(applicationRepository.findByRequestAndTutor(REQUEST_ID, TUTOR_ID))
+                .thenReturn(Optional.of(new ClassApplicationRepository.ExistingApplication(APPLICATION_ID, "REJECTED")));
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.apply(REQUEST_ID, new ApplyClassRequest("Em vẫn muốn nhận lớp")));
+
+        assertEquals(ErrorCode.APPLICATION_REJECTED, ex.getErrorCode());
+        verify(applicationRepository, never()).insert(anyLong(), anyLong(), any());
+    }
+
+    @Test
+    void apply_existingApplied_throwsAlreadyApplied() {
+        givenActiveTutor();
+        when(applicationRepository.lockRequestStatus(REQUEST_ID)).thenReturn(List.of("OPEN"));
+        when(applicationRepository.findByRequestAndTutor(REQUEST_ID, TUTOR_ID))
+                .thenReturn(Optional.of(new ClassApplicationRepository.ExistingApplication(APPLICATION_ID, "APPLIED")));
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.apply(REQUEST_ID, new ApplyClassRequest("Lời nhắn hợp lệ")));
+
+        assertEquals(ErrorCode.CLASS_ALREADY_APPLIED, ex.getErrorCode());
+    }
+
+    @Test
+    void getOpenRequests_tutorClosedToTeaching_returnsEmptyWithoutQuery() {
+        when(tutorRepository.findById(TUTOR_ID))
+                .thenReturn(Optional.of(Tutor.builder().openToTeaching(false).build()));
+
+        PageResponse<TutorOpenClassRequestResponse> page = service.getOpenRequests(null, null, null, null, 0, 20);
+
+        assertEquals(0, page.getTotalItems());
+        verify(queryRepository, never()).findOpenRequests(anyLong(), any(), anyInt(), anyInt());
+    }
+
     // --------------------------------------------------------------- withdraw
 
     @Test
@@ -243,6 +323,15 @@ class TutorClassRequestServiceTest {
                 () -> service.withdrawApplication(APPLICATION_ID));
 
         assertEquals(ErrorCode.APPLICATION_NOT_WITHDRAWABLE, ex.getErrorCode());
+    }
+
+    @Test
+    void withdraw_rematchRequest_deletesRow() {
+        givenWithdrawState("APPLIED", "REMATCH", false);
+
+        service.withdrawApplication(APPLICATION_ID);
+
+        verify(applicationRepository).delete(APPLICATION_ID);
     }
 
     @Test

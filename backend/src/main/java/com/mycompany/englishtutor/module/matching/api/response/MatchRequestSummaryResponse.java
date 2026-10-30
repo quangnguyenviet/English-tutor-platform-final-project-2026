@@ -71,4 +71,10 @@ public class MatchRequestSummaryResponse {
 
     @Schema(description = "Trạng thái lớp học sau khi duyệt đơn (TRIAL, ACTIVE, COMPLETED, CANCELLED)")
     String classStatus;
+
+    @Schema(description = "ID gia sư của lớp gần nhất — với đơn REMATCH là gia sư đã bị loại sau dạy thử")
+    Long lastTutorId;
+
+    @Schema(description = "Tên gia sư của lớp gần nhất (gia sư đã bị loại khi đơn REMATCH)")
+    String lastTutorName;
 }

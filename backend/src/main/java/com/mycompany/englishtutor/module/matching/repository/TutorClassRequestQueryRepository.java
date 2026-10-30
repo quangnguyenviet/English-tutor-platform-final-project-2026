@@ -26,6 +26,8 @@ import lombok.experimental.FieldDefaults;
  *
  * <p>Tách khỏi service để service chỉ còn nghiệp vụ; SQL và row mapper nằm cùng một chỗ.
  * Mọi response đều đã loại bỏ thông tin liên hệ phụ huynh, chỉ trả khu vực chung.
+ *
+ * <p>Lớp đang tuyển gồm {@code OPEN} và {@code REMATCH} (đang ghép lại sau dạy thử thất bại — ERD C-14).
  */
 @Repository
 @RequiredArgsConstructor
@@ -40,6 +42,7 @@ public class TutorClassRequestQueryRepository {
                    cr.preferred_schedule,
                    cr.tutor_requirement,
                    cr.created_at,
+                   cr.status AS request_status,
                    s.grade,
                    s.school,
                    s.learning_goal,
@@ -47,13 +50,14 @@ public class TutorClassRequestQueryRepository {
                    p.address,
                    ca.id AS application_id,
                    ca.message AS my_message,
-                   ca.applied_at AS my_applied_at
+                   ca.applied_at AS my_applied_at,
+                   ca.status AS my_status
             FROM class_requests cr
             JOIN students s ON s.id = cr.student_id
             JOIN users u ON u.id = cr.student_id
             JOIN parents p ON p.id = cr.parent_id
             LEFT JOIN class_applications ca ON ca.class_request_id = cr.id AND ca.tutor_id = ?
-            WHERE cr.status = 'OPEN'
+            WHERE cr.status IN ('OPEN', 'REMATCH')
             """;
 
     private static final String COUNT_QUERY = """
@@ -61,7 +65,7 @@ public class TutorClassRequestQueryRepository {
             FROM class_requests cr
             JOIN students s ON s.id = cr.student_id
             JOIN parents p ON p.id = cr.parent_id
-            WHERE cr.status = 'OPEN'
+            WHERE cr.status IN ('OPEN', 'REMATCH')
             """;
 
     private static final String APPLICATIONS_QUERY = """
@@ -184,6 +188,7 @@ public class TutorClassRequestQueryRepository {
         public TutorOpenClassRequestResponse mapRow(ResultSet resultSet, int rowNum) throws SQLException {
             long id = resultSet.getLong("id");
             Object applicationId = resultSet.getObject("application_id");
+            boolean applied = applicationId != null;
             return TutorOpenClassRequestResponse.builder()
                     .id(id)
                     .requestCode(requestCode(id))
@@ -198,8 +203,10 @@ public class TutorClassRequestQueryRepository {
                     .learningGoal(resultSet.getString("learning_goal"))
                     .school(resultSet.getString("school"))
                     .createdAt(resultSet.getObject("created_at", OffsetDateTime.class))
-                    .applied(applicationId != null)
-                    .applicationId(applicationId == null ? null : ((Number) applicationId).longValue())
+                    .requestStatus(resultSet.getString("request_status"))
+                    .applied(applied)
+                    .applicationStatus(resultSet.getString("my_status"))
+                    .applicationId(applied ? ((Number) applicationId).longValue() : null)
                     .myMessage(resultSet.getString("my_message"))
                     .appliedAt(resultSet.getObject("my_applied_at", OffsetDateTime.class))
                     .build();

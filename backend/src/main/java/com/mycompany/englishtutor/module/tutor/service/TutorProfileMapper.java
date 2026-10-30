@@ -91,6 +91,7 @@ public class TutorProfileMapper {
                 .bio(tutor.getBio())
                 .videoUrl(tutor.getVideoUrl())
                 .profileStatus(tutor.getProfileStatus())
+                .openToTeaching(tutor.isOpenToTeaching())
                 .rejectionReason(tutor.getRejectionReason())
                 .submittedAt(tutor.getSubmittedAt())
                 .reviewedAt(tutor.getReviewedAt())

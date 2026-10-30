@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.mycompany.englishtutor.module.matching.api.request.CancelMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.request.CompleteMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.request.CreateMatchRequest;
+import com.mycompany.englishtutor.module.matching.api.request.RematchMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.request.UpdateMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.response.MatchRequestDetailResponse;
 import com.mycompany.englishtutor.module.matching.api.response.MatchRequestSummaryResponse;
@@ -110,6 +111,16 @@ public class StaffMatchRequestController {
         return ResponseEntity.ok(ApiResponse.<MatchRequestDetailResponse>builder()
                 .message("Đã duyệt đơn ghép lớp thành công, lớp học chuyển sang chính thức")
                 .result(matchRequestService.completeMatchRequest(id, body, httpRequest))
+                .build());
+    }
+
+    @PostMapping("/{id}/rematch")
+    @Operation(summary = "Ghép lại khi dạy thử không thành công: đơn → REMATCH, gia sư cũ TERMINATED (UC-REC-06.1 nhánh 5.2, UC-PA-05)", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<MatchRequestDetailResponse>> rematchMatchRequest(
+            @PathVariable Long id, @Valid @RequestBody RematchMatchRequest request, HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.<MatchRequestDetailResponse>builder()
+                .message("Đã chuyển đơn sang Đang ghép lại, lớp dạy thử đã được hủy")
+                .result(matchRequestService.rematchMatchRequest(id, request, httpRequest))
                 .build());
     }
 

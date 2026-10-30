@@ -201,6 +201,36 @@ export async function apiCancelMatchRequest(id, reason, token) {
 }
 
 /**
+ * Ghép lại khi dạy thử không thành công, phụ huynh muốn tìm gia sư khác
+ * (UC-REC-06.1 nhánh 5.2, UC-PA-05) — POST /api/v1/match-requests/{id}/rematch
+ *
+ * Đơn chuyển REMATCH, lớp dạy thử bị hủy, gia sư cũ bị loại (TERMINATED).
+ *
+ * @param {number|string} id
+ * @param {string} reason
+ * @param {string} token
+ * @returns {Promise<Object>}
+ */
+export async function apiRematchMatchRequest(id, reason, token) {
+  const res = await fetch(`${BASE}/api/v1/match-requests/${id}/rematch`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...bearerHeader(token),
+    },
+    body: JSON.stringify({ reason }),
+  });
+
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    throw new Error(extractErrorMessage(data, `Ghép lại đơn thất bại (${res.status})`));
+  }
+
+  return data.result ?? data;
+}
+
+/**
  * Duyệt đơn ghép lớp từ dạy thử sang ghép thành công (UC-REC-06.1, UC-ADM-05.1) — POST /api/v1/match-requests/{id}/complete-match
  *
  * Body tùy chọn (kế hoạch mục 4.1): bổ sung dữ liệu còn thiếu để tính phí nhận lớp

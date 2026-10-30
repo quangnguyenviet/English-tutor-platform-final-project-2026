@@ -54,6 +54,7 @@ public class StaffClassRequestService {
     AuditLogService auditLogService;
     PasswordEncoder passwordEncoder;
     PaymentService paymentService;
+    MatchingLifecycleSupport lifecycle;
 
     // ------------------------------------------------------------------ READ
 
@@ -195,8 +196,10 @@ public class StaffClassRequestService {
     @Transactional
     public ClassRequestDetailResponse selectTutor(Long id, SelectTutorRequest request, HttpServletRequest httpRequest) {
         Map<String, Object> row = lockRequest(id);
-        if (!"OPEN".equalsIgnoreCase((String) row.get("status"))) {
-            throw new AppException(ErrorCode.CLASS_REQUEST_NOT_OPEN);
+        // Đơn đang tuyển hoặc đang ghép lại sau dạy thử thất bại (ERD C-14: REMATCH → MATCHED).
+        String requestStatus = (String) row.get("status");
+        if (!"OPEN".equalsIgnoreCase(requestStatus) && !"REMATCH".equalsIgnoreCase(requestStatus)) {
+            throw new AppException(ErrorCode.CLASS_REQUEST_NOT_SELECTABLE);
         }
 
         List<Map<String, Object>> apps = jdbcTemplate.queryForList(
@@ -271,22 +274,14 @@ public class StaffClassRequestService {
         String reason = request.getReason().trim();
         Long currentUserId = getCurrentUserId();
 
-        // Hủy bản nháp phí NEW của các lớp TRIAL (kế hoạch mục 4.1.2, 5.1).
-        List<Long> classIds = jdbcTemplate.queryForList(
-                "SELECT id FROM classes WHERE class_request_id = ? AND status = 'TRIAL'",
-                Long.class, id);
-        for (Long classId : classIds) {
-            paymentService.cancelDraftPayment(classId);
-        }
+        // Thông báo trước khi đổi APPLIED → REJECTED để giữ được danh sách người nhận.
+        notifyApplicantsCancelled(id, reason);
+        lifecycle.closeOpenClasses(id);
+        lifecycle.rejectPendingApplications(id);
 
         jdbcTemplate.update(
                 "UPDATE class_requests SET status = 'CANCELLED', cancel_reason = ?, handled_by = ?, updated_at = NOW() WHERE id = ?",
                 reason, currentUserId, id);
-        jdbcTemplate.update(
-                "UPDATE classes SET status = 'CANCELLED', updated_at = NOW() WHERE class_request_id = ? AND status != 'CANCELLED'",
-                id);
-
-        notifyApplicantsCancelled(id, reason);
 
         auditLogService.log(currentUserId, "CANCEL_CLASS_REQUEST", "CLASS_REQUEST", id,
                 Map.of("reason", reason), httpRequest);

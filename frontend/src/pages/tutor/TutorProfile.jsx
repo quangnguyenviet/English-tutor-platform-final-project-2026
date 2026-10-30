@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../hooks/useToast";
 import {
   apiGetTutorProfile,
+  apiSetOpenToTeaching,
   apiSubmitProfileForReview,
 } from "../../lib/tutorApi";
 import { PROFILE_STATUS, getEditMode } from "../../lib/tutorProfileModel";
@@ -12,6 +13,7 @@ import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import ProfileSkeleton from "../../components/tutor/profile/ProfileSkeleton";
 import ProfileView from "../../components/tutor/profile/ProfileView";
+import OpenToTeachingToggle from "../../components/tutor/OpenToTeachingToggle";
 
 /**
  * TutorProfile — Route /tutor/profile (chỉ xem).
@@ -28,6 +30,7 @@ export default function TutorProfile() {
   const [error, setError] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [togglingOpen, setTogglingOpen] = useState(false);
 
   const loadProfile = useCallback(async function loadProfile() {
     if (!token) {
@@ -88,6 +91,21 @@ export default function TutorProfile() {
     }
   };
 
+  const handleToggleOpenToTeaching = async () => {
+    if (!token || togglingOpen) return;
+    const next = profile?.openToTeaching === false;
+    setTogglingOpen(true);
+    try {
+      const data = await apiSetOpenToTeaching(token, next);
+      setProfile((prev) => ({ ...prev, openToTeaching: data?.openToTeaching !== false }));
+      toast.success(next ? "Đã bật chế độ nhận lớp" : "Đã tạm ngưng nhận lớp mới");
+    } catch (err) {
+      toast.error(err.message || "Không thể cập nhật chế độ nhận lớp.");
+    } finally {
+      setTogglingOpen(false);
+    }
+  };
+
   // Loading
   if (loading) {
     return <ProfileSkeleton />;
@@ -122,10 +140,19 @@ export default function TutorProfile() {
   }
 
   return (
-    <ProfileView
-      profile={profile}
-      onEdit={handleEdit}
-      onSubmitForReview={handleSubmitForReview}
-    />
+    <div className="space-y-6">
+      {profile?.profileStatus === PROFILE_STATUS.ACTIVE && (
+        <OpenToTeachingToggle
+          open={profile?.openToTeaching !== false}
+          busy={togglingOpen}
+          onToggle={handleToggleOpenToTeaching}
+        />
+      )}
+      <ProfileView
+        profile={profile}
+        onEdit={handleEdit}
+        onSubmitForReview={handleSubmitForReview}
+      />
+    </div>
   );
 }

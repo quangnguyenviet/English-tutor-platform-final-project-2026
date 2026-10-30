@@ -37,7 +37,15 @@ public class TutorOpenClassRequestResponse {
     String school;
     OffsetDateTime createdAt;
 
+    /** {@code OPEN} hoặc {@code REMATCH} (đang tuyển lại sau dạy thử thất bại). */
+    String requestStatus;
+
     boolean applied;
+    /**
+     * Trạng thái lượt ứng tuyển của gia sư hiện tại. {@code REJECTED} (không được chọn) và
+     * {@code TERMINATED} (bị loại sau dạy thử) đều không ứng tuyển lại được đơn này.
+     */
+    String applicationStatus;
     Long applicationId;
     String myMessage;
     OffsetDateTime appliedAt;

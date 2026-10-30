@@ -252,6 +252,37 @@ export async function cancelProfileForReview(token) {
 }
 
 /**
+ * Bật/tắt chế độ "Đang mở nhận lớp" — PATCH /api/v1/tutors/me/open-to-teaching
+ * Tắt: không thấy lớp đang tuyển và không ứng tuyển được; lớp đang dạy giữ nguyên.
+ *
+ * @param {string} token - JWT token
+ * @param {boolean} open - true = mở nhận lớp, false = tạm ngưng
+ * @returns {Promise<Object>} Hồ sơ gia sư sau khi cập nhật (có openToTeaching)
+ */
+export async function apiSetOpenToTeaching(token, open) {
+  const res = await fetch(`${BASE}/api/v1/tutors/me/open-to-teaching`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...bearerHeader(token),
+    },
+    body: JSON.stringify({ open: Boolean(open) }),
+  });
+
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    const err = new Error(
+      extractErrorMessage(data, `Không thể cập nhật chế độ nhận lớp (${res.status})`),
+    );
+    err.status = res.status;
+    throw err;
+  }
+
+  return data.result ?? data;
+}
+
+/**
  * Gửi hồ sơ để duyệt — POST /api/v1/tutors/me/profile/submit
  * Chuyển profile_status từ INCOMPLETE -> PENDING
  *
