@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, CalendarDays, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CalendarDays, NotebookText } from "lucide-react";
 import Card from "../ui/Card";
 import Badge from "../ui/Badge";
 import clsx from "clsx";
@@ -57,7 +57,7 @@ export default function SessionListCard({
         <div className="flex items-center gap-2">
           <CalendarDays size={16} className="text-blue-600 dark:text-blue-400" />
           <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-            Danh sách buổi học
+            Buổi học sắp tới
           </h2>
         </div>
       </div>
@@ -121,10 +121,10 @@ export default function SessionListCard({
                       )}
                       {session.hasLog && (
                         <span
-                          className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400"
+                          className="inline-flex items-center text-emerald-600 dark:text-emerald-400"
                           title="Đã có nhật ký"
                         >
-                          <CheckCircle2 size={11} /> Có nhật ký
+                          <NotebookText size={13} />
                         </span>
                       )}
                     </div>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   ArrowRightLeft,
+  BookOpen,
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
@@ -96,6 +97,8 @@ export default function ClassScheduleLattice({
   const [submitting, setSubmitting] = useState(false);
 
   const [kebabKey, setKebabKey] = useState(null); // ô OCCURRENCE đang mở menu
+  const [occDetail, setOccDetail] = useState(null); // occurrence đang mở modal chi tiết (chưa có buổi thật)
+  const [creatingFromModal, setCreatingFromModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null); // occurrence cần gỡ exception
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -149,21 +152,34 @@ export default function ClassScheduleLattice({
     setModalError("");
   };
 
-  // Tạo buổi học on-demand + tự chọn buổi mới (WP2.4) để mở chi tiết (modal).
-  const handleCreateAndSelect = async (occ) => {
-    const result = await onCreateSession?.(occ.date, formatSessionTime(occ.startTime), occ.dateLabel);
-    if (result != null) onSelectSession?.(result);
+  // Tạo buổi học on-demand từ modal chi tiết ca + tự chọn buổi mới để mở chi tiết.
+  const handleCreateFromModal = async () => {
+    if (!occDetail || creatingFromModal) return;
+    setCreatingFromModal(true);
+    try {
+      const result = await onCreateSession?.(
+        occDetail.date,
+        formatSessionTime(occDetail.startTime),
+        occDetail.dateLabel,
+      );
+      setOccDetail(null);
+      if (result != null) onSelectSession?.(result);
+    } finally {
+      setCreatingFromModal(false);
+    }
   };
 
-  // Đóng modal exception bằng ESC (WP2.6).
+  // Đóng modal exception / modal chi tiết ca bằng ESC (WP2.6).
   useEffect(() => {
-    if (!modal) return;
+    if (!modal && !occDetail) return;
     const onKey = (event) => {
-      if (event.key === "Escape") closeExceptionModal();
+      if (event.key !== "Escape") return;
+      closeExceptionModal();
+      setOccDetail(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [modal]);
+  }, [modal, occDetail]);
 
   const handleCreateException = async (payload) => {
     if (!token || submitting) return;
@@ -290,29 +306,18 @@ export default function ClassScheduleLattice({
       );
     }
 
-    // OCCURRENCE — ca cố định chưa có buổi thật: chip giờ + "Tạo buổi học" + kebab
+    // OCCURRENCE — ca cố định chưa có buổi thật: bấm khung giờ mở modal chi tiết ca
+    // (kèm nút "Tạo bài giảng"), kebab giữ nguyên cho hủy/dời/sửa ca.
     const kebabOpen = kebabKey === occ.occurrenceKey;
     return (
-      <div key={occ.occurrenceKey} className="group/occ relative rounded-lg border border-dashed border-slate-300 bg-slate-50/60 px-2 py-1.5 transition-colors hover:border-blue-400 hover:bg-blue-50/40 dark:border-slate-600 dark:bg-slate-800/30 dark:hover:border-blue-700 dark:hover:bg-blue-950/20">
-        <p className="flex items-center gap-1 font-mono text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-          <Clock size={10} className="shrink-0 text-blue-500 dark:text-blue-400" />
-          {formatSessionTime(occ.startTime)} - {formatSessionTime(occ.endTime)}
-        </p>
+      <div key={occ.occurrenceKey} className="group/occ relative rounded-lg border border-dashed border-slate-300 bg-white px-2 py-1.5 transition-colors hover:border-blue-400 hover:bg-blue-50/40 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-blue-700 dark:hover:bg-blue-950/20">
         <button
           type="button"
-          onClick={() => handleCreateAndSelect(occ)}
-          disabled={creatingSessionDate !== null}
-          className={clsx(
-            "mt-1 inline-flex w-full cursor-pointer items-center justify-center gap-1 rounded-md px-1.5 py-1 text-[10px] font-bold transition-all active:scale-[0.98]",
-            "bg-emerald-100/80 text-emerald-800 hover:bg-emerald-200/80 disabled:opacity-50 dark:bg-emerald-900/50 dark:text-emerald-200 dark:hover:bg-emerald-900/80",
-          )}
+          onClick={() => setOccDetail(occ)}
+          className="flex w-full cursor-pointer items-center gap-1 font-mono text-[11px] font-semibold text-slate-600 dark:text-slate-300"
         >
-          {creatingSessionDate === occ.date ? (
-            <Loader2 size={11} className="animate-spin" />
-          ) : (
-            <CalendarPlus size={11} />
-          )}
-          Tạo buổi học
+          <Clock size={10} className="shrink-0 text-blue-500 dark:text-blue-400" />
+          {formatSessionTime(occ.startTime)} - {formatSessionTime(occ.endTime)}
         </button>
         {/* Nút kebab gom 3 hành động exception (desktop: hiện khi hover ô) */}
         <button
@@ -593,6 +598,66 @@ export default function ClassScheduleLattice({
               onCancel={closeExceptionModal}
               onSubmit={handleCreateException}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modal chi tiết ca cố định chưa có buổi thật: nút "Tạo bài giảng" (kèm tài liệu, bài tập, nhật ký) */}
+      {occDetail && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+          onClick={() => setOccDetail(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+                  <BookOpen size={18} />
+                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                    Ca {formatSessionTime(occDetail.startTime)} - {formatSessionTime(occDetail.endTime)}
+                  </h4>
+                  <p className="text-[11px] text-slate-400">{formatSessionDate(occDetail.date)}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setOccDetail(null)}
+                className="cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                aria-label="Đóng"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                Ca này chưa có buổi học.
+              </p>
+              <p className="mt-1 text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+                Tạo bài giảng để đính kèm tài liệu, giao bài tập và viết nhật ký sau buổi học.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCreateFromModal}
+              disabled={creatingSessionDate !== null || creatingFromModal}
+              className={clsx(
+                "mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all active:scale-[0.98] disabled:opacity-50",
+                "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400",
+              )}
+            >
+              {creatingFromModal ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <CalendarPlus size={14} />
+              )}
+              Tạo bài giảng
+            </button>
           </div>
         </div>
       )}
