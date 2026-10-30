@@ -71,7 +71,6 @@ export default function ClassSchedulePage({
         selectedSessionId={selectedSessionId}
         sessionDates={detail?.sessionDates || []}
         createErrorDate={createErrorDate}
-        onEditSchedules={onEditSchedules}
         onChanged={bumpRefresh}
         refreshKey={refreshKey}
       />

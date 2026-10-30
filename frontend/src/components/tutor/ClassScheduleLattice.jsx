@@ -85,7 +85,6 @@ export default function ClassScheduleLattice({
   refreshKey = 0,
   sessionDates = [],
   createErrorDate = null,
-  onEditSchedules,
 }) {
   const { token } = useAuth();
   const [data, setData] = useState(null);
@@ -381,10 +380,6 @@ export default function ClassScheduleLattice({
     );
   };
 
-  const hasAnyOccurrences = days.some((day) =>
-    (occurrencesByDate.get(day.iso) || []).length > 0,
-  );
-
   // Ngày chứa buổi học đang được chọn (highlight ô khi chọn từ danh sách).
   const selectedDate = useMemo(() => {
     if (selectedSessionId == null) return null;
@@ -463,24 +458,9 @@ export default function ClassScheduleLattice({
             </button>
           </div>
         </div>
-      ) : !hasAnyOccurrences ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-5 text-center dark:border-slate-700 dark:bg-slate-900/40">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Tuần này không có ca dạy — ca chỉ áp dụng trong khoảng hiệu lực đã chốt.
-          </p>
-          {onEditSchedules && (
-            <button
-              type="button"
-              onClick={onEditSchedules}
-              className="mt-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-bold text-slate-600 transition-colors hover:bg-slate-100 active:scale-[0.98] dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              <Pencil size={12} /> Chỉnh sửa lịch
-            </button>
-          )}
-        </div>
       ) : (
-        /* ===== 7 ô ngày (1 ô/1 ngày), trong ô hiện chip giờ buổi học ===== */
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 lg:grid-cols-7 lg:gap-3">
+          {/* ===== 7 ô ngày (1 ô/1 ngày), trong ô hiện chip giờ buổi học ===== */}
           {days.map((day) => {
             const dayOccurrences = occurrencesByDate.get(day.iso) || [];
             const dayCreateError = createError && createErrorDate === day.iso;
