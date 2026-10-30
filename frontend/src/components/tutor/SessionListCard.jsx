@@ -8,6 +8,7 @@ import {
   SESSION_STATUS_META,
   apiGetClassSessions,
   mapSessionListItem,
+  relativeDayLabel,
 } from "../../lib/classroomApi";
 
 const STATUS_OPTIONS = [
@@ -105,48 +106,59 @@ export default function SessionListCard({
         </div>
       ) : (
         <ul className="space-y-2">
-          {sessions.map((session) => (
-            <li key={session.sessionId}>
-              <button
-                type="button"
-                onClick={() => onSelectSession?.(session.sessionId)}
-                className={clsx(
-                  "flex w-full cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border p-3 text-left transition-all",
-                  selectedSessionId === session.sessionId
-                    ? "border-blue-300 bg-blue-50/70 dark:border-blue-800 dark:bg-blue-950/30"
-                    : "border-slate-200 bg-white hover:border-blue-200 dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-blue-900",
-                )}
-              >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 font-mono text-xs font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
-                  {session.sessionNumber}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                      Buổi {session.sessionNumber}
-                    </p>
-                    {session.isTrial && (
-                      <Badge tone="rose" size="xs">
-                        Buổi dạy thử
-                      </Badge>
-                    )}
-                    {session.hasLog && (
+          {sessions.map((session) => {
+            const relative = relativeDayLabel(session.sessionDate);
+            const isToday = relative === "Hôm nay";
+            return (
+              <li key={session.sessionId}>
+                <button
+                  type="button"
+                  onClick={() => onSelectSession?.(session.sessionId)}
+                  className={clsx(
+                    "flex w-full cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border p-3 text-left transition-all",
+                    selectedSessionId === session.sessionId
+                      ? "border-blue-300 bg-blue-50/70 dark:border-blue-800 dark:bg-blue-950/30"
+                      : "border-slate-200 bg-white hover:border-blue-200 dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-blue-900",
+                  )}
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 font-mono text-xs font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                    {session.sessionNumber}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <span
-                        className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400"
-                        title="Đã có nhật ký"
+                        className={clsx(
+                          "text-xs font-bold",
+                          isToday
+                            ? "text-blue-700 dark:text-blue-300"
+                            : "text-slate-800 dark:text-slate-100",
+                        )}
                       >
-                        <CheckCircle2 size={11} /> Có nhật ký
+                        {relative || session.dateLabel}
                       </span>
-                    )}
+                      {session.isTrial && (
+                        <Badge tone="rose" size="xs">
+                          Buổi dạy thử
+                        </Badge>
+                      )}
+                      {session.hasLog && (
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400"
+                          title="Đã có nhật ký"
+                        >
+                          <CheckCircle2 size={11} /> Có nhật ký
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                      {session.dateLabel} · {session.timeLabel} · {session.modeLabel}
+                    </p>
                   </div>
-                  <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                    {session.dateLabel} · {session.timeLabel} · {session.modeLabel}
-                  </p>
-                </div>
-                <Badge tone={session.statusTone}>{session.statusLabel}</Badge>
-              </button>
-            </li>
-          ))}
+                  <Badge tone={session.statusTone}>{session.statusLabel}</Badge>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Card>

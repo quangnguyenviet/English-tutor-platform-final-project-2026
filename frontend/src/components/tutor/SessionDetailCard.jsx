@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Loader2,
   MapPin,
@@ -21,6 +22,7 @@ import {
   apiUpdateSession,
   apiUpdateSessionLog,
   mapSessionDetail,
+  relativeDayLabel,
   todayISO,
   TEACHING_MODE_LABELS,
 } from "../../lib/classroomApi";
@@ -70,6 +72,7 @@ export default function SessionDetailCard({ sessionId, onChanged }) {
 
   // Form nhật ký
   const [logForm, setLogForm] = useState(null);
+  const [logOpen, setLogOpen] = useState(false);
   const [logSubmitting, setLogSubmitting] = useState(false);
   const [logError, setLogError] = useState("");
   const [logFirstPublish, setLogFirstPublish] = useState(false);
@@ -103,16 +106,17 @@ export default function SessionDetailCard({ sessionId, onChanged }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, sessionId]);
 
-  // Đồng bộ form nhật ký khi có session
+  // Đồng bộ form nhật ký khi có session; accordion mở sẵn nếu đã có nhật ký
+  // hoặc buổi đang/kết thúc (gia sư thường nhập nhật ký tại thời điểm đó).
   useEffect(() => {
-    if (session) {
-      setLogForm({
-        logKnowledge: session.logKnowledge || "",
-        logHomework: session.logHomework || "",
-      });
-      setLogError("");
-      setLogFirstPublish(false);
-    }
+    if (!session) return;
+    setLogForm({
+      logKnowledge: session.logKnowledge || "",
+      logHomework: session.logHomework || "",
+    });
+    setLogError("");
+    setLogFirstPublish(false);
+    setLogOpen(Boolean(session.hasLog) || ["IN_PROGRESS", "COMPLETED"].includes(session.status));
   }, [session]);
 
   const isTrial = session?.isTrial;
@@ -239,6 +243,17 @@ export default function SessionDetailCard({ sessionId, onChanged }) {
               </Badge>
             )}
           </div>
+
+          {/* Gợi ý thời gian tương đối cho buổi sắp diễn ra */}
+          {!isTrial && session.status === "SCHEDULED" ? (
+            <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50/60 px-3 py-2 dark:border-blue-900/60 dark:bg-blue-950/30">
+              <Clock size={13} className="shrink-0 text-blue-600 dark:text-blue-300" />
+              <p className="text-[11px] font-semibold text-blue-800 dark:text-blue-200">
+                {relativeDayLabel(session.sessionDate)}
+                {session.startTime ? ` · ${String(session.startTime).slice(0, 5)}` : ""}
+              </p>
+            </div>
+          ) : null}
 
           <dl className="space-y-2.5">
             <div>
@@ -494,62 +509,94 @@ export default function SessionDetailCard({ sessionId, onChanged }) {
             </form>
           )}
 
-          {/* Form nhật ký (mọi trạng thái, không với buổi thử) */}
+          {/* Form nhật ký (mọi trạng thái, không với buổi thử) — accordion để
+              card chi tiết không bị kéo dài khi buổi mới lên lịch (WP3.3). */}
           {!isTrial && (
-            <form onSubmit={handleSaveLog} className="space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Nhật ký buổi học</p>
-              <div>
-                <label htmlFor="log-knowledge" className="mb-1 block text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Kiến thức đã học
-                </label>
-                <textarea
-                  id="log-knowledge"
-                  rows={3}
-                  value={logForm?.logKnowledge ?? ""}
-                  onChange={(e) =>
-                    setLogForm((prev) => ({ ...prev, logKnowledge: e.target.value }))
-                  }
-                  className={inputClass}
+            <div className="border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setLogOpen((open) => !open)}
+                aria-expanded={logOpen}
+                className="flex w-full cursor-pointer items-center justify-between py-3.5 text-xs font-bold text-slate-800 dark:text-slate-200"
+              >
+                <span className="flex items-center gap-2">
+                  Nhật ký buổi học
+                  {session.hasLog && (
+                    <Badge tone="emerald" size="xs">
+                      Đã lưu
+                    </Badge>
+                  )}
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={clsx(
+                    "text-slate-400 transition-transform dark:text-slate-500",
+                    logOpen && "rotate-180",
+                  )}
                 />
-              </div>
-              <div>
-                <label htmlFor="log-homework" className="mb-1 block text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Bài tập về nhà
-                </label>
-                <textarea
-                  id="log-homework"
-                  rows={3}
-                  value={logForm?.logHomework ?? ""}
-                  onChange={(e) =>
-                    setLogForm((prev) => ({ ...prev, logHomework: e.target.value }))
-                  }
-                  className={inputClass}
-                />
-              </div>
-              {logFirstPublish && (
-                <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-[11px] text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
-                  <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-emerald-500" />
-                  <span>Đã lưu nhật ký — học sinh vừa được thông báo.</span>
-                </div>
+              </button>
+              {logOpen && (
+                <form onSubmit={handleSaveLog} className="space-y-3 pb-1">
+                  <div>
+                    <label
+                      htmlFor="log-knowledge"
+                      className="mb-1 block text-xs font-bold text-slate-800 dark:text-slate-200"
+                    >
+                      Kiến thức đã học
+                    </label>
+                    <textarea
+                      id="log-knowledge"
+                      rows={3}
+                      value={logForm?.logKnowledge ?? ""}
+                      onChange={(e) =>
+                        setLogForm((prev) => ({ ...prev, logKnowledge: e.target.value }))
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="log-homework"
+                      className="mb-1 block text-xs font-bold text-slate-800 dark:text-slate-200"
+                    >
+                      Bài tập về nhà
+                    </label>
+                    <textarea
+                      id="log-homework"
+                      rows={3}
+                      value={logForm?.logHomework ?? ""}
+                      onChange={(e) =>
+                        setLogForm((prev) => ({ ...prev, logHomework: e.target.value }))
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+                  {logFirstPublish && (
+                    <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-[11px] text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
+                      <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-emerald-500" />
+                      <span>Đã lưu nhật ký — học sinh vừa được thông báo.</span>
+                    </div>
+                  )}
+                  <FormErrorBanner message={logError} />
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      size="sm"
+                      disabled={logSubmitting}
+                      className="cursor-pointer bg-blue-600 px-5 text-xs font-bold text-white hover:bg-blue-700"
+                    >
+                      {logSubmitting ? <Loader2 size={14} className="animate-spin" /> : null}
+                      {logSubmitting
+                        ? "Đang lưu..."
+                        : session.hasLog
+                          ? "Cập nhật nhật ký"
+                          : "Lưu nhật ký"}
+                    </Button>
+                  </div>
+                </form>
               )}
-              <FormErrorBanner message={logError} />
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  disabled={logSubmitting}
-                  className="cursor-pointer bg-blue-600 px-5 text-xs font-bold text-white hover:bg-blue-700"
-                >
-                  {logSubmitting ? <Loader2 size={14} className="animate-spin" /> : null}
-                  {logSubmitting
-                    ? "Đang lưu..."
-                    : session.hasLog
-                      ? "Cập nhật nhật ký"
-                      : "Lưu nhật ký"}
-                </Button>
-              </div>
-            </form>
+            </div>
           )}
         </div>
       ) : null}
