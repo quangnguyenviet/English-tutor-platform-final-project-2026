@@ -1,6 +1,7 @@
 package com.mycompany.englishtutor.module.classroom.service;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -16,6 +17,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.mycompany.englishtutor.module.audit.service.AuditLogService;
 import com.mycompany.englishtutor.module.classroom.api.request.CreateExceptionRequest;
@@ -23,11 +25,13 @@ import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionLogR
 import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionRequest;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassScheduleResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.ExceptionInfo;
+import com.mycompany.englishtutor.module.classroom.api.response.MaterialAccessUrlResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.OccurrenceResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionDetailResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionExceptionResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionListItem;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionLogResponse;
+import com.mycompany.englishtutor.module.classroom.api.response.SessionMaterialItem;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionMini;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.ClassState;
@@ -38,7 +42,9 @@ import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepo
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.SessionDetailRow;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.SessionExceptionRow;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.SessionInfoUpdate;
+import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.SessionMaterialRow;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.WeeklyConflictInfo;
+import com.mycompany.englishtutor.module.tutor.service.StorageService;
 import com.mycompany.englishtutor.module.user.domain.User;
 import com.mycompany.englishtutor.module.user.domain.UserRole;
 import com.mycompany.englishtutor.module.user.repository.UserRepository;
@@ -71,6 +77,21 @@ public class ClassOccurrenceService {
     /** Exception type hợp lệ (CHK bảng V13). */
     private static final Set<String> EXCEPTION_TYPES = Set.of("CANCELLED", "RESCHEDULED", "MODIFIED");
 
+    /** Folder vật lý trong bucket cho tài liệu buổi học. */
+    private static final String MATERIALS_FOLDER_PREFIX = "session-materials";
+
+    /** Dung lượng tối đa 1 tài liệu buổi học (API_DESIGN §3.6: ≤ 20 MB). */
+    private static final long MATERIAL_MAX_BYTES = 20L * 1024 * 1024;
+
+    /** Hạn dùng link tải ký sẵn cho tài liệu (API_DESIGN §3.6: 10 phút). */
+    private static final Duration MATERIAL_URL_TTL = Duration.ofMinutes(10);
+
+    /** Định dạng cho phép upload — map về cột {@code file_type} (PDF|DOCX|IMAGE|AUDIO). */
+    private static final Set<String> MATERIAL_IMAGE_TYPES =
+            Set.of("image/jpeg", "image/png", "image/gif", "image/webp");
+    private static final Set<String> MATERIAL_AUDIO_TYPES =
+            Set.of("audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/ogg");
+
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -79,6 +100,7 @@ public class ClassOccurrenceService {
     UserRepository userRepository;
     AuditLogService auditLogService;
     JdbcTemplate jdbcTemplate;
+    StorageService storageService;
 
     // ======================================================== LATTICE & DANH SÁCH
 
@@ -177,7 +199,12 @@ public class ClassOccurrenceService {
                 classroomRepository.findSessionDetail(sessionId)
                         .orElseThrow(() -> new AppException(ErrorCode.SESSION_NOT_FOUND));
         requireReadAccess(row.classId());
-        return toDetailResponse(row);
+        SessionDetailResponse response = toDetailResponse(row);
+        response.setMaterials(
+                classroomRepository.findSessionMaterials(sessionId).stream()
+                        .map(ClassOccurrenceService::toMaterialItem)
+                        .toList());
+        return response;
     }
 
     // ========================================================= EXCEPTION (TUTOR)
@@ -399,10 +426,16 @@ public class ClassOccurrenceService {
                     session, request.getSessionDate(), request.getStartTime(), request.getEndTime());
         }
 
-        return classroomRepository
-                .findSessionDetail(sessionId)
-                .map(ClassOccurrenceService::toDetailResponse)
-                .orElseThrow(() -> new AppException(ErrorCode.SESSION_NOT_FOUND));
+        SessionDetailResponse updated =
+                classroomRepository
+                        .findSessionDetail(sessionId)
+                        .map(ClassOccurrenceService::toDetailResponse)
+                        .orElseThrow(() -> new AppException(ErrorCode.SESSION_NOT_FOUND));
+        updated.setMaterials(
+                classroomRepository.findSessionMaterials(sessionId).stream()
+                        .map(ClassOccurrenceService::toMaterialItem)
+                        .toList());
+        return updated;
     }
 
     /**
@@ -436,6 +469,110 @@ public class ClassOccurrenceService {
             notifySessionLogPublished(session);
         }
         return SessionLogResponse.builder().sessionId(sessionId).firstPublish(firstPublish).build();
+    }
+
+    // ================================================== TÀI LIỆU BUỔI HỌC (FR-12, FR-21)
+
+    /**
+     * Upload tài liệu buổi học (FR-12): kiểm tra quyền sở hữu (khóa row buổi),
+     * kiểm tra định dạng/dung lượng, lưu S3 + ghi {@code session_materials} + audit.
+     * Định dạng: PDF, DOCX, ảnh, âm thanh — mỗi tệp ≤ 20 MB (API_DESIGN §3.6).
+     */
+    @Transactional
+    public SessionMaterialItem uploadMaterial(
+            Long sessionId, MultipartFile file, HttpServletRequest httpRequest) {
+        LockedSessionRow session = requireOwnedSessionForWrite(sessionId);
+        if (file == null || file.isEmpty()) {
+            throw new AppException(ErrorCode.MATERIAL_NOT_FOUND);
+        }
+        if (file.getSize() > MATERIAL_MAX_BYTES) {
+            throw new AppException(ErrorCode.MATERIAL_FILE_TOO_LARGE);
+        }
+        String fileType = resolveMaterialType(file);
+
+        String fileUrl =
+                storageService.uploadFile(
+                        MATERIALS_FOLDER_PREFIX + "/" + session.sessionId(), file, MATERIAL_MAX_BYTES);
+        Long materialId =
+                classroomRepository.insertSessionMaterial(
+                        session.sessionId(),
+                        getCurrentUserId(),
+                        file.getOriginalFilename() != null ? file.getOriginalFilename() : "file",
+                        fileUrl,
+                        fileType,
+                        file.getSize());
+
+        auditLogService.log(
+                getCurrentUserId(),
+                "UPLOAD_SESSION_MATERIAL",
+                "SESSION_MATERIAL",
+                materialId,
+                Map.of(
+                        "sessionId", session.sessionId(),
+                        "classId", session.classId(),
+                        "fileName", file.getOriginalFilename(),
+                        "fileType", fileType,
+                        "fileSize", file.getSize()),
+                httpRequest);
+
+        return classroomRepository
+                .findSessionMaterial(session.sessionId(), materialId)
+                .map(ClassOccurrenceService::toMaterialItem)
+                .orElseThrow(() -> new AppException(ErrorCode.MATERIAL_NOT_FOUND));
+    }
+
+    /** Gỡ tài liệu buổi học (FR-12): xóa S3 object + dòng DB, audit. Material không thuộc buổi → 404. */
+    @Transactional
+    public void deleteMaterial(
+            Long sessionId, Long materialId, HttpServletRequest httpRequest) {
+        requireOwnedSessionForWrite(sessionId);
+        SessionMaterialRow material =
+                classroomRepository
+                        .findSessionMaterial(sessionId, materialId)
+                        .orElseThrow(() -> new AppException(ErrorCode.MATERIAL_NOT_FOUND));
+
+        try {
+            storageService.deleteFile(material.fileUrl());
+        } catch (Exception e) {
+            log.warn(
+                    "Không thể xóa object S3 cho material {} (tiếp tục xóa dòng DB): {}",
+                    materialId,
+                    e.getMessage());
+        }
+        classroomRepository.deleteSessionMaterial(sessionId, materialId);
+
+        auditLogService.log(
+                getCurrentUserId(),
+                "DELETE_SESSION_MATERIAL",
+                "SESSION_MATERIAL",
+                materialId,
+                Map.of(
+                        "sessionId", material.sessionId(),
+                        "classId", material.classId(),
+                        "fileName", material.fileName()),
+                httpRequest);
+    }
+
+    /**
+     * Link tải an toàn (ký sẵn 10 phút) cho tài liệu buổi học (FR-21).
+     * TUTOR: phải là gia sư của lớp; STUDENT: phải là học sinh của lớp —
+     * người khác / đã gỡ → 404.
+     */
+    @Transactional(readOnly = true)
+    public MaterialAccessUrlResponse getMaterialAccessUrl(Long materialId) {
+        SessionMaterialRow material =
+                classroomRepository
+                        .findMaterialForAccess(materialId)
+                        .orElseThrow(() -> new AppException(ErrorCode.MATERIAL_NOT_FOUND));
+        requireMaterialAccess(material);
+
+        String url = storageService.presignedUrl(material.fileUrl(), MATERIAL_URL_TTL);
+        return MaterialAccessUrlResponse.builder()
+                .url(url)
+                .previewable("PDF".equals(material.fileType())
+                        || "IMAGE".equals(material.fileType())
+                        || "AUDIO".equals(material.fileType()))
+                .build();
     }
 
     // ---------------------------------------------------------------- MATERIALIZE
@@ -473,6 +610,20 @@ public class ClassOccurrenceService {
     }
 
     // ------------------------------------------------------------------- QUYỀN
+
+    /** TUTOR phải là gia sư của lớp, STUDENT phải là học sinh của lớp (access-url). */
+    private void requireMaterialAccess(SessionMaterialRow material) {
+        User user = getCurrentUser();
+        if (UserRole.TUTOR.name().equals(user.getRole())) {
+            if (!user.getId().equals(material.tutorId())) {
+                throw new AppException(ErrorCode.SESSION_NOT_OWNED);
+            }
+        } else if (UserRole.STUDENT.name().equals(user.getRole())) {
+            if (!user.getId().equals(material.studentId())) {
+                throw new AppException(ErrorCode.SESSION_NOT_OWNED);
+            }
+        }
+    }
 
     /**
      * Quyền đọc (mục 4.1/4.4/4.5, dòng 6): TUTOR sở hữu lớp, STUDENT sở hữu lớp,
@@ -580,6 +731,40 @@ public class ClassOccurrenceService {
         if ("AT_HOME".equals(mode) && location == null) {
             throw new AppException(ErrorCode.TRIAL_SESSION_MISSING_LOCATION);
         }
+    }
+
+    /**
+     * Suy ra {@code file_type} (PDF|DOCX|IMAGE|AUDIO) từ content-type; định dạng
+     * khác bị từ chối (1157). DOCX nhận cả định dạng cũ (.doc).
+     */
+    private String resolveMaterialType(MultipartFile file) {
+        String contentType = file.getContentType() != null ? file.getContentType() : "";
+        if (contentType.startsWith("application/pdf")) {
+            return "PDF";
+        }
+        if (contentType.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                || contentType.equals("application/msword")) {
+            return "DOCX";
+        }
+        if (MATERIAL_IMAGE_TYPES.contains(contentType)) {
+            return "IMAGE";
+        }
+        if (MATERIAL_AUDIO_TYPES.contains(contentType)) {
+            return "AUDIO";
+        }
+        throw new AppException(ErrorCode.MATERIAL_FILE_TYPE_INVALID);
+    }
+
+    /** Map 1 dòng DB thành item API (kiểm soát cả khi null). */
+    private static SessionMaterialItem toMaterialItem(SessionMaterialRow row) {
+        return SessionMaterialItem.builder()
+                .materialId(row.materialId())
+                .fileName(row.fileName())
+                .fileType(row.fileType())
+                .fileSize(row.fileSize())
+                .uploadedByName(row.uploadedByName())
+                .createdAt(row.createdAt())
+                .build();
     }
 
     private static SessionDetailResponse toDetailResponse(SessionDetailRow row) {

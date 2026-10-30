@@ -29,6 +29,7 @@ import com.mycompany.englishtutor.module.classroom.api.response.OnDemandSessionR
 import com.mycompany.englishtutor.module.classroom.api.response.SessionDetailResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionExceptionResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionLogResponse;
+import com.mycompany.englishtutor.module.classroom.api.response.SessionMaterialItem;
 import com.mycompany.englishtutor.module.classroom.api.response.TrialSessionResponse;
 import com.mycompany.englishtutor.module.classroom.service.ClassOccurrenceService;
 import com.mycompany.englishtutor.module.classroom.service.TutorClassService;
@@ -41,6 +42,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.multipart.MultipartFile;
 
 /** API lớp học của gia sư, lịch dạy thử (UC-T08), lịch cố định (UC-T09) và viết "Lịch dạy". */
 @RestController
@@ -202,6 +204,37 @@ public class TutorClassController {
             HttpServletRequest httpRequest) {
         return ResponseEntity.ok(ApiResponse.<SessionLogResponse>builder()
                 .result(classOccurrenceService.saveLog(id, request, httpRequest))
+                .build());
+    }
+
+    // ------------------------------------------------- TÀI LIỆU BUỔI HỌC (FR-12)
+
+    @PostMapping("/sessions/{id}/materials")
+    @Operation(
+            summary = "Đính kèm tài liệu buổi học (PDF, DOCX, ảnh, âm thanh — tối đa 20 MB)",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<SessionMaterialItem>> uploadSessionMaterial(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.<SessionMaterialItem>builder()
+                        .message("Đã đính kèm tài liệu buổi học")
+                        .result(classOccurrenceService.uploadMaterial(id, file, httpRequest))
+                        .build());
+    }
+
+    @DeleteMapping("/sessions/{id}/materials/{materialId}")
+    @Operation(
+            summary = "Gỡ tài liệu buổi học",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<Void>> deleteSessionMaterial(
+            @PathVariable Long id,
+            @PathVariable Long materialId,
+            HttpServletRequest httpRequest) {
+        classOccurrenceService.deleteMaterial(id, materialId, httpRequest);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .message("Đã gỡ tài liệu buổi học")
                 .build());
     }
 }

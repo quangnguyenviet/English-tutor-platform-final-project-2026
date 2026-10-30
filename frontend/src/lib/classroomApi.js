@@ -177,6 +177,66 @@ export function apiUpdateSessionLog(token, sessionId, payload) {
   });
 }
 
+// ---------------------------------------------------- TÀI LIỆU BUỔI HỌC (FR-12, FR-21)
+
+/**
+ * Helper multipart — upload tệp (không phải JSON). Dùng cùng envelope
+ * {@code {code,message,result}} với {@link request}; trả về {@code result}.
+ * KHÔNG set Content-Type (trình duyệt tự gắn boundary cho FormData).
+ */
+async function requestMultipart(token, path, file, field = "file") {
+  const form = new FormData();
+  form.append(field, file, file.name || "file");
+
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      headers: { Accept: "application/json", ...bearerHeader(token) },
+      body: form,
+    });
+  } catch {
+    throw new Error("Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
+  }
+
+  const data = await readJson(res);
+  if (!res.ok) {
+    const error = new Error(extractErrorMessage(data, `Lỗi ${res.status} khi tải tệp lên`));
+    error.status = res.status;
+    throw error;
+  }
+  return data.result ?? data;
+}
+
+/**
+ * Upload tài liệu buổi học (FR-12) — PDF, DOCX, ảnh, âm thanh; tối đa 20 MB.
+ * @returns {Promise<Object>} item {@code session_materials} vừa tạo
+ */
+export function apiUploadSessionMaterial(token, sessionId, file) {
+  return requestMultipart(
+    token,
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/materials`,
+    file,
+  );
+}
+
+/** Gỡ tài liệu buổi học (FR-12). */
+export function apiDeleteSessionMaterial(token, sessionId, materialId) {
+  return request(
+    token,
+    `/api/v1/sessions/${encodeURIComponent(sessionId)}/materials/${encodeURIComponent(materialId)}`,
+    { method: "DELETE" },
+  );
+}
+
+/** Link tải an toàn (ký sẵn 10 phút) cho tài liệu buổi học (FR-21). */
+export function apiGetMaterialAccessUrl(token, materialId) {
+  return request(
+    token,
+    `/api/v1/materials/${encodeURIComponent(materialId)}/access-url`,
+  );
+}
+
 export const CLASS_STATUS_META = {
   TRIAL: { label: "Đang dạy thử", tone: "violet" },
   ACTIVE: { label: "Đang hoạt động", tone: "emerald" },
@@ -187,6 +247,14 @@ export const CLASS_STATUS_META = {
 export const TEACHING_MODE_LABELS = {
   ONLINE: "Online",
   AT_HOME: "Tại nhà",
+};
+
+/** Nhãn định dạng tài liệu buổi học (PDF / DOCX / IMAGE / AUDIO). */
+export const FILE_TYPE_LABELS = {
+  PDF: "Tài liệu PDF",
+  DOCX: "Tài liệu Word",
+  IMAGE: "Hình ảnh",
+  AUDIO: "Âm thanh",
 };
 
 export const SESSION_STATUS_META = {
@@ -372,7 +440,27 @@ export function mapSessionListItem(item) {
   };
 }
 
-/** Chuẩn hóa chi tiết buổi học (mục 4.5). */
+/** "12345" (bytes) → "0.1 MB" / "512 KB" / "10 B". */
+export function formatBytes(value) {
+  if (value == null) return "";
+  const bytes = Number(value);
+  if (Number.isNaN(bytes)) return "";
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}
+
+/** Chuẩn hóa 1 tài liệu buổi học (bảng session_materials). */
+export function mapSessionMaterial(item) {
+  if (!item) return null;
+  return {
+    ...item,
+    typeLabel: FILE_TYPE_LABELS[item.fileType] || item.fileType || "Tệp tin",
+    sizeLabel: formatBytes(item.fileSize),
+  };
+}
+
+/** Chuẩn hóa chi tiết buổi học (mục 4.5) — kèm danh sách tài liệu đính kèm. */
 export function mapSessionDetail(item) {
   if (!item) return null;
   return {
@@ -380,5 +468,6 @@ export function mapSessionDetail(item) {
     dateLabel: formatSessionDate(item.sessionDate),
     timeLabel: `${formatSessionTime(item.startTime)} - ${formatSessionTime(item.endTime)}`,
     modeLabel: TEACHING_MODE_LABELS[item.teachingMode] || item.teachingMode || "",
+    materials: Array.isArray(item.materials) ? item.materials.map(mapSessionMaterial) : [],
   };
 }

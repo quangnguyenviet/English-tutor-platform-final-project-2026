@@ -2,6 +2,7 @@ package com.mycompany.englishtutor.module.classroom.api.response;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AccessLevel;
@@ -69,4 +70,7 @@ public class SessionDetailResponse {
 
     @Schema(description = "Đã có nhật ký (1 trong 2 nội dung không null)")
     Boolean hasLog;
+
+    @Schema(description = "Tài liệu đính kèm buổi học (trống nếu chưa có)")
+    List<SessionMaterialItem> materials;
 }

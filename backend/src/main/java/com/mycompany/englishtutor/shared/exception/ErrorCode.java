@@ -117,6 +117,13 @@ public enum ErrorCode {
     EXCEPTION_TYPE_INVALID(
             1155, "Loại ngoại lệ không hợp lệ (CANCELLED, RESCHEDULED hoặc MODIFIED)",
             HttpStatus.BAD_REQUEST),
+    MATERIAL_NOT_FOUND(1156, "Tài liệu buổi học không tồn tại hoặc đã bị gỡ", HttpStatus.NOT_FOUND),
+    MATERIAL_FILE_TYPE_INVALID(
+            1157,
+            "Định dạng tệp không hợp lệ — chỉ nhận PDF, DOCX, ảnh hoặc âm thanh",
+            HttpStatus.BAD_REQUEST),
+    MATERIAL_FILE_TOO_LARGE(
+            1158, "Tệp vượt quá dung lượng tối đa 20MB", HttpStatus.BAD_REQUEST),
     PAYMENT_NOT_FOUND(1200, "Khoản phí nhận lớp không tồn tại", HttpStatus.NOT_FOUND),
     PAYMENT_INVALID_STATE(1201, "Khoản phí không ở trạng thái cho phép thao tác này", HttpStatus.CONFLICT),
     PAYMENT_SAME_ACTOR(1202, "Người duyệt không được trùng với người nộp hoặc thu hộ minh chứng", HttpStatus.FORBIDDEN),

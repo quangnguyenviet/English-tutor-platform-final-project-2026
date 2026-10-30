@@ -141,6 +141,24 @@ public class ClassroomQueryRepository {
             String location) {}
 
     /**
+     * Tài liệu đính kèm buổi học (bảng {@code session_materials}, JOIN tên người
+     * tải lên) — trả về danh sách cho chi tiết buổi học, hoặc 1 dòng kèm chủ
+     * sở hữu lớp (kiểm tra quyền access-url).
+     */
+    public record SessionMaterialRow(
+            Long materialId,
+            Long sessionId,
+            Long classId,
+            Long tutorId,
+            Long studentId,
+            String fileName,
+            String fileUrl,
+            String fileType,
+            Long fileSize,
+            String uploadedByName,
+            OffsetDateTime createdAt) {}
+
+    /**
      * Buổi học đang khóa (SELECT ... FOR UPDATE), kèm chủ sở hữu lớp và 2 log
      * — đủ thông tin cho validate quyền / "lần đầu lưu log".
      */
@@ -878,6 +896,78 @@ public class ClassroomQueryRepository {
                 sessionId);
     }
 
+    // ------------------------------------------------------- MATERIALS (buổi học)
+
+    private static final String MATERIAL_BASE = """
+            SELECT m.id, m.session_id, m.file_name, m.file_url, m.file_type, m.file_size,
+                   m.created_at, c.id AS class_id, c.tutor_id, c.student_id, u.full_name AS uploaded_by_name
+            FROM session_materials m
+            JOIN sessions s ON s.id = m.session_id
+            JOIN classes c ON c.id = s.class_id
+            JOIN users u ON u.id = m.uploaded_by
+            """;
+
+    /** Toàn bộ tài liệu của 1 buổi học (chi tiết buổi học, mục 4.5 mở rộng). */
+    public List<SessionMaterialRow> findSessionMaterials(Long sessionId) {
+        return jdbcTemplate.query(
+                MATERIAL_BASE + " WHERE m.session_id = ? ORDER BY m.id",
+                new SessionMaterialRowMapper(),
+                sessionId)
+                .stream()
+                .toList();
+    }
+
+    /** 1 tài liệu kèm chủ sở hữu lớp (kiểm tra quyền access-url / gỡ — không thuộc buổi → 404). */
+    public Optional<SessionMaterialRow> findSessionMaterial(Long sessionId, Long materialId) {
+        return jdbcTemplate.query(
+                        MATERIAL_BASE + " WHERE m.id = ? AND m.session_id = ?",
+                        new SessionMaterialRowMapper(),
+                        materialId,
+                        sessionId)
+                .stream()
+                .findFirst();
+    }
+
+    /** 1 tài liệu theo id, kèm chủ sở hữu lớp — kiểm tra quyền access-url (TUTOR/STUDENT sở hữu). */
+    public Optional<SessionMaterialRow> findMaterialForAccess(Long materialId) {
+        return jdbcTemplate.query(
+                        MATERIAL_BASE + " WHERE m.id = ?",
+                        new SessionMaterialRowMapper(),
+                        materialId)
+                .stream()
+                .findFirst();
+    }
+
+    /** Gỡ tài liệu (chỉ dòng đúng buổi — bảo vệ khỏi xóa nhầm vật liệu của buổi khác). */
+    public int deleteSessionMaterial(Long sessionId, Long materialId) {
+        return jdbcTemplate.update(
+                "DELETE FROM session_materials WHERE session_id = ? AND id = ?", sessionId, materialId);
+    }
+
+    /** Thêm tài liệu (trả về id dòng mới). */
+    public Long insertSessionMaterial(
+            Long sessionId,
+            Long uploadedBy,
+            String fileName,
+            String fileUrl,
+            String fileType,
+            Long fileSize) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO session_materials (
+                    session_id, uploaded_by, file_name, file_url, file_type, file_size)
+                VALUES (?, ?, ?, ?, ?, ?)
+                RETURNING id
+                """,
+                Long.class,
+                sessionId,
+                uploadedBy,
+                fileName,
+                fileUrl,
+                fileType,
+                fileSize);
+    }
+
     // ----------------------------------------------------------------- WRITE
 
     public Long insertTrialSession(Long classId, UpsertTrialSessionRequest request) {
@@ -1094,6 +1184,24 @@ public class ClassroomQueryRepository {
                     rs.getString("new_location"),
                     rs.getString("reason"),
                     rs.getObject("created_by", Long.class),
+                    rs.getObject("created_at", OffsetDateTime.class));
+        }
+    }
+
+    private static class SessionMaterialRowMapper implements RowMapper<SessionMaterialRow> {
+        @Override
+        public SessionMaterialRow mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return new SessionMaterialRow(
+                    rs.getLong("id"),
+                    rs.getLong("session_id"),
+                    rs.getLong("class_id"),
+                    rs.getLong("tutor_id"),
+                    rs.getLong("student_id"),
+                    rs.getString("file_name"),
+                    rs.getString("file_url"),
+                    rs.getString("file_type"),
+                    rs.getObject("file_size", Long.class),
+                    rs.getString("uploaded_by_name"),
                     rs.getObject("created_at", OffsetDateTime.class));
         }
     }
