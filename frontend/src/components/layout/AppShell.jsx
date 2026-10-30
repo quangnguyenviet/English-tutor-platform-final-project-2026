@@ -59,7 +59,7 @@ export default function AppShell() {
 }
 
 function AppShellInner() {
-  const { session, token, logout, matchRequestList, paymentProofList, notificationList, complaintList } = useAuth();
+  const { session, token, logout, matchRequestList, notificationList, complaintList } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { open: chatOpen } = useAiAssistant();
@@ -121,7 +121,6 @@ function AppShellInner() {
     const pendingMatchCount = realPendingMatchCount !== null
       ? realPendingMatchCount
       : (matchRequestList?.filter((r) => r.status === "pending").length || 0);
-    const pendingPaymentCount = paymentProofList?.filter((p) => p.status === "pending").length || 0;
     const unreadNotifCount = notificationList?.filter((n) => !n.read).length || 0;
 
     items = [
@@ -139,9 +138,8 @@ function AppShellInner() {
       },
       {
         to: "/admin/payments",
-        label: "Duyệt thanh toán",
+        label: "Phí nhận lớp",
         icon: Banknote,
-        badge: () => (pendingPaymentCount > 0 ? pendingPaymentCount : null),
       },
       { to: "/admin/tutors", label: "Quản lý gia sư", icon: UserCog },
       { to: "/admin/students", label: "Quản lý học sinh", icon: Users },
@@ -162,7 +160,6 @@ function AppShellInner() {
     const pendingMatchCount = realPendingMatchCount !== null
       ? realPendingMatchCount
       : (matchRequestList?.filter((r) => r.status === "pending").length || 0);
-    const pendingPaymentCount = paymentProofList?.filter((p) => p.status === "pending").length || 0;
     const pendingComplaintCount = complaintList?.filter((c) => c.status === "pending").length || 0;
     const unreadNotifCount = notificationList?.filter((n) => !n.read).length || 0;
 
@@ -181,9 +178,8 @@ function AppShellInner() {
       },
       {
         to: "/receptionist/payments",
-        label: "Duyệt thanh toán",
+        label: "Phí nhận lớp",
         icon: Banknote,
-        badge: () => (pendingPaymentCount > 0 ? pendingPaymentCount : null),
       },
       { to: "/receptionist/tutors", label: "Quản lý gia sư", icon: UserCog },
       { to: "/receptionist/students", label: "Quản lý học sinh", icon: Users },
@@ -205,6 +201,7 @@ function AppShellInner() {
   } else if (isAccountant) {
     items = [
       { to: "/accountant", label: "Tổng quan", icon: LayoutDashboard, end: true },
+      { to: "/accountant/payments", label: "Phí nhận lớp", icon: Banknote },
       { to: "/accountant/settings", label: "Cài đặt", icon: Settings },
     ];
   } else if (isTutor) {
@@ -214,6 +211,7 @@ function AppShellInner() {
       { to: "/tutor/requests", label: "Yêu cầu lớp", icon: ClipboardList, badge: () => classRequests.filter((r) => r.status === "pending_response").length },
       { to: "/tutor/classes", label: "Lớp học của tôi", icon: Users },
       { to: "/tutor/schedule", label: "Lịch dạy", icon: CalendarDays },
+      { to: "/tutor/payments", label: "Phí nhận lớp", icon: Banknote },
       { to: "/tutor/lessons", label: "Ghi nhận buổi học", icon: BookOpenCheck },
       { to: "/tutor/exercise-generator", label: "Soạn bài (AI)", icon: Sparkles },
       { to: "/tutor/profile", label: "Hồ sơ", icon: IdCard },

@@ -21,6 +21,9 @@ import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
+import { usePaymentsByStatus } from "../../components/payment/usePaymentData";
+import { apiSearchPayments } from "../../lib/paymentApi";
+import { PAYMENT_STATUS } from "../../lib/paymentModel";
 
 const fmtVND = (n) => n.toLocaleString("vi-VN") + "₫";
 
@@ -29,7 +32,6 @@ export default function ReceptionistDashboard() {
     tutorList,
     studentList,
     matchRequestList,
-    paymentProofList,
     complaintList,
     notificationList = [],
   } = useAuth();
@@ -38,7 +40,8 @@ export default function ReceptionistDashboard() {
   const [refreshing, setRefreshing] = useState(false);
 
   const pendingMatches = matchRequestList?.filter((r) => r.status === "pending") || [];
-  const pendingPayments = paymentProofList?.filter((p) => p.status === "pending") || [];
+  // Khoản phí chưa có minh chứng: việc Lễ tân cần theo dõi và thu hộ
+  const { total: unpaidFeeTotal } = usePaymentsByStatus(apiSearchPayments, PAYMENT_STATUS.NOT_SUBMITTED, 1);
   const pendingComplaints = complaintList?.filter((c) => c.status === "pending") || [];
   const unreadNotifs = notificationList?.filter((n) => !n.read) || [];
 
@@ -67,7 +70,7 @@ export default function ReceptionistDashboard() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title="Bảng điều khiển lễ tân"
-          description="Hỗ trợ vận hành trung tâm: ghép lớp, duyệt thanh toán, quản lý gia sư & học sinh, xử lý khiếu nại."
+          description="Hỗ trợ vận hành trung tâm: ghép lớp, thu hộ phí nhận lớp, quản lý gia sư & học sinh, xử lý khiếu nại."
         />
         <Button variant="secondary" size="sm" onClick={handleRefresh} disabled={refreshing}>
           <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
@@ -94,15 +97,15 @@ export default function ReceptionistDashboard() {
 
         <div className="relative overflow-hidden rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-500/10 via-white to-emerald-500/5 p-5 shadow-sm transition hover:shadow-md dark:border-emerald-900/30 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Thanh toán chờ duyệt</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Phí chưa nộp minh chứng</span>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600/10 text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-400">
               <Banknote size={18} />
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-3xl font-bold font-mono text-slate-900 dark:text-white">{pendingPayments.length}</span>
+            <span className="text-3xl font-bold font-mono text-slate-900 dark:text-white">{unpaidFeeTotal}</span>
             <span className="flex items-center text-xs font-medium text-emerald-600 dark:text-emerald-400">
-              minh chứng
+              khoản phí
             </span>
           </div>
         </div>
@@ -176,10 +179,10 @@ export default function ReceptionistDashboard() {
             </div>
             <div className="mt-3">
               <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                Duyệt thanh toán
+                Phí nhận lớp
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                {pendingPayments.length} minh chứng
+                {unpaidFeeTotal} khoản chưa nộp
               </p>
             </div>
           </Link>

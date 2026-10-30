@@ -45,6 +45,9 @@ import Card from "../../components/ui/Card";
 import Avatar from "../../components/ui/Avatar";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
+import { usePaymentsByStatus } from "../../components/payment/usePaymentData";
+import { apiSearchPayments } from "../../lib/paymentApi";
+import { PAYMENT_STATUS, formatVnd } from "../../lib/paymentModel";
 
 const statusMeta = {
   active: { label: "Đang hoạt động", tone: "emerald" },
@@ -55,7 +58,7 @@ const statusMeta = {
 const actionLabel = {
   approve_tutor: "Duyệt gia sư",
   add_student: "Thêm học sinh",
-  approve_payment: "Duyệt học phí QR",
+  approve_payment: "Duyệt phí nhận lớp",
   create_match_offer: "Tạo Match Offer",
   mark_paid: "Thu học phí",
   create_exercise: "Tạo bài tập",
@@ -83,8 +86,6 @@ export function AdminDashboard() {
     updateTutor,
     studentList,
     matchRequestList,
-    paymentProofList,
-    approvePaymentProof,
     notificationList = [],
     receptionistList = [],
     complaintList = [],
@@ -109,7 +110,10 @@ export function AdminDashboard() {
 
   // Match Request & Payment metrics
   const pendingMatches = matchRequestList?.filter((r) => r.status === "pending") || [];
-  const pendingPayments = paymentProofList?.filter((p) => p.status === "pending") || [];
+  const { items: pendingPayments, total: pendingPaymentTotal } = usePaymentsByStatus(
+    apiSearchPayments,
+    PAYMENT_STATUS.SUBMITTED
+  );
 
   // Financial metrics
   const currentRevenue = revenueData[revenueData.length - 1];
@@ -131,11 +135,6 @@ export function AdminDashboard() {
   const handleRejectTutor = (tutorId, name) => {
     updateTutor(tutorId, { status: "inactive" });
     showNotification(`Đã từ chối gia sư ${name}.`);
-  };
-
-  const handleApprovePaymentQuick = (payment) => {
-    approvePaymentProof(payment.id);
-    showNotification(`Đã duyệt phí ${fmtVND(payment.amount)} cho gia sư ${payment.tutorName}!`);
   };
 
   const handleRefresh = () => {
@@ -299,7 +298,7 @@ export function AdminDashboard() {
       </div>
 
       {/* Urgent Action Center: Tabbed Pending Requests */}
-      {(pendingTutors.length > 0 || pendingMatches.length > 0 || pendingPayments.length > 0) && (
+      {(pendingTutors.length > 0 || pendingMatches.length > 0 || pendingPaymentTotal > 0) && (
         <Card padded={false} className="border-amber-200 shadow-sm dark:border-amber-800/40">
           <div className="flex flex-col gap-3 border-b border-amber-200 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-4 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/40">
             <div className="flex items-center gap-3">
@@ -346,7 +345,7 @@ export function AdminDashboard() {
                     : "text-slate-600 hover:text-slate-900 dark:text-slate-300"
                 }`}
               >
-                Phí VietQR ({pendingPayments.length})
+                Phí nhận lớp ({pendingPaymentTotal})
               </button>
             </div>
           </div>
@@ -442,7 +441,7 @@ export function AdminDashboard() {
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {pendingPayments.length === 0 ? (
                 <p className="p-4 text-center text-xs text-slate-400">
-                  Không có biên lai nộp phí nào đang chờ duyệt.
+                  Không có biên lai phí nhận lớp nào đang chờ đối chiếu.
                 </p>
               ) : (
                 pendingPayments.map((p) => (
@@ -455,18 +454,18 @@ export function AdminDashboard() {
                         <p className="font-semibold text-slate-900 dark:text-slate-100">
                           Gia sư: {p.tutorName}
                         </p>
-                        <span className="text-xs text-slate-400">&rarr; Lớp {p.studentName}</span>
-                        <Badge tone="amber">Chờ duyệt</Badge>
+                        <span className="text-xs text-slate-400">&rarr; {p.className || `Lớp #${p.classId}`}</span>
+                        <Badge tone="amber">Chờ xác nhận</Badge>
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        Mã GD: <strong className="font-mono text-slate-700 dark:text-slate-200">{p.transactionCode}</strong> &bull; {p.bankName} &bull; Số tiền:{" "}
-                        <strong className="text-blue-600 dark:text-blue-400 font-mono">{fmtVND(p.amount)}</strong>
+                        Khoản phí <strong className="font-mono text-slate-700 dark:text-slate-200">#{p.id}</strong> &bull; Số tiền:{" "}
+                        <strong className="text-blue-600 dark:text-blue-400 font-mono">{formatVnd(p.amount)}</strong>
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Link to="/admin/payments">
                         <Button size="sm" variant="secondary">
-                          Xem minh chứng
+                          Đối chiếu
                         </Button>
                       </Link>
                     </div>
@@ -509,7 +508,7 @@ export function AdminDashboard() {
             </div>
           </Link>
 
-          {/* Action 2: Duyệt phí VietQR (FR-23) */}
+          {/* Action 2: Phí nhận lớp (FR-41) */}
           <Link
             to="/admin/payments"
             className="group relative flex flex-col justify-between rounded-xl bg-white p-4 border border-slate-200 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-md dark:bg-slate-900 dark:border-slate-800 dark:hover:border-emerald-700"
@@ -522,10 +521,10 @@ export function AdminDashboard() {
             </div>
             <div className="mt-3">
               <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                Duyệt thanh toán
+                Phí nhận lớp
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                {pendingPayments.length} minh chứng chờ duyệt
+                {pendingPaymentTotal} biên lai chờ đối chiếu
               </p>
             </div>
           </Link>
