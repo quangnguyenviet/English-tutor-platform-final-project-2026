@@ -18,7 +18,7 @@ const NAV_ITEMS = [
   { to: "overview", label: "Tổng quan", icon: LayoutDashboard },
   { to: "schedule", label: "Lịch dạy", icon: CalendarClock },
   { to: "path", label: "Lộ trình học", icon: GraduationCap },
-  { to: "sessions", label: "Buổi học thực tế", icon: CalendarDays },
+  { to: "sessions", label: "Nhật ký buổi học", icon: CalendarDays },
   { to: "exercises", label: "Bài tập", icon: BookOpen },
   { to: "materials", label: "Tài liệu & video", icon: FileText },
 ];

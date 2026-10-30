@@ -398,7 +398,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
             </div>
 
             <div className="max-h-[560px] space-y-2 overflow-y-auto pr-1">
-              {listLoading ? (
+              {listLoading && sessions.length === 0 ? (
                 Array.from({ length: 3 }, (_, index) => (
                   <div key={index} className="h-16 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
                 ))
@@ -490,7 +490,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
             <Card className="py-12 text-center text-sm text-slate-400">
               Chưa chọn buổi học nào. Vui lòng chọn một buổi học từ danh sách bên trái.
             </Card>
-          ) : detailError ? (
+          ) : !detail && detailError ? (
             <Card className="py-12 text-center">
               <AlertCircle size={28} className="mx-auto text-rose-400" />
               <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-400">
@@ -502,7 +502,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                 </Button>
               </div>
             </Card>
-          ) : detailLoading || !detail ? (
+          ) : !detail ? (
             <div className="space-y-4">
               <div className="h-24 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
               <div className="h-40 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
