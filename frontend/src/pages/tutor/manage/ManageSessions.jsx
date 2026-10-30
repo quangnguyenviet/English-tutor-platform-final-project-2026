@@ -1,360 +1,391 @@
-import { useState, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
+  AlertCircle,
   CalendarDays,
   CheckCircle2,
   Clock,
-  FileText,
-  Plus,
-  Pencil,
-  Trash2,
-  UploadCloud,
-  Globe,
-  Lock,
-  Sparkles,
-  AlertCircle,
-  RefreshCw,
+  Download,
   File,
   FileCheck,
-  Music,
   Image as ImageIcon,
-  Send,
-  X,
+  MapPin,
+  Music,
+  NotebookText,
+  Pencil,
+  Plus,
+  RefreshCw,
   Search,
-  BookOpen,
-  ArrowRight,
-  Eye,
-  EyeOff,
+  Trash2,
+  UploadCloud,
+  X,
 } from "lucide-react";
 import Card from "../../../components/ui/Card";
 import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
+import ConfirmModal from "../../../components/ui/ConfirmModal";
 import clsx from "clsx";
+import {
+  apiDeleteSessionMaterial,
+  apiGetClassSessions,
+  apiGetMaterialAccessUrl,
+  apiGetSession,
+  apiUpdateSession,
+  apiUpdateSessionLog,
+  apiUploadSessionMaterial,
+  mapSessionDetail,
+  mapSessionListItem,
+  TEACHING_MODE_LABELS,
+} from "../../../lib/classroomApi";
 
-export default function ManageSessions({
-  student,
-  dailySessions = [],
-  setDailySessions,
-  exercisesList = [],
-}) {
-  const navigate = useNavigate();
+/** Tài liệu buổi học tối đa 20 MB (giới hạn backend, kiểm nhanh phía client). */
+const MATERIAL_MAX_SIZE = 20 * 1024 * 1024;
 
-  // State
-  const [selectedSessionId, setSelectedSessionId] = useState(
-    () => dailySessions[0]?.id ?? null
-  );
-  const [statusFilter, setStatusFilter] = useState("all");
+const MATERIAL_ACCEPT =
+  ".pdf,.docx,.doc,.png,.jpg,.jpeg,.gif,.webp,.mp3,.wav,.ogg,.m4a";
+const MATERIAL_ALLOWED_EXT = [
+  "pdf",
+  "docx",
+  "doc",
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "mp3",
+  "wav",
+  "ogg",
+  "m4a",
+];
+
+function materialIcon(fileType) {
+  switch (fileType) {
+    case "PDF":
+      return <FileCheck size={18} className="shrink-0 text-rose-500" />;
+    case "DOCX":
+      return <File size={18} className="shrink-0 text-blue-500" />;
+    case "IMAGE":
+      return <ImageIcon size={18} className="shrink-0 text-emerald-500" />;
+    case "AUDIO":
+      return <Music size={18} className="shrink-0 text-purple-500" />;
+    default:
+      return <File size={18} className="shrink-0 text-slate-500" />;
+  }
+}
+
+/**
+ * Tab "Buổi học" của workspace lớp (UC-T05 bước 4) — nối API thật:
+ * danh sách buổi học của lớp, chi tiết + nhật ký dạy học (2 nội dung),
+ * đính kèm / tải / gỡ tài liệu buổi học. Không dùng dữ liệu mock.
+ *
+ * Tạo buổi học chỉ theo ca: CTA "Tạo buổi học" trỏ sang tab "Lịch dạy"
+ * (chip ca trống → modal "Tạo bài giảng").
+ */
+export default function ManageSessions({ token, classId, basePath, classDetail }) {
+  // ---------------- Danh sách buổi học
+  const [sessions, setSessions] = useState([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Toast / Banner alert
-  const [toastMessage, setToastMessage] = useState(null);
+  const loadList = useCallback(async () => {
+    if (!token || !classId) return;
+    setListLoading(true);
+    setListError("");
+    try {
+      const items = await apiGetClassSessions(token, classId, { order: "asc" });
+      const mapped = (items || []).map(mapSessionListItem);
+      setSessions(mapped);
+      // Chọn buổi đầu (khi chưa chọn hoặc buổi cũ không còn trong danh sách).
+      setSelectedSessionId((current) =>
+        current && mapped.some((s) => s.sessionId === current)
+          ? current
+          : (mapped[0]?.sessionId ?? null)
+      );
+    } catch (err) {
+      setListError(err.message || "Không thể tải danh sách buổi học.");
+    } finally {
+      setListLoading(false);
+    }
+  }, [token, classId]);
 
-  // File upload state & network error simulation
-  const [uploadError, setUploadError] = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [simulatedNetworkFail, setSimulatedNetworkFail] = useState(false);
+  useEffect(() => {
+    loadList();
+  }, [loadList, refreshKey]);
 
-  // New session modal state
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newSessionForm, setNewSessionForm] = useState({
-    title: "",
-    date: new Date().toISOString().slice(0, 10),
-    duration: "90 phút",
-    skills: ["Ngữ pháp", "Từ vựng"],
-  });
+  const bumpRefresh = () => setRefreshKey((k) => k + 1);
 
-  // Filtered session list based on search and visibility filter
   const filteredSessions = useMemo(() => {
-    return dailySessions.filter((s) => {
-      const matchSearch =
-        s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        `buổi ${s.sessionNumber}`.includes(searchQuery.toLowerCase());
-      const isHidden = s.isHidden === true || s.status === "hidden";
-      if (statusFilter === "visible") return matchSearch && !isHidden;
-      if (statusFilter === "hidden") return matchSearch && isHidden;
-      return matchSearch;
-    });
-  }, [dailySessions, searchQuery, statusFilter]);
-
-  // Selected session object
-  const selectedSession = useMemo(
-    () => dailySessions.find((s) => s.id === selectedSessionId) ?? dailySessions[0] ?? null,
-    [dailySessions, selectedSessionId]
-  );
-
-  // Form state for editing selected session
-  const [editForm, setEditForm] = useState(() => {
-    if (!selectedSession) return null;
-    return {
-      title: selectedSession.title || "",
-      date: selectedSession.date || "",
-      duration: selectedSession.duration || "90 phút",
-      status: selectedSession.status || "draft",
-      knowledgeTaught: selectedSession.publicLogWork?.knowledgeTaught || "",
-      homeworkAssigned: selectedSession.publicLogWork?.homeworkAssigned || "",
-      parentNote: selectedSession.publicLogWork?.parentNote || "",
-    };
-  });
-
-  // Keep editForm synced when selectedSession changes
-  const handleSelectSession = (session) => {
-    setSelectedSessionId(session.id);
-    setEditForm({
-      title: session.title || "",
-      date: session.date || "",
-      duration: session.duration || "90 phút",
-      status: session.status || "draft",
-      knowledgeTaught: session.publicLogWork?.knowledgeTaught || "",
-      homeworkAssigned: session.publicLogWork?.homeworkAssigned || "",
-      parentNote: session.publicLogWork?.parentNote || "",
-    });
-    setUploadError(null);
-  };
-
-  // Toast notification helper
-  const showToast = (msg, type = "success") => {
-    setToastMessage({ text: msg, type });
-    setTimeout(() => setToastMessage(null), 4000);
-  };
-
-  // Helper to save log work content
-  const handleSaveLogWork = () => {
-    if (!selectedSession) return;
-    const updated = dailySessions.map((s) => {
-      if (s.id === selectedSession.id) {
-        return {
-          ...s,
-          title: editForm.title.trim() || s.title,
-          date: editForm.date || s.date,
-          duration: editForm.duration || s.duration,
-          publicLogWork: {
-            ...s.publicLogWork,
-            knowledgeTaught: editForm.knowledgeTaught,
-            homeworkAssigned: editForm.homeworkAssigned,
-            parentNote: editForm.parentNote,
-          },
-        };
-      }
-      return s;
-    });
-
-    setDailySessions(updated);
-    showToast(`Đã lưu nhật ký Buổi học ${selectedSession.sessionNumber}.`);
-  };
-
-  // Helper to toggle Hide / Show session for students/parents
-  const handleToggleHideSession = () => {
-    if (!selectedSession) return;
-    const currentlyHidden = selectedSession.isHidden === true || selectedSession.status === "hidden";
-    const nextHidden = !currentlyHidden;
-
-    const updated = dailySessions.map((s) => {
-      if (s.id === selectedSession.id) {
-        return {
-          ...s,
-          isHidden: nextHidden,
-          status: nextHidden ? "hidden" : "visible",
-        };
-      }
-      return s;
-    });
-
-    setDailySessions(updated);
-    showToast(
-      nextHidden
-        ? `Đã ẩn Buổi học ${selectedSession.sessionNumber} với Học sinh & Phụ huynh.`
-        : `Đã hiện Buổi học ${selectedSession.sessionNumber} cho Học sinh & Phụ huynh.`
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return sessions;
+    return sessions.filter(
+      (s) =>
+        String(s.title || "")
+          .toLowerCase()
+          .includes(q) || `buổi ${s.sessionNumber}`.includes(q),
     );
-  };
+  }, [sessions, searchQuery]);
 
-  // File Upload handler with validation & UC-T05 exception flow 6a/6a1/6a2
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file || !selectedSession) return;
+  // ---------------- Chi tiết buổi học + nhật ký
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
 
-    setUploadError(null);
-
-    // Validate size (< 5MB = 5 * 1024 * 1024 bytes)
-    const MAX_SIZE = 5 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
-      setUploadError({
-        code: "OVERSIZE",
-        message: "Vui lòng chọn file hình ảnh / tài liệu dung lượng không quá 5MB.",
-      });
+  const loadDetail = useCallback(async () => {
+    if (!token || !selectedSessionId) {
+      setDetail(null);
       return;
     }
-
-    // Validate extension
-    const allowedExts = ["pdf", "docx", "doc", "png", "jpg", "jpeg", "mp3"];
-    const ext = file.name.split(".").pop()?.toLowerCase();
-    if (!ext || !allowedExts.includes(ext)) {
-      setUploadError({
-        code: "INVALID_FORMAT",
-        message: "Vui lòng chọn tệp tài liệu hợp lệ (PDF, DOCX, PNG, JPG, MP3).",
+    setDetailLoading(true);
+    setDetailError("");
+    try {
+      const raw = await apiGetSession(token, selectedSessionId);
+      const mapped = mapSessionDetail(raw);
+      setDetail(mapped);
+      setLogForm({
+        logKnowledge: mapped?.logKnowledge || "",
+        logHomework: mapped?.logHomework || "",
       });
-      return;
+    } catch (err) {
+      setDetail(null);
+      setDetailError(err.message || "Không thể tải chi tiết buổi học.");
+    } finally {
+      setDetailLoading(false);
     }
+  }, [token, selectedSessionId]);
 
-    // Check simulated network failure toggle
-    if (simulatedNetworkFail) {
-      setUploadError({
-        code: "NETWORK_ERROR",
-        message: "Không thể tải file lên hệ thống. Vui lòng kiểm tra lại kết nối mạng và thử lại.",
-        file,
-      });
-      return;
-    }
+  useEffect(() => {
+    loadDetail();
+  }, [loadDetail, refreshKey]);
 
-    // Simulate file upload progress
-    setIsUploading(true);
-    setTimeout(() => {
-      setIsUploading(false);
-      const newAtt = {
-        id: `att-${Date.now()}`,
-        name: file.name,
-        size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        type: ext,
-        uploadedAt: new Date().toISOString().slice(0, 10),
-      };
+  // ---------------- Nhật ký (2 nội dung: kiến thức + dặn dò)
+  const [logForm, setLogForm] = useState({ logKnowledge: "", logHomework: "" });
+  const [savingLog, setSavingLog] = useState(false);
+  const [logError, setLogError] = useState("");
 
-      const updated = dailySessions.map((s) => {
-        if (s.id === selectedSession.id) {
-          return {
-            ...s,
-            attachments: [...(s.attachments || []), newAtt],
-          };
-        }
-        return s;
-      });
-
-      setDailySessions(updated);
-      showToast(`Đã đính kèm tệp "${file.name}" vào Buổi học ${selectedSession.sessionNumber}!`);
-    }, 600);
-  };
-
-  // Retry upload for flow 6a2
-  const handleRetryUpload = () => {
-    setSimulatedNetworkFail(false);
-    setUploadError(null);
-    showToast("Đã làm mới kết nối. Vui lòng chọn lại tệp để tải lên.", "info");
-  };
-
-  // Remove attachment
-  const handleRemoveAttachment = (attId) => {
-    if (!selectedSession) return;
-    const updated = dailySessions.map((s) => {
-      if (s.id === selectedSession.id) {
-        return {
-          ...s,
-          attachments: (s.attachments || []).filter((a) => a.id !== attId),
-        };
-      }
-      return s;
-    });
-    setDailySessions(updated);
-    showToast("Đã xóa tệp đính kèm.");
-  };
-
-  // Add New Session
-  const handleCreateSession = () => {
-    if (!newSessionForm.title.trim()) return;
-    const nextNum = dailySessions.reduce((max, s) => Math.max(max, s.sessionNumber || 0), 0) + 1;
-    const newSession = {
-      id: `ds-${Date.now()}`,
-      sessionNumber: nextNum,
-      title: newSessionForm.title.trim(),
-      date: newSessionForm.date,
-      duration: newSessionForm.duration,
-      status: "draft",
-      skills: newSessionForm.skills,
-      publicLogWork: {
-        knowledgeTaught: "",
-        homeworkAssigned: "",
-        parentNote: "",
-        publishedAt: null,
-      },
-      attachments: [],
-      quizzes: [],
+  const handleSaveLog = async () => {
+    if (!token || !detail || savingLog) return;
+    const payload = {
+      logKnowledge: logForm.logKnowledge.trim(),
+      logHomework: logForm.logHomework.trim(),
     };
-
-    setDailySessions([...dailySessions, newSession]);
-    setSelectedSessionId(newSession.id);
-    setEditForm({
-      title: newSession.title,
-      date: newSession.date,
-      duration: newSession.duration,
-      status: "draft",
-      knowledgeTaught: "",
-      homeworkAssigned: "",
-      parentNote: "",
-    });
-    setShowAddModal(false);
-    setNewSessionForm({
-      title: "",
-      date: new Date().toISOString().slice(0, 10),
-      duration: "90 phút",
-      skills: ["Ngữ pháp", "Từ vựng"],
-    });
-    showToast(`Đã khởi tạo Buổi học ${nextNum} mới!`);
+    if (!payload.logKnowledge && !payload.logHomework) {
+      setLogError("Vui lòng nhập ít nhất một nội dung nhật ký (kiến thức hoặc dặn dò).");
+      return;
+    }
+    setSavingLog(true);
+    setLogError("");
+    try {
+      await apiUpdateSessionLog(token, detail.sessionId, payload);
+      showToast("Đã lưu nhật ký buổi học.", "success");
+      bumpRefresh();
+    } catch (err) {
+      setLogError(err.message || "Không thể lưu nhật ký buổi học.");
+    } finally {
+      setSavingLog(false);
+    }
   };
 
-  // Get quizzes associated with selected session
-  const sessionQuizzes = useMemo(() => {
-    if (!selectedSession) return [];
-    return exercisesList.filter((e) => e.sessionId === selectedSession.id || e.sessionId === `lp${selectedSession.sessionNumber}`);
-  }, [selectedSession, exercisesList]);
+  // ---------------- Sửa / dời buổi học (modal, dùng API thật)
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+  const [editError, setEditError] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
-  // Statistics
-  const totalCount = dailySessions.length;
-  const visibleCount = dailySessions.filter((s) => !s.isHidden && s.status !== "hidden").length;
-  const hiddenCount = dailySessions.filter((s) => s.isHidden === true || s.status === "hidden").length;
-  const totalAttachments = dailySessions.reduce((acc, s) => acc + (s.attachments?.length || 0), 0);
+  const openEditModal = () => {
+    if (!detail) return;
+    setEditForm({
+      title: detail.title || "",
+      sessionDate: detail.sessionDate || "",
+      startTime: (detail.startTime || "").slice(0, 5),
+      endTime: (detail.endTime || "").slice(0, 5),
+      teachingMode: detail.teachingMode || "ONLINE",
+      meetingUrl: detail.meetingUrl || "",
+      location: detail.location || "",
+    });
+    setEditError("");
+    setShowEditModal(true);
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setEditError("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!token || !detail || !editForm || savingEdit) return;
+    const payload = {
+      title: editForm.title.trim() || null,
+      sessionDate: editForm.sessionDate,
+      startTime: editForm.startTime,
+      endTime: editForm.endTime,
+      teachingMode: editForm.teachingMode,
+      meetingUrl:
+        editForm.teachingMode === "ONLINE" ? editForm.meetingUrl.trim() || null : null,
+      location:
+        editForm.teachingMode === "AT_HOME" ? editForm.location.trim() || null : null,
+    };
+    if (!payload.sessionDate || !payload.startTime || !payload.endTime) {
+      setEditError("Vui lòng nhập đủ ngày và giờ bắt đầu / kết thúc.");
+      return;
+    }
+    if (payload.teachingMode === "ONLINE" && !payload.meetingUrl) {
+      setEditError("Vui lòng nhập liên kết phòng học (buổi học online).");
+      return;
+    }
+    if (payload.teachingMode === "AT_HOME" && !payload.location) {
+      setEditError("Vui lòng nhập địa chỉ học (buổi học tại nhà).");
+      return;
+    }
+
+    setSavingEdit(true);
+    setEditError("");
+    try {
+      await apiUpdateSession(token, detail.sessionId, payload);
+      showToast("Đã cập nhật buổi học.", "success");
+      closeEditModal();
+      bumpRefresh();
+    } catch (err) {
+      // Lỗi trùng ca / trùng lịch / ngày quá khứ... trả thông điệp tiếng Việt từ backend.
+      setEditError(err.message || "Không thể cập nhật buổi học.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // ---------------- Tài liệu buổi học (upload / tải / gỡ)
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [confirmDeleteMaterial, setConfirmDeleteMaterial] = useState(null);
+  const [deletingMaterialId, setDeletingMaterialId] = useState(null);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !detail || !token) return;
+
+    setUploadError("");
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (!MATERIAL_ALLOWED_EXT.includes(ext)) {
+      setUploadError(
+        "Định dạng không hợp lệ. Chỉ nhận PDF, DOCX, ảnh (PNG/JPG/GIF/WEBP) hoặc âm thanh (MP3/WAV/OGG).",
+      );
+      return;
+    }
+    if (file.size > MATERIAL_MAX_SIZE) {
+      setUploadError(
+        `Tệp vượt quá dung lượng tối đa 20 MB (tệp của bạn ${
+          Math.round((file.size / (1024 * 1024)) * 10) / 10
+        } MB).`,
+      );
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      await apiUploadSessionMaterial(token, detail.sessionId, file);
+      showToast(`Đã đính kèm tệp "${file.name}".`, "success");
+      bumpRefresh();
+    } catch (err) {
+      setUploadError(err.message || "Không thể tải tệp lên hệ thống.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDownloadMaterial = async (material) => {
+    if (!token || !material) return;
+    try {
+      const { url } = await apiGetMaterialAccessUrl(token, material.materialId);
+      window.open(url, "_blank", "noopener");
+    } catch (err) {
+      showToast(err.message || "Không thể tải tệp. Vui lòng thử lại.", "error");
+    }
+  };
+
+  const handleConfirmDeleteMaterial = async () => {
+    if (!token || !detail || !confirmDeleteMaterial) return;
+    setDeletingMaterialId(confirmDeleteMaterial.materialId);
+    setConfirmDeleteMaterial(null);
+    try {
+      await apiDeleteSessionMaterial(token, detail.sessionId, confirmDeleteMaterial.materialId);
+      showToast("Đã gỡ tài liệu buổi học.", "success");
+      bumpRefresh();
+    } catch (err) {
+      showToast(err.message || "Không thể gỡ tài liệu. Vui lòng thử lại.", "error");
+    } finally {
+      setDeletingMaterialId(null);
+    }
+  };
+
+  // ---------------- Toast (tiếng Việt, tự tắt sau 5s)
+  const [toast, setToast] = useState(null);
+  const showToast = (text, type = "success") => setToast({ text, type });
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timer = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  const materials = detail?.materials || [];
 
   return (
     <div className="space-y-6">
-      {/* Toast Alert Banner */}
-      {toastMessage && (
+      {/* Toast */}
+      {toast && (
         <div
           className={clsx(
-            "fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium shadow-xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-5",
-            toastMessage.type === "success" && "bg-emerald-600 text-white",
-            toastMessage.type === "info" && "bg-blue-600 text-white",
-            toastMessage.type === "warning" && "bg-amber-600 text-white"
+            "fixed bottom-6 right-6 z-50 flex max-w-md items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-xl",
+            toast.type === "error" ? "bg-rose-600" : "bg-emerald-600",
           )}
         >
-          {toastMessage.type === "success" && <CheckCircle2 size={18} />}
-          {toastMessage.type === "info" && <Globe size={18} />}
-          <span>{toastMessage.text}</span>
-          <button onClick={() => setToastMessage(null)} className="ml-2 opacity-80 hover:opacity-100">
-            <X size={16} />
+          {toast.type === "error" ? (
+            <AlertCircle size={16} className="shrink-0" />
+          ) : (
+            <CheckCircle2 size={16} className="shrink-0" />
+          )}
+          <span>{toast.text}</span>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="ml-1 opacity-80 hover:opacity-100"
+            aria-label="Đóng thông báo"
+          >
+            <X size={14} />
           </button>
         </div>
       )}
 
-      {/* Header section */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50">
-              Quản lý Buổi học thực tế & Nhật ký dạy học
+              Quản lý Buổi học &amp; Nhật ký dạy học
             </h2>
             <Badge tone="indigo">UC-T05</Badge>
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Nhật ký bài học (Gia sư, Học sinh, Phụ huynh) & đính kèm tài liệu giảng dạy cho {student?.name}
+            {classDetail?.className
+              ? `Nhật ký bài học, tài liệu giảng dạy và điều chỉnh lịch cho ${classDetail.studentName}.`
+              : "Nhật ký bài học, tài liệu giảng dạy và điều chỉnh lịch buổi học."}
           </p>
         </div>
-        <Button onClick={() => setShowAddModal(true)} className="shrink-0 gap-2">
-          <Plus size={16} /> Thêm buổi học mới
-        </Button>
+        <Link
+          to={`${basePath}/schedule`}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700"
+        >
+          <Plus size={15} /> Tạo buổi học (theo ca dạy)
+        </Link>
       </div>
 
-      {/* Workspace Grid Layout: Left Session List (35%) & Right Session Workspace (65%) */}
+      {/* Layout: danh sách buổi học (4 cột) + chi tiết (8 cột) */}
       <div className="grid gap-6 lg:grid-cols-12">
-        {/* Left Column: Session List & Filter */}
+        {/* Cột trái: danh sách + tìm kiếm */}
         <div className="space-y-3 lg:col-span-4">
-          <Card padded={false} className="p-3 space-y-3">
-            {/* Search Input */}
+          <Card padded={false} className="space-y-3 p-3">
             <div className="relative">
               <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
               <input
@@ -366,47 +397,54 @@ export default function ManageSessions({
               />
             </div>
 
-            {/* Status Filters */}
-            <div className="flex flex-wrap gap-1 border-b border-slate-100 pb-2 dark:border-slate-800">
-              {[
-                { id: "all", label: "Tất cả" },
-                { id: "visible", label: "Đang hiện" },
-                { id: "hidden", label: "Đang ẩn" },
-              ].map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => setStatusFilter(f.id)}
-                  className={clsx(
-                    "rounded-md px-2.5 py-1 text-xs font-medium transition",
-                    statusFilter === f.id
-                      ? "bg-blue-600 text-white"
-                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                  )}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Session Cards List */}
-            <div className="max-h-[600px] space-y-2 overflow-y-auto pr-1">
-              {filteredSessions.length === 0 ? (
-                <p className="py-6 text-center text-xs text-slate-400">Không tìm thấy buổi học phù hợp.</p>
+            <div className="max-h-[560px] space-y-2 overflow-y-auto pr-1">
+              {listLoading ? (
+                Array.from({ length: 3 }, (_, index) => (
+                  <div key={index} className="h-16 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
+                ))
+              ) : listError ? (
+                <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+                  <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-500" />
+                  <div className="flex-1">
+                    <p>{listError}</p>
+                    <button
+                      type="button"
+                      onClick={loadList}
+                      className="mt-1.5 inline-flex items-center gap-1 font-semibold underline"
+                    >
+                      <RefreshCw size={12} /> Thử lại
+                    </button>
+                  </div>
+                </div>
+              ) : sessions.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-5 text-center dark:border-slate-700 dark:bg-slate-900/40">
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Chưa có buổi học nào.
+                  </p>
+                  <Link
+                    to={`${basePath}/schedule`}
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+                  >
+                    <Plus size={12} /> Tạo buổi học từ ca dạy
+                  </Link>
+                </div>
+              ) : filteredSessions.length === 0 ? (
+                <p className="py-6 text-center text-xs text-slate-400">
+                  Không tìm thấy buổi học phù hợp.
+                </p>
               ) : (
                 filteredSessions.map((session) => {
-                  const isSelected = selectedSession?.id === session.id;
-                  const isHidden = session.isHidden === true || session.status === "hidden";
-
+                  const isSelected = selectedSessionId === session.sessionId;
                   return (
-                    <div
-                      key={session.id}
-                      onClick={() => handleSelectSession(session)}
+                    <button
+                      key={session.sessionId}
+                      type="button"
+                      onClick={() => setSelectedSessionId(session.sessionId)}
                       className={clsx(
-                        "group flex cursor-pointer flex-col gap-2 rounded-xl border p-3.5 transition-all duration-150",
+                        "w-full cursor-pointer rounded-xl border p-3.5 text-left transition-all",
                         isSelected
                           ? "border-blue-500 bg-blue-50/70 shadow-sm dark:border-blue-700 dark:bg-blue-950/40"
                           : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800/60",
-                        isHidden && "opacity-60 bg-slate-100/70 dark:bg-slate-900/40 border-dashed"
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -416,35 +454,29 @@ export default function ManageSessions({
                           </span>
                           Buổi {session.sessionNumber}
                         </span>
-                        {isHidden && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                            <EyeOff size={11} /> Đang ẩn
+                        {session.isTrial ? (
+                          <Badge tone="rose" size="xs">
+                            Buổi dạy thử
+                          </Badge>
+                        ) : session.hasLog ? (
+                          <span className="text-emerald-600 dark:text-emerald-400" title="Đã có nhật ký">
+                            <NotebookText size={13} />
                           </span>
-                        )}
+                        ) : null}
                       </div>
-
-                      <p className="line-clamp-2 text-xs font-semibold text-slate-900 dark:text-slate-100">
-                        {session.title}
+                      <p className="mt-1.5 line-clamp-2 text-xs font-semibold text-slate-900 dark:text-slate-100">
+                        {session.title || "Buổi học chưa đặt tên"}
                       </p>
-
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                        <span className="flex items-center gap-1">
-                          <CalendarDays size={12} /> {session.date || "Chưa chọn ngày"}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+                        <span className="inline-flex items-center gap-1">
+                          <CalendarDays size={12} /> {session.dateLabel}
                         </span>
-                        <div className="flex items-center gap-2">
-                          {(session.attachments?.length || 0) > 0 && (
-                            <span className="flex items-center gap-0.5 text-indigo-600 dark:text-indigo-400">
-                              <FileText size={11} /> {session.attachments.length} file
-                            </span>
-                          )}
-                          {(session.quizzes?.length || 0) > 0 && (
-                            <span className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400">
-                              <Sparkles size={11} /> Quiz
-                            </span>
-                          )}
-                        </div>
+                        <span className="inline-flex items-center gap-1">
+                          <Clock size={12} /> {session.timeLabel}
+                        </span>
+                        <span>{session.modeLabel}</span>
                       </div>
-                    </div>
+                    </button>
                   );
                 })
               )}
@@ -452,395 +484,461 @@ export default function ManageSessions({
           </Card>
         </div>
 
-        {/* Right Column: Selected Session Detail & Public Log Work Workspace */}
-        <div className="space-y-6 lg:col-span-8">
-          {selectedSession && editForm ? (
-            <Card className="space-y-6">
-              {/* Session Inspector Header */}
-              <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+        {/* Cột phải: chi tiết buổi học */}
+        <div className="lg:col-span-8">
+          {!selectedSessionId ? (
+            <Card className="py-12 text-center text-sm text-slate-400">
+              Chưa chọn buổi học nào. Vui lòng chọn một buổi học từ danh sách bên trái.
+            </Card>
+          ) : detailLoading ? (
+            <div className="space-y-4">
+              <div className="h-24 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
+              <div className="h-40 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
+              <div className="h-32 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
+            </div>
+          ) : detailError ? (
+            <Card className="py-12 text-center">
+              <AlertCircle size={28} className="mx-auto text-rose-400" />
+              <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-400">
+                {detailError}
+              </p>
+              <div className="mt-3">
+                <Button variant="outline" size="sm" onClick={loadDetail}>
+                  <RefreshCw size={14} /> Thử lại
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <div className="space-y-5">
+              {/* Header buổi học */}
+              <Card className="space-y-3 p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-lg bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
-                      Buổi học {selectedSession.sessionNumber}
+                      Buổi học {detail.sessionNumber}
                     </span>
-                    {selectedSession.isHidden || selectedSession.status === "hidden" ? (
-                      <Badge tone="amber">
-                        <EyeOff size={12} className="mr-1 inline" /> Buổi học đang ẩn (Học sinh & Phụ huynh không thấy)
-                      </Badge>
+                    {detail.isTrial && (
+                      <Badge tone="rose">Buổi dạy thử</Badge>
+                    )}
+                    {detail.hasLog ? (
+                      <Badge tone="emerald">Đã có nhật ký</Badge>
                     ) : (
-                      <Badge tone="emerald">
-                        <Eye size={12} className="mr-1 inline" /> Buổi học đang hiện
-                      </Badge>
+                      <Badge tone="slate">Chưa có nhật ký</Badge>
                     )}
                   </div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-50">
-                    Chi tiết Buổi học #{selectedSession.sessionNumber}
-                  </h3>
-                </div>
-
-                {/* Main Action Buttons */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleToggleHideSession}
-                    className={clsx(
-                      "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition",
-                      selectedSession.isHidden || selectedSession.status === "hidden"
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                        : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
-                    )}
-                  >
-                    {selectedSession.isHidden || selectedSession.status === "hidden" ? (
-                      <>
-                        <Eye size={14} /> Hiện buổi học
-                      </>
-                    ) : (
-                      <>
-                        <EyeOff size={14} /> Ẩn buổi học
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* 1. General Session Metadata Form */}
-              <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900/50 ring-1 ring-slate-200/60 dark:ring-slate-800">
-                <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Thông tin chung buổi học
-                </h4>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="sm:col-span-2">
-                    <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                      Tiêu đề bài giảng / Nội dung trọng tâm
-                    </label>
-                    <input
-                      type="text"
-                      value={editForm.title}
-                      onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                      placeholder="VD: Buổi 5: Task 2: Bài luận quan điểm & Cấu trúc câu phức"
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                      Ngày dạy thực tế
-                    </label>
-                    <input
-                      type="date"
-                      value={editForm.date}
-                      onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Public Class Log Work (UC-T05 Core Feature) */}
-              <div className="space-y-4 rounded-xl border border-blue-100 bg-blue-50/30 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white">
-                      <Globe size={15} />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                        Public Class Log Work (Nhật ký dạy học)
-                      </h4>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Vùng văn bản nhật ký bài học & dặn dò. Học sinh ({student?.name}) và Phụ huynh sẽ xem được nội dung này (trừ khi bị ẩn).
-                      </p>
-                    </div>
-                  </div>
-                  {selectedSession.publicLogWork?.publishedAt && (
-                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-                      Đã gửi: {selectedSession.publicLogWork.publishedAt}
-                    </span>
-                  )}
-                </div>
-
-                {/* Input Area 1: Kiến thức đã hoàn thành trong buổi */}
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                      <CheckCircle2 size={14} className="text-emerald-500" />
-                      Kiến thức đã hoàn thành trong buổi học
-                    </label>
-                  </div>
-                  <textarea
-                    rows={4}
-                    value={editForm.knowledgeTaught}
-                    onChange={(e) => setEditForm((f) => ({ ...f, knowledgeTaught: e.target.value }))}
-                    placeholder="Nhập chi tiết ngữ pháp, từ vựng và bài tập đã giảng trong buổi..."
-                    className="w-full rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </div>
-
-                {/* Input Area 2: Dặn dò về nhà */}
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                      <BookOpen size={14} className="text-amber-500" />
-                      Dặn dò về nhà & Bài tập cần nộp
-                    </label>
-                  </div>
-                  <textarea
-                    rows={3}
-                    value={editForm.homeworkAssigned}
-                    onChange={(e) => setEditForm((f) => ({ ...f, homeworkAssigned: e.target.value }))}
-                    placeholder="Ghi rõ bài tập cần làm, thời hạn nộp bài và yêu cầu học từ vựng..."
-                    className="w-full rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </div>
-
-                {/* Save Log Work Action Button */}
-                <div className="flex justify-end pt-1">
-                  <Button onClick={handleSaveLogWork} className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-5">
-                    <FileText size={14} /> Lưu
+                  <Button variant="outline" size="sm" onClick={openEditModal}>
+                    <Pencil size={13} /> Sửa / dời buổi học
                   </Button>
                 </div>
-              </div>
 
-              {/* 3. File Attachments (UC-T05 Main Flow Step 6 & Exception Flow 6a/6a1/6a2) */}
-              <div className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText size={16} className="text-indigo-600 dark:text-indigo-400" />
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
-                      Tài liệu học tập đính kèm tại Buổi học {selectedSession.sessionNumber}
-                    </h4>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-50">
+                    {detail.title || "Buổi học chưa đặt tên"}
+                  </h3>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="inline-flex items-center gap-1.5">
+                      <CalendarDays size={13} /> {detail.dateLabel}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock size={13} /> {detail.timeLabel}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      {detail.teachingMode === "ONLINE" ? (
+                        <MapPin size={13} />
+                      ) : (
+                        <MapPin size={13} />
+                      )}
+                      {detail.modeLabel}
+                      {detail.teachingMode === "ONLINE" && detail.meetingUrl ? (
+                        <a
+                          href={detail.meetingUrl}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+                        >
+                          Vào phòng học
+                        </a>
+                      ) : detail.teachingMode === "AT_HOME" && detail.location ? (
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
+                          {detail.location}
+                        </span>
+                      ) : null}
+                    </span>
                   </div>
-                  {/* Simulation Toggle for Exception Flow 6a testing */}
-                  <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-500 hover:text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={simulatedNetworkFail}
-                      onChange={(e) => setSimulatedNetworkFail(e.target.checked)}
-                      className="rounded border-slate-300 text-rose-600"
-                    />
-                    <span>Mô phỏng lỗi mạng (Test 6a)</span>
-                  </label>
+                </div>
+              </Card>
+
+              {/* Nhật ký dạy học (2 nội dung) */}
+              <Card className="space-y-4 p-5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white">
+                    <NotebookText size={15} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                      Nhật ký dạy học
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Học sinh và phụ huynh xem được nội dung này sau khi lưu.
+                    </p>
+                  </div>
                 </div>
 
-                {/* Upload Exception / Validation Error Banner (Flow 6a1) */}
-                {uploadError && (
-                  <div className="flex items-start gap-2.5 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
-                    <AlertCircle size={16} className="mt-0.5 shrink-0 text-rose-500" />
-                    <div className="flex-1">
-                      <p className="font-semibold">{uploadError.message}</p>
-                      {uploadError.code === "NETWORK_ERROR" && (
-                        <button
-                          type="button"
-                          onClick={handleRetryUpload}
-                          className="mt-1.5 inline-flex items-center gap-1 rounded bg-rose-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-rose-700"
-                        >
-                          <RefreshCw size={12} /> Tải lại file (Thử lại)
-                        </button>
-                      )}
-                    </div>
-                    <button onClick={() => setUploadError(null)} className="text-rose-400 hover:text-rose-600">
+                {logError && (
+                  <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+                    <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-500" />
+                    <div className="flex-1">{logError}</div>
+                    <button
+                      type="button"
+                      onClick={() => setLogError("")}
+                      className="text-rose-400 hover:text-rose-600"
+                      aria-label="Đóng thông báo lỗi"
+                    >
                       <X size={14} />
                     </button>
                   </div>
                 )}
 
-                {/* File Upload Drag & Drop Area */}
-                <div className="relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/50 p-5 text-center dark:border-slate-700 dark:bg-slate-900/30 hover:bg-slate-100/50 transition">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    Kiến thức đã hoàn thành trong buổi học
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={logForm.logKnowledge}
+                    onChange={(e) =>
+                      setLogForm((f) => ({ ...f, logKnowledge: e.target.value }))
+                    }
+                    placeholder="Nhập chi tiết ngữ pháp, từ vựng và bài tập đã giảng trong buổi..."
+                    className="w-full rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    Dặn dò về nhà &amp; bài tập cần nộp
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={logForm.logHomework}
+                    onChange={(e) =>
+                      setLogForm((f) => ({ ...f, logHomework: e.target.value }))
+                    }
+                    placeholder="Ghi rõ bài tập cần làm, thời hạn nộp và yêu cầu luyện tập..."
+                    className="w-full rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveLog}
+                    disabled={savingLog}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {savingLog ? "Đang lưu..." : "Lưu nhật ký"}
+                  </Button>
+                </div>
+              </Card>
+
+              {/* Tài liệu buổi học */}
+              <Card className="space-y-4 p-5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white">
+                    <UploadCloud size={15} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                      Tài liệu buổi học
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      PDF, Word, ảnh hoặc âm thanh — mỗi tệp tối đa 20 MB.
+                    </p>
+                  </div>
+                </div>
+
+                {uploadError && (
+                  <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+                    <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-500" />
+                    <div className="flex-1">{uploadError}</div>
+                    <button
+                      type="button"
+                      onClick={() => setUploadError("")}
+                      className="text-rose-400 hover:text-rose-600"
+                      aria-label="Đóng thông báo lỗi"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+
+                <div className="relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/50 p-5 text-center transition hover:bg-slate-100/50 dark:border-slate-700 dark:bg-slate-900/30">
                   <input
                     type="file"
                     onChange={handleFileUpload}
                     className="absolute inset-0 cursor-pointer opacity-0"
-                    accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.mp3"
+                    accept={MATERIAL_ACCEPT}
+                    disabled={isUploading}
+                    aria-label="Chọn tài liệu buổi học"
                   />
                   <UploadCloud size={24} className="mb-1 text-slate-400" />
                   <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                    Nhấp để đính kèm tài liệu bài giảng (.pdf, .docx, .png, .mp3)
+                    Nhấp để đính kèm tài liệu buổi học
                   </p>
                   <p className="mt-0.5 text-[11px] text-slate-400">
-                    Dung lượng tệp tối đa: <strong>5MB</strong> &middot; Hệ thống kiểm tra an toàn link download
+                    PDF, Word, ảnh, âm thanh &middot; tối đa 20 MB
                   </p>
                   {isUploading && (
                     <div className="mt-2 flex items-center gap-2 text-xs font-medium text-blue-600">
-                      <RefreshCw size={14} className="animate-spin" /> Đang tải file lên hệ thống...
+                      <RefreshCw size={14} className="animate-spin" /> Đang tải tệp lên...
                     </div>
                   )}
                 </div>
 
-                {/* Uploaded Files List */}
-                <div className="space-y-2">
-                  {(selectedSession.attachments || []).length === 0 ? (
-                    <p className="text-center py-2 text-xs text-slate-400">Chưa có tài liệu nào đính kèm cho buổi học này.</p>
-                  ) : (
-                    selectedSession.attachments.map((att) => (
+                {materials.length === 0 ? (
+                  <p className="py-1 text-center text-xs text-slate-400">
+                    Chưa có tài liệu nào được đính kèm cho buổi học này.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {materials.map((material) => (
                       <div
-                        key={att.id}
+                        key={material.materialId}
                         className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-2.5 text-xs dark:border-slate-800 dark:bg-slate-900"
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          {att.type === "pdf" ? (
-                            <FileCheck size={18} className="text-rose-500 shrink-0" />
-                          ) : att.type === "docx" || att.type === "doc" ? (
-                            <FileText size={18} className="text-blue-500 shrink-0" />
-                          ) : att.type === "mp3" ? (
-                            <Music size={18} className="text-purple-500 shrink-0" />
-                          ) : (
-                            <ImageIcon size={18} className="text-emerald-500 shrink-0" />
-                          )}
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          {materialIcon(material.fileType)}
                           <div className="min-w-0">
-                            <p className="truncate font-medium text-slate-800 dark:text-slate-200">{att.name}</p>
-                            <p className="text-[11px] text-slate-400">{att.size} &middot; Tải lên {att.uploadedAt}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <a
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              showToast(`Đang tải file an toàn: ${att.name}`);
-                            }}
-                            className="rounded px-2 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
-                          >
-                            Tải về
-                          </a>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveAttachment(att.id)}
-                            className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950"
-                            title="Xóa tệp"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* 4. Quiz & Homework Section (UC-T05 Main Flow Step 4 - Links to UC-T06 AI Workspace) */}
-              <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 dark:border-amber-900/40 dark:bg-amber-950/20 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles size={18} className="text-amber-500" />
-                    <div>
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-100">
-                        Quiz trắc nghiệm gắn với Buổi học {selectedSession.sessionNumber}
-                      </h4>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Tích hợp với workspace Soạn & Giao Quiz trắc nghiệm (UC-T06)
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Direct Button to launch AI Quiz Workspace (UC-T06) pre-filled with this session */}
-                  <Link
-                    to={`/tutor/exercise-generator?sessionId=${selectedSession.id}&sessionNum=${selectedSession.sessionNumber}&studentId=${student?.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:from-amber-600 hover:to-orange-600 transition"
-                  >
-                    <Sparkles size={14} /> Soạn & Giao AI Quiz Workspace <ArrowRight size={12} />
-                  </Link>
-                </div>
-
-                {/* List of associated quizzes */}
-                <div className="space-y-2">
-                  {sessionQuizzes.length === 0 ? (
-                    <p className="text-xs text-slate-500 italic">
-                      Chưa có bộ Quiz nào được giao riêng cho buổi học này. Nhấp nút nút <strong>Soạn & Giao AI Quiz Workspace</strong> ở trên để tạo mới.
-                    </p>
-                  ) : (
-                    sessionQuizzes.map((quiz) => (
-                      <div
-                        key={quiz.id}
-                        className="flex items-center justify-between rounded-lg border border-amber-200/80 bg-white p-2.5 text-xs dark:border-slate-800 dark:bg-slate-900"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <BookOpen size={16} className="text-amber-500 shrink-0" />
-                          <div className="min-w-0">
-                            <p className="font-semibold text-slate-900 dark:text-slate-50 truncate">{quiz.title}</p>
+                            <p className="truncate font-medium text-slate-800 dark:text-slate-200">
+                              {material.fileName}
+                            </p>
                             <p className="text-[11px] text-slate-400">
-                              {quiz.skill} &middot; {quiz.type} &middot; Đã giao ngày {quiz.assignedDate}
+                              {material.typeLabel}
+                              {material.sizeLabel ? ` · ${material.sizeLabel}` : ""}
+                              {material.uploadedBy ? ` · ${material.uploadedBy}` : ""}
                             </p>
                           </div>
                         </div>
-                        <Badge tone={quiz.status === "graded" ? "emerald" : "amber"}>
-                          {quiz.status === "graded" ? `Đã chấm (${quiz.score}/${quiz.maxScore})` : "Đã giao"}
-                        </Badge>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadMaterial(material)}
+                            className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
+                          >
+                            <Download size={12} /> Tải về
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteMaterial(material)}
+                            disabled={deletingMaterialId === material.materialId}
+                            className="inline-flex items-center gap-1 rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-950"
+                            title="Gỡ tài liệu"
+                          >
+                            {deletingMaterialId === material.materialId ? (
+                              <RefreshCw size={14} className="animate-spin" />
+                            ) : (
+                              <Trash2 size={14} />
+                            )}
+                          </button>
+                        </div>
                       </div>
-                    ))
-                  )}
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              {/* Quiz — placeholder chờ tính năng tạo quiz */}
+              <Card className="space-y-2 p-5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                    <NotebookText size={15} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                      Quiz buổi học
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Chưa có quiz cho buổi học này — tính năng soạn quiz sẽ được bổ sung
+                      sau.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </Card>
-          ) : (
-            <Card className="py-12 text-center text-slate-400">
-              Chưa chọn buổi học nào. Vui lòng chọn một buổi học từ danh sách bên trái.
-            </Card>
+              </Card>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Modal: Add New Session */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/50 dark:bg-black/60" onClick={() => setShowAddModal(false)} />
-          <Card className="relative z-10 w-full max-w-md space-y-4">
+      {/* Modal: Sửa / dời buổi học */}
+      {showEditModal && editForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50">Tạo Buổi học thực tế tiếp theo</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X size={16} />
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                  Sửa / dời buổi học {detail.sessionNumber}
+                </h4>
+                <p className="text-[11px] text-slate-400">{classDetail?.className}</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeEditModal}
+                className="cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                aria-label="Đóng"
+              >
+                <X size={18} />
               </button>
             </div>
+
+            {editError && (
+              <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+                <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-500" />
+                <span>{editError}</span>
+              </div>
+            )}
 
             <div className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                  Tiêu đề buổi học <span className="text-rose-500">*</span>
+                  Tiêu đề buổi học
                 </label>
                 <input
                   type="text"
-                  value={newSessionForm.title}
-                  onChange={(e) => setNewSessionForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="VD: Buổi 7: IELTS Listening Part 3 & Vocabulary"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  autoFocus
+                  value={editForm.title}
+                  onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="VD: Buổi 5: Task 2: Cấu trúc câu phức"
+                  maxLength={200}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">Ngày học dự kiến</label>
+                  <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    Ngày
+                  </label>
                   <input
                     type="date"
-                    value={newSessionForm.date}
-                    onChange={(e) => setNewSessionForm((f) => ({ ...f, date: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                    value={editForm.sessionDate}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) =>
+                      setEditForm((f) => ({ ...f, sessionDate: e.target.value }))
+                    }
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">Thời lượng</label>
-                  <select
-                    value={newSessionForm.duration}
-                    onChange={(e) => setNewSessionForm((f) => ({ ...f, duration: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  >
-                    <option value="60 phút">60 phút</option>
-                    <option value="90 phút">90 phút</option>
-                    <option value="120 phút">120 phút</option>
-                  </select>
+                  <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    Giờ bắt đầu
+                  </label>
+                  <input
+                    type="time"
+                    value={editForm.startTime}
+                    onChange={(e) =>
+                      setEditForm((f) => ({ ...f, startTime: e.target.value }))
+                    }
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    Giờ kết thúc
+                  </label>
+                  <input
+                    type="time"
+                    value={editForm.endTime}
+                    onChange={(e) => setEditForm((f) => ({ ...f, endTime: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  />
                 </div>
               </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                  Hình thức
+                </label>
+                <div className="flex gap-2">
+                  {Object.entries(TEACHING_MODE_LABELS).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setEditForm((f) => ({ ...f, teachingMode: mode }))}
+                      className={clsx(
+                        "flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition",
+                        editForm.teachingMode === mode
+                          ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
+                          : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {editForm.teachingMode === "ONLINE" ? (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    Liên kết phòng học
+                  </label>
+                  <input
+                    type="url"
+                    value={editForm.meetingUrl}
+                    onChange={(e) =>
+                      setEditForm((f) => ({ ...f, meetingUrl: e.target.value }))
+                    }
+                    placeholder="https://meet.google.com/..."
+                    maxLength={500}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                    Địa chỉ học
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.location}
+                    onChange={(e) =>
+                      setEditForm((f) => ({ ...f, location: e.target.value }))
+                    }
+                    placeholder="VD: 12 Nguyễn Huệ, Q.1, TP. Hồ Chí Minh"
+                    maxLength={500}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-              <Button variant="secondary" size="sm" onClick={() => setShowAddModal(false)}>
+              <Button variant="secondary" size="sm" onClick={closeEditModal}>
                 Hủy
               </Button>
-              <Button size="sm" onClick={handleCreateSession}>
-                Khởi tạo buổi học
+              <Button size="sm" onClick={handleSaveEdit} disabled={savingEdit}>
+                {savingEdit ? "Đang lưu..." : "Lưu thay đổi"}
               </Button>
             </div>
-          </Card>
+          </div>
         </div>
       )}
+
+      {/* Confirm modal: gỡ tài liệu */}
+      <ConfirmModal
+        open={confirmDeleteMaterial != null}
+        title="Gỡ tài liệu buổi học"
+        message={
+          <span>
+            Bạn có chắc muốn gỡ tệp{" "}
+            <strong>{confirmDeleteMaterial?.fileName}</strong> khỏi buổi học{" "}
+            {detail?.sessionNumber}? Tệp cũng sẽ bị xóa khỏi hệ thống.
+          </span>
+        }
+        confirmLabel="Gỡ tài liệu"
+        confirmTone="rose"
+        icon={Trash2}
+        onConfirm={handleConfirmDeleteMaterial}
+        onCancel={() => setConfirmDeleteMaterial(null)}
+      />
     </div>
   );
 }

@@ -49,16 +49,15 @@ export default function TutorClassWorkspace() {
   const [createError, setCreateError] = useState("");
   const [createErrorDate, setCreateErrorDate] = useState(null);
 
-  // Dữ liệu mock của các tab prototype — giữ nguyên hành vi của workspace cũ.
+  // Dữ liệu mock của các tab prototype (lộ trình, bài tập, tài liệu) — giữ nguyên.
+  // Tab "Buổi học" đã nối API thật (không dùng mock).
   const [demoStudent] = useState(() => students[0]);
   const [pathItems, setPathItems] = useState(demoStudent.learningPath || []);
-  const [dailySessions, setDailySessions] = useState(demoStudent.dailySessions || []);
   const [exercisesList, setExercisesList] = useState(demoStudent.exercises || []);
   const [materialsList, setMaterialsList] = useState(demoStudent.materials || []);
 
   useEffect(() => {
     setPathItems(demoStudent.learningPath || []);
-    setDailySessions(demoStudent.dailySessions || []);
     setExercisesList(demoStudent.exercises || []);
     setMaterialsList(demoStudent.materials || []);
   }, [classId, demoStudent]);
@@ -375,6 +374,7 @@ export default function TutorClassWorkspace() {
       <Outlet
         context={{
           // API thật
+          token,
           detail,
           classId,
           basePath,
@@ -388,8 +388,6 @@ export default function TutorClassWorkspace() {
           student: demoStudent,
           pathItems,
           setPathItems,
-          dailySessions,
-          setDailySessions,
           exercisesList,
           setExercisesList,
           materialsList,
