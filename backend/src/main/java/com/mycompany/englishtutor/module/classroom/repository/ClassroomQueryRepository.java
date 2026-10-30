@@ -19,6 +19,7 @@ import com.mycompany.englishtutor.module.classroom.api.response.ClassDetailRespo
 import com.mycompany.englishtutor.module.classroom.api.response.ClassSummaryResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.OnDemandSessionResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.ScheduleInfo;
+import com.mycompany.englishtutor.module.classroom.api.response.SessionListItem;
 import com.mycompany.englishtutor.module.classroom.api.response.TrialSessionResponse;
 
 import lombok.AccessLevel;
@@ -69,6 +70,99 @@ public class ClassroomQueryRepository {
 
     /** Biên trên thay thế khi ca mới không có valid_to (mở, không giới hạn). */
     private static final LocalDate NO_END_BOUND = LocalDate.of(9999, 12, 31);
+
+    // ----------------------------- RECORDS: OCCURRENCE & SESSION (T7-B4)
+
+    /** Ca cố định kèm id (dùng cho overlay exception, V13). */
+    public record ScheduleSlotRow(
+            Long scheduleId,
+            int dayOfWeek,
+            LocalTime startTime,
+            LocalTime endTime,
+            LocalDate validFrom,
+            LocalDate validTo) {}
+
+    /** Một ngoại lệ (session_exceptions) gắn với ca cụ thể tại một ngày. */
+    public record SessionExceptionRow(
+            Long id,
+            Long classId,
+            Long scheduleId,
+            LocalDate exceptionDate,
+            String exceptionType,
+            LocalDate newDate,
+            LocalTime newStartTime,
+            LocalTime newEndTime,
+            String newTeachingMode,
+            String newMeetingUrl,
+            String newLocation,
+            String reason,
+            Long createdBy,
+            OffsetDateTime createdAt) {}
+
+    /** Buổi học thật (non-trial) thuộc 1 lần diễn của ca — ô "SESSION" trong lattice. */
+    public record OccurrenceSessionRow(
+            Long sessionId,
+            LocalDate sessionDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            String title,
+            String status,
+            String teachingMode,
+            String meetingUrl,
+            String location,
+            boolean hasLog) {}
+
+    /** Chi tiết buổi học (mục 4.5, JOIN tên lớp/học sinh/gia sư + ROW_NUMBER). */
+    public record SessionDetailRow(
+            Long sessionId,
+            int sessionNumber,
+            Long classId,
+            String className,
+            String studentName,
+            String tutorName,
+            String title,
+            LocalDate sessionDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            boolean isTrial,
+            String teachingMode,
+            String meetingUrl,
+            String location,
+            String status,
+            String logKnowledge,
+            String logHomework) {}
+
+    /** Row nội bộ cho UPDATE sessions động (trường null = giữ nguyên, mục 4.6). */
+    public record SessionInfoUpdate(
+            String title,
+            LocalDate sessionDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            String teachingMode,
+            String meetingUrl,
+            String location) {}
+
+    /**
+     * Buổi học đang khóa (SELECT ... FOR UPDATE), kèm chủ sở hữu lớp và 2 log
+     * — đủ thông tin cho validate quyền / state machine / "lần đầu lưu log".
+     */
+    public record LockedSessionRow(
+            Long sessionId,
+            Long classId,
+            Long tutorId,
+            Long studentId,
+            String className,
+            String studentName,
+            String title,
+            LocalDate sessionDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            String teachingMode,
+            String meetingUrl,
+            String location,
+            String status,
+            String logKnowledge,
+            String logHomework) {}
 
     private static final String MY_CLASSES_BASE = """
             SELECT c.id AS class_id,
@@ -386,6 +480,424 @@ public class ClassroomQueryRepository {
                 classId);
     }
 
+    // ------------------------------------------------- T7-B4: OCCURRENCE (lattice)
+
+    /** Ca cố định của lớp kèm id (overlay exception cần {@code schedule_id}). */
+    public List<ScheduleSlotRow> findScheduleSlotsWithIds(Long classId) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT id, day_of_week, start_time, end_time, valid_from, valid_to
+                        FROM class_schedules
+                        WHERE class_id = ?
+                        ORDER BY day_of_week, start_time, id
+                        """,
+                        (ResultSet rs, int rowNum) ->
+                                new ScheduleSlotRow(
+                                        rs.getLong("id"),
+                                        rs.getInt("day_of_week"),
+                                        rs.getObject("start_time", LocalTime.class),
+                                        rs.getObject("end_time", LocalTime.class),
+                                        rs.getObject("valid_from", LocalDate.class),
+                                        rs.getObject("valid_to", LocalDate.class)),
+                        classId)
+                .stream()
+                .toList();
+    }
+
+    /** Một ca cụ thể (check thuộc lớp + khoảng hiệu lực khi ghi exception, mục 4.2 bước 1). */
+    public Optional<ScheduleSlotRow> findScheduleSlot(Long classId, Long scheduleId) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT id, day_of_week, start_time, end_time, valid_from, valid_to
+                        FROM class_schedules
+                        WHERE class_id = ? AND id = ?
+                        """,
+                        (ResultSet rs, int rowNum) ->
+                                new ScheduleSlotRow(
+                                        rs.getLong("id"),
+                                        rs.getInt("day_of_week"),
+                                        rs.getObject("start_time", LocalTime.class),
+                                        rs.getObject("end_time", LocalTime.class),
+                                        rs.getObject("valid_from", LocalDate.class),
+                                        rs.getObject("valid_to", LocalDate.class)),
+                        classId,
+                        scheduleId)
+                .stream()
+                .findFirst();
+    }
+
+    /**
+     * Buổi chính thức (ô "SESSION" trong lattice) của lớp trong 7 ngày
+     * {@code [weekStart, weekStart+7)} — đọc index {@code idx_sessions_class_date}.
+     */
+    public List<OccurrenceSessionRow> findWeekSessions(Long classId, LocalDate weekStart) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT id, session_date, start_time, end_time, title, status,
+                               teaching_mode, meeting_url, location,
+                               (log_knowledge IS NOT NULL OR log_homework IS NOT NULL) AS has_log
+                        FROM sessions
+                        WHERE class_id = ? AND is_trial = FALSE
+                          AND session_date >= ? AND session_date < ?
+                        ORDER BY session_date, start_time, id
+                        """,
+                        (ResultSet rs, int rowNum) ->
+                                new OccurrenceSessionRow(
+                                        rs.getLong("id"),
+                                        rs.getObject("session_date", LocalDate.class),
+                                        rs.getObject("start_time", LocalTime.class),
+                                        rs.getObject("end_time", LocalTime.class),
+                                        rs.getString("title"),
+                                        rs.getString("status"),
+                                        rs.getString("teaching_mode"),
+                                        rs.getString("meeting_url"),
+                                        rs.getString("location"),
+                                        rs.getBoolean("has_log")),
+                        classId,
+                        weekStart,
+                        weekStart.plusDays(7))
+                .stream()
+                .toList();
+    }
+
+    /**
+     * Ngoại lệ (ô "EXCEPTION" trong lattice) của lớp trong 7 ngày
+     * {@code [weekStart, weekStart+7)} — đọc index {@code idx_session_exceptions_class_date}.
+     */
+    public List<SessionExceptionRow> findWeekExceptions(Long classId, LocalDate weekStart) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT id, class_id, schedule_id, exception_date, exception_type,
+                               new_date, new_start_time, new_end_time, new_teaching_mode,
+                               new_meeting_url, new_location, reason, created_by, created_at
+                        FROM session_exceptions
+                        WHERE class_id = ? AND exception_date >= ? AND exception_date < ?
+                        ORDER BY exception_date, schedule_id
+                        """,
+                        new SessionExceptionRowMapper(),
+                        classId,
+                        weekStart,
+                        weekStart.plusDays(7))
+                .stream()
+                .toList();
+    }
+
+    /** Buổi chính thức (nếu có) tại đúng (lớp, ngày, giờ bắt đầu) — check ô đã "vật chất hóa". */
+    public Optional<OccurrenceSessionRow> findOccurrenceSession(
+            Long classId, LocalDate date, LocalTime startTime) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT id, session_date, start_time, end_time, title, status,
+                               teaching_mode, meeting_url, location,
+                               (log_knowledge IS NOT NULL OR log_homework IS NOT NULL) AS has_log
+                        FROM sessions
+                        WHERE class_id = ? AND is_trial = FALSE
+                          AND session_date = ? AND start_time = ?
+                        ORDER BY id
+                        """,
+                        (ResultSet rs, int rowNum) ->
+                                new OccurrenceSessionRow(
+                                        rs.getLong("id"),
+                                        rs.getObject("session_date", LocalDate.class),
+                                        rs.getObject("start_time", LocalTime.class),
+                                        rs.getObject("end_time", LocalTime.class),
+                                        rs.getString("title"),
+                                        rs.getString("status"),
+                                        rs.getString("teaching_mode"),
+                                        rs.getString("meeting_url"),
+                                        rs.getString("location"),
+                                        rs.getBoolean("has_log")),
+                        classId,
+                        date,
+                        startTime)
+                .stream()
+                .findFirst();
+    }
+
+    // ------------------------------------------------------- T7-B4: EXCEPTION
+
+    /** Ngoại lệ hiện có của ô (check ghi đè → audit CREATE hay UPDATE, mục 4.2 bước 5). */
+    public Optional<SessionExceptionRow> findSessionException(Long scheduleId, LocalDate date) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT id, class_id, schedule_id, exception_date, exception_type,
+                               new_date, new_start_time, new_end_time, new_teaching_mode,
+                               new_meeting_url, new_location, reason, created_by, created_at
+                        FROM session_exceptions
+                        WHERE schedule_id = ? AND exception_date = ?
+                        """,
+                        new SessionExceptionRowMapper(),
+                        scheduleId,
+                        date)
+                .stream()
+                .findFirst();
+    }
+
+    /**
+     * Ghi đè ngoại lệ của ô (R4: UNIQUE {@code uq_session_exceptions} +
+     * ON CONFLICT DO UPDATE = upsert idempotent). Trả về id.
+     */
+    public Long upsertSessionException(
+            Long classId,
+            Long scheduleId,
+            LocalDate exceptionDate,
+            String exceptionType,
+            LocalDate newDate,
+            LocalTime newStartTime,
+            LocalTime newEndTime,
+            String newTeachingMode,
+            String newMeetingUrl,
+            String newLocation,
+            String reason,
+            Long createdBy) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO session_exceptions (
+                    class_id, schedule_id, exception_date, exception_type,
+                    new_date, new_start_time, new_end_time,
+                    new_teaching_mode, new_meeting_url, new_location,
+                    reason, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (schedule_id, exception_date) DO UPDATE SET
+                    exception_type = EXCLUDED.exception_type,
+                    new_date = EXCLUDED.new_date,
+                    new_start_time = EXCLUDED.new_start_time,
+                    new_end_time = EXCLUDED.new_end_time,
+                    new_teaching_mode = EXCLUDED.new_teaching_mode,
+                    new_meeting_url = EXCLUDED.new_meeting_url,
+                    new_location = EXCLUDED.new_location,
+                    reason = EXCLUDED.reason,
+                    created_by = EXCLUDED.created_by
+                RETURNING id
+                """,
+                Long.class,
+                classId,
+                scheduleId,
+                exceptionDate,
+                exceptionType,
+                newDate,
+                newStartTime,
+                newEndTime,
+                newTeachingMode,
+                newMeetingUrl,
+                newLocation,
+                reason,
+                createdBy);
+    }
+
+    /** Xóa ngoại lệ của ô (mục 4.3 / vật chất hóa mục 1.8) — 0 nếu không có. */
+    public int deleteSessionException(Long scheduleId, LocalDate date) {
+        return jdbcTemplate.update(
+                "DELETE FROM session_exceptions WHERE schedule_id = ? AND exception_date = ?",
+                scheduleId,
+                date);
+    }
+
+    // ------------------------------------------------- T7-B4: SESSION THẬT
+
+    /**
+     * Danh sách buổi của lớp (mục 4.4): ROW_NUMBER trên toàn bộ buổi (kể cả trial),
+     * lọc trạng thái ở lớp ngoài để số thứ tự không nhảy. {@code status} null = không lọc.
+     */
+    public List<SessionListItem> findSessionList(Long classId, String status, boolean descending) {
+        boolean filtered = status != null;
+        return jdbcTemplate.query(
+                """
+                SELECT x.session_id, x.session_number, x.title, x.session_date,
+                       x.start_time, x.end_time, x.is_trial, x.teaching_mode,
+                       x.meeting_url, x.location, x.status, x.has_log
+                FROM (
+                  SELECT s.id AS session_id, s.title, s.session_date, s.start_time, s.end_time,
+                         s.is_trial, s.teaching_mode, s.meeting_url, s.location, s.status,
+                         (s.log_knowledge IS NOT NULL OR s.log_homework IS NOT NULL) AS has_log,
+                         ROW_NUMBER() OVER (PARTITION BY s.class_id
+                                            ORDER BY s.session_date, s.start_time, s.id)
+                             AS session_number
+                  FROM sessions s
+                  WHERE s.class_id = ?
+                ) x
+                WHERE (
+                """
+                        + (filtered ? "x.status = ?" : "TRUE")
+                        + ") ORDER BY x.session_number "
+                        + (descending ? "DESC" : "ASC")
+                        + ", x.session_id "
+                        + (descending ? "DESC" : "ASC"),
+                new SessionListItemRowMapper(),
+                filtered ? new Object[] {classId, status} : new Object[] {classId});
+    }
+
+    /** Khóa row buổi (FOR UPDATE) kèm chủ sở hữu lớp, dùng cho sửa/dời/đổi trạng thái/lưu log. */
+    public Optional<LockedSessionRow> lockSession(Long sessionId) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT s.id, s.class_id, c.tutor_id, c.student_id, c.class_name,
+                               u.full_name AS student_name,
+                               s.title, s.session_date, s.start_time, s.end_time,
+                               s.teaching_mode, s.meeting_url, s.location,
+                               s.status, s.log_knowledge, s.log_homework
+                        FROM sessions s
+                        JOIN classes c ON c.id = s.class_id
+                        JOIN users u ON u.id = c.student_id
+                        WHERE s.id = ?
+                        FOR UPDATE
+                        """,
+                        (ResultSet rs, int rowNum) ->
+                                new LockedSessionRow(
+                                        rs.getLong("id"),
+                                        rs.getLong("class_id"),
+                                        rs.getLong("tutor_id"),
+                                        rs.getLong("student_id"),
+                                        rs.getString("class_name"),
+                                        rs.getString("student_name"),
+                                        rs.getString("title"),
+                                        rs.getObject("session_date", LocalDate.class),
+                                        rs.getObject("start_time", LocalTime.class),
+                                        rs.getObject("end_time", LocalTime.class),
+                                        rs.getString("teaching_mode"),
+                                        rs.getString("meeting_url"),
+                                        rs.getString("location"),
+                                        rs.getString("status"),
+                                        rs.getString("log_knowledge"),
+                                        rs.getString("log_homework")),
+                        sessionId)
+                .stream()
+                .findFirst();
+    }
+
+    /** Chi tiết buổi học (mục 4.5, đọc không khóa) kèm số thứ tự + tên lớp / học sinh / gia sư. */
+    public Optional<SessionDetailRow> findSessionDetail(Long sessionId) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT s.id, s.class_id, s.title, s.session_date, s.start_time, s.end_time,
+                               s.is_trial, s.teaching_mode, s.meeting_url, s.location, s.status,
+                               c.class_name, u.full_name AS student_name, t.full_name AS tutor_name,
+                               s.log_knowledge, s.log_homework,
+                               ROW_NUMBER() OVER (PARTITION BY s.class_id
+                                                  ORDER BY s.session_date, s.start_time, s.id)
+                                   AS session_number
+                        FROM sessions s
+                        JOIN classes c ON c.id = s.class_id
+                        JOIN users u ON u.id = c.student_id
+                        JOIN users t ON t.id = c.tutor_id
+                        WHERE s.id = ?
+                        """,
+                        (ResultSet rs, int rowNum) ->
+                                new SessionDetailRow(
+                                        rs.getLong("id"),
+                                        rs.getInt("session_number"),
+                                        rs.getLong("class_id"),
+                                        rs.getString("class_name"),
+                                        rs.getString("student_name"),
+                                        rs.getString("tutor_name"),
+                                        rs.getString("title"),
+                                        rs.getObject("session_date", LocalDate.class),
+                                        rs.getObject("start_time", LocalTime.class),
+                                        rs.getObject("end_time", LocalTime.class),
+                                        rs.getBoolean("is_trial"),
+                                        rs.getString("teaching_mode"),
+                                        rs.getString("meeting_url"),
+                                        rs.getString("location"),
+                                        rs.getString("status"),
+                                        rs.getString("log_knowledge"),
+                                        rs.getString("log_homework")),
+                        sessionId)
+                .stream()
+                .findFirst();
+    }
+
+    /** Buổi chính thức khác cùng (lớp, ngày, giờ bắt đầu) — kiểm trùng bước 4a (mục 4.6). */
+    public int countDuplicateSlotInClass(
+            Long classId, LocalDate sessionDate, LocalTime startTime, Long excludeSessionId) {
+        Integer count =
+                jdbcTemplate.queryForObject(
+                        """
+                        SELECT COUNT(*)
+                        FROM sessions
+                        WHERE class_id = ? AND session_date = ? AND start_time = ?
+                          AND is_trial = FALSE AND id <> ?
+                        """,
+                        Integer.class,
+                        classId,
+                        sessionDate,
+                        startTime,
+                        excludeSessionId);
+        return count != null ? count : 0;
+    }
+
+    /**
+     * Sửa / dời buổi (chỉ buổi SCHEDULED, service validate trước).
+     * {@code meetingUrl}/{@code location} do service tính giá trị hợp lệ —
+     * null = xóa trắng trường đối diện (đổi hình thức); {@code title} null giữ
+     * nguyên giá trị cũ (COALESCE).
+     */
+    public void updateSessionInfo(Long sessionId, SessionInfoUpdate update) {
+        jdbcTemplate.update(
+                """
+                UPDATE sessions
+                SET session_date = ?, start_time = ?, end_time = ?,
+                    teaching_mode = ?,
+                    title = COALESCE(?, title),
+                    meeting_url = ?, location = ?,
+                    updated_at = NOW()
+                WHERE id = ?
+                """,
+                update.sessionDate(),
+                update.startTime(),
+                update.endTime(),
+                update.teachingMode(),
+                update.title(),
+                update.meetingUrl(),
+                update.location(),
+                sessionId);
+    }
+
+    /**
+     * Lấy ngoại lệ (nếu có) gắn với 1 ô (lớp, ngày, giờ ca) — dùng khi "Tạo
+     * buổi học" vật chất hóa ô (mục 1.8): cần schedule_id trước khi xóa.
+     */
+    public Optional<SessionExceptionRow> findExceptionForOccurrence(
+            Long classId, LocalDate date, int dayOfWeek, LocalTime startTime) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT e.id, e.class_id, e.schedule_id, e.exception_date, e.exception_type,
+                               e.new_date, e.new_start_time, e.new_end_time, e.new_teaching_mode,
+                               e.new_meeting_url, e.new_location, e.reason, e.created_by, e.created_at
+                        FROM session_exceptions e
+                        JOIN class_schedules cs ON cs.id = e.schedule_id
+                        WHERE e.class_id = ? AND e.exception_date = ?
+                          AND cs.day_of_week = ? AND cs.start_time = ?
+                        """,
+                        new SessionExceptionRowMapper(),
+                        classId,
+                        date,
+                        dayOfWeek,
+                        startTime)
+                .stream()
+                .findFirst();
+    }
+
+    /** Đổi trạng thái buổi (state machine validate ở service). */
+    public void updateSessionStatus(Long sessionId, String status) {
+        jdbcTemplate.update(
+                "UPDATE sessions SET status = ?, updated_at = NOW() WHERE id = ?",
+                status,
+                sessionId);
+    }
+
+    /** Lưu nhật ký buổi (cả 2 nội dung, null = xóa trắng phần đó). */
+    public void updateSessionLog(Long sessionId, String logKnowledge, String logHomework) {
+        jdbcTemplate.update(
+                """
+                UPDATE sessions
+                SET log_knowledge = ?, log_homework = ?, updated_at = NOW()
+                WHERE id = ?
+                """,
+                logKnowledge,
+                logHomework,
+                sessionId);
+    }
+
     // ----------------------------------------------------------------- WRITE
 
     public Long insertTrialSession(Long classId, UpsertTrialSessionRequest request) {
@@ -582,6 +1094,47 @@ public class ClassroomQueryRepository {
                     rs.getObject("end_time", LocalTime.class),
                     rs.getObject("valid_from", LocalDate.class),
                     rs.getObject("valid_to", LocalDate.class));
+        }
+    }
+
+    private static class SessionExceptionRowMapper implements RowMapper<SessionExceptionRow> {
+        @Override
+        public SessionExceptionRow mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return new SessionExceptionRow(
+                    rs.getLong("id"),
+                    rs.getLong("class_id"),
+                    rs.getLong("schedule_id"),
+                    rs.getObject("exception_date", LocalDate.class),
+                    rs.getString("exception_type"),
+                    rs.getObject("new_date", LocalDate.class),
+                    rs.getObject("new_start_time", LocalTime.class),
+                    rs.getObject("new_end_time", LocalTime.class),
+                    rs.getString("new_teaching_mode"),
+                    rs.getString("new_meeting_url"),
+                    rs.getString("new_location"),
+                    rs.getString("reason"),
+                    rs.getObject("created_by", Long.class),
+                    rs.getObject("created_at", OffsetDateTime.class));
+        }
+    }
+
+    private static class SessionListItemRowMapper implements RowMapper<SessionListItem> {
+        @Override
+        public SessionListItem mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return SessionListItem.builder()
+                    .sessionId(rs.getLong("session_id"))
+                    .sessionNumber(rs.getInt("session_number"))
+                    .title(rs.getString("title"))
+                    .sessionDate(rs.getObject("session_date", LocalDate.class))
+                    .startTime(rs.getObject("start_time", LocalTime.class))
+                    .endTime(rs.getObject("end_time", LocalTime.class))
+                    .teachingMode(rs.getString("teaching_mode"))
+                    .meetingUrl(rs.getString("meeting_url"))
+                    .location(rs.getString("location"))
+                    .status(rs.getString("status"))
+                    .isTrial(rs.getBoolean("is_trial"))
+                    .hasLog(rs.getBoolean("has_log"))
+                    .build();
         }
     }
 }

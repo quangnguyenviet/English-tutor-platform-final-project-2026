@@ -84,6 +84,9 @@ class TutorClassServiceTest {
     @Mock
     JdbcTemplate jdbcTemplate;
 
+    @Mock
+    ClassOccurrenceService classOccurrenceService;
+
     @InjectMocks
     TutorClassService tutorClassService;
 

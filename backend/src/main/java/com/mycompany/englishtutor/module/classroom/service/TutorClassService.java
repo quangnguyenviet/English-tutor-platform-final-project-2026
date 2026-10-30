@@ -57,6 +57,7 @@ public class TutorClassService {
     UserRepository userRepository;
     AuditLogService auditLogService;
     JdbcTemplate jdbcTemplate;
+    ClassOccurrenceService classOccurrenceService;
 
     // ------------------------------------------------------------------ READ
 
@@ -201,6 +202,11 @@ public class TutorClassService {
                     .findOnDemandSessionAt(classId, date, slot.getStartTime())
                     .orElseThrow(() -> ex);
         }
+
+        // Vật chất hóa (R9): nếu ô này đang có exception overlay thì xóa —
+        // session thật kế thừa ngày/giờ, không giữ 2 nguồn ghi đè nhau (mục 1.8).
+        classOccurrenceService.materializeOccurrenceException(
+                classId, date, slot.getDayOfWeek(), slot.getStartTime(), getCurrentUserId(), httpRequest);
 
         auditLogService.log(
                 getCurrentUserId(),

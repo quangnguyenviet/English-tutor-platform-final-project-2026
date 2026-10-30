@@ -92,6 +92,35 @@ public enum ErrorCode {
             HttpStatus.BAD_REQUEST),
     SESSION_AMBIGUOUS_TIME(
             1141, "Ngày này có nhiều ca, cần chỉ định giờ bắt đầu", HttpStatus.BAD_REQUEST),
+    SESSION_NOT_FOUND(1142, "Buổi học không tồn tại", HttpStatus.NOT_FOUND),
+    SESSION_NOT_OWNED(
+            1143, "Bạn không có quyền với buổi học của lớp này", HttpStatus.FORBIDDEN),
+    SESSION_NOT_EDITABLE(
+            1144, "Chỉ có thể sửa/dời khi buổi đang ở trạng thái Đã lên lịch", HttpStatus.CONFLICT),
+    SESSION_INVALID_TRANSITION(
+            1145, "Buổi học không thể chuyển sang trạng thái này", HttpStatus.CONFLICT),
+    SESSION_RESCHEDULE_IN_PAST(
+            1146, "Không thể dời buổi học sang ngày trong quá khứ", HttpStatus.BAD_REQUEST),
+    SESSION_INVALID_TIME(1147, "Giờ kết thúc phải sau giờ bắt đầu", HttpStatus.BAD_REQUEST),
+    SESSION_DUPLICATE_SLOT(
+            1148, "Khung giờ này đã có buổi học khác trong lớp", HttpStatus.CONFLICT),
+    SESSION_LOG_EMPTY(
+            1149, "Nhật ký buổi học không được để trống cả hai phần", HttpStatus.BAD_REQUEST),
+    OCCURRENCE_HAS_SESSION(
+            1150,
+            "Ô này đã có buổi học thật, không thể ghi ngoại lệ — dùng thao tác trên buổi học",
+            HttpStatus.CONFLICT),
+    EXCEPTION_RESCHEDULE_IN_PAST(
+            1151, "Không thể dời ngoại lệ sang ngày trong quá khứ", HttpStatus.BAD_REQUEST),
+    EXCEPTION_NOT_FOUND(1152, "Ngoại lệ lịch dạy không tồn tại", HttpStatus.NOT_FOUND),
+    OCCURRENCE_SCHEDULE_NOT_FOUND(
+            1153, "Ca lịch cố định không tồn tại / không thuộc lớp này", HttpStatus.NOT_FOUND),
+    EXCEPTION_DATE_OUT_OF_RANGE(
+            1154, "Ngày ngoại lệ phải nằm trong khoảng hiệu lực của ca lịch cố định",
+            HttpStatus.BAD_REQUEST),
+    EXCEPTION_TYPE_INVALID(
+            1155, "Loại ngoại lệ không hợp lệ (CANCELLED, RESCHEDULED hoặc MODIFIED)",
+            HttpStatus.BAD_REQUEST),
     PAYMENT_NOT_FOUND(1200, "Khoản phí nhận lớp không tồn tại", HttpStatus.NOT_FOUND),
     PAYMENT_INVALID_STATE(1201, "Khoản phí không ở trạng thái cho phép thao tác này", HttpStatus.CONFLICT),
     PAYMENT_SAME_ACTOR(1202, "Người duyệt không được trùng với người nộp hoặc thu hộ minh chứng", HttpStatus.FORBIDDEN),
