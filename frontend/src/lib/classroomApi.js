@@ -104,7 +104,7 @@ export function apiUpdateClassSchedules(token, classId, payload) {
 }
 
 /**
- * Tạo buổi học chính thức on-demand theo lịch cố định (idempotent).
+ * Tạo buổi học on-demand theo lịch cố định (idempotent).
  * @param {Object} payload - { sessionDate: "YYYY-MM-DD", startTime?: "HH:mm" (bắt buộc khi ngày có nhiều ca) }
  */
 export function apiCreateSession(token, classId, payload) {

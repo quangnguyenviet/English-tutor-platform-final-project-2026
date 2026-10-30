@@ -237,11 +237,8 @@ export default function ClassScheduleLattice({
             isSelected && "ring-2 ring-blue-500/60",
           )}
         >
-          <p className="flex items-center justify-between gap-1 font-mono text-[11px] font-semibold">
-            <span>{formatSessionTime(occ.startTime)} - {formatSessionTime(occ.endTime)}</span>
-            <span className="rounded-full bg-white/60 px-1.5 text-[10px] font-bold dark:bg-slate-900/40">
-              {session.title || "Buổi học"}
-            </span>
+          <p className="font-mono text-[11px] font-semibold">
+            {formatSessionTime(occ.startTime)} - {formatSessionTime(occ.endTime)}
           </p>
           {session.hasLog && (
             <p className="mt-0.5 text-[10px] opacity-70">Có nhật ký</p>

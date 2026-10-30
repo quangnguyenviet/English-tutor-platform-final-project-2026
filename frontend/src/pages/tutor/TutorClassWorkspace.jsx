@@ -166,7 +166,7 @@ export default function TutorClassWorkspace() {
       });
       setToast({
         type: "success",
-        message: `Đã tạo buổi học chính thức cho ngày ${formatSessionDate(sessionDate)}.`,
+        message: `Đã tạo buổi học cho ngày ${formatSessionDate(sessionDate)}.`,
       });
       loadDetail();
       return created?.sessionId ?? null;
@@ -320,8 +320,7 @@ export default function TutorClassWorkspace() {
                 Thiết lập lịch dạy cố định
               </p>
               <p className="mt-0.5 text-xs text-blue-700 dark:text-blue-300">
-                Lớp đã được kích hoạt. Chọn các ca dạy trong tuần và khoảng hiệu lực của từng ca để
-                hoàn thiện lịch học chính thức.
+                Lớp đã được kích hoạt. Chọn các ca dạy trong tuần và khoảng hiệu lực của từng ca.
               </p>
             </div>
           </div>

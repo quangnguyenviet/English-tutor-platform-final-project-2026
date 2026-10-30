@@ -90,7 +90,7 @@ export default function ClassOverview() {
           <InfoItem icon={Target} label="Mục tiêu học tập" value={detail.learningGoal} />
           <InfoItem
             icon={CalendarDays}
-            label="Ngày bắt đầu chính thức"
+            label="Ngày kích hoạt lớp"
             value={detail.activeFromLabel}
           />
           <InfoItem icon={GraduationCap} label="Trường" value={detail.school} />
@@ -222,7 +222,7 @@ export default function ClassOverview() {
               </p>
               <p className="max-w-md text-xs text-slate-500 dark:text-slate-400">
                 Chọn các ca dạy trong tuần và khoảng hiệu lực của từng ca. Sau đó bạn có thể tạo
-                từng buổi học chính thức theo lịch.
+                từng buổi học theo lịch.
               </p>
             </div>
             <Button
