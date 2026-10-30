@@ -247,6 +247,27 @@ public class TutorProfileService {
         return tutorProfileMapper.mapToResponse(user, tutor);
     }
 
+    /**
+     * Bật/tắt "Đang mở nhận lớp". Tắt chỉ chặn xem/ứng tuyển lớp đang tuyển,
+     * không đụng tới các lớp đang dạy (UC gia sư — tiền điều kiện ứng tuyển).
+     */
+    @Transactional
+    public TutorProfileResponse setOpenToTeaching(boolean open) {
+        Long userId = getCurrentUserId();
+
+        Tutor tutor = tutorRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.TUTOR_PROFILE_NOT_FOUND));
+        tutor.setOpenToTeaching(open);
+        tutorRepository.save(tutor);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        log.info("Tutor open-to-teaching changed, userId: {}, open: {}", userId, open);
+
+        return tutorProfileMapper.mapToResponse(user, tutor);
+    }
+
     @Transactional
     public TutorProfileResponse cancelProfileForReview() {
         Long userId = getCurrentUserId();

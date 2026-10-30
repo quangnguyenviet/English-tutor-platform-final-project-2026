@@ -9,6 +9,7 @@ const ROLE_ROUTES = {
   tutor: "/tutor",
   student: "/student",
   receptionist: "/receptionist",
+  accountant: "/accountant",
 };
 
 const TUTOR_PROFILE_ACTIONABLE = ["INCOMPLETE", "REJECTED"];

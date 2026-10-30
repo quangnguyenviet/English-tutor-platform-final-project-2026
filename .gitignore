@@ -56,3 +56,6 @@ docs/my_rules/
 
 # Plan file (khong duoc quan ly boi git)
 plan-set-up-trial-schedule-feat.md
+my_plans/
+
+docs/project/DDL.sql

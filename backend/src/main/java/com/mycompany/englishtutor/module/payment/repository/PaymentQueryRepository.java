@@ -42,7 +42,7 @@ public class PaymentQueryRepository {
                    c.class_name, c.teaching_mode, c.price_per_session, c.active_from, c.tutor_id,
                    tu.full_name AS tutor_name, tu.phone AS tutor_phone,
                    su.full_name AS student_name, pa.full_name AS parent_name, pa.phone AS parent_phone,
-                   (SELECT COUNT(*) FROM class_schedules cs WHERE cs.class_id = c.id) AS slots_per_week
+                   c.sessions_per_week AS slots_per_week
             """;
 
     private static final String FROM_JOINS =
@@ -60,12 +60,16 @@ public class PaymentQueryRepository {
     /** Thông tin lớp dùng để tính phí. */
     public record ClassFeeInfo(Long classId, Long tutorId, BigDecimal pricePerSession, long slotsPerWeek) {}
 
+    /**
+     * slotsPerWeek đọc từ {@code classes.sessions_per_week} (V11) — nguồn duy nhất tính phí
+     * (kế hoạch mục 4.5.1, ràng buộc 6.1). NULL = chưa có → 0.
+     */
     public Optional<ClassFeeInfo> findClassFeeInfo(Long classId) {
         return jdbcTemplate
                 .query(
                         """
                         SELECT c.id, c.tutor_id, c.price_per_session,
-                               (SELECT COUNT(*) FROM class_schedules cs WHERE cs.class_id = c.id) AS slots
+                               COALESCE(c.sessions_per_week, 0) AS slots
                         FROM classes c WHERE c.id = ?
                         """,
                         (rs, i) -> new ClassFeeInfo(
@@ -76,6 +80,22 @@ public class PaymentQueryRepository {
                         classId)
                 .stream()
                 .findFirst();
+    }
+
+    /**
+     * Tỷ lệ phí gốc của đơn (class_requests.fee_percentage, V10: NOT NULL DEFAULT 40, CHECK 0–50),
+     * giải quyết qua class_request_id của lớp. Trả NULL nếu đơn chưa có giá trị (trường hợp hiếm).
+     */
+    public BigDecimal findRequestFeePercentageForClass(Long classId) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT cr.fee_percentage
+                        FROM classes c
+                        JOIN class_requests cr ON cr.id = c.class_request_id
+                        WHERE c.id = ?
+                        """,
+                        new Object[] {classId},
+                        rs -> rs.next() ? rs.getBigDecimal(1) : null);
     }
 
     public Optional<PaymentResponse> findDetail(Long paymentId) {

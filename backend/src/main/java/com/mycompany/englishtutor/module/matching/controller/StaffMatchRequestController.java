@@ -14,7 +14,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mycompany.englishtutor.module.matching.api.request.CancelMatchRequest;
+import com.mycompany.englishtutor.module.matching.api.request.CompleteMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.request.CreateMatchRequest;
+import com.mycompany.englishtutor.module.matching.api.request.RematchMatchRequest;
+import com.mycompany.englishtutor.module.matching.api.request.UpdateMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.response.MatchRequestDetailResponse;
 import com.mycompany.englishtutor.module.matching.api.response.MatchRequestSummaryResponse;
 import com.mycompany.englishtutor.module.matching.service.StaffMatchRequestService;
@@ -27,6 +30,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.PutMapping;
 
 @RestController
 @RequestMapping({"/api/v1/match-requests", "/api/v1/admin/match-requests"})
@@ -76,6 +80,18 @@ public class StaffMatchRequestController {
                         .build());
     }
 
+    @PutMapping("/{id}")
+    @Operation(summary = "Hoàn thiện đơn ghép lớp (chỉ khi còn NEW): bổ sung học phí, tỷ lệ phí nhận lớp (kế hoạch mục 4.1.1)", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<MatchRequestDetailResponse>> updateMatchRequest(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateMatchRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.<MatchRequestDetailResponse>builder()
+                .message("Cập nhật đơn ghép lớp thành công")
+                .result(matchRequestService.updateMatchRequest(id, request, httpRequest))
+                .build());
+    }
+
     @PostMapping("/{id}/confirm")
     @Operation(summary = "Duyệt / Xác nhận đơn ghép lớp (UC-REC-06, UC-ADM-05)", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<MatchRequestDetailResponse>> confirmMatchRequest(
@@ -87,12 +103,24 @@ public class StaffMatchRequestController {
     }
 
     @PostMapping("/{id}/complete-match")
-    @Operation(summary = "Duyệt đơn ghép lớp từ dạy thử sang ghép thành công (UC-REC-06.1, UC-ADM-05.1)", security = @SecurityRequirement(name = "bearerAuth"))
+    @Operation(summary = "Duyệt đơn ghép lớp từ dạy thử sang ghép thành công (UC-REC-06.1, UC-ADM-05.1) — body tùy chọn bổ sung dữ liệu tính phí", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<MatchRequestDetailResponse>> completeMatchRequest(
-            @PathVariable Long id, HttpServletRequest httpRequest) {
+            @PathVariable Long id,
+            @Valid @RequestBody(required = false) CompleteMatchRequest body,
+            HttpServletRequest httpRequest) {
         return ResponseEntity.ok(ApiResponse.<MatchRequestDetailResponse>builder()
                 .message("Đã duyệt đơn ghép lớp thành công, lớp học chuyển sang chính thức")
-                .result(matchRequestService.completeMatchRequest(id, httpRequest))
+                .result(matchRequestService.completeMatchRequest(id, body, httpRequest))
+                .build());
+    }
+
+    @PostMapping("/{id}/rematch")
+    @Operation(summary = "Ghép lại khi dạy thử không thành công: đơn → REMATCH, gia sư cũ TERMINATED (UC-REC-06.1 nhánh 5.2, UC-PA-05)", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<MatchRequestDetailResponse>> rematchMatchRequest(
+            @PathVariable Long id, @Valid @RequestBody RematchMatchRequest request, HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.<MatchRequestDetailResponse>builder()
+                .message("Đã chuyển đơn sang Đang ghép lại, lớp dạy thử đã được hủy")
+                .result(matchRequestService.rematchMatchRequest(id, request, httpRequest))
                 .build());
     }
 

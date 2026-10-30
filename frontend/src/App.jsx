@@ -13,17 +13,19 @@ import TutorManagement from "./pages/admin/TutorManagement";
 import StudentManagement from "./pages/admin/StudentManagement";
 import MatchRequests from "./pages/admin/MatchRequests";
 import ClassRequestManagement from "./pages/admin/ClassRequests";
-import PaymentApproval from "./pages/admin/PaymentApproval";
+import AccountantPayments from "./pages/accountant/AccountantPayments";
+import TutorPayments from "./pages/tutor/TutorPayments";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminLogs from "./pages/admin/AdminLogs";
 import AdminNotifications from "./pages/admin/AdminNotifications";
-import ReceptionistManagement from "./pages/admin/ReceptionistManagement";
+import StaffManagement from "./pages/admin/StaffManagement";
 import ComplaintManagement from "./pages/admin/ComplaintManagement";
 import TutorDashboard from "./pages/tutor/TutorDashboard";
 import TutorClassWorkspace from "./pages/tutor/TutorClassWorkspace";
 import ClassOverview from "./pages/tutor/ClassOverview";
 import ManageLearningPathRoute from "./pages/tutor/manage/ManageLearningPathRoute";
 import ManageSessionsRoute from "./pages/tutor/manage/ManageSessionsRoute";
+import ClassScheduleRoute from "./pages/tutor/manage/ClassScheduleRoute";
 import ManageAssignmentsRoute from "./pages/tutor/manage/ManageAssignmentsRoute";
 import AddAssignmentPage from "./pages/tutor/manage/AddAssignmentPage";
 import ManageMaterialsRoute from "./pages/tutor/manage/ManageMaterialsRoute";
@@ -72,6 +74,8 @@ import ReceptionistTutorList from "./pages/receptionist/ReceptionistTutorList";
 import ReceptionistStudentList from "./pages/receptionist/ReceptionistStudentList";
 import ReceptionistNotifications from "./pages/receptionist/ReceptionistNotifications";
 import ReceptionistComplaints from "./pages/receptionist/ReceptionistComplaints";
+
+import AccountantDashboard from "./pages/accountant/AccountantDashboard";
 
 import TutorRegisterPage from "./pages/tutor/TutorRegisterPage";
 
@@ -156,8 +160,10 @@ export default function App() {
             <Route path="students" element={<StudentManagement />} />
             <Route path="match-requests" element={<MatchRequests />} />
             <Route path="class-requests" element={<ClassRequestManagement />} />
-            <Route path="payments" element={<PaymentApproval />} />
-            <Route path="receptionists" element={<ReceptionistManagement />} />
+            <Route path="payments" element={<AccountantPayments />} />
+            <Route path="staff" element={<StaffManagement />} />
+            {/* Giữ đường dẫn cũ để không vỡ link đã lưu */}
+            <Route path="receptionists" element={<StaffManagement />} />
             <Route path="complaints" element={<ComplaintManagement />} />
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="lessons" element={<LessonOperations />} />
@@ -177,6 +183,7 @@ export default function App() {
           >
             <Route index element={<TutorDashboard />} />
             <Route path="schedule" element={<TutorSchedule />} />
+            <Route path="payments" element={<TutorPayments />} />
             <Route path="lessons" element={<TutorLessonSessions />} />
             <Route path="exercise-generator" element={<ExerciseGenerator />} />
             <Route path="available-classes" element={<AvailableClasses />} />
@@ -192,6 +199,9 @@ export default function App() {
             </Route>
             <Route path="classes/:classId/sessions" element={<TutorClassWorkspace />}>
               <Route index element={<ManageSessionsRoute />} />
+            </Route>
+            <Route path="classes/:classId/schedule" element={<TutorClassWorkspace />}>
+              <Route index element={<ClassScheduleRoute />} />
             </Route>
             <Route path="classes/:classId/exercises" element={<TutorClassWorkspace />}>
               <Route index element={<ManageAssignmentsRoute />} />
@@ -250,6 +260,20 @@ export default function App() {
             <Route path="lessons" element={<LessonOperations />} />
             <Route path="complaints" element={<ReceptionistComplaints />} />
             <Route path="notifications" element={<ReceptionistNotifications />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
+
+          {/* Accountant Routes */}
+          <Route
+            path="/accountant"
+            element={
+              <RequireRole role="accountant">
+                <AppShell />
+              </RequireRole>
+            }
+          >
+            <Route index element={<AccountantDashboard />} />
+            <Route path="payments" element={<AccountantPayments />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 

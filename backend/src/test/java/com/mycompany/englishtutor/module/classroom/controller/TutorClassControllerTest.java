@@ -27,9 +27,14 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mycompany.englishtutor.module.classroom.api.request.CreateSessionRequest;
+import com.mycompany.englishtutor.module.classroom.api.request.FinalizeScheduleRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpsertTrialSessionRequest;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassDetailResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassSummaryResponse;
+import com.mycompany.englishtutor.module.classroom.api.response.FinalizeScheduleResponse;
+import com.mycompany.englishtutor.module.classroom.api.response.OnDemandSessionResponse;
+import com.mycompany.englishtutor.module.classroom.api.response.ScheduleInfo;
 import com.mycompany.englishtutor.module.classroom.api.response.TrialSessionResponse;
 import com.mycompany.englishtutor.module.classroom.service.TutorClassService;
 
@@ -168,5 +173,98 @@ class TutorClassControllerTest {
         mockMvc.perform(get("/api/v1/tutors/me/classes")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
                 .andExpect(status().isForbidden());
+    }
+
+    // ------------------------------------------------------------ UC-T09
+
+    private FinalizeScheduleRequest scheduleBody() {
+        return FinalizeScheduleRequest.builder()
+                .schedules(List.of(FinalizeScheduleRequest.ScheduleSlot.builder()
+                        .dayOfWeek(3)
+                        .startTime(LocalTime.of(19, 30))
+                        .endTime(LocalTime.of(21, 0))
+                        .validFrom(LocalDate.now().plusDays(3))
+                        .validTo(null)
+                        .build()))
+                .build();
+    }
+
+    @Test
+    void finalizeSchedule_asTutor_shouldReturn201() throws Exception {
+        when(tutorClassService.finalizeSchedule(eq(1L), any(), any()))
+                .thenReturn(FinalizeScheduleResponse.builder()
+                        .classId(1L)
+                        .schedules(List.of(ScheduleInfo.builder()
+                                .dayOfWeek(3)
+                                .startTime(LocalTime.of(19, 30))
+                                .endTime(LocalTime.of(21, 0))
+                                .validFrom(LocalDate.now().plusDays(3))
+                                .build()))
+                        .build());
+
+        mockMvc.perform(post("/api/v1/classes/1/finalize-schedule")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(scheduleBody()))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.result.classId").value(1))
+                .andExpect(jsonPath("$.result.schedules[0].dayOfWeek").value(3));
+    }
+
+    @Test
+    void updateSchedules_asTutor_shouldReturn200() throws Exception {
+        when(tutorClassService.updateSchedule(eq(1L), any(), any()))
+                .thenReturn(FinalizeScheduleResponse.builder()
+                        .classId(1L)
+                        .schedules(List.of())
+                        .build());
+
+        mockMvc.perform(put("/api/v1/classes/1/schedules")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(scheduleBody()))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.classId").value(1));
+    }
+
+    @Test
+    void createSession_asTutor_shouldReturn200() throws Exception {
+        LocalDate date = LocalDate.now().plusDays(3);
+        when(tutorClassService.createSessionOnDemand(eq(1L), any(), any()))
+                .thenReturn(OnDemandSessionResponse.builder()
+                        .sessionId(42L)
+                        .sessionDate(date)
+                        .startTime(LocalTime.of(19, 30))
+                        .endTime(LocalTime.of(21, 0))
+                        .isTrial(Boolean.FALSE)
+                        .createdNow(Boolean.TRUE)
+                        .build());
+
+        CreateSessionRequest body = CreateSessionRequest.builder().sessionDate(date).build();
+
+        mockMvc.perform(post("/api/v1/classes/1/sessions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.sessionId").value(42))
+                .andExpect(jsonPath("$.result.createdNow").value(true));
+    }
+
+    @Test
+    void finalizeSchedule_missingValidFrom_shouldReturn400() throws Exception {
+        String body = """
+                {
+                  "schedules": [
+                    { "dayOfWeek": 3, "startTime": "19:30", "endTime": "21:00" }
+                  ]
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/classes/1/finalize-schedule")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body)
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
+                .andExpect(status().isBadRequest());
     }
 }

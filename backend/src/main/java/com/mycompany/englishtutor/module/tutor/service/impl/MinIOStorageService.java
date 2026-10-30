@@ -133,8 +133,17 @@ public class MinIOStorageService implements StorageService {
 
     @Override
     public String uploadFile(String folder, MultipartFile file) {
-        validateFile(file);
+        validateFile(file, MAX_FILE_SIZE, true);
+        return storeFile(folder, file);
+    }
 
+    @Override
+    public String uploadFile(String folder, MultipartFile file, long maxBytes) {
+        validateFile(file, maxBytes, false);
+        return storeFile(folder, file);
+    }
+
+    private String storeFile(String folder, MultipartFile file) {
         String originalFilename = file.getOriginalFilename();
         String extension = "";
         if (originalFilename != null && originalFilename.contains(".")) {
@@ -205,26 +214,30 @@ public class MinIOStorageService implements StorageService {
         }
     }
 
-    private void validateFile(MultipartFile file) {
+    private void validateFile(MultipartFile file, long maxBytes, boolean checkType) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File is empty");
         }
 
-        if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("File exceeds maximum size of 50MB");
+        if (file.getSize() > maxBytes) {
+            throw new IllegalArgumentException(
+                    "File exceeds maximum size of " + (maxBytes / (1024 * 1024)) + "MB");
         }
 
-        String contentType = file.getContentType();
-        if (contentType == null) {
-            throw new IllegalArgumentException("File content type is missing");
-        }
+        if (checkType) {
+            String contentType = file.getContentType();
+            if (contentType == null) {
+                throw new IllegalArgumentException("File content type is missing");
+            }
 
-        boolean isAllowed = ALLOWED_IMAGE_TYPES.contains(contentType)
-                || ALLOWED_DOCUMENT_TYPES.contains(contentType)
-                || ALLOWED_VIDEO_TYPES.contains(contentType);
+            boolean isAllowed = ALLOWED_IMAGE_TYPES.contains(contentType)
+                    || ALLOWED_DOCUMENT_TYPES.contains(contentType)
+                    || ALLOWED_VIDEO_TYPES.contains(contentType);
 
-        if (!isAllowed) {
-            throw new IllegalArgumentException("File type not allowed. Allowed types: images, PDF, videos");
+            if (!isAllowed) {
+                throw new IllegalArgumentException(
+                        "File type not allowed. Allowed types: images, PDF, videos");
+            }
         }
     }
 }

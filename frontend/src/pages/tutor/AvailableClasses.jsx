@@ -19,6 +19,8 @@ import {
   DollarSign,
   UserCheck,
   Loader2,
+  RefreshCcw,
+  PauseCircle,
 } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
@@ -26,7 +28,8 @@ import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import clsx from "clsx";
 import { useAuth } from "../../context/AuthContext";
-import { apiGetTutorProfile } from "../../lib/tutorApi";
+import OpenToTeachingToggle from "../../components/tutor/OpenToTeachingToggle";
+import { apiGetTutorProfile, apiSetOpenToTeaching } from "../../lib/tutorApi";
 import {
   apiGetOpenRequests,
   apiGetMyApplications,
@@ -34,6 +37,7 @@ import {
   apiWithdrawApplication,
   mapTutorOpenClass,
   mapMyApplication,
+  isRecruitingStatus,
 } from "../../lib/tutorClassApi";
 
 const PAGE_SIZE = 20;
@@ -86,6 +90,9 @@ export default function AvailableClasses() {
   const [applicationsError, setApplicationsError] = useState("");
 
   const [profileStatus, setProfileStatus] = useState(null);
+  // Cờ "Đang mở nhận lớp" (tutors.is_open_to_teaching) — tắt thì backend trả bảng tin rỗng.
+  const [openToTeaching, setOpenToTeaching] = useState(true);
+  const [togglingOpen, setTogglingOpen] = useState(false);
 
   const [keyword, setKeyword] = useState("");
   const [debouncedKeyword, setDebouncedKeyword] = useState("");
@@ -161,7 +168,10 @@ export default function AvailableClasses() {
   useEffect(() => {
     if (!token) return;
     apiGetTutorProfile(token)
-      .then((profile) => setProfileStatus(profile?.profileStatus || "INCOMPLETE"))
+      .then((profile) => {
+        setProfileStatus(profile?.profileStatus || "INCOMPLETE");
+        setOpenToTeaching(profile?.openToTeaching !== false);
+      })
       .catch(() => setProfileStatus("INCOMPLETE"));
   }, [token]);
 
@@ -186,7 +196,36 @@ export default function AvailableClasses() {
     setSelectedSort("newest");
   };
 
+  const handleToggleOpenToTeaching = async () => {
+    if (togglingOpen) return;
+    const next = !openToTeaching;
+    setTogglingOpen(true);
+    try {
+      const profile = await apiSetOpenToTeaching(token, next);
+      setOpenToTeaching(profile?.openToTeaching !== false);
+      showToast(
+        "success",
+        next
+          ? "Đã bật chế độ nhận lớp. Bạn có thể xem và ứng tuyển các lớp đang tuyển."
+          : "Đã tạm ngưng nhận lớp mới. Các lớp đang dạy không bị ảnh hưởng.",
+      );
+      loadFeed(0);
+    } catch (error) {
+      showToast("error", error.message || "Không thể cập nhật chế độ nhận lớp.");
+    } finally {
+      setTogglingOpen(false);
+    }
+  };
+
   const handleOpenApplyModal = (cls) => {
+    if (cls.blocked) {
+      showToast("error", cls.blockHint);
+      return;
+    }
+    if (!openToTeaching) {
+      showToast("error", "Bạn đang tạm ngưng nhận lớp. Hãy bật \"Đang mở nhận lớp\" để ứng tuyển.");
+      return;
+    }
     if (!isProfileActive) {
       showToast(
         "error",
@@ -272,7 +311,17 @@ export default function AvailableClasses() {
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge tone="blue">{cls.gradeLevel || "Đang cập nhật"}</Badge>
             <Badge tone="slate">{cls.teachingMode}</Badge>
-            {cls.applied && <Badge tone="emerald">Đã ứng tuyển</Badge>}
+            {cls.requestStatus === "REMATCH" && (
+              <Badge tone="violet">
+                <RefreshCcw size={11} className="mr-1 inline" />
+                Tuyển lại
+              </Badge>
+            )}
+            {cls.blocked ? (
+              <Badge tone="slate">{cls.blockLabel}</Badge>
+            ) : (
+              cls.applied && <Badge tone="emerald">Đã ứng tuyển</Badge>
+            )}
           </div>
           <span className="flex items-center gap-1 font-mono text-[11px] text-slate-400">
             <Clock size={12} /> {cls.postedDate}
@@ -313,7 +362,14 @@ export default function AvailableClasses() {
           </div>
         </div>
 
-        {cls.applied && (
+        {cls.blocked && (
+          <div className="flex items-start gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+            <Ban size={14} className="mt-0.5 shrink-0 text-slate-400" />
+            <p>{cls.blockHint}</p>
+          </div>
+        )}
+
+        {cls.applied && !cls.blocked && (
           <div className="space-y-1 rounded-xl border border-blue-200 bg-blue-50/80 p-3 text-xs text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/60 dark:text-blue-200">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 font-bold text-blue-800 dark:text-blue-300">
@@ -339,7 +395,11 @@ export default function AvailableClasses() {
           Xem chi tiết lớp
         </Link>
 
-        {cls.applied ? (
+        {cls.blocked ? (
+          <span className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-bold text-slate-400 dark:border-slate-800 dark:bg-slate-900/60">
+            Không thể ứng tuyển
+          </span>
+        ) : cls.applied ? (
           <button
             onClick={() => setCancelingClass(cls)}
             className="shrink-0 cursor-pointer rounded-xl border border-slate-300 bg-slate-100 px-3.5 py-2.5 text-xs font-bold text-slate-800 transition-colors hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
@@ -349,7 +409,7 @@ export default function AvailableClasses() {
         ) : (
           <button
             onClick={() => handleOpenApplyModal(cls)}
-            disabled={!isProfileActive}
+            disabled={!isProfileActive || !openToTeaching}
             className="shrink-0 cursor-pointer rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
           >
             Ứng tuyển nhận lớp
@@ -404,6 +464,13 @@ export default function AvailableClasses() {
           </div>
         </div>
 
+        {application.statusHint && (
+          <div className="flex items-start gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+            <Ban size={14} className="mt-0.5 shrink-0 text-slate-400" />
+            <p>{application.statusHint}</p>
+          </div>
+        )}
+
         {application.message && (
           <div className="rounded-xl border border-slate-100 bg-white p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
             <span className="mb-0.5 block text-[11px] text-slate-400">Lời nhắn đã gửi:</span>
@@ -413,7 +480,7 @@ export default function AvailableClasses() {
       </div>
 
       <div className="flex items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-        {application.requestStatus === "OPEN" ? (
+        {isRecruitingStatus(application.requestStatus) ? (
           <Link
             to={`/tutor/available-classes/${application.classInfo.id}`}
             className="inline-flex flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white py-2.5 text-center text-xs font-bold text-slate-800 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -649,6 +716,14 @@ export default function AvailableClasses() {
         description="Xem các lớp đang tuyển, lọc theo hình thức và cấp lớp rồi gửi đơn ứng tuyển tới trung tâm."
       />
 
+      {profileStatus !== null && (
+        <OpenToTeachingToggle
+          open={openToTeaching}
+          busy={togglingOpen}
+          onToggle={handleToggleOpenToTeaching}
+        />
+      )}
+
       {!isProfileActive && profileStatus !== null && (
         <div className="rounded-xl border border-slate-300 bg-slate-50 p-4 text-slate-900 shadow-xs dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -851,6 +926,25 @@ export default function AvailableClasses() {
                 className="cursor-pointer text-xs font-semibold"
               >
                 Thử lại
+              </Button>
+            </Card>
+          ) : !openToTeaching ? (
+            <Card className="space-y-3 border-slate-200/80 py-12 text-center dark:border-slate-800">
+              <PauseCircle size={32} className="mx-auto text-amber-500" />
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                Bạn đang tạm ngưng nhận lớp mới
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Bật lại "Đang mở nhận lớp" để xem các lớp đang tuyển.
+              </p>
+              <Button
+                size="sm"
+                onClick={handleToggleOpenToTeaching}
+                disabled={togglingOpen}
+                className="cursor-pointer active:scale-[0.98]"
+              >
+                {togglingOpen ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                Bật lại nhận lớp
               </Button>
             </Card>
           ) : feedItems.length === 0 ? (

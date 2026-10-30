@@ -66,7 +66,9 @@ public class AuthenticationService {
         boolean isValid = true;
 
         try {
-            verifyToken(token, false);
+            var signedJWT = verifyToken(token, false);
+            // Tài khoản bị khóa sau khi đăng nhập: token cũ không còn hợp lệ ở request kế tiếp.
+            ensureAccountActive(signedJWT.getJWTClaimsSet().getSubject());
         } catch (AppException e) {
             isValid = false;
         }
@@ -83,6 +85,11 @@ public class AuthenticationService {
         boolean authenticated = passwordEncoder.matches(request.getPassword(), user.getPasswordHash());
 
         if (!authenticated) throw new AppException(ErrorCode.UNAUTHENTICATED);
+
+        // Chặn đăng nhập với tài khoản đã bị vô hiệu hóa (UC-ADM-11 / Luồng 25)
+        if (!"ACTIVE".equalsIgnoreCase(user.getStatus())) {
+            throw new AppException(ErrorCode.ACCOUNT_INACTIVE);
+        }
 
         var token = generateToken(user);
 
@@ -195,6 +202,11 @@ public class AuthenticationService {
         var user =
                 userRepository.findByUsername(username).orElseThrow(() -> new AppException(ErrorCode.UNAUTHENTICATED));
 
+        // Không cấp token mới cho tài khoản đã bị khóa (học sinh / nhân sự INACTIVE)
+        if (!"ACTIVE".equalsIgnoreCase(user.getStatus())) {
+            throw new AppException(ErrorCode.ACCOUNT_INACTIVE);
+        }
+
         var token = generateToken(user);
 
         return AuthenticationResponse.builder().token(token).authenticated(true).build();
@@ -218,6 +230,7 @@ public class AuthenticationService {
                         Instant.now().plus(VALID_DURATION, ChronoUnit.SECONDS).toEpochMilli()))
                 .jwtID(UUID.randomUUID().toString())
                 .claim("scope", buildScope(user))
+                .claim("uid", user.getId())
                 .build();
 
         Payload payload = new Payload(jwtClaimsSet.toJSONObject());
@@ -256,6 +269,12 @@ public class AuthenticationService {
         }
 
         return signedJWT;
+    }
+
+    private void ensureAccountActive(String username) {
+        if (!userRepository.existsByUsernameAndStatus(username, "ACTIVE")) {
+            throw new AppException(ErrorCode.ACCOUNT_INACTIVE);
+        }
     }
 
     private String buildScope(User user) {

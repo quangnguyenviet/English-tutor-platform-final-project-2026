@@ -23,7 +23,7 @@ export function decodeJwt(token) {
  * Chuyển JWT scope (ROLE_TUTOR) → frontend role slug ("tutor").
  *
  * @param {string} scope - giá trị field scope trong JWT payload
- * @returns {"admin"|"tutor"|"student"|"receptionist"|null}
+ * @returns {"admin"|"tutor"|"student"|"receptionist"|"accountant"|null}
  */
 export function scopeToRole(scope) {
   const map = {
@@ -31,6 +31,7 @@ export function scopeToRole(scope) {
     ROLE_TUTOR: "tutor",
     ROLE_STUDENT: "student",
     ROLE_RECEPTIONIST: "receptionist",
+    ROLE_ACCOUNTANT: "accountant",
   };
   return map[scope] ?? null;
 }

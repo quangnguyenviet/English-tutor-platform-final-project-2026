@@ -34,7 +34,8 @@ public class Payment {
     @Column(name = "fee_percentage", precision = 5, scale = 2)
     BigDecimal feePercentage;
 
-    @Column(nullable = false, precision = 12, scale = 0)
+    /** NULL khi status = NEW (bản nháp tạo khi ghép lớp, chưa có số tiền); số tiền tính khi kích hoạt (V11). */
+    @Column(precision = 12, scale = 0)
     BigDecimal amount;
 
     @Enumerated(EnumType.STRING)

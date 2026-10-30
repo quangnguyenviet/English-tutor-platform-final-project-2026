@@ -201,25 +201,94 @@ export async function apiCancelMatchRequest(id, reason, token) {
 }
 
 /**
- * Duyệt đơn ghép lớp từ dạy thử sang ghép thành công (UC-REC-06.1, UC-ADM-05.1) — POST /api/v1/match-requests/{id}/complete-match
+ * Ghép lại khi dạy thử không thành công, phụ huynh muốn tìm gia sư khác
+ * (UC-REC-06.1 nhánh 5.2, UC-PA-05) — POST /api/v1/match-requests/{id}/rematch
+ *
+ * Đơn chuyển REMATCH, lớp dạy thử bị hủy, gia sư cũ bị loại (TERMINATED).
  *
  * @param {number|string} id
+ * @param {string} reason
  * @param {string} token
  * @returns {Promise<Object>}
  */
-export async function apiCompleteMatchRequest(id, token) {
+export async function apiRematchMatchRequest(id, reason, token) {
+  const res = await fetch(`${BASE}/api/v1/match-requests/${id}/rematch`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...bearerHeader(token),
+    },
+    body: JSON.stringify({ reason }),
+  });
+
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    throw new Error(extractErrorMessage(data, `Ghép lại đơn thất bại (${res.status})`));
+  }
+
+  return data.result ?? data;
+}
+
+/**
+ * Duyệt đơn ghép lớp từ dạy thử sang ghép thành công (UC-REC-06.1, UC-ADM-05.1) — POST /api/v1/match-requests/{id}/complete-match
+ *
+ * Body tùy chọn (kế hoạch mục 4.1): bổ sung dữ liệu còn thiếu để tính phí nhận lớp
+ * (lễ tân nhập tại modal kích hoạt khi lớp chưa có sessions_per_week / price_per_session).
+ *
+ * @param {number|string} id
+ * @param {string} token
+ * @param {Object} [body]
+ * @param {number} [body.sessionsPerWeek] - Số buổi mỗi tuần (bổ sung khi lớp chưa có)
+ * @param {number} [body.pricePerSession] - Học phí mỗi buổi VNĐ (bổ sung khi lớp chưa có)
+ * @param {number} [body.feePercentage] - Tỷ lệ phí nhận lớp % (ghi đè snapshot khi cần)
+ * @returns {Promise<Object>}
+ */
+export async function apiCompleteMatchRequest(id, token, body) {
   const res = await fetch(`${BASE}/api/v1/match-requests/${id}/complete-match`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...bearerHeader(token),
     },
+    body: body ? JSON.stringify(body) : undefined,
   });
 
   const data = await readJson(res);
 
   if (!res.ok) {
     throw new Error(extractErrorMessage(data, `Xác nhận ghép thành công thất bại (${res.status})`));
+  }
+
+  return data.result ?? data;
+}
+
+/**
+ * Hoàn thiện đơn ghép lớp khi còn NEW (kế hoạch mục 4.1.1) — PUT /api/v1/match-requests/{id}
+ *
+ * @param {number|string} id
+ * @param {Object} payload
+ * @param {string} [payload.classRequirement]
+ * @param {string} [payload.teachingMode] - ONLINE | AT_HOME
+ * @param {number} [payload.pricePerSession]
+ * @param {number} [payload.feePercentage] - Tỷ lệ phí nhận lớp 0–50
+ * @param {string} token
+ * @returns {Promise<Object>}
+ */
+export async function apiUpdateMatchRequest(id, payload, token) {
+  const res = await fetch(`${BASE}/api/v1/match-requests/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...bearerHeader(token),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    throw new Error(extractErrorMessage(data, `Cập nhật đơn ghép lớp thất bại (${res.status})`));
   }
 
   return data.result ?? data;

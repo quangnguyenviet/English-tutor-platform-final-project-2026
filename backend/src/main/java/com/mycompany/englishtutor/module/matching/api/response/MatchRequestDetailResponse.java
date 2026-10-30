@@ -78,8 +78,17 @@ public class MatchRequestDetailResponse {
     @Schema(description = "Mức học phí mỗi buổi (VNĐ)")
     BigDecimal pricePerSession;
 
-    @Schema(description = "Số buổi mỗi tuần")
+    @Schema(description = "Tỷ lệ phí nhận lớp (%) — default 40, khoảng 0–50 (V10)", example = "40")
+    BigDecimal feePercentage;
+
+    @Schema(description = "Số buổi mỗi tuần (do phụ huynh gợi ý khi gửi đơn; số buổi dùng tính phí nằm trên lớp)")
     Integer sessionsPerWeek;
+
+    @Schema(description = "Số buổi mỗi tuần hiện có trên lớp (nguồn tính phí, V11; null = lễ tân bổ sung tại modal kích hoạt)")
+    Integer classSessionsPerWeek;
+
+    @Schema(description = "Học phí mỗi buổi snapshot trên lớp (nguồn tính phí, V11)")
+    BigDecimal classPricePerSession;
 
     @Schema(description = "Thời lượng mỗi buổi (phút)")
     Integer durationMinutes;
@@ -107,4 +116,10 @@ public class MatchRequestDetailResponse {
 
     @Schema(description = "Trạng thái lớp học sau khi duyệt đơn (TRIAL, ACTIVE, COMPLETED, CANCELLED)")
     String classStatus;
+
+    @Schema(description = "ID gia sư của lớp gần nhất — với đơn REMATCH là gia sư đã bị loại sau dạy thử")
+    Long lastTutorId;
+
+    @Schema(description = "Tên gia sư của lớp gần nhất (gia sư đã bị loại khi đơn REMATCH)")
+    String lastTutorName;
 }

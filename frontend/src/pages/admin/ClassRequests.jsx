@@ -20,7 +20,10 @@ import {
   Calendar,
   MessageSquare,
   Info,
+  RefreshCcw,
+  UserX,
 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
@@ -44,8 +47,23 @@ const statusMeta = {
   NEW: { label: "Chờ xử lý", tone: "amber", icon: Clock },
   OPEN: { label: "Đã đăng", tone: "blue", icon: Megaphone },
   MATCHED: { label: "Đã xử lý", tone: "emerald", icon: CheckCircle2 },
+  REMATCH: { label: "Đang ghép lại", tone: "violet", icon: RefreshCcw },
   CANCELLED: { label: "Đã hủy", tone: "slate", icon: XCircle },
 };
+
+const EMPTY_COUNTS = { new: 0, open: 0, matched: 0, rematch: 0, cancelled: 0, total: 0 };
+const TAB_KEYS = ["all", "new", "open", "rematch", "matched", "cancelled"];
+
+// Đơn đang nhận ứng tuyển: đăng tuyển lần đầu hoặc đang ghép lại sau dạy thử thất bại (ERD C-14).
+const isRecruiting = (status) => status === "OPEN" || status === "REMATCH";
+
+/** Badge trạng thái lượt ứng tuyển trong modal / chi tiết. */
+function ApplicationStatusBadge({ status }) {
+  if (status === "SELECTED") return <Badge tone="emerald">Đã chọn</Badge>;
+  if (status === "REJECTED") return <Badge tone="slate">Không chọn</Badge>;
+  if (status === "TERMINATED") return <Badge tone="rose">Đã loại sau dạy thử</Badge>;
+  return <Badge tone="blue">Đã ứng tuyển</Badge>;
+}
 
 const GRADES = ["Lớp 6", "Lớp 7", "Lớp 8", "Lớp 9", "Lớp 10", "Lớp 11", "Lớp 12", "Đại học", "Người đi làm"];
 
@@ -71,6 +89,7 @@ const INITIAL_FORM = {
   classRequirement: "",
   teachingMode: "ONLINE",
   pricePerSession: 300000,
+  feePercentage: 40,
   preferredSchedule: "",
   tutorRequirement: "",
 };
@@ -78,13 +97,17 @@ const INITIAL_FORM = {
 export function ClassRequestManagement() {
   const { token, session } = useAuth();
   const currentToken = token || session?.token;
+  // Trang Đơn ghép lớp chuyển sang với ?tab=rematch&id=… để chọn gia sư mới cho đơn đang ghép lại.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = TAB_KEYS.includes(searchParams.get("tab")) ? searchParams.get("tab") : "all";
+  const [focusRequestId, setFocusRequestId] = useState(searchParams.get("id"));
 
   const [requests, setRequests] = useState([]);
-  const [counts, setCounts] = useState({ new: 0, open: 0, matched: 0, cancelled: 0, total: 0 });
+  const [counts, setCounts] = useState(EMPTY_COUNTS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(initialTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [sort, setSort] = useState("newest");
   const [page, setPage] = useState(0);
@@ -123,7 +146,7 @@ export function ClassRequestManagement() {
     try {
       const [listRes, countsRes] = await Promise.all([
         apiGetClassRequests({ tab: statusFilter, keyword: searchQuery, sort, page, size: 20, token: currentToken }),
-        apiGetClassRequestCounts(currentToken).catch(() => ({ new: 0, open: 0, matched: 0, cancelled: 0, total: 0 })),
+        apiGetClassRequestCounts(currentToken).catch(() => EMPTY_COUNTS),
       ]);
       setRequests(listRes.items || []);
       setTotalPages(listRes.totalPages || 1);
@@ -138,6 +161,16 @@ export function ClassRequestManagement() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Mở sẵn danh sách ứng tuyển của đơn được chuyển sang từ trang Đơn ghép lớp (chỉ một lần).
+  useEffect(() => {
+    if (!focusRequestId || isLoading) return;
+    const target = requests.find((r) => String(r.id) === String(focusRequestId));
+    setFocusRequestId(null);
+    setSearchParams({}, { replace: true });
+    if (target) handleOpenApplications(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequestId, isLoading, requests]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -162,6 +195,7 @@ export function ClassRequestManagement() {
       classRequirement: item.classRequirement || "",
       teachingMode: item.teachingMode || "ONLINE",
       pricePerSession: item.pricePerSession || 300000,
+      feePercentage: item.feePercentage ?? 40,
       preferredSchedule: item.preferredSchedule || "",
       tutorRequirement: item.tutorRequirement || "",
     });
@@ -215,6 +249,7 @@ export function ClassRequestManagement() {
                 classRequirement: formData.classRequirement.trim(),
                 teachingMode: formData.teachingMode,
                 pricePerSession: Number(formData.pricePerSession),
+                feePercentage: Number(formData.feePercentage) || 40,
                 preferredSchedule: formData.preferredSchedule.trim(),
                 tutorRequirement: formData.tutorRequirement.trim(),
               },
@@ -235,6 +270,7 @@ export function ClassRequestManagement() {
                 classRequirement: formData.classRequirement.trim(),
                 teachingMode: formData.teachingMode,
                 pricePerSession: Number(formData.pricePerSession),
+                feePercentage: Number(formData.feePercentage) || 40,
                 preferredSchedule: formData.preferredSchedule.trim(),
                 tutorRequirement: formData.tutorRequirement.trim(),
               },
@@ -307,7 +343,7 @@ export function ClassRequestManagement() {
           await apiSelectTutor(req.id, application.applicationId, currentToken);
           setApplicationsModal(null);
           setSuccessPopup(
-            `Đã chọn gia sư ${application.tutorName}! Lớp đã chuyển sang "Đã xử lý", đơn ghép lớp dạy thử được tạo và đã gửi thông báo tới gia sư.`
+            `Đã chọn gia sư ${application.tutorName}${req.status === "REMATCH" ? " cho vòng ghép lại" : ""}! Lớp đã chuyển sang "Đã xử lý", đơn ghép lớp dạy thử được tạo và đã gửi thông báo tới gia sư.`
           );
           loadData();
         } catch (err) {
@@ -373,6 +409,7 @@ export function ClassRequestManagement() {
     { key: "all", label: "Tất cả", count: counts.total },
     { key: "new", label: "Chờ xử lý", count: counts.new },
     { key: "open", label: "Đã đăng", count: counts.open },
+    { key: "rematch", label: "Đang ghép lại", count: counts.rematch ?? 0 },
     { key: "matched", label: "Đã xử lý", count: counts.matched },
     { key: "cancelled", label: "Đã hủy", count: counts.cancelled },
   ];
@@ -425,10 +462,11 @@ export function ClassRequestManagement() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard icon={ClipboardList} label="Tổng số lớp" value={counts.total} hint="Toàn bộ lịch sử" tone="blue" />
         <StatCard icon={Clock} label="Chờ xử lý" value={counts.new} hint="Cần bổ sung & đăng tuyển" tone="amber" />
         <StatCard icon={Megaphone} label="Đã đăng" value={counts.open} hint="Gia sư đang ứng tuyển" tone="blue" />
+        <StatCard icon={RefreshCcw} label="Đang ghép lại" value={counts.rematch ?? 0} hint="Dạy thử chưa thành công" tone="violet" />
         <StatCard icon={CheckCircle2} label="Đã xử lý" value={counts.matched} hint="Đã chọn được gia sư" tone="emerald" />
         <StatCard icon={XCircle} label="Đã hủy" value={counts.cancelled} hint="Phụ huynh hủy / không ghép" tone="slate" />
       </div>
@@ -534,6 +572,7 @@ export function ClassRequestManagement() {
             const meta = statusMeta[req.status] || { label: req.status, tone: "slate", icon: Info };
             const StatusIcon = meta.icon || Info;
             const appCount = req.applicationCount || 0;
+            const pendingCount = req.pendingApplicationCount ?? appCount;
             return (
               <div
                 key={req.id}
@@ -557,7 +596,7 @@ export function ClassRequestManagement() {
                         <StatusIcon size={12} className="mr-1 inline" />
                         {meta.label}
                       </Badge>
-                      {(req.status === "OPEN" || appCount > 0) && (
+                      {(isRecruiting(req.status) || appCount > 0) && (
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                           <Users size={12} /> {appCount} gia sư ứng tuyển
                         </span>
@@ -606,6 +645,15 @@ export function ClassRequestManagement() {
                       </div>
                     </div>
 
+                    {req.status === "REMATCH" && (
+                      <div className="p-3 rounded-xl bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800/40 text-xs text-violet-800 dark:text-violet-200 flex items-start gap-1.5">
+                        <UserX size={14} className="shrink-0 mt-0.5" />
+                        <p className="leading-relaxed">
+                          Dạy thử không thành công, phụ huynh muốn tìm gia sư khác. Lớp đã mở lại trên trang gia sư — gia sư cũ không thể ứng tuyển lại.
+                        </p>
+                      </div>
+                    )}
+
                     {req.status === "CANCELLED" && req.cancelReason && (
                       <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 text-xs text-rose-700 dark:text-rose-300 space-y-1">
                         <div className="font-bold flex items-center gap-1.5">
@@ -642,12 +690,12 @@ export function ClassRequestManagement() {
                       </>
                     )}
 
-                    {req.status === "OPEN" && (
+                    {isRecruiting(req.status) && (
                       <Button
                         size="sm"
                         onClick={() => handleOpenApplications(req)}
-                        disabled={isSubmitting || appCount === 0}
-                        title={appCount === 0 ? "Chưa có gia sư ứng tuyển" : "Xem danh sách gia sư ứng tuyển"}
+                        disabled={isSubmitting || pendingCount === 0}
+                        title={pendingCount === 0 ? "Chưa có gia sư ứng tuyển" : "Xem danh sách gia sư ứng tuyển"}
                         className="w-full justify-center bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer shadow-xs active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Users size={15} />
@@ -830,6 +878,21 @@ export function ClassRequestManagement() {
                     className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Tỷ lệ phí nhận lớp (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    step={0.5}
+                    value={formData.feePercentage}
+                    onChange={(e) => setFormData({ ...formData, feePercentage: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Dải 0–50, mặc định 40. Phí = tỷ lệ × số buổi/tuần × 4 × học phí/buổi.
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -903,7 +966,10 @@ export function ClassRequestManagement() {
             ) : (
               <div className="space-y-3">
                 {applicationsModal.items.map((app) => (
-                  <div key={app.applicationId} className="p-4 rounded-2xl border border-border bg-muted/30 space-y-2.5">
+                  <div
+                    key={app.applicationId}
+                    className={`p-4 rounded-2xl border border-border bg-muted/30 space-y-2.5 ${app.status === "TERMINATED" ? "opacity-60" : ""}`}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center shrink-0 overflow-hidden">
@@ -920,10 +986,8 @@ export function ClassRequestManagement() {
                           </div>
                         </div>
                       </div>
-                      {app.status === "SELECTED" ? (
-                        <Badge tone="emerald">Đã chọn</Badge>
-                      ) : app.status === "REJECTED" ? (
-                        <Badge tone="slate">Không chọn</Badge>
+                      {app.status !== "APPLIED" ? (
+                        <ApplicationStatusBadge status={app.status} />
                       ) : (
                         <Button
                           size="sm"
@@ -1068,6 +1132,7 @@ export function ClassRequestManagement() {
                   <div className="grid grid-cols-2 gap-2 text-muted-foreground">
                     <div>Hình thức: <strong className="text-foreground">{teachingLabel(detailModalItem.teachingMode)}</strong></div>
                     <div>Học phí: <strong className="text-primary font-bold">{fmtVND(detailModalItem.pricePerSession)}</strong>/buổi</div>
+                    <div>Tỷ lệ phí: <strong className="text-foreground">{detailModalItem.feePercentage != null ? detailModalItem.feePercentage + "%" : "40% (mặc định)"}</strong></div>
                     {detailModalItem.preferredSchedule && <div className="col-span-2">Lịch mong muốn: <span className="text-foreground">{detailModalItem.preferredSchedule}</span></div>}
                     {detailModalItem.tutorRequirement && <div className="col-span-2">Yêu cầu gia sư: <span className="text-foreground">{detailModalItem.tutorRequirement}</span></div>}
                     {detailModalItem.classId && (
@@ -1087,13 +1152,7 @@ export function ClassRequestManagement() {
                       {detailModalItem.applications.map((app) => (
                         <li key={app.applicationId} className="flex items-center justify-between gap-2">
                           <span className="text-foreground font-medium truncate">{app.tutorName}</span>
-                          {app.status === "SELECTED" ? (
-                            <Badge tone="emerald">Đã chọn</Badge>
-                          ) : app.status === "REJECTED" ? (
-                            <Badge tone="slate">Không chọn</Badge>
-                          ) : (
-                            <Badge tone="blue">Đã ứng tuyển</Badge>
-                          )}
+                          <ApplicationStatusBadge status={app.status} />
                         </li>
                       ))}
                     </ul>
@@ -1115,7 +1174,7 @@ export function ClassRequestManagement() {
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border">
               <div className="flex items-center gap-2">
-                {detailModalItem.status === "OPEN" && (
+                {isRecruiting(detailModalItem.status) && (
                   <Button
                     size="sm"
                     onClick={() => {
@@ -1123,7 +1182,11 @@ export function ClassRequestManagement() {
                       setDetailModalItem(null);
                       handleOpenApplications(item);
                     }}
-                    disabled={isSubmitting || !(detailModalItem.applicationCount || detailModalItem.applications?.length)}
+                    disabled={
+                      isSubmitting ||
+                      !(detailModalItem.pendingApplicationCount ??
+                        detailModalItem.applications?.filter((a) => a.status === "APPLIED").length)
+                    }
                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer disabled:opacity-50"
                   >
                     <Users size={15} />

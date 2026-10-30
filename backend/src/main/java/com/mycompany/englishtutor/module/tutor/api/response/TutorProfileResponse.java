@@ -36,6 +36,8 @@ public class TutorProfileResponse {
     String bio;
     String videoUrl;
     String profileStatus;
+    /** Cờ "Đang mở nhận lớp" — gia sư tự bật/tắt, tách biệt với profileStatus. */
+    Boolean openToTeaching;
     String rejectionReason;
     OffsetDateTime submittedAt;
     OffsetDateTime reviewedAt;

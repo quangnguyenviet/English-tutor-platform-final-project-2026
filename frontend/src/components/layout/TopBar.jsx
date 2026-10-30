@@ -51,7 +51,7 @@ const routeMeta = {
 const classSubTabs = {
   overview: "Tổng quan",
   path: "Lộ trình học",
-  sessions: "Buổi học thực tế",
+  sessions: "Nhật ký buổi học",
   exercises: "Bài tập",
   materials: "Tài liệu & video",
 };

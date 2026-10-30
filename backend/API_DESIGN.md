@@ -136,24 +136,35 @@ Mỗi bảng dưới đây cho biết một đối tượng có những trạng 
 | `INACTIVE` | Ngưng hoạt động | `ACTIVE` |
 | `REJECTED` | Bị từ chối | `INCOMPLETE` (gia sư sửa lại) |
 
+**Tài khoản học sinh** (`users.status`, role `STUDENT`)
+
+| Trạng thái | Ý nghĩa | Chuyển được sang |
+| --- | --- | --- |
+| `ACTIVE` | Đang hoạt động, đăng nhập được | `INACTIVE` (Lễ tân/Admin khóa) |
+| `INACTIVE` | Dừng hoạt động, bị chặn đăng nhập | `ACTIVE` (mở lại) |
+
 **Đơn yêu cầu lớp** (`class_requests.status`)
 
 | Trạng thái | Ý nghĩa | Chuyển được sang |
 | --- | --- | --- |
 | `NEW` | Mới tiếp nhận, chờ lễ tân gọi lại | `OPEN` (đăng cho gia sư ứng tuyển), `MATCHED` (phụ huynh đã chọn sẵn gia sư), `CANCELLED` |
 | `OPEN` | Đã đăng, gia sư đang ứng tuyển | `MATCHED`, `CANCELLED` |
-| `MATCHED` | Đã ghép, đã có lớp | `OPEN` (ghép lại sau khiếu nại "ghép lại lớp") |
+| `MATCHED` | Đã ghép, đã có lớp | `REMATCH` (lớp `TRIAL` dạy thử thất bại, phụ huynh muốn tìm gia sư khác), `CANCELLED` |
+| `REMATCH` | Đang ghép lại: mở lại vòng ứng tuyển, gia sư cũ bị loại | `MATCHED` (chọn được gia sư mới), `CANCELLED` |
 | `CANCELLED` | Đã hủy | không |
+
+Theo ERD C-14 (migration V10). Khi chuyển `REMATCH`: lớp `TRIAL` + buổi chưa học + payment `NEW` bị hủy, `requested_tutor_id = NULL`, lượt ứng tuyển của gia sư cũ → `TERMINATED` (đơn chỉ định không có lượt ứng tuyển thì chèn một dòng `TERMINATED`).
 
 **Đơn ứng tuyển** (`class_applications.status`)
 
 | Trạng thái | Ý nghĩa | Chuyển được sang |
 | --- | --- | --- |
 | `APPLIED` | Gia sư đã ứng tuyển | `SELECTED` (được chọn), `REJECTED` (không được chọn) |
-| `SELECTED` | Được chọn | không |
-| `REJECTED` | Không được chọn | không |
+| `SELECTED` | Được chọn | `TERMINATED` (dạy thử thất bại → ghép lại, hoặc hủy đơn khi đang dạy thử) |
+| `REJECTED` | Không được chọn | không — không ứng tuyển lại đơn này, kể cả khi đơn `REMATCH` (409 `APPLICATION_REJECTED` 1162) |
+| `TERMINATED` | Đã loại sau dạy thử không thành công, không ứng tuyển lại được (UNIQUE C-01, 409 `APPLICATION_TERMINATED` 1159) | không |
 
-Gia sư muốn rút ứng tuyển thì xóa dòng này, chỉ được khi đơn còn `OPEN` và chưa chọn ai.
+Gia sư muốn rút ứng tuyển thì xóa dòng này, chỉ được khi đơn còn `OPEN`/`REMATCH` và chưa chọn ai.
 
 **Lớp học** (`classes.status`)
 
@@ -263,13 +274,15 @@ Validate SĐT: regex `^(0|\+84|84)(3|5|7|8|9)\d{8}$`, sai trả 400 "Số điệ
 | POST | `/api/v1/class-requests/{id}/publish` | RECEPTIONIST, ADMIN | `NEW → OPEN`; yêu cầu đủ `class_requirement`, `teaching_mode`, `price_per_session`. Hiện trên trang gia sư | FR-25 |
 | POST | `/api/v1/class-requests/{id}/cancel` | RECEPTIONIST, ADMIN | Body `{ reason }` bắt buộc. → `CANCELLED`; thông báo gia sư đã ứng tuyển | FR-27 |
 | GET | `/api/v1/class-requests/{id}/applications` | RECEPTIONIST, ADMIN | Danh sách gia sư ứng tuyển (tên, thời gian, lời nhắn) | FR-26 |
-| POST | `/api/v1/class-requests/{id}/select-tutor` | RECEPTIONIST, ADMIN | Body `{ applicationId }`. Application `SELECTED`, các application khác `REJECTED`; tạo `classes` (`TRIAL`); request → `MATCHED`. Một transaction | FR-26 |
+| POST | `/api/v1/class-requests/{id}/select-tutor` | RECEPTIONIST, ADMIN | Body `{ applicationId }`. Đơn `OPEN` hoặc `REMATCH` (khác → 409 `CLASS_REQUEST_NOT_SELECTABLE` 1161). Application `SELECTED`, các application `APPLIED` khác `REJECTED`; tạo `classes` (`TRIAL`) + payment `NEW`; request → `MATCHED`. Một transaction | FR-26 |
+| POST | `/api/v1/match-requests/{id}/rematch` | RECEPTIONIST, ADMIN | Body `{ reason }` bắt buộc. Dạy thử không thành công, phụ huynh muốn tìm gia sư khác (UC-REC-06.1 nhánh 5.2, UC-PA-05): đơn `MATCHED` + lớp mới nhất `TRIAL` (khác → 409 `MATCH_REQUEST_NOT_TRIAL` 1111) → `REMATCH`; hủy lớp `TRIAL`, buổi `SCHEDULED`, payment `NEW`; gia sư cũ `TERMINATED`; thông báo gia sư cũ + học sinh; audit `REMATCH_MATCH_REQUEST`. Danh sách/đếm `GET /match-requests` và `GET /class-requests` có thêm tab `rematch` | FR-30 |
 | POST | `/api/v1/class-requests/{id}/assign-tutor` | RECEPTIONIST, ADMIN | Luồng chỉ định: Body `{ className, sessionsPerWeek, durationMinutes, teachingMode, pricePerSession }`. Tạo `classes` (`TRIAL`); request → `MATCHED` | FR-28, FR-29 |
 | POST | `/api/v1/classes/{id}/cancel` | RECEPTIONIST, ADMIN | Body `{ reason }`. Hủy lớp ở `TRIAL`/`ACTIVE`, thông báo các bên. Nếu đơn gốc còn hiệu lực → cho phép về `OPEN` (ghép lại) | FR-30 |
 | GET | `/api/v1/tutors/me/open-requests` | TUTOR | Lớp `OPEN` đang tuyển, kèm cờ `applied` | FR-08 |
 | GET | `/api/v1/tutors/me/open-requests/{id}` | TUTOR | Chi tiết lớp tuyển (ẩn SĐT phụ huynh) | FR-08 |
 | POST | `/api/v1/tutors/me/open-requests/{id}/apply` | TUTOR | Body `{ message }` (tùy chọn). 409 nếu đã ứng tuyển hoặc đơn không còn `OPEN` | FR-08 |
-| DELETE | `/api/v1/tutors/me/applications/{id}` | TUTOR | Rút ứng tuyển khi đơn còn `OPEN` và chưa chọn gia sư | FR-08 |
+| DELETE | `/api/v1/tutors/me/applications/{id}` | TUTOR | Rút ứng tuyển khi đơn còn `OPEN`/`REMATCH` và chưa chọn gia sư | FR-08 |
+| PATCH | `/api/v1/tutors/me/open-to-teaching` | TUTOR | Body `{ open }`. Bật/tắt `tutors.is_open_to_teaching`. Tắt: `open-requests` trả rỗng, apply → 409 `TUTOR_NOT_OPEN_TO_TEACHING` (1160); lớp đang dạy giữ nguyên. Trả hồ sơ (có `openToTeaching`) | FR-08 |
 | GET | `/api/v1/tutors/me/applications` | TUTOR | Lịch sử ứng tuyển và kết quả | FR-08 |
 
 ### 3.5. Lớp học, Lịch dạy thử & Lịch cố định (module `classroom`)
@@ -374,9 +387,10 @@ Khi phí `APPROVED` → mở khóa thông tin liên hệ phụ huynh cho gia sư
 
 | Method | Path | Quyền | Mô tả | FR |
 | --- | --- | --- | --- | --- |
-| GET | `/api/v1/students` | RECEPTIONIST, ADMIN | Tab `ACTIVE`/`INACTIVE`, tìm kiếm và lọc, phân trang | FR-34 |
-| GET | `/api/v1/students/{id}` | RECEPTIONIST, ADMIN | Cá nhân, phụ huynh, lớp đã và đang học | FR-34 |
-| PATCH | `/api/v1/students/{id}/status` | RECEPTIONIST, ADMIN | Đổi trạng thái; khóa/mở tài khoản | FR-34 |
+| GET | `/api/v1/students` | RECEPTIONIST, ADMIN | Query `status` (`ACTIVE`/`INACTIVE`/`ALL`), `keyword` (tên HS, tên/SĐT phụ huynh, SĐT/email/username HS; không phân biệt dấu, SĐT so theo chữ số), `learning` (`STUDYING` = có lớp `TRIAL`/`ACTIVE`, `NOT_STUDYING`, `ALL`), phân trang. Sai bộ lọc → 400 `INVALID_STUDENT_FILTER` (1308). Item kèm phụ huynh, số lớp đang học, gia sư phụ trách | FR-34 |
+| GET | `/api/v1/students/counts` | RECEPTIONIST, ADMIN | Badge tab `{ ALL, ACTIVE, INACTIVE }`, nhận cùng `keyword`, `learning` | FR-34 |
+| GET | `/api/v1/students/{id}` | RECEPTIONIST, ADMIN | Cá nhân, phụ huynh (`address` lấy từ `parents.address`), `currentClasses` (`TRIAL`/`ACTIVE`), `pastClasses` (`COMPLETED`/`CANCELLED`) kèm gia sư và số buổi đã học. Không phải học sinh → 404 `STUDENT_NOT_FOUND` (1305) | FR-34 |
+| PATCH | `/api/v1/students/{id}/status` | RECEPTIONIST, ADMIN | Body `{ status: ACTIVE\|INACTIVE, note? }`. Khóa/mở tài khoản (`users.status`); cùng trạng thái → 409 `INVALID_STUDENT_STATUS` (1306), giá trị khác → 400 (1307); audit `UPDATE_STUDENT_STATUS`. Tài khoản `INACTIVE` bị chặn đăng nhập, làm mới token và token đang dùng (`ACCOUNT_INACTIVE` 1304). Không tự hủy lớp | FR-34 |
 | GET | `/api/v1/reception/dashboard` | RECEPTIONIST, ADMIN | Lời chào + mã nhân viên, KPI: đơn ghép lớp chờ xử lý, khiếu nại chờ xử lý, khiếu nại chờ hoàn tiền, gia sư đang hoạt động | FR-24 |
 | GET | `/api/v1/employees` | ADMIN | Lọc theo vai trò, trạng thái, tìm kiếm | FR-38 (S) |
 | GET | `/api/v1/employees/{id}` | ADMIN | Chi tiết nhân sự | FR-38 (S) |

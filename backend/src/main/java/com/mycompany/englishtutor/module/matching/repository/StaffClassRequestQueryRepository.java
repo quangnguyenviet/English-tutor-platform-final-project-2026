@@ -39,6 +39,8 @@ public class StaffClassRequestQueryRepository {
                    cr.class_requirement,
                    cr.teaching_mode,
                    cr.price_per_session,
+                   cr.fee_percentage,
+                   cr.sessions_per_week,
                    cr.preferred_schedule,
                    cr.tutor_requirement,
                    cr.status,
@@ -54,7 +56,10 @@ public class StaffClassRequestQueryRepository {
                    s.school,
                    s.learning_goal,
                    hu.full_name  AS handled_by_name,
-                   (SELECT COUNT(*) FROM class_applications ca WHERE ca.class_request_id = cr.id) AS application_count,
+                   (SELECT COUNT(*) FROM class_applications ca
+                     WHERE ca.class_request_id = cr.id AND ca.status <> 'TERMINATED') AS application_count,
+                   (SELECT COUNT(*) FROM class_applications ca
+                     WHERE ca.class_request_id = cr.id AND ca.status = 'APPLIED') AS pending_application_count,
                    cls.id        AS class_id,
                    cls.status    AS class_status
             FROM class_requests cr
@@ -147,6 +152,7 @@ public class StaffClassRequestQueryRepository {
         counts.put("new", count(base + " AND cr.status = 'NEW'"));
         counts.put("open", count(base + " AND cr.status = 'OPEN'"));
         counts.put("matched", count(base + " AND cr.status = 'MATCHED'"));
+        counts.put("rematch", count(base + " AND cr.status = 'REMATCH'"));
         counts.put("cancelled", count(base + " AND cr.status = 'CANCELLED'"));
         counts.put("total", count(base));
         return counts;
@@ -165,6 +171,7 @@ public class StaffClassRequestQueryRepository {
             case "new" -> where.append(" AND cr.status = 'NEW' ");
             case "open" -> where.append(" AND cr.status = 'OPEN' ");
             case "matched" -> where.append(" AND cr.status = 'MATCHED' ");
+            case "rematch" -> where.append(" AND cr.status = 'REMATCH' ");
             case "cancelled" -> where.append(" AND cr.status = 'CANCELLED' ");
             default -> { /* không lọc với tab lạ */ }
         }
@@ -229,6 +236,7 @@ public class StaffClassRequestQueryRepository {
                     .pricePerSession(rs.getBigDecimal("price_per_session"))
                     .preferredSchedule(rs.getString("preferred_schedule"))
                     .applicationCount(nullableLong(rs, "application_count"))
+                    .pendingApplicationCount(nullableLong(rs, "pending_application_count"))
                     .cancelReason(rs.getString("cancel_reason"))
                     .classId(nullableLong(rs, "class_id"))
                     .classStatus(rs.getString("class_status"))
@@ -259,11 +267,16 @@ public class StaffClassRequestQueryRepository {
                     .classRequirement(rs.getString("class_requirement"))
                     .teachingMode(rs.getString("teaching_mode"))
                     .pricePerSession(rs.getBigDecimal("price_per_session"))
+                    .feePercentage(rs.getBigDecimal("fee_percentage"))
+                    .sessionsPerWeek(rs.getObject("sessions_per_week") != null
+                            ? ((Number) rs.getObject("sessions_per_week")).intValue()
+                            : null)
                     .preferredSchedule(rs.getString("preferred_schedule"))
                     .tutorRequirement(rs.getString("tutor_requirement"))
                     .cancelReason(rs.getString("cancel_reason"))
                     .handledByName(rs.getString("handled_by_name"))
                     .applicationCount(nullableLong(rs, "application_count"))
+                    .pendingApplicationCount(nullableLong(rs, "pending_application_count"))
                     .classId(nullableLong(rs, "class_id"))
                     .classStatus(rs.getString("class_status"))
                     .createdAt(rs.getObject("created_at", OffsetDateTime.class))

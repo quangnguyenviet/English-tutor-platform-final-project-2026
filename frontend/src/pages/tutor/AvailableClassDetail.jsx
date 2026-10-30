@@ -16,6 +16,8 @@ import {
   Calendar,
   BookOpen,
   Loader2,
+  PauseCircle,
+  RefreshCcw,
 } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
@@ -44,6 +46,7 @@ export default function AvailableClassDetail() {
   const [notFound, setNotFound] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [profileStatus, setProfileStatus] = useState(null);
+  const [openToTeaching, setOpenToTeaching] = useState(true);
 
   const [toast, setToast] = useState(null);
   const [showApplyModal, setShowApplyModal] = useState(false);
@@ -93,13 +96,26 @@ export default function AvailableClassDetail() {
   useEffect(() => {
     if (!token) return;
     apiGetTutorProfile(token)
-      .then((profile) => setProfileStatus(profile?.profileStatus || "INCOMPLETE"))
+      .then((profile) => {
+        setProfileStatus(profile?.profileStatus || "INCOMPLETE");
+        setOpenToTeaching(profile?.openToTeaching !== false);
+      })
       .catch(() => setProfileStatus("INCOMPLETE"));
   }, [token]);
 
   const isProfileActive = profileStatus === "ACTIVE";
+  const isBlocked = Boolean(clsData?.blocked);
+  const canApply = isProfileActive && openToTeaching && !isBlocked;
 
   const handleOpenApplyModal = () => {
+    if (isBlocked) {
+      showToast("error", clsData.blockHint);
+      return;
+    }
+    if (!openToTeaching) {
+      showToast("error", "Bạn đang tạm ngưng nhận lớp. Hãy bật \"Đang mở nhận lớp\" ở trang Lớp cần gia sư để ứng tuyển.");
+      return;
+    }
     if (!isProfileActive) {
       showToast(
         "error",
@@ -465,7 +481,30 @@ export default function AvailableClassDetail() {
         </div>
       )}
 
-      {clsData.applied && (
+      {clsData.requestStatus === "REMATCH" && !isBlocked && (
+        <div className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-xs text-violet-900 shadow-xs dark:border-violet-800/40 dark:bg-violet-950/40 dark:text-violet-200">
+          <RefreshCcw size={18} className="mt-0.5 shrink-0" />
+          <p>
+            Lớp đang <strong>tuyển lại</strong>: buổi dạy thử trước chưa thành công và phụ huynh muốn trung tâm
+            tìm gia sư khác.
+          </p>
+        </div>
+      )}
+
+      {!openToTeaching && profileStatus !== null && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 shadow-xs dark:border-amber-800/40 dark:bg-amber-950/40 dark:text-amber-200">
+          <PauseCircle size={18} className="mt-0.5 shrink-0" />
+          <p>
+            Bạn đang tạm ngưng nhận lớp mới nên chưa ứng tuyển được. Bật lại "Đang mở nhận lớp" tại{" "}
+            <Link to="/tutor/available-classes" className="font-bold underline">
+              trang Lớp cần gia sư
+            </Link>
+            .
+          </p>
+        </div>
+      )}
+
+      {clsData.applied && !isBlocked && (
         <div className="rounded-xl border border-blue-300 bg-blue-50/80 p-4 text-blue-950 shadow-xs dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-100">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
@@ -608,7 +647,14 @@ export default function AvailableClassDetail() {
               </span>
             </div>
 
-            {clsData.applied ? (
+            {isBlocked ? (
+              <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400">
+                <p className="flex items-center gap-1.5 text-sm font-bold text-slate-800 dark:text-slate-200">
+                  <Ban size={16} className="text-slate-400" /> {clsData.blockLabel}
+                </p>
+                <p>{clsData.blockHint}</p>
+              </div>
+            ) : clsData.applied ? (
               <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/80 p-4 text-xs text-blue-950 dark:border-blue-900/60 dark:bg-blue-950/60 dark:text-blue-200">
                 <p className="flex items-center gap-1.5 text-sm font-bold text-blue-800 dark:text-blue-300">
                   <CheckCircle2 size={16} className="text-blue-600 dark:text-blue-400" /> Bạn đã ứng
@@ -639,7 +685,7 @@ export default function AvailableClassDetail() {
                 <Button
                   onClick={handleOpenApplyModal}
                   variant="primary"
-                  disabled={!isProfileActive}
+                  disabled={!canApply}
                   className="w-full cursor-pointer justify-center border-none bg-blue-600 py-3 text-xs font-bold text-white shadow-md hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-800"
                 >
                   <Send size={16} /> Ứng tuyển nhận lớp

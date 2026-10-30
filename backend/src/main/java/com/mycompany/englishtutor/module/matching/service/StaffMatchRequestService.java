@@ -3,6 +3,7 @@ package com.mycompany.englishtutor.module.matching.service;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -12,10 +13,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.mycompany.englishtutor.module.audit.service.AuditLogService;
 import com.mycompany.englishtutor.module.matching.api.request.CancelMatchRequest;
+import com.mycompany.englishtutor.module.matching.api.request.CompleteMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.request.CreateMatchRequest;
+import com.mycompany.englishtutor.module.matching.api.request.RematchMatchRequest;
+import com.mycompany.englishtutor.module.matching.api.request.UpdateMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.response.MatchRequestDetailResponse;
 import com.mycompany.englishtutor.module.matching.api.response.MatchRequestSummaryResponse;
 import com.mycompany.englishtutor.module.matching.repository.StaffMatchRequestQueryRepository;
+import com.mycompany.englishtutor.module.matching.service.MatchingLifecycleSupport.ClassSnapshot;
+import com.mycompany.englishtutor.module.payment.service.PaymentService;
 import com.mycompany.englishtutor.module.tutor.domain.enums.ProfileStatus;
 import com.mycompany.englishtutor.module.tutor.repository.TutorRepository;
 import com.mycompany.englishtutor.module.user.domain.User;
@@ -43,6 +49,8 @@ public class StaffMatchRequestService {
     UserRepository userRepository;
     AuditLogService auditLogService;
     PasswordEncoder passwordEncoder;
+    PaymentService paymentService;
+    MatchingLifecycleSupport lifecycle;
 
     @Transactional(readOnly = true)
     public PageResponse<MatchRequestSummaryResponse> getMatchRequests(
@@ -84,9 +92,10 @@ public class StaffMatchRequestService {
                     price_per_session,
                     preferred_schedule,
                     tutor_requirement,
+                    fee_percentage,
                     status,
                     created_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'NEW', ?) RETURNING id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, 40), 'NEW', ?) RETURNING id
                 """,
                 Long.class,
                 parentId,
@@ -97,6 +106,7 @@ public class StaffMatchRequestService {
                 request.getPricePerSession(),
                 request.getPreferredSchedule(),
                 request.getNotes(),
+                request.getFeePercentage(),
                 currentUserId
         );
 
@@ -124,7 +134,7 @@ public class StaffMatchRequestService {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 """
                 SELECT id, parent_id, requested_tutor_id, student_id, class_requirement,
-                       teaching_mode, price_per_session, status
+                       teaching_mode, price_per_session, fee_percentage, status
                 FROM class_requests
                 WHERE id = ? FOR UPDATE
                 """,
@@ -170,6 +180,9 @@ public class StaffMatchRequestService {
         }
 
         BigDecimal price = (BigDecimal) cr.get("price_per_session");
+        BigDecimal feePercentage = cr.get("fee_percentage") != null
+                ? new BigDecimal(cr.get("fee_percentage").toString())
+                : null;
 
         Long currentUserId = getCurrentUserId();
         jdbcTemplate.update(
@@ -207,15 +220,19 @@ public class StaffMatchRequestService {
                 httpRequest
         );
 
+        // Snapshot phí nhận lớp ngay khi ghép (mục 4.1.2): payment NEW, amount NULL.
+        paymentService.createDraftForClass(classId, feePercentage, price);
+
         notifyTutorNewTrialClass(tutorId, classId, className);
 
         return getMatchRequest(id);
     }
 
     @Transactional
-    public MatchRequestDetailResponse completeMatchRequest(Long id, HttpServletRequest httpRequest) {
+    public MatchRequestDetailResponse completeMatchRequest(
+            Long id, CompleteMatchRequest body, HttpServletRequest httpRequest) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT id, status FROM class_requests WHERE id = ? FOR UPDATE", id);
+                "SELECT id, status, fee_percentage FROM class_requests WHERE id = ? FOR UPDATE", id);
         if (rows.isEmpty()) {
             throw new AppException(ErrorCode.CLASS_REQUEST_NOT_FOUND);
         }
@@ -227,7 +244,8 @@ public class StaffMatchRequestService {
 
         List<Map<String, Object>> classRows = jdbcTemplate.queryForList(
                 """
-                SELECT id, tutor_id, student_id, class_name, status
+                SELECT id, tutor_id, student_id, class_name, status,
+                       sessions_per_week, price_per_session
                 FROM classes
                 WHERE class_request_id = ?
                 ORDER BY id DESC LIMIT 1
@@ -243,7 +261,36 @@ public class StaffMatchRequestService {
         Map<String, Object> cl = classRows.get(0);
         Long classId = ((Number) cl.get("id")).longValue();
         Long tutorId = ((Number) cl.get("tutor_id")).longValue();
+        Long studentId = ((Number) cl.get("student_id")).longValue();
         String className = (String) cl.get("class_name");
+
+        // Ưu tiên dữ liệu trên lớp; fallback từ body khi thiếu (mục 4.1, bước 3).
+        int sessionsPerWeek = cl.get("sessions_per_week") != null
+                ? ((Number) cl.get("sessions_per_week")).intValue()
+                : (body != null && body.getSessionsPerWeek() != null ? body.getSessionsPerWeek() : 0);
+        BigDecimal pricePerSession = cl.get("price_per_session") != null
+                ? new BigDecimal(cl.get("price_per_session").toString())
+                : (body != null ? body.getPricePerSession() : null);
+        // Tỷ lệ phí: body > snapshot payment NEW (lúc ghép lớp) > đơn class_requests (mục 4.1 bước 3).
+        BigDecimal bodyFee = body != null ? body.getFeePercentage() : null;
+        BigDecimal draftFee = paymentDraftFeePercentage(classId);
+        BigDecimal feePercentage = bodyFee != null
+                ? bodyFee
+                : draftFee != null
+                        ? draftFee
+                        : rows.get(0).get("fee_percentage") != null
+                                ? new BigDecimal(rows.get(0).get("fee_percentage").toString())
+                                : null;
+
+        // Thiếu dữ liệu thì không kích hoạt (lễ tân bổ sung trong modal).
+        if (sessionsPerWeek <= 0 || pricePerSession == null) {
+            throw new AppException(ErrorCode.CLASS_FEE_INCOMPLETE);
+        }
+
+        // Lưu giá trị bổ sung vào lớp (nguồn duy nhất tính phí — ràng buộc 6.1).
+        jdbcTemplate.update(
+                "UPDATE classes SET sessions_per_week = ?, price_per_session = ?, updated_at = NOW() WHERE id = ?",
+                sessionsPerWeek, pricePerSession, classId);
 
         Long currentUserId = getCurrentUserId();
 
@@ -257,6 +304,9 @@ public class StaffMatchRequestService {
                 currentUserId, id
         );
 
+        // Kích hoạt payment NEW -> NOT_SUBMITTED (tính amount, ghi đè fee nếu body có).
+        paymentService.createForClassWithFeeInfo(classId, feePercentage, sessionsPerWeek, pricePerSession);
+
         auditLogService.log(
                 currentUserId,
                 "COMPLETE_MATCH_REQUEST",
@@ -267,6 +317,7 @@ public class StaffMatchRequestService {
         );
 
         notifyTutorMatchSuccess(tutorId, classId, className);
+        notifyStudentMatchSuccess(studentId, classId, className);
 
         return getMatchRequest(id);
     }
@@ -285,14 +336,17 @@ public class StaffMatchRequestService {
         }
 
         Long currentUserId = getCurrentUserId();
-        jdbcTemplate.update(
-                "UPDATE class_requests SET status = 'CANCELLED', cancel_reason = ?, handled_by = ?, updated_at = NOW() WHERE id = ?",
-                request.getReason().trim(), currentUserId, id
-        );
+        String reason = request.getReason().trim();
+
+        // Lớp đang mở (TRIAL/ACTIVE) bị đóng: gia sư đã chọn chuyển TERMINATED (UC-REC-07 kịch bản 5a).
+        Optional<ClassSnapshot> openClass = lifecycle.findLatestClass(id).filter(ClassSnapshot::isOpen);
+        lifecycle.closeOpenClasses(id);
+        openClass.ifPresent(cl -> lifecycle.terminateTutor(id, cl.tutorId()));
+        lifecycle.rejectPendingApplications(id);
 
         jdbcTemplate.update(
-                "UPDATE classes SET status = 'CANCELLED', updated_at = NOW() WHERE class_request_id = ? AND status != 'CANCELLED'",
-                id
+                "UPDATE class_requests SET status = 'CANCELLED', cancel_reason = ?, handled_by = ?, updated_at = NOW() WHERE id = ?",
+                reason, currentUserId, id
         );
 
         auditLogService.log(
@@ -300,9 +354,79 @@ public class StaffMatchRequestService {
                 "CANCEL_MATCH_REQUEST",
                 "CLASS_REQUEST",
                 id,
-                Map.of("reason", request.getReason().trim()),
+                Map.of("reason", reason),
                 httpRequest
         );
+
+        openClass.ifPresent(cl -> {
+            String content = "Lớp " + safe(cl.className()) + " đã bị hủy. Lý do: " + reason;
+            lifecycle.notifyUser(cl.tutorId(), "Lớp học đã bị hủy", content, "CLASS", cl.id());
+            lifecycle.notifyUser(cl.studentId(), "Lớp học đã bị hủy", content, "CLASS", cl.id());
+        });
+    }
+
+    /**
+     * Ghép lại khi dạy thử không thành công và phụ huynh muốn tìm gia sư khác
+     * (UC-REC-06.1 nhánh 5.2, UC-PA-05, ERD C-14 {@code MATCHED → REMATCH}).
+     *
+     * <p>Một transaction: lớp {@code TRIAL} + buổi chưa học + payment nháp bị hủy, gia sư cũ
+     * {@code TERMINATED}, đơn {@code REMATCH} và bỏ {@code requested_tutor_id} để đơn mở lại
+     * vòng ứng tuyển ở trang Lớp cần gia sư.
+     */
+    @Transactional
+    public MatchRequestDetailResponse rematchMatchRequest(
+            Long id, RematchMatchRequest request, HttpServletRequest httpRequest) {
+        List<String> statuses = jdbcTemplate.queryForList(
+                "SELECT status FROM class_requests WHERE id = ? FOR UPDATE", String.class, id);
+        if (statuses.isEmpty()) {
+            throw new AppException(ErrorCode.CLASS_REQUEST_NOT_FOUND);
+        }
+        if ("CANCELLED".equalsIgnoreCase(statuses.get(0))) {
+            throw new AppException(ErrorCode.CLASS_REQUEST_ALREADY_CANCELLED);
+        }
+
+        ClassSnapshot trial = lifecycle.findLatestClass(id)
+                .filter(cl -> "MATCHED".equalsIgnoreCase(statuses.get(0)) && cl.isTrial())
+                .orElseThrow(() -> new AppException(ErrorCode.MATCH_REQUEST_NOT_TRIAL));
+
+        String reason = request.getReason().trim();
+        Long currentUserId = getCurrentUserId();
+
+        lifecycle.closeOpenClasses(id);
+        lifecycle.terminateTutor(id, trial.tutorId());
+
+        jdbcTemplate.update(
+                """
+                UPDATE class_requests
+                SET status = 'REMATCH', requested_tutor_id = NULL, handled_by = ?, updated_at = NOW()
+                WHERE id = ?
+                """,
+                currentUserId, id
+        );
+
+        auditLogService.log(
+                currentUserId,
+                "REMATCH_MATCH_REQUEST",
+                "CLASS_REQUEST",
+                id,
+                Map.of("reason", reason, "oldTutorId", trial.tutorId(), "cancelledClassId", trial.id()),
+                httpRequest
+        );
+
+        lifecycle.notifyUser(trial.tutorId(), "Kết quả dạy thử không thành công",
+                "Lớp dạy thử " + safe(trial.className()) + " đã kết thúc do dạy thử không thành công. Lý do: "
+                        + reason + ". Bạn sẽ không thể ứng tuyển lại lớp này.",
+                "CLASS", trial.id());
+        lifecycle.notifyUser(trial.studentId(), "Trung tâm đang tìm gia sư mới",
+                "Lớp dạy thử " + safe(trial.className())
+                        + " đã kết thúc. Trung tâm đang tìm gia sư khác phù hợp và sẽ liên hệ lại với gia đình.",
+                "CLASS", trial.id());
+
+        return getMatchRequest(id);
+    }
+
+    private static String safe(String value) {
+        return value == null ? "" : value;
     }
 
     private Long findOrCreateParent(String fullName, String phone) {
@@ -369,6 +493,22 @@ public class StaffMatchRequestService {
         return userRepository.findByUsername(name).map(User::getId).orElse(null);
     }
 
+    /**
+     * Snapshot tỷ lệ phí trên bản nháp payment {@code NEW} (mục 4.1 bước 3, 9):
+     * giá trị này được đóng băng khi ghép lớp, nên dùng làm nguồn ưu tiên thay vì
+     * {@code class_requests.fee_percentage} — sửa đơn sau đó không làm thay đổi phí.
+     */
+    private BigDecimal paymentDraftFeePercentage(Long classId) {
+        List<BigDecimal> fees = jdbcTemplate.queryForList(
+                """
+                SELECT fee_percentage FROM payments
+                WHERE class_id = ? AND payer_type = 'TUTOR' AND status = 'NEW'
+                ORDER BY id DESC LIMIT 1
+                """,
+                BigDecimal.class, classId);
+        return fees.isEmpty() ? null : fees.get(0);
+    }
+
     private void notifyReceptionists(long classRequestId, String parentName, Long tutorId) {
         String title = "Yêu cầu đăng ký học với gia sư chỉ định mới";
         jdbcTemplate.update(
@@ -404,5 +544,90 @@ public class StaffMatchRequestService {
                 "Lớp học " + (className != null ? className : "") + " đã hoàn tất dạy thử và chính thức bắt đầu giảng dạy.",
                 classId
         );
+    }
+
+    private void notifyStudentMatchSuccess(Long studentId, Long classId, String className) {
+        jdbcTemplate.update(
+                """
+                INSERT INTO notifications (user_id, title, content, link_entity_type, link_entity_id)
+                VALUES (?, 'Lớp học chính thức', ?, 'CLASS', ?)
+                """,
+                studentId,
+                "Lớp học " + (className != null ? className : "")
+                        + " đã chuyển sang trạng thái chính thức. Giáo viên sẽ sắp xếp lịch học cố định trong thời gian tới.",
+                classId
+        );
+    }
+
+    /**
+     * Hoàn thiện đơn ghép lớp khi còn {@code NEW} (kế hoạch mục 4.1.1, mirror của
+     * {@code PUT /class-requests/{id}}): sửa {@code class_requirement},
+     * {@code teaching_mode}, {@code price_per_session}, {@code fee_percentage} —
+     * cho lễ tân bổ sung dữ liệu (đặc biệt tỷ lệ phí) trước khi {@code confirm}.
+     * Partial update: trường nào gửi lên thì cập nhật trường đó.
+     */
+    @Transactional
+    public MatchRequestDetailResponse updateMatchRequest(
+            Long id, UpdateMatchRequest body, HttpServletRequest httpRequest) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                """
+                SELECT id, status, class_requirement, teaching_mode, price_per_session, fee_percentage
+                FROM class_requests
+                WHERE id = ? AND requested_tutor_id IS NOT NULL
+                FOR UPDATE
+                """,
+                id
+        );
+        if (rows.isEmpty()) {
+            throw new AppException(ErrorCode.CLASS_REQUEST_NOT_FOUND);
+        }
+        Map<String, Object> cr = rows.get(0);
+        if (!"NEW".equalsIgnoreCase((String) cr.get("status"))) {
+            throw new AppException(ErrorCode.CLASS_REQUEST_NOT_NEW);
+        }
+
+        if (body != null) {
+            jdbcTemplate.update(
+                    """
+                    UPDATE class_requests SET
+                        class_requirement   = COALESCE(?, class_requirement),
+                        teaching_mode       = COALESCE(?, teaching_mode),
+                        price_per_session   = COALESCE(?, price_per_session),
+                        fee_percentage       = COALESCE(?, fee_percentage),
+                        updated_at            = NOW()
+                    WHERE id = ?
+                    """,
+                    trimToNull(body.getClassRequirement()),
+                    body.getTeachingMode(),
+                    body.getPricePerSession(),
+                    body.getFeePercentage(),
+                    id
+            );
+        }
+
+        Long currentUserId = getCurrentUserId();
+        auditLogService.log(
+                currentUserId,
+                "UPDATE_MATCH_REQUEST",
+                "CLASS_REQUEST",
+                id,
+                body == null
+                        ? null
+                        : Map.of(
+                                "classRequirement", String.valueOf(body.getClassRequirement()),
+                                "teachingMode", String.valueOf(body.getTeachingMode()),
+                                "pricePerSession", String.valueOf(body.getPricePerSession()),
+                                "feePercentage", String.valueOf(body.getFeePercentage())),
+                httpRequest
+        );
+        return getMatchRequest(id);
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

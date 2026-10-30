@@ -159,12 +159,36 @@ class StaffMatchRequestControllerTest {
 
     @Test
     void completeMatchRequest_shouldReturn200() throws Exception {
-        when(staffMatchRequestService.completeMatchRequest(eq(1L), any())).thenReturn(detailItem());
+        when(staffMatchRequestService.completeMatchRequest(eq(1L), any(), any())).thenReturn(detailItem());
 
         mockMvc.perform(post("/api/v1/match-requests/1/complete-match")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Đã duyệt đơn ghép lớp thành công, lớp học chuyển sang chính thức"));
+    }
+
+    @Test
+    void completeMatchRequest_withFeeBody_shouldReturn200() throws Exception {
+        when(staffMatchRequestService.completeMatchRequest(eq(1L), any(), any())).thenReturn(detailItem());
+
+        mockMvc.perform(post("/api/v1/match-requests/1/complete-match")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sessionsPerWeek\":2,\"pricePerSession\":300000,\"feePercentage\":40}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Đã duyệt đơn ghép lớp thành công, lớp học chuyển sang chính thức"));
+    }
+
+    @Test
+    void updateMatchRequest_newRequest_shouldReturn200() throws Exception {
+        when(staffMatchRequestService.updateMatchRequest(eq(1L), any(), any())).thenReturn(detailItem());
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/match-requests/1")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_RECEPTIONIST")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"teachingMode\":\"ONLINE\",\"pricePerSession\":300000,\"feePercentage\":35}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Cập nhật đơn ghép lớp thành công"));
     }
 
     @Test
