@@ -9,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.mycompany.englishtutor.module.tutor.api.request.OpenToTeachingRequest;
 import com.mycompany.englishtutor.module.tutor.api.request.TutorProfileUpsertRequest;
 import com.mycompany.englishtutor.module.tutor.api.response.TutorProfileResponse;
 import com.mycompany.englishtutor.module.tutor.service.TutorProfileService;
@@ -100,6 +101,20 @@ public class TutorProfileController {
     })
     public ResponseEntity<TutorProfileResponse> submitForReview() {
         return ResponseEntity.ok(tutorProfileService.submitForReview());
+    }
+
+    @PatchMapping("/me/open-to-teaching")
+    @PreAuthorize("hasRole('TUTOR')")
+    @Operation(summary = "Bật/tắt chế độ \"Đang mở nhận lớp\" (tutors.is_open_to_teaching)", security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Open-to-teaching flag updated"),
+            @ApiResponse(responseCode = "400", description = "Missing open flag"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "404", description = "Tutor profile not found")
+    })
+    public ResponseEntity<TutorProfileResponse> setOpenToTeaching(
+            @RequestBody @Valid OpenToTeachingRequest request) {
+        return ResponseEntity.ok(tutorProfileService.setOpenToTeaching(request.getOpen()));
     }
 
     @PostMapping("/me/profile/cancel")

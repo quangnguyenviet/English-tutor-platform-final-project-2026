@@ -39,6 +39,17 @@ public class ClassApplicationRepository {
                 message);
     }
 
+    /** Lượt ứng tuyển sẵn có của gia sư cho đơn (UNIQUE class_request_id, tutor_id). */
+    public Optional<ExistingApplication> findByRequestAndTutor(Long classRequestId, Long tutorId) {
+        return jdbcTemplate.query(
+                        "SELECT id, status FROM class_applications WHERE class_request_id = ? AND tutor_id = ? FOR UPDATE",
+                        (rs, rowNum) -> new ExistingApplication(rs.getLong("id"), rs.getString("status")),
+                        classRequestId,
+                        tutorId)
+                .stream()
+                .findFirst();
+    }
+
     /** Khóa đơn lớp rồi đọc trạng thái đơn ứng tuyển để kiểm tra quyền rút. */
     public Optional<WithdrawState> findForWithdraw(Long applicationId) {
         return jdbcTemplate.query(
@@ -83,6 +94,8 @@ public class ClassApplicationRepository {
     private static String requestCode(long id) {
         return "LOP-ENG-" + String.format("%04d", id);
     }
+
+    public record ExistingApplication(Long id, String status) {}
 
     public record WithdrawState(
             Long tutorId, String applicationStatus, String requestStatus, boolean hasSelected) {}

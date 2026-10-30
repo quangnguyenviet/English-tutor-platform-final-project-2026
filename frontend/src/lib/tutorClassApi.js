@@ -125,7 +125,13 @@ export function mapTutorOpenClass(item) {
     myMessage: item?.myMessage || "",
     appliedAt: item?.appliedAt || null,
     appliedAtLabel: formatDateTime(item?.appliedAt),
-    requestStatus: item?.status || "OPEN",
+    // Danh sách lớp đang tuyển trả requestStatus; tóm tắt lớp trong "Lớp đã ứng tuyển" trả status.
+    requestStatus: item?.requestStatus || item?.status || "OPEN",
+    applicationStatus: item?.applicationStatus || null,
+    // Đã bị từ chối hoặc bị loại sau dạy thử: không ứng tuyển lại đơn này (kể cả khi đơn tuyển lại).
+    blocked: BLOCKED_APPLICATION_STATUSES.includes(item?.applicationStatus),
+    blockLabel: APPLICATION_STATUS_META[item?.applicationStatus]?.label || "",
+    blockHint: BLOCKED_HINTS[item?.applicationStatus] || "",
   };
 }
 
@@ -133,19 +139,34 @@ export const APPLICATION_STATUS_META = {
   APPLIED: { label: "Chờ duyệt", tone: "amber" },
   SELECTED: { label: "Được chọn", tone: "emerald" },
   REJECTED: { label: "Không được chọn", tone: "rose" },
+  TERMINATED: { label: "Đã loại – dạy thử không thành công", tone: "slate" },
+};
+
+/** Lượt ứng tuyển không thể ứng tuyển lại đơn này nữa (mỗi gia sư một lượt / đơn). */
+const BLOCKED_APPLICATION_STATUSES = ["REJECTED", "TERMINATED"];
+
+/** Chú thích cho lượt bị từ chối / bị loại (UC gia sư 6b2, 6b4, 6b5). */
+const BLOCKED_HINTS = {
+  REJECTED: "Bạn đã không được chọn cho lớp này trước đó nên không thể ứng tuyển lại.",
+  TERMINATED: "Dạy thử không thành công, bạn không thể ứng tuyển lại lớp này.",
 };
 
 export const REQUEST_STATUS_LABELS = {
   OPEN: "Đang tuyển",
+  REMATCH: "Đang tuyển lại",
   MATCHED: "Đã ghép lớp",
   CANCELLED: "Đã hủy",
 };
 
 const REQUEST_STATUS_TONES = {
   OPEN: "slate",
+  REMATCH: "violet",
   MATCHED: "violet",
   CANCELLED: "rose",
 };
+
+/** Lớp đang nhận ứng tuyển: đăng tuyển lần đầu hoặc đang ghép lại sau dạy thử thất bại. */
+export const isRecruitingStatus = (status) => status === "OPEN" || status === "REMATCH";
 
 /** Map một đơn ứng tuyển (kèm tóm tắt lớp) sang model hiển thị. */
 export function mapMyApplication(application) {
@@ -163,7 +184,10 @@ export function mapMyApplication(application) {
     requestStatus,
     requestStatusLabel: REQUEST_STATUS_LABELS[requestStatus] || "",
     requestStatusTone: REQUEST_STATUS_TONES[requestStatus] || "slate",
-    canWithdraw: status === "APPLIED" && requestStatus === "OPEN",
+    statusHint: status === "TERMINATED" || (status === "REJECTED" && isRecruitingStatus(requestStatus))
+      ? BLOCKED_HINTS[status]
+      : "",
+    canWithdraw: status === "APPLIED" && isRecruitingStatus(requestStatus),
     classInfo: mapTutorOpenClass(classRequest),
   };
 }

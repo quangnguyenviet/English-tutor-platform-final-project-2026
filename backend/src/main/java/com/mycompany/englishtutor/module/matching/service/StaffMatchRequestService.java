@@ -3,6 +3,7 @@ package com.mycompany.englishtutor.module.matching.service;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -14,10 +15,12 @@ import com.mycompany.englishtutor.module.audit.service.AuditLogService;
 import com.mycompany.englishtutor.module.matching.api.request.CancelMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.request.CompleteMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.request.CreateMatchRequest;
+import com.mycompany.englishtutor.module.matching.api.request.RematchMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.request.UpdateMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.response.MatchRequestDetailResponse;
 import com.mycompany.englishtutor.module.matching.api.response.MatchRequestSummaryResponse;
 import com.mycompany.englishtutor.module.matching.repository.StaffMatchRequestQueryRepository;
+import com.mycompany.englishtutor.module.matching.service.MatchingLifecycleSupport.ClassSnapshot;
 import com.mycompany.englishtutor.module.payment.service.PaymentService;
 import com.mycompany.englishtutor.module.tutor.domain.enums.ProfileStatus;
 import com.mycompany.englishtutor.module.tutor.repository.TutorRepository;
@@ -47,6 +50,7 @@ public class StaffMatchRequestService {
     AuditLogService auditLogService;
     PasswordEncoder passwordEncoder;
     PaymentService paymentService;
+    MatchingLifecycleSupport lifecycle;
 
     @Transactional(readOnly = true)
     public PageResponse<MatchRequestSummaryResponse> getMatchRequests(
@@ -332,23 +336,17 @@ public class StaffMatchRequestService {
         }
 
         Long currentUserId = getCurrentUserId();
+        String reason = request.getReason().trim();
 
-        // Hủy bản nháp phí NEW của các lớp TRIAL (kế hoạch mục 4.1.2, 5.1).
-        List<Long> classIds = jdbcTemplate.queryForList(
-                "SELECT id FROM classes WHERE class_request_id = ? AND status = 'TRIAL'",
-                Long.class, id);
-        for (Long classId : classIds) {
-            paymentService.cancelDraftPayment(classId);
-        }
+        // Lớp đang mở (TRIAL/ACTIVE) bị đóng: gia sư đã chọn chuyển TERMINATED (UC-REC-07 kịch bản 5a).
+        Optional<ClassSnapshot> openClass = lifecycle.findLatestClass(id).filter(ClassSnapshot::isOpen);
+        lifecycle.closeOpenClasses(id);
+        openClass.ifPresent(cl -> lifecycle.terminateTutor(id, cl.tutorId()));
+        lifecycle.rejectPendingApplications(id);
 
         jdbcTemplate.update(
                 "UPDATE class_requests SET status = 'CANCELLED', cancel_reason = ?, handled_by = ?, updated_at = NOW() WHERE id = ?",
-                request.getReason().trim(), currentUserId, id
-        );
-
-        jdbcTemplate.update(
-                "UPDATE classes SET status = 'CANCELLED', updated_at = NOW() WHERE class_request_id = ? AND status != 'CANCELLED'",
-                id
+                reason, currentUserId, id
         );
 
         auditLogService.log(
@@ -356,9 +354,79 @@ public class StaffMatchRequestService {
                 "CANCEL_MATCH_REQUEST",
                 "CLASS_REQUEST",
                 id,
-                Map.of("reason", request.getReason().trim()),
+                Map.of("reason", reason),
                 httpRequest
         );
+
+        openClass.ifPresent(cl -> {
+            String content = "Lớp " + safe(cl.className()) + " đã bị hủy. Lý do: " + reason;
+            lifecycle.notifyUser(cl.tutorId(), "Lớp học đã bị hủy", content, "CLASS", cl.id());
+            lifecycle.notifyUser(cl.studentId(), "Lớp học đã bị hủy", content, "CLASS", cl.id());
+        });
+    }
+
+    /**
+     * Ghép lại khi dạy thử không thành công và phụ huynh muốn tìm gia sư khác
+     * (UC-REC-06.1 nhánh 5.2, UC-PA-05, ERD C-14 {@code MATCHED → REMATCH}).
+     *
+     * <p>Một transaction: lớp {@code TRIAL} + buổi chưa học + payment nháp bị hủy, gia sư cũ
+     * {@code TERMINATED}, đơn {@code REMATCH} và bỏ {@code requested_tutor_id} để đơn mở lại
+     * vòng ứng tuyển ở trang Lớp cần gia sư.
+     */
+    @Transactional
+    public MatchRequestDetailResponse rematchMatchRequest(
+            Long id, RematchMatchRequest request, HttpServletRequest httpRequest) {
+        List<String> statuses = jdbcTemplate.queryForList(
+                "SELECT status FROM class_requests WHERE id = ? FOR UPDATE", String.class, id);
+        if (statuses.isEmpty()) {
+            throw new AppException(ErrorCode.CLASS_REQUEST_NOT_FOUND);
+        }
+        if ("CANCELLED".equalsIgnoreCase(statuses.get(0))) {
+            throw new AppException(ErrorCode.CLASS_REQUEST_ALREADY_CANCELLED);
+        }
+
+        ClassSnapshot trial = lifecycle.findLatestClass(id)
+                .filter(cl -> "MATCHED".equalsIgnoreCase(statuses.get(0)) && cl.isTrial())
+                .orElseThrow(() -> new AppException(ErrorCode.MATCH_REQUEST_NOT_TRIAL));
+
+        String reason = request.getReason().trim();
+        Long currentUserId = getCurrentUserId();
+
+        lifecycle.closeOpenClasses(id);
+        lifecycle.terminateTutor(id, trial.tutorId());
+
+        jdbcTemplate.update(
+                """
+                UPDATE class_requests
+                SET status = 'REMATCH', requested_tutor_id = NULL, handled_by = ?, updated_at = NOW()
+                WHERE id = ?
+                """,
+                currentUserId, id
+        );
+
+        auditLogService.log(
+                currentUserId,
+                "REMATCH_MATCH_REQUEST",
+                "CLASS_REQUEST",
+                id,
+                Map.of("reason", reason, "oldTutorId", trial.tutorId(), "cancelledClassId", trial.id()),
+                httpRequest
+        );
+
+        lifecycle.notifyUser(trial.tutorId(), "Kết quả dạy thử không thành công",
+                "Lớp dạy thử " + safe(trial.className()) + " đã kết thúc do dạy thử không thành công. Lý do: "
+                        + reason + ". Bạn sẽ không thể ứng tuyển lại lớp này.",
+                "CLASS", trial.id());
+        lifecycle.notifyUser(trial.studentId(), "Trung tâm đang tìm gia sư mới",
+                "Lớp dạy thử " + safe(trial.className())
+                        + " đã kết thúc. Trung tâm đang tìm gia sư khác phù hợp và sẽ liên hệ lại với gia đình.",
+                "CLASS", trial.id());
+
+        return getMatchRequest(id);
+    }
+
+    private static String safe(String value) {
+        return value == null ? "" : value;
     }
 
     private Long findOrCreateParent(String fullName, String phone) {

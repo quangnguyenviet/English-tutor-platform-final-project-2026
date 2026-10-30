@@ -94,6 +94,9 @@ public class ClassRequestDetailResponse {
     @Schema(description = "Số lượng gia sư đã ứng tuyển")
     Long applicationCount;
 
+    @Schema(description = "Số lượt ứng tuyển còn chờ chọn (APPLIED) — 0 thì không mở danh sách chọn gia sư")
+    Long pendingApplicationCount;
+
     @Schema(description = "Danh sách gia sư đã ứng tuyển")
     List<ClassApplicationResponse> applications;
 

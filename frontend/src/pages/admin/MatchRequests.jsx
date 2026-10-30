@@ -23,7 +23,11 @@ import {
   Send,
   Eye,
   Percent,
+  RefreshCcw,
+  UserX,
+  ExternalLink,
 } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
@@ -38,6 +42,7 @@ import {
   apiConfirmMatchRequest,
   apiCompleteMatchRequest,
   apiCancelMatchRequest,
+  apiRematchMatchRequest,
   apiGetMatchRequestDetail,
 } from "../../lib/matchRequestApi";
 import { apiGetPublicTutors } from "../../lib/tutorApi";
@@ -46,8 +51,11 @@ const statusMeta = {
   PENDING: { label: "Chờ xử lý", tone: "amber", icon: Clock },
   TRIAL: { label: "Đang dạy thử", tone: "blue", icon: BookOpen },
   MATCHED: { label: "Ghép thành công", tone: "emerald", icon: CheckCircle2 },
+  REMATCH: { label: "Đang ghép lại", tone: "violet", icon: RefreshCcw },
   CANCELLED: { label: "Đã hủy", tone: "slate", icon: XCircle },
 };
+
+const EMPTY_COUNTS = { pending: 0, trial: 0, matched: 0, rematch: 0, cancelled: 0, total: 0 };
 
 const fmtVND = (n) => (n ? Number(n).toLocaleString("vi-VN") + "₫" : "0₫");
 
@@ -81,10 +89,12 @@ const INITIAL_CREATE_FORM = {
 export function MatchRequests() {
   const { token, session, tutorList: mockTutorList } = useAuth();
   const currentToken = token || session?.token;
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Data states
   const [requests, setRequests] = useState([]);
-  const [counts, setCounts] = useState({ pending: 0, trial: 0, matched: 0, cancelled: 0, total: 0 });
+  const [counts, setCounts] = useState(EMPTY_COUNTS);
   const [activeTutors, setActiveTutors] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -106,6 +116,12 @@ export function MatchRequests() {
   const [cancelModalItem, setCancelModalItem] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelError, setCancelError] = useState("");
+
+  // Modal "Kết quả dạy thử không thành công" (UC-REC-06.1 nhánh 5.2, UC-PA-05)
+  const [rematchModalItem, setRematchModalItem] = useState(null);
+  const [rematchChoice, setRematchChoice] = useState("rematch");
+  const [rematchReason, setRematchReason] = useState("");
+  const [rematchError, setRematchError] = useState("");
 
   // Confirm Modal state
   const [confirmModal, setConfirmModal] = useState({
@@ -167,13 +183,7 @@ export function MatchRequests() {
           size: 20,
           token: currentToken,
         }),
-        apiGetMatchRequestCounts(currentToken).catch(() => ({
-          pending: 0,
-          trial: 0,
-          matched: 0,
-          cancelled: 0,
-          total: 0,
-        })),
+        apiGetMatchRequestCounts(currentToken).catch(() => EMPTY_COUNTS),
       ]);
 
       setRequests(listRes.items || []);
@@ -409,6 +419,66 @@ export function MatchRequests() {
     });
   };
 
+  // === UC-REC-06.1 nhánh 5.2 / UC-PA-05: Dạy thử không thành công → Ghép lại hoặc Hủy ===
+  const handleOpenRematchModal = (req) => {
+    setRematchModalItem(req);
+    setRematchChoice("rematch");
+    setRematchReason("");
+    setRematchError("");
+  };
+
+  const handleRematchSubmit = (e) => {
+    e.preventDefault();
+    const item = rematchModalItem;
+    const reason = rematchReason.trim();
+    if (!reason) {
+      setRematchError("Vui lòng nhập lý do dạy thử không thành công.");
+      return;
+    }
+
+    // "Không tìm nữa" → luồng Hủy đơn (UC-REC-07 kịch bản 5a), điền sẵn lý do.
+    if (rematchChoice === "cancel") {
+      setRematchModalItem(null);
+      setCancelModalItem(item);
+      setCancelReason(reason);
+      setCancelError("");
+      return;
+    }
+
+    setConfirmModal({
+      open: true,
+      title: "Xác nhận ghép lại",
+      message: `Đơn sẽ chuyển sang "Đang ghép lại". Lớp dạy thử của gia sư ${item.tutorName || "hiện tại"} sẽ bị hủy và gia sư này không thể ứng tuyển lại đơn. Bạn xác nhận chứ?`,
+      confirmLabel: "Đồng ý",
+      confirmTone: "blue",
+      onConfirm: async () => {
+        closeConfirmModal();
+        setIsSubmitting(true);
+        try {
+          await apiRematchMatchRequest(item.id, reason, currentToken);
+          setRematchModalItem(null);
+          setDetailModalItem(null);
+          setStatusFilter("rematch");
+          setPage(0);
+          setSuccessPopup(
+            `Đơn của học sinh ${item.studentName || item.parentName} đã chuyển sang "Đang ghép lại". Lớp đã mở lại cho gia sư khác ứng tuyển tại trang Lớp cần gia sư.`
+          );
+          loadData();
+        } catch (err) {
+          setRematchError(err.message || "Ghép lại đơn thất bại.");
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
+  };
+
+  // Đơn REMATCH chọn gia sư mới ở trang Lớp cần gia sư (cùng prefix /admin hoặc /receptionist).
+  const goToClassRequests = (req) => {
+    const base = location.pathname.replace(/match-requests.*$/, "class-requests");
+    navigate(`${base}?tab=rematch&id=${req.id}`);
+  };
+
   // === Xem chi tiết đơn ===
   const handleViewDetail = async (req) => {
     setDetailModalItem(req);
@@ -478,7 +548,7 @@ export function MatchRequests() {
       </div>
 
       {/* KPI Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           icon={ClipboardList}
           label="Tổng đơn tiếp nhận"
@@ -508,6 +578,13 @@ export function MatchRequests() {
           tone="emerald"
         />
         <StatCard
+          icon={RefreshCcw}
+          label="Đang ghép lại"
+          value={counts.rematch ?? 0}
+          hint="Dạy thử chưa thành công"
+          tone="violet"
+        />
+        <StatCard
           icon={XCircle}
           label="Đã hủy"
           value={counts.cancelled}
@@ -526,6 +603,7 @@ export function MatchRequests() {
               { key: "pending", label: "Chờ xử lý", count: counts.pending },
               { key: "trial", label: "Đang dạy thử", count: counts.trial },
               { key: "matched", label: "Ghép thành công", count: counts.matched },
+              { key: "rematch", label: "Đang ghép lại", count: counts.rematch ?? 0 },
               { key: "cancelled", label: "Đã hủy", count: counts.cancelled },
             ].map((tab) => (
               <button
@@ -625,6 +703,7 @@ export function MatchRequests() {
             const StatusIcon = meta.icon || Info;
             const isPending = req.status === "PENDING";
             const isCancelled = req.status === "CANCELLED";
+            const isRematch = req.status === "REMATCH";
 
             return (
               <div
@@ -680,15 +759,26 @@ export function MatchRequests() {
                         <div className="text-muted-foreground">{req.grade || "Chưa chọn khối"}</div>
                       </div>
 
-                      {/* Gia sư chỉ định */}
-                      <div className="p-2.5 rounded-xl bg-muted/40 border border-border/70 space-y-1 sm:col-span-2 lg:col-span-1">
-                        <div className="text-muted-foreground font-semibold flex items-center gap-1.5">
-                          <UserCheck size={13} className="text-primary shrink-0" />
-                          <span>Gia sư chỉ định:</span>
+                      {/* Gia sư chỉ định — đơn REMATCH hiện gia sư cũ đã bị loại */}
+                      {isRematch ? (
+                        <div className="p-2.5 rounded-xl bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800/40 space-y-1 sm:col-span-2 lg:col-span-1">
+                          <div className="text-violet-700 dark:text-violet-300 font-semibold flex items-center gap-1.5">
+                            <UserX size={13} className="shrink-0" />
+                            <span>Gia sư cũ (đã loại):</span>
+                          </div>
+                          <div className="font-bold text-foreground truncate">{req.lastTutorName || "Không rõ"}</div>
+                          <div className="text-muted-foreground">Đang chờ chọn gia sư mới</div>
                         </div>
-                        <div className="font-bold text-foreground truncate">{req.tutorName || `Gia sư #${req.tutorId}`}</div>
-                        <div className="text-muted-foreground">ID: #{req.tutorId}</div>
-                      </div>
+                      ) : (
+                        <div className="p-2.5 rounded-xl bg-muted/40 border border-border/70 space-y-1 sm:col-span-2 lg:col-span-1">
+                          <div className="text-muted-foreground font-semibold flex items-center gap-1.5">
+                            <UserCheck size={13} className="text-primary shrink-0" />
+                            <span>Gia sư chỉ định:</span>
+                          </div>
+                          <div className="font-bold text-foreground truncate">{req.tutorName || `Gia sư #${req.tutorId}`}</div>
+                          <div className="text-muted-foreground">ID: #{req.tutorId}</div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Additional meta: Teaching mode, Price, Time */}
@@ -743,6 +833,32 @@ export function MatchRequests() {
                       >
                         <CheckCircle2 size={15} />
                         <span>Xác nhận ghép thành công</span>
+                      </Button>
+                    )}
+
+                    {/* Ghép lại khi dạy thử thất bại (UC-REC-06.1 nhánh 5.2) */}
+                    {req.status === "TRIAL" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOpenRematchModal(req)}
+                        disabled={isSubmitting}
+                        className="w-full justify-center text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950/40 border-violet-200 dark:border-violet-800/60 cursor-pointer text-xs"
+                      >
+                        <RefreshCcw size={15} />
+                        <span>Ghép lại</span>
+                      </Button>
+                    )}
+
+                    {/* Đơn đang ghép lại: chọn gia sư mới ở trang Lớp cần gia sư */}
+                    {isRematch && (
+                      <Button
+                        size="sm"
+                        onClick={() => goToClassRequests(req)}
+                        className="w-full justify-center bg-violet-600 hover:bg-violet-700 text-white font-semibold cursor-pointer shadow-xs active:scale-[0.98] text-xs"
+                      >
+                        <ExternalLink size={15} />
+                        <span>Xem ứng tuyển</span>
                       </Button>
                     )}
 
@@ -1103,6 +1219,122 @@ export function MatchRequests() {
         </div>
       )}
 
+      {/* ── MODAL: KẾT QUẢ DẠY THỬ KHÔNG THÀNH CÔNG (UC-REC-06.1 nhánh 5.2, UC-PA-05) ── */}
+      {rematchModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-2xl space-y-5 text-card-foreground">
+            <button
+              type="button"
+              onClick={() => setRematchModalItem(null)}
+              className="absolute top-4 right-4 p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              aria-label="Đóng"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="pr-8">
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <RefreshCcw className="text-violet-500 w-5 h-5" />
+                <span>Kết quả dạy thử không thành công</span>
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Đơn <strong>{rematchModalItem.requestCode}</strong> — học sinh{" "}
+                <strong>{rematchModalItem.studentName || rematchModalItem.parentName}</strong>, gia sư{" "}
+                <strong>{rematchModalItem.tutorName || "chỉ định"}</strong>. Hãy hỏi ý kiến phụ huynh và chọn hướng xử lý.
+              </p>
+            </div>
+
+            <form onSubmit={handleRematchSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  {
+                    key: "rematch",
+                    icon: RefreshCcw,
+                    title: "Tìm gia sư khác",
+                    desc: "Đơn chuyển \"Đang ghép lại\", lớp dạy thử bị hủy, gia sư hiện tại bị loại khỏi đơn.",
+                    active: "border-violet-500 bg-violet-50 dark:bg-violet-950/40 ring-2 ring-violet-500/20",
+                    iconTone: "text-violet-600 dark:text-violet-400",
+                  },
+                  {
+                    key: "cancel",
+                    icon: XCircle,
+                    title: "Không tìm nữa",
+                    desc: "Chuyển sang hủy đơn ghép lớp. Đơn và lớp dạy thử đều bị hủy.",
+                    active: "border-rose-500 bg-rose-50 dark:bg-rose-950/40 ring-2 ring-rose-500/20",
+                    iconTone: "text-rose-600 dark:text-rose-400",
+                  },
+                ].map((opt) => {
+                  const OptIcon = opt.icon;
+                  const selected = rematchChoice === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setRematchChoice(opt.key)}
+                      aria-pressed={selected}
+                      className={`text-left rounded-2xl border p-4 space-y-1.5 transition-all active:scale-[0.98] cursor-pointer ${
+                        selected ? opt.active : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 font-semibold text-sm text-foreground">
+                        <OptIcon size={16} className={opt.iconTone} />
+                        <span>{opt.title}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{opt.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">
+                  Lý do dạy thử không thành công <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={rematchReason}
+                  onChange={(e) => setRematchReason(e.target.value)}
+                  maxLength={1000}
+                  placeholder="VD: Học sinh chưa hợp phương pháp dạy, phụ huynh muốn đổi gia sư có kinh nghiệm luyện thi..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Lý do sẽ được gửi kèm thông báo tới gia sư và học sinh.
+                </p>
+              </div>
+
+              {rematchError && (
+                <p role="alert" className="text-xs text-rose-600 dark:text-rose-400 font-semibold">
+                  {rematchError}
+                </p>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setRematchModalItem(null)}
+                  disabled={isSubmitting}
+                  className="cursor-pointer"
+                >
+                  Hủy thao tác
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || !rematchReason.trim()}
+                  className={`text-white font-bold cursor-pointer active:scale-[0.98] ${
+                    rematchChoice === "cancel" ? "bg-rose-600 hover:bg-rose-700" : "bg-violet-600 hover:bg-violet-700"
+                  }`}
+                >
+                  {isSubmitting ? <Loader2 size={15} className="animate-spin mr-1.5" /> : null}
+                  <span>{rematchChoice === "cancel" ? "Tiếp tục hủy đơn" : "Chuyển sang ghép lại"}</span>
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ── MODAL KÍCH HOẠT LỚP (Xác nhận ghép thành công + dữ liệu tính phí) ── */}
       {activateReq && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
@@ -1298,7 +1530,21 @@ export function MatchRequests() {
                   </div>
                 </div>
 
+                {/* Đơn đang ghép lại: gia sư cũ đã bị loại */}
+                {detailModalItem.status === "REMATCH" && (
+                  <div className="p-3.5 rounded-2xl bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800/40 space-y-1 text-violet-800 dark:text-violet-200">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <UserX size={14} /> Đang ghép lại
+                    </div>
+                    <p className="leading-relaxed">
+                      Gia sư <strong>{detailModalItem.lastTutorName || "cũ"}</strong> đã bị loại sau buổi dạy thử không thành công.
+                      Chọn gia sư mới tại trang Lớp cần gia sư.
+                    </p>
+                  </div>
+                )}
+
                 {/* Thông tin Gia sư chỉ định */}
+                {detailModalItem.status !== "REMATCH" && (
                 <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-2">
                   <div className="font-bold text-foreground uppercase tracking-wider text-[11px] flex items-center gap-1.5">
                     <UserCheck size={13} className="text-primary" /> Gia sư chỉ định
@@ -1314,6 +1560,7 @@ export function MatchRequests() {
                     )}
                   </div>
                 </div>
+                )}
 
                 {/* Lịch học & Chi phí */}
                 <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-2">
@@ -1394,6 +1641,32 @@ export function MatchRequests() {
                   >
                     <CheckCircle2 size={15} />
                     <span>Xác nhận ghép thành công</span>
+                  </Button>
+                )}
+                {detailModalItem.status === "TRIAL" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const item = detailModalItem;
+                      setDetailModalItem(null);
+                      handleOpenRematchModal(item);
+                    }}
+                    disabled={isSubmitting}
+                    className="text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950/40 border-violet-200 dark:border-violet-800/60 cursor-pointer text-xs"
+                  >
+                    <RefreshCcw size={15} />
+                    <span>Ghép lại</span>
+                  </Button>
+                )}
+                {detailModalItem.status === "REMATCH" && (
+                  <Button
+                    size="sm"
+                    onClick={() => goToClassRequests(detailModalItem)}
+                    className="bg-violet-600 hover:bg-violet-700 text-white font-semibold cursor-pointer text-xs"
+                  >
+                    <ExternalLink size={15} />
+                    <span>Xem ứng tuyển</span>
                   </Button>
                 )}
                 {detailModalItem.status !== "CANCELLED" && (

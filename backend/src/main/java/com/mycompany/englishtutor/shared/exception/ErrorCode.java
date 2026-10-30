@@ -124,6 +124,21 @@ public enum ErrorCode {
             HttpStatus.BAD_REQUEST),
     MATERIAL_FILE_TOO_LARGE(
             1158, "Tệp vượt quá dung lượng tối đa 20MB", HttpStatus.BAD_REQUEST),
+    // --- Ghép lại lớp (REMATCH, ERD v2.4 C-14) ---
+    APPLICATION_TERMINATED(
+            1159,
+            "Bạn đã bị loại khỏi lớp này sau buổi dạy thử không thành công, không thể ứng tuyển lại.",
+            HttpStatus.CONFLICT),
+    TUTOR_NOT_OPEN_TO_TEACHING(
+            1160,
+            "Bạn đang tắt chế độ \"Đang mở nhận lớp\". Hãy bật lại để ứng tuyển.",
+            HttpStatus.CONFLICT),
+    CLASS_REQUEST_NOT_SELECTABLE(
+            1161, "Chỉ chọn gia sư cho lớp đang tuyển hoặc đang ghép lại.", HttpStatus.CONFLICT),
+    APPLICATION_REJECTED(
+            1162,
+            "Bạn đã không được chọn cho lớp này trước đó, không thể ứng tuyển lại.",
+            HttpStatus.CONFLICT),
     PAYMENT_NOT_FOUND(1200, "Khoản phí nhận lớp không tồn tại", HttpStatus.NOT_FOUND),
     PAYMENT_INVALID_STATE(1201, "Khoản phí không ở trạng thái cho phép thao tác này", HttpStatus.CONFLICT),
     PAYMENT_SAME_ACTOR(1202, "Người duyệt không được trùng với người nộp hoặc thu hộ minh chứng", HttpStatus.FORBIDDEN),

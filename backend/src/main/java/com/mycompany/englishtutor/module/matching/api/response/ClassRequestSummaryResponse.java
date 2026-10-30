@@ -60,6 +60,9 @@ public class ClassRequestSummaryResponse {
     @Schema(description = "Số lượng gia sư đã ứng tuyển")
     Long applicationCount;
 
+    @Schema(description = "Số lượt ứng tuyển còn chờ chọn (APPLIED) — 0 thì không mở danh sách chọn gia sư")
+    Long pendingApplicationCount;
+
     @Schema(description = "Lý do hủy (nếu đã hủy)")
     String cancelReason;
 
