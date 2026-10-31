@@ -11,4 +11,7 @@ import lombok.experimental.FieldDefaults;
 public class AuthenticationResponse {
     String token;
     boolean authenticated;
+
+    /** Học sinh/nhân sự đăng nhập lần đầu bằng mật khẩu mặc định phải đổi mật khẩu (API_DESIGN 3.1). */
+    boolean mustChangePassword;
 }

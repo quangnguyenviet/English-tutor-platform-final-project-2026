@@ -4,12 +4,14 @@ import java.text.ParseException;
 
 import jakarta.validation.Valid;
 
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mycompany.englishtutor.module.auth.api.request.AuthenticationRequest;
+import com.mycompany.englishtutor.module.auth.api.request.ChangePasswordRequest;
 import com.mycompany.englishtutor.module.auth.api.request.IntrospectRequest;
 import com.mycompany.englishtutor.module.auth.api.request.LogoutRequest;
 import com.mycompany.englishtutor.module.auth.api.request.RefreshRequest;
@@ -42,6 +44,12 @@ public class AuthenticationController {
      * Đăng ký tài khoản gia sư (UC-T01) — public endpoint.
      * Tạo user role=TUTOR + record tutors với profile_status=INCOMPLETE, trả JWT.
      */
+    @PostMapping("/change-password")
+    ApiResponse<Void> changePassword(@Valid @RequestBody ChangePasswordRequest request, Authentication authentication) {
+        authenticationService.changePassword(authentication.getName(), request);
+        return ApiResponse.<Void>builder().message("Đổi mật khẩu thành công").build();
+    }
+
     @PostMapping("/register-tutor")
     ApiResponse<TutorRegistrationResponse> registerTutor(@RequestBody @Valid TutorRegistrationRequest request) {
         var result = authenticationService.registerTutor(request);
