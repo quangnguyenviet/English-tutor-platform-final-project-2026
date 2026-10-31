@@ -69,10 +69,11 @@ public class StaffMatchRequestQueryRepository {
                    p.phone AS parent_phone,
                    p.email AS parent_email,
                    p.address AS parent_address,
-                   su.full_name AS student_name,
-                   s.grade,
-                   s.school,
-                   s.learning_goal,
+                   COALESCE(su.full_name, cr.student_name) AS student_name,
+                   su.username AS student_username,
+                   COALESCE(s.grade, cr.student_grade) AS grade,
+                   COALESCE(s.school, cr.student_school) AS school,
+                   COALESCE(s.learning_goal, cr.student_learning_goal) AS learning_goal,
                    tu.full_name AS tutor_name,
                    tu.email AS tutor_email,
                    tu.phone AS tutor_phone,
@@ -188,7 +189,7 @@ public class StaffMatchRequestQueryRepository {
             where.append("""
                      AND (LOWER(p.full_name) LIKE ?
                           OR p.phone LIKE ?
-                          OR LOWER(COALESCE(su.full_name, '')) LIKE ?
+                          OR LOWER(COALESCE(su.full_name, cr.student_name, '')) LIKE ?
                           OR LOWER(COALESCE(tu.full_name, '')) LIKE ?
                           OR LOWER(COALESCE(cr.class_requirement, '')) LIKE ?)
                     """);
@@ -308,6 +309,8 @@ public class StaffMatchRequestQueryRepository {
                     .grade(rs.getString("grade"))
                     .school(rs.getString("school"))
                     .learningGoal(rs.getString("learning_goal"))
+                    .studentUsername(rs.getString("student_username"))
+                    .studentAccountCreated(rs.getObject("student_id") != null)
                     .tutorId(rs.getObject("requested_tutor_id") != null ? rs.getLong("requested_tutor_id") : null)
                     .tutorName(rs.getString("tutor_name"))
                     .tutorEmail(rs.getString("tutor_email"))

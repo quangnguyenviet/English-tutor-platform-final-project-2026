@@ -12,7 +12,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -31,6 +33,7 @@ import com.mycompany.englishtutor.module.matching.api.response.MatchRequestDetai
 import com.mycompany.englishtutor.module.matching.repository.StaffMatchRequestQueryRepository;
 import com.mycompany.englishtutor.module.matching.service.MatchingLifecycleSupport.ClassSnapshot;
 import com.mycompany.englishtutor.module.payment.service.PaymentService;
+import com.mycompany.englishtutor.module.tutor.domain.Tutor;
 import com.mycompany.englishtutor.module.tutor.repository.TutorRepository;
 import com.mycompany.englishtutor.module.user.repository.UserRepository;
 import com.mycompany.englishtutor.shared.exception.AppException;
@@ -165,6 +168,28 @@ class StaffMatchRequestServiceTest {
 
         verify(lifecycle, never()).terminateTutor(anyLong(), anyLong());
         verify(lifecycle, never()).notifyUser(any(), any(), any(), any(), any());
+    }
+
+    // ---------------------------------------------------------------- confirm
+
+    @Test
+    void confirm_parentWithoutAccountAndNoStudentName_throwsStudentInfoRequired() {
+        Map<String, Object> row = new HashMap<>();
+        row.put("id", REQUEST_ID);
+        row.put("parent_id", 2L);
+        row.put("requested_tutor_id", TUTOR_ID);
+        row.put("student_id", null);
+        row.put("status", "NEW");
+        row.put("student_name", "   ");
+        when(jdbcTemplate.queryForList(contains("student_learning_goal"), eq((Object) REQUEST_ID)))
+                .thenReturn(List.of(row));
+        when(tutorRepository.findPublicByIdAndProfileStatus(eq(TUTOR_ID), anyString()))
+                .thenReturn(Optional.of(new Tutor()));
+
+        AppException ex = assertThrows(AppException.class, () -> service.confirmMatchRequest(REQUEST_ID, null));
+
+        assertEquals(ErrorCode.STUDENT_INFO_REQUIRED, ex.getErrorCode());
+        verify(userRepository, never()).save(any());
     }
 
     // ----------------------------------------------------------------- helper
