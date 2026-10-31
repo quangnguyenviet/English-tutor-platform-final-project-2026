@@ -26,6 +26,7 @@ import {
   RefreshCcw,
   UserX,
   ExternalLink,
+  Pencil,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -44,6 +45,7 @@ import {
   apiCancelMatchRequest,
   apiRematchMatchRequest,
   apiGetMatchRequestDetail,
+  apiUpdateMatchRequest,
 } from "../../lib/matchRequestApi";
 import { apiGetPublicTutors } from "../../lib/tutorApi";
 
@@ -85,6 +87,21 @@ const INITIAL_CREATE_FORM = {
   preferredSchedule: "Thứ 2 - 4 - 6 (19:30 - 21:00)",
   notes: "",
 };
+
+const EMPTY_INFO_FORM = {
+  parentName: "",
+  parentEmail: "",
+  parentAddress: "",
+  studentName: "",
+  grade: "",
+  school: "",
+  learningGoal: "",
+};
+
+const GRADE_OPTIONS = ["Lớp 6", "Lớp 7", "Lớp 8", "Lớp 9", "Lớp 10", "Lớp 11", "Lớp 12", "Đại học", "Người đi làm"];
+
+const infoInputClass =
+  "w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
 
 export function MatchRequests() {
   const { token, session, tutorList: mockTutorList } = useAuth();
@@ -138,6 +155,13 @@ export function MatchRequests() {
   const [activateDetail, setActivateDetail] = useState(null);
   const [activateForm, setActivateForm] = useState({ sessionsPerWeek: "", pricePerSession: "", feePercentage: 40 });
   const [activateError, setActivateError] = useState("");
+
+  // Modal bổ sung thông tin phụ huynh / học sinh (đơn còn "Chờ xử lý", phụ huynh chưa có tài khoản)
+  const [infoReq, setInfoReq] = useState(null);
+  const [infoDetail, setInfoDetail] = useState(null);
+  const [infoForm, setInfoForm] = useState(EMPTY_INFO_FORM);
+  const [infoError, setInfoError] = useState("");
+  const [isInfoLoading, setIsInfoLoading] = useState(false);
 
   // Success Toast & Popup
   const [toastMessage, setToastMessage] = useState(null);
@@ -291,8 +315,80 @@ export function MatchRequests() {
     });
   };
 
+  // === Bổ sung thông tin phụ huynh / học sinh trước khi chuyển sang dạy thử ===
+  const openInfoModal = async (req) => {
+    setInfoReq(req);
+    setInfoDetail(null);
+    setInfoError("");
+    setInfoForm({
+      ...EMPTY_INFO_FORM,
+      parentName: req.parentName || "",
+      studentName: req.studentName || "",
+      grade: req.grade || "",
+      school: req.school || "",
+    });
+    setIsInfoLoading(true);
+    try {
+      const detail = await apiGetMatchRequestDetail(req.id, currentToken);
+      setInfoDetail(detail);
+      setInfoForm({
+        parentName: detail.parentName || "",
+        parentEmail: detail.parentEmail || "",
+        parentAddress: detail.parentAddress || "",
+        studentName: detail.studentName || "",
+        grade: detail.grade || "",
+        school: detail.school || "",
+        learningGoal: detail.learningGoal || "",
+      });
+    } catch {
+      // Không tải được chi tiết vẫn cho nhập với dữ liệu sẵn có trên hàng.
+    } finally {
+      setIsInfoLoading(false);
+    }
+  };
+
+  const handleInfoSubmit = async (e) => {
+    e.preventDefault();
+    if (!infoReq) return;
+    if (!infoForm.parentName.trim()) {
+      setInfoError("Vui lòng nhập họ tên phụ huynh.");
+      return;
+    }
+    if (!infoForm.studentName.trim()) {
+      setInfoError("Vui lòng nhập họ tên học sinh — cần để tạo tài khoản khi chuyển sang dạy thử.");
+      return;
+    }
+    if (infoForm.parentEmail.trim() && !/^\S+@\S+\.\S+$/.test(infoForm.parentEmail.trim())) {
+      setInfoError("Email phụ huynh không hợp lệ.");
+      return;
+    }
+    setInfoError("");
+    setIsSubmitting(true);
+    try {
+      const payload = {};
+      Object.entries(infoForm).forEach(([key, value]) => {
+        const text = value.trim();
+        if (text) payload[key] = text;
+      });
+      await apiUpdateMatchRequest(infoReq.id, payload, currentToken);
+      setInfoReq(null);
+      showToast("Đã lưu thông tin phụ huynh và học sinh.");
+      loadData();
+    } catch (err) {
+      setInfoError(err.message || "Lưu thông tin thất bại.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // === UC-REC-06 / UC-ADM-05: Duyệt Đơn ghép lớp (Xác nhận đơn) ===
   const handleConfirmRequest = (req) => {
+    // Phụ huynh chưa có tài khoản: cần họ tên học sinh để hệ thống tạo tài khoản khi chuyển dạy thử
+    if (!req.studentName) {
+      showToast("Vui lòng bổ sung thông tin học sinh trước khi chuyển sang dạy thử.");
+      openInfoModal(req);
+      return;
+    }
     setConfirmModal({
       open: true,
       title: "Xác nhận ghép lớp",
@@ -303,10 +399,15 @@ export function MatchRequests() {
         closeConfirmModal();
         setIsSubmitting(true);
         try {
-          await apiConfirmMatchRequest(req.id, currentToken);
+          const confirmed = await apiConfirmMatchRequest(req.id, currentToken);
           setDetailModalItem(null);
+          const accountNote = confirmed?.initialPassword
+            ? ` Hệ thống đã tạo tài khoản học sinh: tên đăng nhập "${confirmed.studentUsername}", mật khẩu mặc định "${confirmed.initialPassword}". Vui lòng bàn giao cho gia đình — học sinh sẽ phải đổi mật khẩu ở lần đăng nhập đầu tiên.`
+            : confirmed?.studentUsername
+              ? ` Học sinh đăng nhập bằng tài khoản hiện có: "${confirmed.studentUsername}".`
+              : "";
           setSuccessPopup(
-            `Thao tác thành công! Đơn của học sinh ${req.studentName || req.parentName} đã được chuyển sang trạng thái "Đang dạy thử". Lớp học thử (TRIAL) đã được khởi tạo và gửi thông báo tới gia sư ${req.tutorName}.`
+            `Thao tác thành công! Đơn của học sinh ${req.studentName || req.parentName} đã được chuyển sang trạng thái "Đang dạy thử". Lớp học thử (TRIAL) đã được khởi tạo và gửi thông báo tới gia sư ${req.tutorName}.${accountNote}`
           );
           loadData();
         } catch (err) {
@@ -810,6 +911,20 @@ export function MatchRequests() {
 
                   {/* Right: Actions Column */}
                   <div className="flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0 lg:w-48 justify-center pt-2 lg:pt-0 border-t lg:border-t-0 border-border">
+                    {/* Bổ sung thông tin phụ huynh / học sinh trước khi chuyển dạy thử */}
+                    {isPending && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openInfoModal(req)}
+                        disabled={isSubmitting}
+                        className="w-full justify-center cursor-pointer active:scale-[0.98]"
+                      >
+                        <Pencil size={15} />
+                        <span>Bổ sung thông tin</span>
+                      </Button>
+                    )}
+
                     {/* Xác nhận đơn (UC-REC-06 / UC-ADM-05) */}
                     {isPending && (
                       <Button
@@ -1336,6 +1451,163 @@ export function MatchRequests() {
       )}
 
       {/* ── MODAL KÍCH HOẠT LỚP (Xác nhận ghép thành công + dữ liệu tính phí) ── */}
+      {infoReq && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <form
+            onSubmit={handleInfoSubmit}
+            className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-2xl space-y-5 text-card-foreground"
+          >
+            <button
+              type="button"
+              onClick={() => setInfoReq(null)}
+              className="absolute top-4 right-4 p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              aria-label="Đóng"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="pr-8">
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <Pencil className="text-primary w-5 h-5" />
+                <span>Bổ sung thông tin phụ huynh và học sinh</span>
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Nhập sau cuộc gọi tư vấn với phụ huynh. Khi chuyển đơn sang "Đang dạy thử", hệ thống tự tạo tài
+                khoản cho học sinh từ thông tin này.
+              </p>
+            </div>
+
+            {isInfoLoading && (
+              <div className="text-center text-muted-foreground text-xs animate-pulse">Đang tải thông tin...</div>
+            )}
+
+            {infoError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-700 dark:text-rose-300 text-xs font-medium flex items-start gap-2">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                <span>{infoError}</span>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Phụ huynh</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">
+                    Họ tên phụ huynh <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={infoForm.parentName}
+                    onChange={(e) => setInfoForm({ ...infoForm, parentName: e.target.value })}
+                    className={infoInputClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Số điện thoại</label>
+                  <input
+                    type="text"
+                    value={infoDetail?.parentPhone || infoReq.parentPhone || ""}
+                    readOnly
+                    className={`${infoInputClass} opacity-70 cursor-not-allowed`}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Email</label>
+                  <input
+                    type="email"
+                    value={infoForm.parentEmail}
+                    onChange={(e) => setInfoForm({ ...infoForm, parentEmail: e.target.value })}
+                    placeholder="VD: lan.tran@gmail.com"
+                    className={infoInputClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Địa chỉ liên hệ</label>
+                  <input
+                    type="text"
+                    value={infoForm.parentAddress}
+                    onChange={(e) => setInfoForm({ ...infoForm, parentAddress: e.target.value })}
+                    placeholder="VD: 12 Nguyễn Trãi, Thanh Xuân, Hà Nội"
+                    className={infoInputClass}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Học sinh</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold text-foreground">
+                    Họ tên học sinh <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={infoForm.studentName}
+                    onChange={(e) => setInfoForm({ ...infoForm, studentName: e.target.value })}
+                    placeholder="VD: Nguyễn Minh Khôi"
+                    className={infoInputClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Khối lớp</label>
+                  <select
+                    value={infoForm.grade}
+                    onChange={(e) => setInfoForm({ ...infoForm, grade: e.target.value })}
+                    className={infoInputClass}
+                  >
+                    <option value="">Chưa chọn</option>
+                    {GRADE_OPTIONS.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Trường đang học</label>
+                  <input
+                    type="text"
+                    value={infoForm.school}
+                    onChange={(e) => setInfoForm({ ...infoForm, school: e.target.value })}
+                    placeholder="VD: THPT Chuyên Chu Văn An"
+                    className={infoInputClass}
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold text-foreground">Mục tiêu học tập</label>
+                  <textarea
+                    rows={2}
+                    value={infoForm.learningGoal}
+                    onChange={(e) => setInfoForm({ ...infoForm, learningGoal: e.target.value })}
+                    placeholder="VD: Đạt IELTS 6.5 trong 6 tháng"
+                    className={`${infoInputClass} resize-none`}
+                  />
+                </div>
+              </div>
+              <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/40 text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2">
+                <Info size={14} className="mt-0.5 shrink-0" />
+                <span>
+                  {infoDetail?.studentAccountCreated
+                    ? `Học sinh đã có tài khoản "${infoDetail.studentUsername}", thông tin hồ sơ sẽ được cập nhật.`
+                    : "Tài khoản học sinh chưa được tạo. Hệ thống tạo tự động khi bạn chuyển đơn sang trạng thái dạy thử, kèm mật khẩu mặc định và yêu cầu đổi mật khẩu ở lần đăng nhập đầu."}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <Button type="button" variant="outline" size="sm" onClick={() => setInfoReq(null)} className="cursor-pointer">
+                Hủy
+              </Button>
+              <Button type="submit" size="sm" disabled={isSubmitting || isInfoLoading} className="cursor-pointer">
+                {isSubmitting && <Loader2 size={14} className="animate-spin" />}
+                <span>Lưu thông tin</span>
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {activateReq && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="relative w-full max-w-md rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-2xl space-y-5 text-card-foreground">
@@ -1521,6 +1793,12 @@ export function MatchRequests() {
                   <div className="grid grid-cols-2 gap-2 text-muted-foreground">
                     <div>Họ tên: <strong className="text-foreground">{detailModalItem.studentName || "Chưa có"}</strong></div>
                     <div>Khối lớp: <strong className="text-foreground">{detailModalItem.grade || "Chưa cập nhật"}</strong></div>
+                    <div className="col-span-2">
+                      Tài khoản học sinh:{" "}
+                      <strong className="text-foreground">
+                        {detailModalItem.studentUsername || "Sẽ được tạo khi chuyển sang dạy thử"}
+                      </strong>
+                    </div>
                     {detailModalItem.school && (
                       <div className="col-span-2">Trường: <span className="text-foreground">{detailModalItem.school}</span></div>
                     )}
@@ -1621,6 +1899,22 @@ export function MatchRequests() {
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border">
               <div className="flex items-center gap-2">
+                {detailModalItem.status === "PENDING" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const item = detailModalItem;
+                      setDetailModalItem(null);
+                      openInfoModal(item);
+                    }}
+                    disabled={isSubmitting}
+                    className="cursor-pointer"
+                  >
+                    <Pencil size={15} />
+                    <span>Bổ sung thông tin</span>
+                  </Button>
+                )}
                 {detailModalItem.status === "PENDING" && (
                   <Button
                     size="sm"
