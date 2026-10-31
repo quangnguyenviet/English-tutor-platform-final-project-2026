@@ -402,7 +402,7 @@ export function MatchRequests() {
           const confirmed = await apiConfirmMatchRequest(req.id, currentToken);
           setDetailModalItem(null);
           const accountNote = confirmed?.initialPassword
-            ? ` Hệ thống đã tạo tài khoản học sinh: tên đăng nhập "${confirmed.studentUsername}", mật khẩu mặc định "${confirmed.initialPassword}". Vui lòng bàn giao cho gia đình — học sinh sẽ phải đổi mật khẩu ở lần đăng nhập đầu tiên.`
+            ? ` Tài khoản học sinh: tên đăng nhập "${confirmed.studentUsername}", mật khẩu mặc định "${confirmed.initialPassword}". Vui lòng bàn giao cho gia đình — học sinh sẽ phải đổi mật khẩu ở lần đăng nhập đầu tiên.`
             : confirmed?.studentUsername
               ? ` Học sinh đăng nhập bằng tài khoản hiện có: "${confirmed.studentUsername}".`
               : "";
@@ -1799,6 +1799,28 @@ export function MatchRequests() {
                         {detailModalItem.studentUsername || "Sẽ được tạo khi chuyển sang dạy thử"}
                       </strong>
                     </div>
+                    {detailModalItem.studentUsername && (
+                      <div className="col-span-2 p-3 rounded-xl border border-border bg-background space-y-1">
+                        {detailModalItem.initialPassword ? (
+                          <>
+                            <div>
+                              Mật khẩu mặc định:{" "}
+                              <strong className="font-mono text-sm text-foreground select-all">
+                                {detailModalItem.initialPassword}
+                              </strong>
+                            </div>
+                            <p className="text-muted-foreground">
+                              Học sinh chưa đổi mật khẩu nên lễ tân vẫn xem được để bàn giao cho gia đình. Sau khi học
+                              sinh đăng nhập và đổi mật khẩu, thông tin này sẽ không còn hiển thị.
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-muted-foreground">
+                            Học sinh đã đổi mật khẩu cá nhân nên không thể xem lại mật khẩu.
+                          </p>
+                        )}
+                      </div>
+                    )}
                     {detailModalItem.school && (
                       <div className="col-span-2">Trường: <span className="text-foreground">{detailModalItem.school}</span></div>
                     )}

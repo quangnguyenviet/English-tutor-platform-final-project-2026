@@ -60,7 +60,7 @@ public class MatchRequestDetailResponse {
     @Schema(description = "Học sinh đã có tài khoản hay chưa")
     Boolean studentAccountCreated;
 
-    @Schema(description = "Mật khẩu mặc định của tài khoản học sinh — CHỈ có trong phản hồi của lần confirm vừa tạo tài khoản mới")
+    @Schema(description = "Mật khẩu mặc định của tài khoản học sinh — chỉ có khi học sinh CHƯA đổi mật khẩu (lễ tân xem lại để bàn giao); đã đổi thì null")
     String initialPassword;
 
     @Schema(description = "ID gia sư được chỉ định")

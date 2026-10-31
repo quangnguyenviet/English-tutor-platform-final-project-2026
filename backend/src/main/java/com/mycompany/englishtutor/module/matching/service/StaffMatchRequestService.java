@@ -63,8 +63,36 @@ public class StaffMatchRequestService {
 
     @Transactional(readOnly = true)
     public MatchRequestDetailResponse getMatchRequest(Long id) {
-        return queryRepository.findDetailById(id)
+        MatchRequestDetailResponse detail = queryRepository.findDetailById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.CLASS_REQUEST_NOT_FOUND));
+        detail.setInitialPassword(findUnchangedDefaultPassword(id));
+        return detail;
+    }
+
+    /**
+     * Mật khẩu mặc định của tài khoản học sinh, CHỈ khi học sinh chưa đổi mật khẩu
+     * ({@code must_change_password = true} và mật khẩu hiện tại vẫn là mật khẩu mặc định).
+     * Cho lễ tân xem lại khi lỡ đóng popup lúc tạo tài khoản; học sinh đã đổi thì trả null.
+     */
+    private String findUnchangedDefaultPassword(Long requestId) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                """
+                SELECT u.must_change_password, u.password_hash
+                FROM class_requests cr
+                JOIN users u ON u.id = cr.student_id
+                WHERE cr.id = ?
+                """,
+                requestId);
+        if (rows == null || rows.isEmpty()) {
+            return null;
+        }
+        Map<String, Object> row = rows.get(0);
+        boolean mustChange = Boolean.TRUE.equals(row.get("must_change_password"));
+        String hash = (String) row.get("password_hash");
+        if (!mustChange || hash == null || !passwordEncoder.matches(DEFAULT_STUDENT_PASSWORD, hash)) {
+            return null;
+        }
+        return DEFAULT_STUDENT_PASSWORD;
     }
 
     @Transactional(readOnly = true)

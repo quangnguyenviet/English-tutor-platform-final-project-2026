@@ -18,13 +18,19 @@ export function SiteHeader() {
 
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
-          <Link to="/tutors" className="hover:text-foreground transition-colors font-semibold text-primary">
+          <Link
+            to="/tutors"
+            className="hover:text-foreground transition-colors font-semibold text-primary"
+          >
             Gia sư
           </Link>
-          <Link to="/classes" className="hover:text-foreground transition-colors">
+          <Link
+            to="/classes"
+            className="hover:text-foreground transition-colors"
+          >
             Lớp cần gia sư
           </Link>
-          <Link to="/faq"className="hover:text-foreground transition-colors">
+          <Link to="/faq" className="hover:text-foreground transition-colors">
             Hỏi đáp
           </Link>
           {/* UC-P05 & UC-P06: Tạm ẩn tab Phụ huynh theo dõi, triển khai sau
@@ -33,7 +39,6 @@ export function SiteHeader() {
           </Link>
           */}
         </nav>
-
 
         {/* Action Controls */}
         <div className="flex items-center gap-3">
@@ -48,7 +53,7 @@ export function SiteHeader() {
             to="/tutor/register"
             className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm cursor-pointer"
           >
-            Đăng ký làm gia sư
+            Đăng ký
           </Link>
         </div>
       </div>
