@@ -20,7 +20,7 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary selection:text-primary-foreground">
-      <SiteHeader onOpenContactModal={openContactModal} />
+      <SiteHeader />
       <main className="flex-grow">
         <Hero onOpenContactModal={openContactModal} />
         <PainPoints />

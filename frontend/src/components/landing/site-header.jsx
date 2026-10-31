@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { GraduationCap } from "lucide-react";
 import ThemeToggle from "../theme-toggle";
 
-export function SiteHeader({ onOpenContactModal }) {
+export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -44,13 +44,12 @@ export function SiteHeader({ onOpenContactModal }) {
           >
             Đăng nhập
           </Link>
-          <button
-            type="button"
-            onClick={onOpenContactModal}
-            className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm cursor-pointer"
+          <Link
+            to="/tutor/register"
+            className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm cursor-pointer"
           >
-            Đăng ký
-          </button>
+            Đăng ký làm gia sư
+          </Link>
         </div>
       </div>
     </header>
