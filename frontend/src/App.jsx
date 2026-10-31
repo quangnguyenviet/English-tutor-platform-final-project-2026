@@ -25,6 +25,7 @@ import TutorClassWorkspace from "./pages/tutor/TutorClassWorkspace";
 import ClassOverview from "./pages/tutor/ClassOverview";
 import ManageLearningPathRoute from "./pages/tutor/manage/ManageLearningPathRoute";
 import ManageSessionsRoute from "./pages/tutor/manage/ManageSessionsRoute";
+import QuizAuthoringRoute from "./pages/tutor/manage/QuizAuthoringRoute";
 import ClassScheduleRoute from "./pages/tutor/manage/ClassScheduleRoute";
 import ManageAssignmentsRoute from "./pages/tutor/manage/ManageAssignmentsRoute";
 import AddAssignmentPage from "./pages/tutor/manage/AddAssignmentPage";
@@ -199,6 +200,7 @@ export default function App() {
             </Route>
             <Route path="classes/:classId/sessions" element={<TutorClassWorkspace />}>
               <Route index element={<ManageSessionsRoute />} />
+              <Route path="quiz/:sessionId" element={<QuizAuthoringRoute />} />
             </Route>
             <Route path="classes/:classId/schedule" element={<TutorClassWorkspace />}>
               <Route index element={<ClassScheduleRoute />} />
