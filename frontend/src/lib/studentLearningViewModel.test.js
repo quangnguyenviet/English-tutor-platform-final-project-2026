@@ -81,9 +81,9 @@ test("hai trang giữ contract responsive không dùng chiều rộng filter c�
     "utf8"
   );
 
-  for (const source of [exercisePage, progressPage]) {
-    assert.match(source, /grid-cols-1/);
-    assert.match(source, /w-full sm:w-auto/);
-    assert.doesNotMatch(source, /min-w-\[220px\]/);
-  }
+  // Trang bài tập đã chuyển sang dạng tab + thẻ (không còn bộ lọc): chỉ cần không có chiều rộng cố định
+  assert.doesNotMatch(exercisePage, /min-w-\[220px\]/);
+  assert.match(progressPage, /grid-cols-1/);
+  assert.match(progressPage, /w-full sm:w-auto/);
+  assert.doesNotMatch(progressPage, /min-w-\[220px\]/);
 });
