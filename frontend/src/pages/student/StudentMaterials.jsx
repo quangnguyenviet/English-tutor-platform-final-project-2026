@@ -18,7 +18,7 @@ import { EmptyState, ErrorBox, SkeletonRows } from "../../components/student/Asy
 export default function StudentMaterials() {
   const { data, loading, error, retry } = useStudentData((token) => apiGetMySessions(token), []);
   const [keyword, setKeyword] = useState("");
-  const [openId, setOpenId] = useState(null);
+  const [open, setOpen] = useState(null); // { id, status }
 
   const sessions = useMemo(() => {
     const list = sortSessionsDesc(Array.isArray(data) ? data : (data?.content ?? []));
@@ -82,7 +82,7 @@ export default function StudentMaterials() {
                     </Badge>
                   )}
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setOpenId(item.id)}>
+                <Button variant="outline" size="sm" onClick={() => setOpen({ id: item.id, status: item.status })}>
                   Mở
                 </Button>
               </div>
@@ -91,7 +91,9 @@ export default function StudentMaterials() {
         </div>
       )}
 
-      {openId && <StudentSessionDetail sessionId={openId} onClose={() => setOpenId(null)} />}
+      {open && (
+        <StudentSessionDetail sessionId={open.id} sessionStatus={open.status} onClose={() => setOpen(null)} />
+      )}
     </div>
   );
 }

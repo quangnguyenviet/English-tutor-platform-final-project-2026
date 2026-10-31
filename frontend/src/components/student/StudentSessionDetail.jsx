@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { apiGetMaterialAccess, apiGetSessionDetail } from "../../lib/studentApi";
+import { apiGetMaterialAccess, apiGetSessionDetail, apiGetSessionQuizzes } from "../../lib/studentApi";
 import {
   FILE_TYPE_LABELS,
   SESSION_STATUS_META,
@@ -19,6 +19,7 @@ import {
   formatBytes,
   formatSessionDate,
   formatSessionTime,
+  todayISO,
 } from "../../lib/classroomApi";
 import {
   QUIZ_STATUS_META,
@@ -79,7 +80,7 @@ function MaterialRow({ material, onOpen, busy, state }) {
  * Chi tiết buổi học dành cho học sinh: thông tin chung, tài liệu (xem/tải), quiz, nhật ký.
  * `onClose` đóng modal; `onLoaded` (tuỳ chọn) báo dữ liệu đã tải.
  */
-export default function StudentSessionDetail({ sessionId, onClose }) {
+export default function StudentSessionDetail({ sessionId, sessionStatus, onClose }) {
   const { token } = useAuth();
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState("");
@@ -92,21 +93,26 @@ export default function StudentSessionDetail({ sessionId, onClose }) {
     let cancelled = false;
     setLoading(true);
     setError("");
-    apiGetSessionDetail(token, sessionId)
-      .then((data) => !cancelled && setDetail(data))
+    // Chi tiết buổi không trả trạng thái/quiz: lấy trạng thái từ danh sách, quiz từ /students/me/quizzes
+    Promise.all([
+      apiGetSessionDetail(token, sessionId),
+      apiGetSessionQuizzes(token, sessionId).catch(() => []),
+    ])
+      .then(([data, quizzes]) => !cancelled && setDetail({ ...data, status: data.status ?? sessionStatus, quizzes }))
       .catch((err) => !cancelled && setError(err.message))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [token, sessionId]);
+  }, [token, sessionId, sessionStatus]);
 
   async function openMaterial(material, mode) {
-    setBusyId(material.id);
+    const materialId = material.materialId ?? material.id;
+    setBusyId(materialId);
     setNotice("");
     try {
-      const access = await apiGetMaterialAccess(token, material.id);
-      setMaterialState((prev) => ({ ...prev, [material.id]: { previewable: access.previewable } }));
+      const access = await apiGetMaterialAccess(token, materialId);
+      setMaterialState((prev) => ({ ...prev, [materialId]: { previewable: access.previewable } }));
       const url = access.url ?? access.accessUrl;
       // Tệp không xem trực tiếp được thì chỉ cho tải
       if (mode === "preview" && !access.previewable) {
@@ -116,7 +122,7 @@ export default function StudentSessionDetail({ sessionId, onClose }) {
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (err) {
       if (isMaterialUnavailableError(err)) {
-        setMaterialState((prev) => ({ ...prev, [material.id]: { unavailable: true } }));
+        setMaterialState((prev) => ({ ...prev, [materialId]: { unavailable: true } }));
       } else {
         setNotice(err.message);
       }
@@ -158,7 +164,7 @@ export default function StudentSessionDetail({ sessionId, onClose }) {
           <div className="space-y-5">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
+                {detail.status && <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>}
                 {detail.sessionNumber != null && <Badge tone="slate">Buổi {detail.sessionNumber}</Badge>}
               </div>
               <p className="text-lg font-bold text-slate-900 dark:text-white">
@@ -178,7 +184,7 @@ export default function StudentSessionDetail({ sessionId, onClose }) {
                   </span>
                 )}
               </p>
-              {detail.meetingUrl && ["SCHEDULED", "IN_PROGRESS"].includes(detail.status) && (
+              {detail.meetingUrl && String(detail.sessionDate) >= todayISO() && detail.status !== "CANCELLED" && (
                 <Button
                   as="a"
                   href={detail.meetingUrl}
@@ -206,10 +212,10 @@ export default function StudentSessionDetail({ sessionId, onClose }) {
                 <ul className="space-y-2">
                   {materials.map((material) => (
                     <MaterialRow
-                      key={material.id}
+                      key={material.materialId ?? material.id}
                       material={material}
-                      busy={busyId === material.id}
-                      state={materialState[material.id]}
+                      busy={busyId === (material.materialId ?? material.id)}
+                      state={materialState[material.materialId ?? material.id]}
                       onOpen={openMaterial}
                     />
                   ))}

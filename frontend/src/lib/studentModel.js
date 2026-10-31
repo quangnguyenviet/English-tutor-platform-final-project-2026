@@ -112,7 +112,7 @@ export function materialAction(material, access) {
 
 /** Backend trả mã lỗi MATERIAL_UNAVAILABLE khi tệp đã gỡ. */
 export function isMaterialUnavailableError(error) {
-  return error?.code === "MATERIAL_UNAVAILABLE" || error?.status === 410 || error?.status === 404;
+  return error?.code === 1156 || error?.status === 410 || error?.status === 404;
 }
 
 // ---------- Quiz ----------

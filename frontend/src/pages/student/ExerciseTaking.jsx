@@ -135,7 +135,7 @@ export default function ExerciseTaking() {
         return;
       }
       setError(
-        err.code === "QUIZ_EXPIRED" || /hết hạn|QUIZ_EXPIRED/i.test(err.message)
+        err.code === 1410 || err.status === 410
           ? "Bài quiz này đã quá hạn nên không thể làm tiếp."
           : err.message,
       );

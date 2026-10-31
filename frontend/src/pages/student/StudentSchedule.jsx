@@ -35,7 +35,7 @@ function SessionChip({ item, onOpen }) {
   return (
     <Body
       type={sessionId ? "button" : undefined}
-      onClick={sessionId ? () => onOpen(sessionId) : undefined}
+      onClick={sessionId ? () => onOpen(sessionId, item.status) : undefined}
       className={`w-full rounded-xl border border-slate-200 bg-white p-2.5 text-left dark:border-slate-800 dark:bg-slate-900 ${
         sessionId ? "cursor-pointer transition-colors hover:border-blue-300 dark:hover:border-blue-800" : ""
       }`}
@@ -181,7 +181,7 @@ function HistoryView({ onOpen }) {
           <Card key={item.id} className="p-4 transition-colors hover:border-blue-300 dark:hover:border-blue-800">
             <button
               type="button"
-              onClick={() => onOpen(item.id)}
+              onClick={() => onOpen(item.id, item.status)}
               className="flex w-full cursor-pointer items-center justify-between gap-3 text-left"
             >
               <div className="min-w-0 space-y-1">
@@ -213,7 +213,8 @@ function HistoryView({ onOpen }) {
 /** Lịch học: lưới tuần T2–CN và lịch sử buổi học (giảm dần), API_DESIGN 3.6. */
 export default function StudentSchedule() {
   const [tab, setTab] = useState("week");
-  const [openId, setOpenId] = useState(null);
+  const [open, setOpen] = useState(null); // { id, status }
+  const openSession = (id, status) => setOpen({ id, status });
 
   return (
     <div className="mx-auto min-h-[100dvh] max-w-6xl space-y-6 px-4 py-6 pb-12 lg:px-8 lg:py-8">
@@ -242,8 +243,10 @@ export default function StudentSchedule() {
           </button>
         ))}
       </div>
-      {tab === "week" ? <WeekView onOpen={setOpenId} /> : <HistoryView onOpen={setOpenId} />}
-      {openId && <StudentSessionDetail sessionId={openId} onClose={() => setOpenId(null)} />}
+      {tab === "week" ? <WeekView onOpen={openSession} /> : <HistoryView onOpen={openSession} />}
+      {open && (
+        <StudentSessionDetail sessionId={open.id} sessionStatus={open.status} onClose={() => setOpen(null)} />
+      )}
     </div>
   );
 }

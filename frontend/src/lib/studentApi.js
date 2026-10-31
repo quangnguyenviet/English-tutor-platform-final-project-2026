@@ -40,9 +40,8 @@ async function request(token, path, options = {}) {
   if (!res.ok) {
     const error = new Error(data?.message || `Yêu cầu thất bại (${res.status})`);
     error.status = res.status;
-    // Mã lỗi nghiệp vụ (QUIZ_EXPIRED, MATERIAL_UNAVAILABLE...) nằm trong message/code của backend
-    error.code = typeof data?.code === "string" ? data.code : data?.error ?? null;
-    error.businessMessage = data?.message ?? "";
+    // Mã lỗi nghiệp vụ dạng số của backend (ErrorCode): 1410 = quiz quá hạn, 1156 = tài liệu đã gỡ
+    error.code = typeof data?.code === "number" ? data.code : null;
     throw error;
   }
   return data.result ?? data;
@@ -88,6 +87,11 @@ export function apiGetMyDashboard(token) {
 export function apiGetMyQuizzes(token, status) {
   const query = status ? `?status=${enc(status)}` : "";
   return request(token, `/api/v1/students/me/quizzes${query}`);
+}
+
+/** Quiz gắn với một buổi học (hiện trong chi tiết buổi). */
+export function apiGetSessionQuizzes(token, sessionId) {
+  return request(token, `/api/v1/students/me/quizzes?sessionId=${enc(sessionId)}`);
 }
 
 /** Bắt đầu hoặc làm tiếp: trả câu chưa trả lời kế tiếp và tiến độ. */
