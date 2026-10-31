@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   addDays,
+  dashboardArea,
   buildWeekDays,
   deadlineInfo,
   eloChangeTone,
@@ -104,4 +105,19 @@ test("normalizeQuestion: nhận cả options object và optionA..D", () => {
   assert.equal(b.content, "Q2");
   assert.equal(b.options.length, 2);
   assert.equal(normalizeQuestion(null), null);
+});
+
+test("dashboardArea: lỗi một khu vực không ảnh hưởng khu khác", () => {
+  const dashboard = {
+    elo: { current: 1032 },
+    pendingQuizzes: null,
+    errors: { pendingQuizzes: "Không tải được bài cần làm" },
+    nextSession: null,
+  };
+  assert.equal(dashboardArea(dashboard, "elo").value.current, 1032);
+  assert.equal(dashboardArea(dashboard, "pendingQuizzes").error, "Không tải được bài cần làm");
+  const next = dashboardArea(dashboard, "nextSession");
+  assert.equal(next.error, "");
+  assert.equal(next.empty, true);
+  assert.equal(dashboardArea(null, "elo").empty, true);
 });

@@ -191,3 +191,18 @@ export function normalizeQuestion(question) {
     options,
   };
 }
+
+/**
+ * Đọc một khu vực của dashboard gộp. Mỗi khu vực lỗi độc lập: backend trả `null`
+ * kèm thông báo ở `errors[key]` (hoặc `<key>Error`); khu khác vẫn hiển thị bình thường.
+ * @returns {{ value: any, error: string, empty: boolean }}
+ */
+export function dashboardArea(dashboard, key) {
+  if (!dashboard) return { value: null, error: "", empty: true };
+  const value = dashboard[key] ?? null;
+  const raw = dashboard.errors?.[key] ?? dashboard[`${key}Error`] ?? value?.error ?? "";
+  const error = raw ? (typeof raw === "string" ? raw : raw.message || "Không tải được khu vực này") : "";
+  if (error) return { value: null, error, empty: false };
+  const empty = value == null || (Array.isArray(value) && value.length === 0);
+  return { value, error: "", empty };
+}
