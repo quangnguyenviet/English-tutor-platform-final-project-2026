@@ -30,5 +30,5 @@ INSERT INTO skills (skill_code, skill_name, category, description) VALUES
     ('expressing_opinion',  'Thể hiện quan điểm / Expressing Opinion', 'SPEAKING',     'I think, In my opinion...; lý lẽ ngắn.'),
     ('daily_conversation',  'Thảo luận thường ngày / Daily Conversation', 'SPEAKING',  'Small talk: thời tiết, sở thích, kế hoạch.'),
     ('narrative_tense',     'Kể chuyện quá khứ / Narrative Tense',  'SPEAKING',        'Kể lại sự việc bằng thì quá khứ, từ nối thời gian.'),
-    ('question_tag',        'Câu hỏi đuôi / Question Tags',         'GRAMMAR',         'Đuôi hỏi: he can, can''t he? ...');
+    ('question_tag',        'Câu hỏi đuôi / Question Tags',         'GRAMMAR',         'Đuôi hỏi: he can, can''t he? ...')
 ON CONFLICT (skill_code) DO NOTHING;
