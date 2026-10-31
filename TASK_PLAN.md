@@ -343,6 +343,8 @@ Sau khi chốt lịch, gia sư không có nơi xem lịch dạy, mở buổi h�
 
 ### T8-B2 — Giao diện soạn quiz chia đôi và hồ sơ kỹ năng
 
+> **Cập nhật (31/10):** Lát cắt **thủ công (chưa AI)** của T8-B2 đã hoàn thành trên nhánh `feature/tutor-quiz-authoring`: backend module `quiz` (tạo DRAFT, sửa, giao bài + notification, đọc catalog kỹ năng) + UI gia sư "Soạn Quiz" tại chi tiết buổi học (màn chia 3+2: form câu hỏi A–D + xem trước). Skill giữ **catalog chung toàn hệ thống** (bảng `skills`, seed ~20 kỹ năng trong V14, idempotent); không làm bảng bộ-skill-riêng-theo-lớp (chủ sở hữu kỹ năng là học sinh — SKP/Elo sau này nhất quán hơn). Phần chia đôi + chat AI + SKP (`ai-chat`, `skill-profile`) và AI thật vẫn thuộc phạm vi gốc của T8-B2/T8-C1.
+
 `feature/tutor-quiz-authoring` · FR-13 · API 3.7 · Phụ thuộc: T7-C1 (schema, AiClient), T8-C1 (AI thật; trước đó dùng dữ liệu giả của T7-C1)
 
 **Problem**

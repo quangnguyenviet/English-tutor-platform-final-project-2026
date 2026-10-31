@@ -151,6 +151,19 @@ public enum ErrorCode {
     RECEIVED_AMOUNT_INVALID(1208, "Số tiền thực nhận không hợp lệ", HttpStatus.BAD_REQUEST),
     RESUBMIT_REASON_REQUIRED(1209, "Vui lòng nhập lý do yêu cầu nộp lại", HttpStatus.BAD_REQUEST),
     PAYMENT_METHOD_NOT_ALLOWED(1210, "Phương thức thanh toán không hợp lệ cho vai trò này", HttpStatus.BAD_REQUEST),
+    // --- Quiz buổi học - module quiz (API_DESIGN §3.7, FR-13) ---
+    QUIZ_NOT_FOUND(1400, "Quiz không tồn tại", HttpStatus.NOT_FOUND),
+    QUIZ_NOT_OWNED(
+            1401, "Bạn không có quyền với quiz của buổi học này", HttpStatus.FORBIDDEN),
+    QUIZ_INVALID_STATE(
+            1402, "Chỉ có thể thực hiện thao tác này khi quiz còn ở trạng thái nháp (DRAFT)",
+            HttpStatus.CONFLICT),
+    QUIZ_DEADLINE_INVALID(
+            1403, "Thời hạn làm quiz phải ở thời điểm hiện tại hoặc sau", HttpStatus.BAD_REQUEST),
+    QUIZ_QUESTION_INVALID(
+            1404, "Danh sách câu hỏi không hợp lệ (thiếu nội dung, lựa chọn A–D hoặc đáp án đúng)",
+            HttpStatus.BAD_REQUEST),
+    SKILL_CODE_NOT_FOUND(1405, "Mã kỹ năng không tồn tại trong hệ thống", HttpStatus.BAD_REQUEST),
     // --- Quản lý nhân sự (Lễ tân / Kế toán) - module staff (UC-ADM-11, UC-ADM-12) ---
     PHONE_EXISTED(1300, "Số điện thoại đã được đăng ký trong hệ thống", HttpStatus.BAD_REQUEST),
     EMPLOYEE_NOT_FOUND(1301, "Nhân sự không tồn tại", HttpStatus.NOT_FOUND),

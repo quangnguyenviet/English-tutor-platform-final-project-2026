@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   CalendarDays,
@@ -37,6 +37,11 @@ import {
   mapSessionListItem,
   TEACHING_MODE_LABELS,
 } from "../../../lib/classroomApi";
+import {
+  apiGetSessionQuizzes,
+  formatDeadlineLabel,
+  QUIZ_STATUS_META,
+} from "../../../lib/quizApi";
 
 /** Tài liệu buổi học tối đa 20 MB (giới hạn backend, kiểm nhanh phía client). */
 const MATERIAL_MAX_SIZE = 20 * 1024 * 1024;
@@ -82,6 +87,8 @@ function materialIcon(fileType) {
  * (chip ca trống → modal "Tạo bài giảng").
  */
 export default function ManageSessions({ token, classId, basePath, classDetail }) {
+  const navigate = useNavigate();
+
   // ---------------- Danh sách buổi học
   const [sessions, setSessions] = useState([]);
   const [listLoading, setListLoading] = useState(true);
@@ -254,6 +261,30 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
       setSavingEdit(false);
     }
   };
+
+  // ---------------- Quiz buổi học (danh sách, FR-13)
+  const [quizzes, setQuizzes] = useState([]);
+  const [quizzesLoading, setQuizzesLoading] = useState(false);
+
+  const loadQuizzes = useCallback(async () => {
+    if (!token || !selectedSessionId) {
+      setQuizzes([]);
+      return;
+    }
+    setQuizzesLoading(true);
+    try {
+      const items = await apiGetSessionQuizzes(token, selectedSessionId);
+      setQuizzes(items || []);
+    } catch {
+      setQuizzes([]);
+    } finally {
+      setQuizzesLoading(false);
+    }
+  }, [token, selectedSessionId]);
+
+  useEffect(() => {
+    loadQuizzes();
+  }, [loadQuizzes, refreshKey]);
 
   // ---------------- Tài liệu buổi học (upload / tải / gỡ)
   const [isUploading, setIsUploading] = useState(false);
@@ -742,22 +773,85 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                 )}
               </Card>
 
-              {/* Quiz — placeholder chờ tính năng tạo quiz */}
-              <Card className="space-y-2 p-5">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                    <NotebookText size={15} />
+              {/* Quiz buổi học (FR-13: danh sách thật + CTA soạn / sửa) */}
+              <Card className="space-y-3 p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
+                      <NotebookText size={15} />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                        Quiz buổi học
+                      </h4>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Soạn quiz trắc nghiệm cho buổi học này và giao cho học sinh.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                      Quiz buổi học
-                    </h4>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Chưa có quiz cho buổi học này — tính năng soạn quiz sẽ được bổ sung
-                      sau.
-                    </p>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    as={Link}
+                    to={`${basePath}/sessions/quiz/${detail.sessionId}`}
+                  >
+                    <Plus size={13} /> Soạn Quiz
+                  </Button>
                 </div>
+
+                {quizzesLoading ? (
+                  <div className="h-12 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
+                ) : quizzes.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/60 p-3 text-center text-xs text-slate-400 dark:border-slate-800 dark:bg-slate-900/40">
+                    Chưa có quiz cho buổi học này.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {quizzes.map((quiz) => {
+                      const meta = QUIZ_STATUS_META[quiz.status] || {
+                        label: quiz.status,
+                        tone: "slate",
+                      };
+                      const editable = quiz.status === "DRAFT";
+                      return (
+                        <div
+                          key={quiz.quizId}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white p-2.5 text-xs dark:border-slate-800 dark:bg-slate-900"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <Badge tone={meta.tone}>{meta.label}</Badge>
+                            <span className="truncate font-medium text-slate-800 dark:text-slate-200">
+                              {quiz.title}
+                            </span>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {quiz.deadline && (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                                <Clock size={11} /> {formatDeadlineLabel(quiz.deadline)}
+                              </span>
+                            )}
+                            <span className="text-[11px] text-slate-400">
+                              {quiz.totalQuestions ?? 0} câu
+                            </span>
+                            {editable && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  navigate(
+                                    `${basePath}/sessions/quiz/${detail.sessionId}?quizId=${quiz.quizId}`,
+                                  )
+                                }
+                                className="inline-flex items-center gap-1 rounded px-2 py-1 font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
+                              >
+                                <Pencil size={11} /> Sửa
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </Card>
             </div>
           )}
