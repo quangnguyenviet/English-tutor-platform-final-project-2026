@@ -2,6 +2,9 @@ package com.mycompany.englishtutor.module.student.service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +14,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.mycompany.englishtutor.module.classroom.api.response.OccurrenceResponse;
+import com.mycompany.englishtutor.module.classroom.service.ClassOccurrenceService;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AnswerResultResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AttemptStateResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.DashboardResponse;
@@ -23,6 +28,8 @@ import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.Stud
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentSessionItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentTutorItem;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository;
+import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.ClassBrief;
+import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.IncomingReschedule;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.QuizAccessRow;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.StoredAnswerRow;
 import com.mycompany.englishtutor.module.user.repository.UserRepository;
@@ -46,6 +53,9 @@ public class StudentPortalService {
 
     StudentPortalRepository repository;
     UserRepository userRepository;
+    ClassOccurrenceService occurrenceService;
+
+    private static final DateTimeFormatter DAY_MONTH = DateTimeFormatter.ofPattern("dd/MM");
 
     // ---------------------------------------------------------------- LỊCH & BUỔI
 
@@ -53,8 +63,98 @@ public class StudentPortalService {
     public StudentScheduleResponse getSchedule(LocalDate weekStart) {
         Long studentId = currentUserId();
         LocalDate monday = (weekStart != null ? weekStart : LocalDate.now()).with(DayOfWeek.MONDAY);
-        List<StudentSessionItem> items = repository.findSessionsBetween(studentId, monday, monday.plusDays(7));
+        LocalDate end = monday.plusDays(7);
+
+        // Buổi học thật (đã tạo, gồm cả buổi dạy thử) + các ca lịch cố định gia sư đã đặt nhưng chưa tạo buổi.
+        List<StudentSessionItem> items = new ArrayList<>(repository.findSessionsBetween(studentId, monday, end));
+        for (ClassBrief cls : repository.findOpenClasses(studentId)) {
+            for (OccurrenceResponse occurrence :
+                    occurrenceService.listOccurrences(cls.id(), monday).getOccurrences()) {
+                StudentSessionItem virtual = toVirtualItem(cls, occurrence, monday, end);
+                if (virtual != null) {
+                    items.add(virtual);
+                }
+            }
+            for (IncomingReschedule moved : repository.findIncomingReschedules(cls.id(), monday, end)) {
+                items.add(virtualItem(cls, moved.newDate(), moved.newStart(), moved.newEnd(),
+                        moved.teachingMode(), moved.meetingUrl(), moved.location(),
+                        "Dời từ " + moved.originalDate().format(DAY_MONTH)));
+            }
+        }
+        items.sort(Comparator.comparing(StudentSessionItem::date).thenComparing(StudentSessionItem::startTime));
         return new StudentScheduleResponse(monday, items);
+    }
+
+    /** Buổi sắp tới gần nhất trong 4 tuần tới, tính cả ca lịch cố định gia sư đã đặt nhưng chưa tạo buổi. */
+    private StudentSessionItem findNextScheduledSession() {
+        LocalDate today = LocalDate.now();
+        java.time.LocalTime now = java.time.LocalTime.now();
+        LocalDate monday = today.with(DayOfWeek.MONDAY);
+        for (int week = 0; week < 4; week++) {
+            var next = getSchedule(monday.plusWeeks(week)).items().stream()
+                    .filter(item -> "SCHEDULED".equals(item.status()) || "IN_PROGRESS".equals(item.status()))
+                    .filter(item -> item.date().isAfter(today)
+                            || (item.date().equals(today) && !item.endTime().isBefore(now)))
+                    .findFirst();
+            if (next.isPresent()) {
+                return next.get();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Ô lịch cố định chưa có buổi học thật → hiển thị cho học sinh đúng như gia sư đã đặt:
+     * ca thường, hủy, dời (sang ngày khác), điều chỉnh. Ô đã có buổi thật đã nằm trong danh sách buổi học.
+     */
+    private StudentSessionItem toVirtualItem(
+            ClassBrief cls, OccurrenceResponse occurrence, LocalDate weekStart, LocalDate weekEnd) {
+        if ("SESSION".equals(occurrence.getSource())) {
+            return null;
+        }
+        var exception = occurrence.getException();
+        if (exception == null) {
+            return virtualItem(cls, occurrence.getDate(), occurrence.getStartTime(), occurrence.getEndTime(),
+                    null, null, null, null);
+        }
+        return switch (exception.getType()) {
+            case "CANCELLED" -> cancelledItem(cls, occurrence, "Buổi học đã hủy");
+            case "RESCHEDULED" -> {
+                LocalDate newDate = exception.getNewDate();
+                if (newDate != null && !newDate.isBefore(weekStart) && newDate.isBefore(weekEnd)) {
+                    yield virtualItem(cls, newDate,
+                            exception.getNewStartTime() != null ? exception.getNewStartTime() : occurrence.getStartTime(),
+                            exception.getNewEndTime() != null ? exception.getNewEndTime() : occurrence.getEndTime(),
+                            exception.getNewTeachingMode(), exception.getNewMeetingUrl(), exception.getNewLocation(),
+                            "Dời từ " + occurrence.getDate().format(DAY_MONTH));
+                }
+                yield cancelledItem(cls, occurrence,
+                        newDate != null ? "Đã dời sang " + newDate.format(DAY_MONTH) : "Đã dời lịch");
+            }
+            case "MODIFIED" -> virtualItem(cls, occurrence.getDate(),
+                    exception.getNewStartTime() != null ? exception.getNewStartTime() : occurrence.getStartTime(),
+                    exception.getNewEndTime() != null ? exception.getNewEndTime() : occurrence.getEndTime(),
+                    exception.getNewTeachingMode(), exception.getNewMeetingUrl(), exception.getNewLocation(),
+                    "Đã điều chỉnh");
+            default -> virtualItem(cls, occurrence.getDate(), occurrence.getStartTime(), occurrence.getEndTime(),
+                    null, null, null, null);
+        };
+    }
+
+    private StudentSessionItem cancelledItem(ClassBrief cls, OccurrenceResponse occurrence, String note) {
+        return new StudentSessionItem(null, null, cls.id(), cls.className(), cls.tutorName(), null,
+                cls.className(), occurrence.getDate(), occurrence.getDate(), occurrence.getStartTime(),
+                occurrence.getEndTime(), "CANCELLED", cls.teachingMode(), null, null, false, null, null, 0, note);
+    }
+
+    /** Buổi chưa tạo: ngày tương lai là "Đã lên lịch", ngày đã qua không gắn trạng thái để khỏi gây hiểu nhầm. */
+    private StudentSessionItem virtualItem(
+            ClassBrief cls, LocalDate date, java.time.LocalTime start, java.time.LocalTime end,
+            String mode, String meetingUrl, String location, String note) {
+        String status = date.isBefore(LocalDate.now()) ? null : "SCHEDULED";
+        return new StudentSessionItem(null, null, cls.id(), cls.className(), cls.tutorName(), null,
+                cls.className(), date, date, start, end, status,
+                mode != null ? mode : cls.teachingMode(), meetingUrl, location, false, null, null, 0, note);
     }
 
     @Transactional(readOnly = true)
@@ -78,7 +178,7 @@ public class StudentPortalService {
         StudentInfo student = area(errors, "student", () -> new StudentInfo(
                 studentId, repository.findFullName(studentId).orElse(null)));
         EloInfo elo = area(errors, "elo", () -> new EloInfo(repository.findElo(studentId), repository.lastEloChange(studentId)));
-        StudentSessionItem next = area(errors, "nextSession", () -> repository.findNextSession(studentId).orElse(null));
+        StudentSessionItem next = area(errors, "nextSession", this::findNextScheduledSession);
         StudentSessionItem last =
                 area(errors, "lastSession", () -> repository.findLastCompletedSession(studentId).orElse(null));
         List<StudentQuizItem> pending =

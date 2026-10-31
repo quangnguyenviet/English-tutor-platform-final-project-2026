@@ -31,7 +31,8 @@ public final class StudentPortalResponses {
             Boolean hasLog,
             String logKnowledge,
             String logHomework,
-            Integer materialCount) {}
+            Integer materialCount,
+            String note) {}
 
     public record StudentScheduleResponse(LocalDate weekStart, List<StudentSessionItem> items) {}
 

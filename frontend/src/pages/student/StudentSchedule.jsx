@@ -49,6 +49,9 @@ function SessionChip({ item, onOpen }) {
       {item.tutorName && (
         <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">{item.tutorName}</p>
       )}
+      {item.note && (
+        <p className="text-[11px] font-medium text-amber-700 dark:text-amber-400">{item.note}</p>
+      )}
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         {item.status && (
           <Badge tone={meta.tone} size="xs">

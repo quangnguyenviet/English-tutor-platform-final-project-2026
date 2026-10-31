@@ -49,6 +49,20 @@ public class StudentPortalRepository {
     public record StoredAnswerRow(
             String selectedAnswer, boolean correct, Integer eloBefore, Integer eloAfter, Integer eloChange) {}
 
+    /** Lớp đang mở (dạy thử / chính thức) của học sinh — nguồn để dựng lịch cố định. */
+    public record ClassBrief(Long id, String className, String tutorName, String teachingMode, String status) {}
+
+    /** Ngoại lệ dời lịch có ngày gốc ngoài tuần đang xem nhưng ngày mới rơi vào tuần đó. */
+    public record IncomingReschedule(
+            Long classId,
+            LocalDate originalDate,
+            LocalDate newDate,
+            LocalTime newStart,
+            LocalTime newEnd,
+            String teachingMode,
+            String meetingUrl,
+            String location) {}
+
     JdbcTemplate jdbc;
 
     private static final String SESSION_SELECT =
@@ -87,7 +101,8 @@ public class StudentPortalRepository {
                 rs.getBoolean("has_log"),
                 rs.getString("log_knowledge"),
                 rs.getString("log_homework"),
-                rs.getInt("material_count"));
+                rs.getInt("material_count"),
+                null);
     };
 
     // ------------------------------------------------------------------ STUDENT
@@ -131,6 +146,56 @@ public class StudentPortalRepository {
     }
 
     // ----------------------------------------------------------------- SESSIONS
+
+    public List<ClassBrief> findOpenClasses(Long studentId) {
+        return jdbc.query(
+                """
+                SELECT c.id, c.class_name, t.full_name AS tutor_name, c.teaching_mode, c.status
+                FROM classes c
+                JOIN users t ON t.id = c.tutor_id
+                WHERE c.student_id = ? AND c.status IN ('TRIAL', 'ACTIVE')
+                ORDER BY c.id
+                """,
+                (rs, i) -> new ClassBrief(
+                        rs.getLong("id"),
+                        rs.getString("class_name"),
+                        rs.getString("tutor_name"),
+                        rs.getString("teaching_mode"),
+                        rs.getString("status")),
+                studentId);
+    }
+
+    public List<IncomingReschedule> findIncomingReschedules(Long classId, LocalDate from, LocalDate to) {
+        return jdbc.query(
+                """
+                SELECT e.class_id, e.exception_date, e.new_date, e.new_start_time, e.new_end_time,
+                       e.new_teaching_mode, e.new_meeting_url, e.new_location,
+                       sc.start_time, sc.end_time
+                FROM session_exceptions e
+                JOIN class_schedules sc ON sc.id = e.schedule_id
+                WHERE e.class_id = ? AND e.exception_type = 'RESCHEDULED'
+                  AND e.new_date >= ? AND e.new_date < ?
+                  AND (e.exception_date < ? OR e.exception_date >= ?)
+                """,
+                (rs, i) -> new IncomingReschedule(
+                        rs.getLong("class_id"),
+                        rs.getObject("exception_date", LocalDate.class),
+                        rs.getObject("new_date", LocalDate.class),
+                        firstNonNull(rs.getObject("new_start_time", LocalTime.class), rs.getObject("start_time", LocalTime.class)),
+                        firstNonNull(rs.getObject("new_end_time", LocalTime.class), rs.getObject("end_time", LocalTime.class)),
+                        rs.getString("new_teaching_mode"),
+                        rs.getString("new_meeting_url"),
+                        rs.getString("new_location")),
+                classId,
+                from,
+                to,
+                from,
+                to);
+    }
+
+    private static <T> T firstNonNull(T first, T second) {
+        return first != null ? first : second;
+    }
 
     /** Buổi học của học sinh trong [from, to) — lịch tuần. */
     public List<StudentSessionItem> findSessionsBetween(Long studentId, LocalDate from, LocalDate to) {
