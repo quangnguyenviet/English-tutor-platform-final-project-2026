@@ -513,7 +513,7 @@ export function FAQ({ onOpenContactModal }) {
                 </div>
               </div>
               <Link
-                to="/register"
+                to="/tutor/register"
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shrink-0 shadow-sm"
               >
                 Đăng ký làm gia sư
@@ -778,7 +778,7 @@ export function FAQ({ onOpenContactModal }) {
                   </button>
                 ) : (
                   <Link
-                    to="/register"
+                    to="/tutor/register"
                     onClick={handleCloseDetail}
                     className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs sm:text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-sm"
                   >

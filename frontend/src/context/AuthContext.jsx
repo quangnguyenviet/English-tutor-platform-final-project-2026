@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { tutors, tutor, students, matchRequests, paymentProofs, receptionists, receptionist as receptionistData, complaints as complaintsData, studentNotifications as studentNotificationsData } from "../data/mockData";
-import { apiLogin, apiLogout, apiIntrospect, apiRegisterTutor } from "../lib/authApi";
+import { apiLogin, apiChangePassword, apiLogout, apiIntrospect, apiRegisterTutor } from "../lib/authApi";
 import { decodeJwt, scopeToRole, isTokenExpired } from "../lib/jwtDecode";
 
 const AuthContext = createContext(null);
@@ -156,7 +156,7 @@ export function AuthProvider({ children }) {
    * @throws {Error} khi credentials sai hoặc role không hỗ trợ
    */
   async function login(username, password) {
-    const { token: jwt, profileStatus } = await apiLogin(username, password);
+    const { token: jwt, profileStatus, mustChangePassword } = await apiLogin(username, password);
     const payload = decodeJwt(jwt);
     const role = scopeToRole(payload?.scope);
 
@@ -180,6 +180,7 @@ export function AuthProvider({ children }) {
       initials,
       exp: payload.exp,
       userId: payload.uid ?? null,
+      mustChangePassword: mustChangePassword === true,
     };
 
     localStorage.setItem(TOKEN_KEY, jwt);
@@ -187,7 +188,18 @@ export function AuthProvider({ children }) {
     setToken(jwt);
     setSession(newSession);
 
-    return { role, profileStatus: profileStatus ?? null };
+    return { role, profileStatus: profileStatus ?? null, mustChangePassword: newSession.mustChangePassword };
+  }
+
+  /** Đổi mật khẩu rồi gỡ cờ bắt buộc đổi khỏi session. */
+  async function changePassword(oldPassword, newPassword) {
+    await apiChangePassword(token, { oldPassword, newPassword });
+    setSession((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, mustChangePassword: false };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
   }
 
   /**
@@ -569,6 +581,7 @@ export function AuthProvider({ children }) {
         token,
         authLoading,
         login,
+        changePassword,
         logout,
         registerAsTutor,
         loginAsAdmin,

@@ -164,6 +164,18 @@ public enum ErrorCode {
             1404, "Danh sách câu hỏi không hợp lệ (thiếu nội dung, lựa chọn A–D hoặc đáp án đúng)",
             HttpStatus.BAD_REQUEST),
     SKILL_CODE_NOT_FOUND(1405, "Mã kỹ năng không tồn tại trong hệ thống", HttpStatus.BAD_REQUEST),
+    // --- Quiz phía học sinh (làm bài, Elo) & đổi mật khẩu ---
+    QUIZ_NOT_AVAILABLE(1406, "Bài quiz chưa được giao hoặc không thuộc về bạn", HttpStatus.NOT_FOUND),
+    QUESTION_NOT_FOUND(1407, "Câu hỏi không tồn tại trong quiz này", HttpStatus.NOT_FOUND),
+    QUIZ_ANSWER_INVALID(1408, "Đáp án phải là một trong A, B, C, D", HttpStatus.BAD_REQUEST),
+    QUIZ_EXPIRED(1410, "Bài quiz đã quá hạn nên không thể làm tiếp", HttpStatus.GONE),
+    OLD_PASSWORD_INCORRECT(1411, "Mật khẩu hiện tại không đúng", HttpStatus.BAD_REQUEST),
+    NEW_PASSWORD_REUSED(1412, "Mật khẩu mới không được trùng mật khẩu cũ hoặc mật khẩu mặc định", HttpStatus.BAD_REQUEST),
+    NEW_PASSWORD_WEAK(1413, "Mật khẩu mới phải có tối thiểu 8 ký tự, gồm chữ hoa, chữ thường và số", HttpStatus.BAD_REQUEST),
+    STUDENT_INFO_REQUIRED(
+            1414,
+            "Vui lòng bổ sung họ tên học sinh trước khi chuyển đơn sang dạy thử",
+            HttpStatus.BAD_REQUEST),
     // --- Quản lý nhân sự (Lễ tân / Kế toán) - module staff (UC-ADM-11, UC-ADM-12) ---
     PHONE_EXISTED(1300, "Số điện thoại đã được đăng ký trong hệ thống", HttpStatus.BAD_REQUEST),
     EMPLOYEE_NOT_FOUND(1301, "Nhân sự không tồn tại", HttpStatus.NOT_FOUND),

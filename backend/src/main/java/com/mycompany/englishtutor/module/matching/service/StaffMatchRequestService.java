@@ -43,6 +43,9 @@ import lombok.extern.slf4j.Slf4j;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class StaffMatchRequestService {
 
+    /** Mật khẩu mặc định cấp cho học sinh mới — học sinh bị ép đổi ở lần đăng nhập đầu. */
+    static final String DEFAULT_STUDENT_PASSWORD = "EnglishPath@123";
+
     JdbcTemplate jdbcTemplate;
     StaffMatchRequestQueryRepository queryRepository;
     TutorRepository tutorRepository;
@@ -60,8 +63,36 @@ public class StaffMatchRequestService {
 
     @Transactional(readOnly = true)
     public MatchRequestDetailResponse getMatchRequest(Long id) {
-        return queryRepository.findDetailById(id)
+        MatchRequestDetailResponse detail = queryRepository.findDetailById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.CLASS_REQUEST_NOT_FOUND));
+        detail.setInitialPassword(findUnchangedDefaultPassword(id));
+        return detail;
+    }
+
+    /**
+     * Mật khẩu mặc định của tài khoản học sinh, CHỈ khi học sinh chưa đổi mật khẩu
+     * ({@code must_change_password = true} và mật khẩu hiện tại vẫn là mật khẩu mặc định).
+     * Cho lễ tân xem lại khi lỡ đóng popup lúc tạo tài khoản; học sinh đã đổi thì trả null.
+     */
+    private String findUnchangedDefaultPassword(Long requestId) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                """
+                SELECT u.must_change_password, u.password_hash
+                FROM class_requests cr
+                JOIN users u ON u.id = cr.student_id
+                WHERE cr.id = ?
+                """,
+                requestId);
+        if (rows == null || rows.isEmpty()) {
+            return null;
+        }
+        Map<String, Object> row = rows.get(0);
+        boolean mustChange = Boolean.TRUE.equals(row.get("must_change_password"));
+        String hash = (String) row.get("password_hash");
+        if (!mustChange || hash == null || !passwordEncoder.matches(DEFAULT_STUDENT_PASSWORD, hash)) {
+            return null;
+        }
+        return DEFAULT_STUDENT_PASSWORD;
     }
 
     @Transactional(readOnly = true)
@@ -134,7 +165,8 @@ public class StaffMatchRequestService {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 """
                 SELECT id, parent_id, requested_tutor_id, student_id, class_requirement,
-                       teaching_mode, price_per_session, fee_percentage, status
+                       teaching_mode, price_per_session, fee_percentage, status,
+                       student_name, student_grade, student_school, student_learning_goal
                 FROM class_requests
                 WHERE id = ? FOR UPDATE
                 """,
@@ -158,12 +190,27 @@ public class StaffMatchRequestService {
         Long parentId = ((Number) cr.get("parent_id")).longValue();
         Long studentId = cr.get("student_id") != null ? ((Number) cr.get("student_id")).longValue() : null;
 
+        // Phụ huynh chưa có tài khoản: học sinh chưa tồn tại, lễ tân đã nhập thông tin vào đơn (PUT) —
+        // chuyển dạy thử thì hệ thống tự tạo tài khoản học sinh từ thông tin đó.
+        String initialPassword = null;
         if (studentId == null) {
-            Map<String, Object> parentInfo = jdbcTemplate.queryForMap(
-                    "SELECT full_name, phone FROM parents WHERE id = ?", parentId);
-            String pName = (String) parentInfo.get("full_name");
-            String pPhone = (String) parentInfo.get("phone");
-            studentId = findOrCreateStudent(parentId, "Học viên (con " + pName + ")", pPhone, null, null);
+            String pendingName = trimToNull((String) cr.get("student_name"));
+            if (pendingName == null) {
+                throw new AppException(ErrorCode.STUDENT_INFO_REQUIRED);
+            }
+            String parentPhone = jdbcTemplate.queryForObject(
+                    "SELECT phone FROM parents WHERE id = ?", String.class, parentId);
+            StudentAccount account = ensureStudent(
+                    parentId,
+                    pendingName,
+                    parentPhone,
+                    (String) cr.get("student_grade"),
+                    (String) cr.get("student_school"),
+                    (String) cr.get("student_learning_goal"));
+            studentId = account.id();
+            if (account.created()) {
+                initialPassword = DEFAULT_STUDENT_PASSWORD;
+            }
             jdbcTemplate.update("UPDATE class_requests SET student_id = ? WHERE id = ?", studentId, id);
         }
 
@@ -225,7 +272,10 @@ public class StaffMatchRequestService {
 
         notifyTutorNewTrialClass(tutorId, classId, className);
 
-        return getMatchRequest(id);
+        MatchRequestDetailResponse detail = getMatchRequest(id);
+        // Chỉ trả mật khẩu mặc định đúng lần tạo tài khoản mới để lễ tân bàn giao cho gia đình
+        detail.setInitialPassword(initialPassword);
+        return detail;
     }
 
     @Transactional
@@ -441,7 +491,15 @@ public class StaffMatchRequestService {
         );
     }
 
+    /** Kết quả tìm/tạo học sinh: {@code created} = true khi vừa tạo tài khoản mới. */
+    private record StudentAccount(Long id, boolean created) {}
+
     private Long findOrCreateStudent(Long parentId, String studentName, String phone, String grade, String school) {
+        return ensureStudent(parentId, studentName, phone, grade, school, null).id();
+    }
+
+    private StudentAccount ensureStudent(
+            Long parentId, String studentName, String phone, String grade, String school, String learningGoal) {
         List<Long> existing = jdbcTemplate.queryForList(
                 """
                 SELECT s.id FROM students s
@@ -452,7 +510,7 @@ public class StaffMatchRequestService {
                 Long.class, parentId, studentName
         );
         if (!existing.isEmpty()) {
-            return existing.get(0);
+            return new StudentAccount(existing.get(0), false);
         }
 
         String baseUsername = "hs_" + phone.replaceAll("[^0-9]", "");
@@ -466,7 +524,7 @@ public class StaffMatchRequestService {
                 .username(username)
                 .fullName(studentName)
                 .phone(phone)
-                .passwordHash(passwordEncoder.encode("EnglishPath@123"))
+                .passwordHash(passwordEncoder.encode(DEFAULT_STUDENT_PASSWORD))
                 .role(UserRole.STUDENT.name())
                 .status("ACTIVE")
                 .mustChangePassword(true)
@@ -475,13 +533,13 @@ public class StaffMatchRequestService {
 
         jdbcTemplate.update(
                 """
-                INSERT INTO students (id, parent_id, school, grade, elo)
-                VALUES (?, ?, ?, ?, 1000)
+                INSERT INTO students (id, parent_id, school, grade, learning_goal, elo)
+                VALUES (?, ?, ?, ?, ?, 1000)
                 """,
-                user.getId(), parentId, school, grade
+                user.getId(), parentId, school, grade, learningGoal
         );
 
-        return user.getId();
+        return new StudentAccount(user.getId(), true);
     }
 
     private Long getCurrentUserId() {
@@ -571,7 +629,7 @@ public class StaffMatchRequestService {
             Long id, UpdateMatchRequest body, HttpServletRequest httpRequest) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 """
-                SELECT id, status, class_requirement, teaching_mode, price_per_session, fee_percentage
+                SELECT id, parent_id, student_id, status, class_requirement, teaching_mode, price_per_session, fee_percentage
                 FROM class_requests
                 WHERE id = ? AND requested_tutor_id IS NOT NULL
                 FOR UPDATE
@@ -603,6 +661,7 @@ public class StaffMatchRequestService {
                     body.getFeePercentage(),
                     id
             );
+            updateParentAndStudentInfo(cr, body);
         }
 
         Long currentUserId = getCurrentUserId();
@@ -621,6 +680,63 @@ public class StaffMatchRequestService {
                 httpRequest
         );
         return getMatchRequest(id);
+    }
+
+    /**
+     * Lễ tân bổ sung thông tin phụ huynh/học sinh trước khi chuyển dạy thử (đơn còn NEW).
+     * Học sinh chưa có tài khoản → lưu tạm vào {@code class_requests.student_*}; đã có → cập nhật hồ sơ học sinh.
+     */
+    private void updateParentAndStudentInfo(Map<String, Object> cr, UpdateMatchRequest body) {
+        Long requestId = ((Number) cr.get("id")).longValue();
+        Long parentId = ((Number) cr.get("parent_id")).longValue();
+        Long studentId = cr.get("student_id") != null ? ((Number) cr.get("student_id")).longValue() : null;
+
+        jdbcTemplate.update(
+                """
+                UPDATE parents SET
+                    full_name  = COALESCE(?, full_name),
+                    email      = COALESCE(?, email),
+                    address    = COALESCE(?, address),
+                    updated_at = NOW()
+                WHERE id = ?
+                """,
+                trimToNull(body.getParentName()),
+                trimToNull(body.getParentEmail()),
+                trimToNull(body.getParentAddress()),
+                parentId);
+
+        String studentName = trimToNull(body.getStudentName());
+        String grade = trimToNull(body.getGrade());
+        String school = trimToNull(body.getSchool());
+        String goal = trimToNull(body.getLearningGoal());
+
+        if (studentId == null) {
+            jdbcTemplate.update(
+                    """
+                    UPDATE class_requests SET
+                        student_name          = COALESCE(?, student_name),
+                        student_grade         = COALESCE(?, student_grade),
+                        student_school        = COALESCE(?, student_school),
+                        student_learning_goal = COALESCE(?, student_learning_goal)
+                    WHERE id = ?
+                    """,
+                    studentName, grade, school, goal, requestId);
+        } else {
+            jdbcTemplate.update(
+                    """
+                    UPDATE students SET
+                        grade         = COALESCE(?, grade),
+                        school        = COALESCE(?, school),
+                        learning_goal = COALESCE(?, learning_goal),
+                        updated_at    = NOW()
+                    WHERE id = ?
+                    """,
+                    grade, school, goal, studentId);
+            if (studentName != null) {
+                jdbcTemplate.update(
+                        "UPDATE users SET full_name = ?, updated_at = NOW() WHERE id = ?", studentName, studentId);
+            }
+        }
     }
 
     private static String trimToNull(String value) {

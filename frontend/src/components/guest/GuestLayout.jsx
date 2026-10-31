@@ -12,7 +12,7 @@ export function GuestLayout() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary selection:text-primary-foreground">
-      <SiteHeader onOpenContactModal={openContactModal} />
+      <SiteHeader />
       
       <main className="flex-grow">
         {/* Child guest pages will render here via Outlet */}

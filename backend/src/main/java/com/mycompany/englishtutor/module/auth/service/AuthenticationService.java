@@ -1,6 +1,8 @@
 package com.mycompany.englishtutor.module.auth.service;
 
 import java.text.ParseException;
+
+import com.mycompany.englishtutor.module.auth.api.request.ChangePasswordRequest;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
@@ -46,6 +48,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AuthenticationService {
+    /** Mật khẩu mặc định cấp cho học sinh/nhân sự mới — không được dùng lại làm mật khẩu mới. */
+    static final String DEFAULT_PASSWORD = "EnglishPath@123";
+
     UserRepository userRepository;
     InvalidatedTokenRepository invalidatedTokenRepository;
     TutorRepository tutorRepository;
@@ -91,7 +96,45 @@ public class AuthenticationService {
 
         var token = generateToken(user);
 
-        return AuthenticationResponse.builder().token(token).authenticated(true).build();
+        return AuthenticationResponse.builder()
+                .token(token)
+                .authenticated(true)
+                .mustChangePassword(user.isMustChangePassword())
+                .build();
+    }
+
+    /**
+     * Đổi mật khẩu (API_DESIGN 3.1): xác minh mật khẩu cũ, mật khẩu mới phải khác mật khẩu cũ,
+     * khác mật khẩu mặc định và đủ mạnh (≥ 8 ký tự, có chữ hoa, chữ thường, số).
+     * Thành công thì gỡ cờ {@code must_change_password}.
+     */
+    public void changePassword(String username, ChangePasswordRequest request) {
+        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
+        var user = userRepository
+                .findByUsername(username)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPasswordHash())) {
+            throw new AppException(ErrorCode.OLD_PASSWORD_INCORRECT);
+        }
+        String next = request.getNewPassword();
+        if (next.equals(request.getOldPassword()) || DEFAULT_PASSWORD.equals(next)) {
+            throw new AppException(ErrorCode.NEW_PASSWORD_REUSED);
+        }
+        if (!isStrongPassword(next)) {
+            throw new AppException(ErrorCode.NEW_PASSWORD_WEAK);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(next));
+        user.setMustChangePassword(false);
+        userRepository.save(user);
+    }
+
+    private static boolean isStrongPassword(String password) {
+        return password.length() >= 8
+                && password.chars().anyMatch(Character::isUpperCase)
+                && password.chars().anyMatch(Character::isLowerCase)
+                && password.chars().anyMatch(Character::isDigit);
     }
 
     /**
