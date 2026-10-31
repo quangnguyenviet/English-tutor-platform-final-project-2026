@@ -2,8 +2,8 @@
 
 > **Tác giả:** Chuyên gia kiến trúc phần mềm  
 > **Ngày tạo:** 12/10/2026  
-> **Phiên bản:** 2.5 — `class_schedules` bổ sung `valid_from` (DATE, NOT NULL) + `valid_to` (DATE, NULL = không giới hạn): khoảng hiệu lực **từng ca** dùng để render lịch và kiểm tra session on-demand, thay thế vai trò render của `classes.active_from` (trường này chỉ còn ghi nhận ngày kích hoạt lớp). (2.4: bảng `class_requests` bổ sung `sessions_per_week` (số buổi/tuần) và `fee_percentage` (tỷ lệ phí nhận lớp, DEFAULT 40, 0–50, migration V10) + trạng thái `REMATCH` (ghép lại sau khi dạy thử thất bại); `class_applications` thêm trạng thái `TERMINATED` (dạy thử không thành công, loại khỏi danh sách ứng viên); `tutors` thêm `is_open_to_teaching` (migration V10). (2.3: bổ sung `tutors.submitted_at` (V4); làm rõ kế thừa `users` → `tutors`/`employees`/`students`; ghi luồng form công khai) (2.2: bỏ `current_address` khỏi `tutors` — V3; giữ `hometown` — V2)
-> **Cơ sở dữ liệu:** PostgreSQL (26 bảng chính + 1 view) + MongoDB (1 collection `ai_chat_messages`)
+> **Phiên bản:** 2.6 — bổ sung bảng `session_exceptions` (V13: lớp overlay cho ô ảo của lịch cố định — `CANCELLED`/`RESCHEDULED`/`MODIFIED`, UNIQUE `(schedule_id, exception_date)`), `classes.sessions_per_week` (V11: nguồn duy nhất tính phí nhận lớp khi kích hoạt lớp — khác `class_requests.sessions_per_week` là giá trị đề xuất) và bảng hạ tầng `invalidated_token` (V1, cơ chế vô hiệu JWT); mô tả lại cơ chế "ô ảo": thay đổi ô lịch cố định ghi qua `session_exceptions` (không xóa–tạo session), app không còn ghi trạng thái `COMPLETED`/`ABSENT` của session (bỏ điểm danh, mục -1). (2.5: `class_schedules` bổ sung `valid_from` (DATE, NOT NULL) + `valid_to` (DATE, NULL = không giới hạn): khoảng hiệu lực **từng ca** dùng để render lịch và kiểm tra session on-demand, thay thế vai trò render của `classes.active_from` (trường này chỉ còn ghi nhận ngày kích hoạt lớp). (2.4: bảng `class_requests` bổ sung `sessions_per_week` (số buổi/tuần) và `fee_percentage` (tỷ lệ phí nhận lớp, DEFAULT 40, 0–50, migration V10) + trạng thái `REMATCH` (ghép lại sau khi dạy thử thất bại); `class_applications` thêm trạng thái `TERMINATED` (dạy thử không thành công, loại khỏi danh sách ứng viên); `tutors` thêm `is_open_to_teaching` (migration V10). (2.3: bổ sung `tutors.submitted_at` (V4); làm rõ kế thừa `users` → `tutors`/`employees`/`students`; ghi luồng form công khai) (2.2: bỏ `current_address` khỏi `tutors` — V3; giữ `hometown` — V2)
+> **Cơ sở dữ liệu:** PostgreSQL (27 bảng nghiệp vụ + 1 bảng hạ tầng `invalidated_token` = 28 bảng, cùng 1 view `v_student_skill_stats`) + MongoDB (1 collection `ai_chat_messages`)
 
 ---
 
@@ -34,7 +34,8 @@ Nhóm 1  │ Tài khoản & Người dùng          │ users, employees, parent
 Nhóm 2  │ Hồ sơ Gia sư                    │ tutors, tutor_credentials, tutor_specialties,
         │                                  │ tutor_prices, tutor_availabilities, tutor_service_areas
 Nhóm 3  │ Yêu cầu & Ghép lớp             │ class_requests, class_applications
-Nhóm 4  │ Lớp học & Buổi học              │ classes, class_schedules, sessions, session_materials
+Nhóm 4  │ Lớp học & Buổi học              │ classes, class_schedules, sessions, session_materials,
+        │                                  │ session_exceptions (lớp overlay cho ô ảo lịch cố định, V13)
 Nhóm 5  │ Quiz, Elo & SKP                 │ skills, quizzes, quiz_questions, quiz_answers
         │                                  │ (SKP là view v_student_skill_stats, không phải bảng)
 Nhóm 6  │ Tài chính & Khiếu nại          │ payments, refunds, complaints, complaint_attachments
@@ -240,7 +241,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `class_requirement` | `TEXT` | | Yêu cầu lớp học: mục tiêu, trình độ hiện tại... Lễ tân điền sau cuộc gọi (UC-REC-01 form tạo lớp). Bắt buộc trước khi đăng (`OPEN`) hoặc tạo lớp |
 | `teaching_mode` | `VARCHAR(20)` | | Hình thức học: `ONLINE`, `AT_HOME` |
 | `price_per_session` | `DECIMAL(12,0)` | | Mức phí mong muốn mỗi buổi (VNĐ) |
-| `sessions_per_week` | `SMALLINT` | | Số buổi học trong tuần (migration V10), dùng tính phí nhận lớp: `fee_percentage × sessions_per_week × 4 × price_per_session` (Quy định nền tảng I.6) |
+| `sessions_per_week` | `SMALLINT` | | Số buổi học/tuần **đề xuất** ở đơn (migration V10). Khi kích hoạt lớp, giá trị do Lễ tân chốt được ghi vào `classes.sessions_per_week` — **nguồn duy nhất tính phí nhận lớp** (`fee_percentage × sessions_per_week × 4 × price_per_session`, Quy định nền tảng I.6); giá trị ở đơn chỉ là gợi ý, chưa nhất thiết bằng giá trị lớp |
 | `fee_percentage` | `DECIMAL(5,2)` | NN, DEFAULT 40 | Tỷ lệ phí nhận lớp (0–50%, mặc định 40% — cùng chuẩn với `payments.fee_percentage`, migration V9/V10). Lễ tân/Admin chỉnh trước khi có minh chứng |
 | `preferred_schedule` | `TEXT` | | Số buổi/tuần và thời gian mong muốn, ghi tự do (ví dụ: "2 buổi/tuần, tối T3-T5 19h-21h"). Chỉ là nguyện vọng ban đầu; số buổi/tuần thực tế suy ra từ số dòng `class_schedules` của lớp |
 | `tutor_requirement` | `TEXT` | | Yêu cầu về gia sư (giới tính, kinh nghiệm, chuyên môn...) |
@@ -293,6 +294,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `teaching_mode` | `VARCHAR(20)` | NN | Hình thức: `ONLINE`, `AT_HOME` |
 | `active_from` | `DATE` | | Ngày kích hoạt lớp (ghi nhận thời điểm chuyển sang ACTIVE — UC-T06 bước 3). **Không dùng cho render lịch**: lịch render theo `class_schedules.valid_from`/`valid_to` (mỗi ca có khoảng hiệu lực riêng) |
 | `price_per_session` | `DECIMAL(12,0)` | | Học phí mỗi buổi thực tế đã thỏa thuận |
+| `sessions_per_week` | `SMALLINT` | CHECK (`sessions_per_week` IS NULL OR > 0) | Số buổi/tuần do Lễ tân quyết định cho **lớp cụ thể** khi kích hoạt (`TRIAL → ACTIVE`, migration V11). **Nguồn duy nhất tính phí nhận lớp**: `fee_percentage × sessions_per_week × 4 × price_per_session` (backend ghi cả `sessions_per_week` và `price_per_session` vào lớp lúc kích hoạt — `StaffMatchRequestService`). Khác với `class_requests.sessions_per_week` (giá trị đề xuất ở đơn, chưa nhất thiết bằng giá trị lớp) |
 | `tutor_note` | `TEXT` | | Ghi chú riêng của gia sư về học sinh (tính cách, thói quen). Chỉ gia sư và trung tâm thấy (mô tả đề tài: "Ghi chú riêng về học sinh") |
 | `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm tạo lớp |
 | `updated_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm cập nhật gần nhất |
@@ -301,7 +303,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `class_schedules`
 
-> **Mẫu lịch dạy hằng tuần** (thứ, giờ) kèm **khoảng hiệu lực** từng ca (`valid_from`/`valid_to`), chốt giữa phụ huynh và gia sư. Dùng để FE **render lịch tuần** và kiểm tra trùng ca (UC-T06). **Render lịch + session on-demand (kế hoạch fixed_schedule_plan) dựa vào `valid_from`/`valid_to` trên từng ca**, không dựa vào `classes.active_from` (trường này chỉ còn ghi nhận ngày kích hoạt). `valid_to = NULL` nghĩa là ca áp dụng không giới hạn (cho tới khi sửa lịch). Không phải lịch thực tế: buổi nào đổi giờ, hình thức hay địa điểm thì sửa trực tiếp trên `sessions`, không ảnh hưởng mẫu. Hình thức, link và địa chỉ nằm ở `sessions`; khi sinh buổi, `teaching_mode` lấy mặc định từ `classes.teaching_mode`.
+> **Mẫu lịch dạy hằng tuần** (thứ, giờ) kèm **khoảng hiệu lực** từng ca (`valid_from`/`valid_to`), chốt giữa phụ huynh và gia sư. Dùng để FE **render lịch tuần** và kiểm tra trùng ca (UC-T06). **Render lịch + session on-demand (kế hoạch fixed_schedule_plan) dựa vào `valid_from`/`valid_to` trên từng ca**, không dựa vào `classes.active_from` (trường này chỉ còn ghi nhận ngày kích hoạt). `valid_to = NULL` nghĩa là ca áp dụng không giới hạn (cho tới khi sửa lịch). Không phải lịch thực tế: mỗi ca × từng ngày trong khoảng hiệu lực là một **ô ảo** (occurrence); thay đổi ô ảo (hủy, dời, đổi hình thức/link/địa điểm) ghi qua bảng `session_exceptions` (V13, lớp overlay) — **không xóa–tạo lại `sessions`**. Chỉ khi gia sư bấm "Tạo buổi học", ô ảo được **vật chất hóa** thành 1 dòng `sessions` (on-demand) và overlay không còn áp dụng cho ô đó. Hình thức, link và địa chỉ của buổi thật nằm ở `sessions`; khi sinh buổi, `teaching_mode` lấy mặc định từ `classes.teaching_mode` (hoặc từ exception `MODIFIED`/`RESCHEDULED` nếu có).
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -317,7 +319,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `sessions`
 
-> Một **buổi dạy thực tế**. Buổi chính thức được tạo **on-demand** (gia sư bấm "Tạo buổi học" cho ngày + ca theo mẫu `class_schedules`, ngày phải nằm trong khoảng hiệu lực `valid_from`/`valid_to` của ca) hoặc gia sư tạo thủ công; buổi dạy thử (`is_trial = TRUE`) do gia sư đặt trước khi kích hoạt lớp. Buổi nào đổi giờ, hình thức hay địa điểm thì sửa trực tiếp trên dòng này. Chứa nhật ký dạy học hiển thị cho cả gia sư, học sinh và phụ huynh (UC-T02, UC-ST-06).
+> Một **buổi dạy thực tế**. Buổi chính thức được tạo **on-demand** (gia sư bấm "Tạo buổi học" cho ngày + ca theo mẫu `class_schedules` để **vật chất hóa ô ảo**, ngày phải nằm trong khoảng hiệu lực `valid_from`/`valid_to` của ca — idempotent: bấm 2 lần cùng ca không nhân đôi, unique index C-15) hoặc gia sư tạo thủ công; buổi dạy thử (`is_trial = TRUE`) do gia sư đặt trước khi kích hoạt lớp. Buổi **đã có session thật** đổi giờ, hình thức hay địa điểm thì sửa trực tiếp trên dòng này (chỉ khi `SCHEDULED`); còn **ô ảo chưa có session** đổi qua `session_exceptions` (V13, bảng overlay). Chứa nhật ký dạy học hiển thị cho cả gia sư, học sinh và phụ huynh (UC-T02, UC-ST-06).
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -331,11 +333,36 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `teaching_mode` | `VARCHAR(20)` | | Hình thức của buổi này: `ONLINE`, `AT_HOME`. Buổi thử có thể khác hình thức chính thức |
 | `meeting_url` | `VARCHAR(500)` | | Link phòng học online (Zoom/Meet) nếu buổi học online |
 | `location` | `VARCHAR(500)` | | Địa chỉ dạy nếu buổi học tại nhà |
-| `status` | `VARCHAR(20)` | NN, DEFAULT 'SCHEDULED' | Trạng thái: `SCHEDULED` (Sắp diễn ra), `IN_PROGRESS` (Đang diễn ra), `COMPLETED` (Đã học), `ABSENT` (Vắng), `CANCELLED` (Hủy). Đổi lịch thì xóa buổi cũ rồi tạo buổi mới, không có trạng thái đổi lịch. Hiển thị trên lịch HS (UC-ST-05) |
+| `status` | `VARCHAR(20)` | NN, DEFAULT 'SCHEDULED' | Trạng thái (CHECK cho phép `SCHEDULED`, `IN_PROGRESS`, `COMPLETED`, `ABSENT`, `CANCELLED`). App hiện tại (mục -1, bỏ điểm danh) chỉ ghi `SCHEDULED` và `CANCELLED`: `CANCELLED` gán khi lớp TRIAL bị hủy (`MatchingLifecycleSupport`); không còn viết `COMPLETED`/`ABSENT`. Đổi giờ/hình thức của buổi **thật** sửa trực tiếp trên dòng này (chỉ khi `SCHEDULED`); đổi **ô ảo** qua `session_exceptions`. Hiển thị trên lịch HS (UC-ST-05) |
 | `log_knowledge` | `TEXT` | | Nhật ký: kiến thức trọng tâm đã dạy trong buổi. Công khai cho HS, PH xem (UC-T02 bước 7, UC-ST-06) |
 | `log_homework` | `TEXT` | | Nhật ký: dặn dò, bài tập cần làm. Công khai cho HS, PH xem (UC-T02 bước 7) |
 | `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm gia sư khởi tạo buổi học |
 | `updated_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm cập nhật gần nhất |
+
+---
+
+#### Bảng `session_exceptions`
+
+> **Lớp overlay (ngoại lệ) cho ô ảo của lịch cố định** (migration V13). Mỗi ca `class_schedules` × từng ngày trong khoảng hiệu lực là một ô ảo; bảng này ghi ngoại lệ cho **một lần diễn cụ thể** mà không tạo session thật. Mỗi `(schedule_id, exception_date)` tối đa 1 ngoại lệ (UQ) — ghi đè bằng `INSERT ... ON CONFLICT DO UPDATE` (idempotent). `schedule_id` có `ON DELETE CASCADE`: xóa ca cố định (ghi đè lịch) tự dọn ngoại lệ của ca đó. Exception không bao giờ gửi thông báo (notification) — khác với session thật.
+
+| Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
+|---|---|---|---|
+| `id` | `BIGSERIAL` | PK | Khóa chính tự tăng |
+| `class_id` | `BIGINT` | FK → classes.id, NN, ON DELETE CASCADE | FK tới lớp (giúp truy vấn lattice tuần theo lớp mà không JOIN qua schedule) |
+| `schedule_id` | `BIGINT` | FK → class_schedules.id, NN, ON DELETE CASCADE | Ca cố định sở hữu ngoại lệ. Xóa ca (ghi đè lịch) tự xóa ngoại lệ kèm theo |
+| `exception_date` | `DATE` | NN | Ngày diễn ra ô bị ảnh hưởng (ô ảo trong khoảng hiệu lực của ca) |
+| `exception_type` | `VARCHAR(20)` | NN, CHECK (`IN ('CANCELLED','RESCHEDULED','MODIFIED')`) | `CANCELLED` (ẩn lần diễn — "Đã hủy"), `RESCHEDULED` (dời sang `new_date` + giờ mới), `MODIFIED` (override chi tiết hình thức/link/địa điểm, giờ giữ nguyên ca gốc) |
+| `new_date` | `DATE` | | Ngày mới — bắt buộc với `RESCHEDULED` (backend validate `≥ hôm nay`) |
+| `new_start_time` | `TIME` | | Giờ bắt đầu mới — bắt buộc với `RESCHEDULED` |
+| `new_end_time` | `TIME` | | Giờ kết thúc mới — bắt buộc với `RESCHEDULED` (backend validate `new_start < new_end`) |
+| `new_teaching_mode` | `VARCHAR(20)` | | Hình thức mới (override) — dùng cho `RESCHEDULED`/`MODIFIED`; NULL = giữ ca gốc |
+| `new_meeting_url` | `VARCHAR(500)` | | Link phòng học mới — dùng cho `RESCHEDULED`/`MODIFIED` |
+| `new_location` | `VARCHAR(500)` | | Địa chỉ dạy mới — dùng cho `RESCHEDULED`/`MODIFIED` |
+| `reason` | `TEXT` | | Lý do ngoại lệ (hiện rõ nhất với `CANCELLED`) |
+| `created_by` | `BIGINT` | FK → users.id | Người tạo ngoại lệ (gia sư) |
+| `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm tạo |
+
+> **Ràng buộc:** UNIQUE (`schedule_id`, `exception_date`) — mỗi ca chỉ có 1 ngoại lệ cho 1 ngày; ghi đè bằng upsert. Index `(class_id, exception_date)` phục vụ truy vấn lattice tuần.
 
 ---
 
@@ -455,7 +482,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `payments`
 
-> Khoản thu của trung tâm: phí nhận lớp của gia sư (mặc định 40% học phí tháng đầu) hoặc học phí phụ huynh đóng trước cho lớp online. Hệ thống **tạo khoản phí `NEW` ngay khi ghép lớp (tạo lớp `TRIAL`)** để snapshot `fee_percentage` + `price_per_session` tại thời điểm ghép — tránh phí bị thay đổi sau đó. `amount` để trống (`NULL`) cho đến khi Lễ tân/Admin kích hoạt lớp (`TRIAL → ACTIVE`), bổ sung `sessions_per_week` và tính `amount` theo công thức → payment chuyển `NEW → NOT_SUBMITTED`. Gia sư nộp minh chứng (UC-T08) hoặc Lễ tân thu hộ tại quầy (UC-REC-10), **Kế toán đối chiếu số tiền thực nhận và xác nhận** (UC-ACC-03). Lễ tân hoặc Admin chỉnh tỷ lệ phí khi khoản phí `NEW` hoặc `NOT_SUBMITTED`; Kế toán không được chỉnh.
+> Khoản thu của trung tâm: phí nhận lớp của gia sư (mặc định 40% học phí tháng đầu) hoặc học phí phụ huynh đóng trước cho lớp online. Hệ thống **tạo khoản phí `NEW` ngay khi ghép lớp (tạo lớp `TRIAL`)** để snapshot `fee_percentage` + `price_per_session` tại thời điểm ghép — tránh phí bị thay đổi sau đó. `amount` để trống (`NULL`) cho đến khi Lễ tân/Admin kích hoạt lớp (`TRIAL → ACTIVE`), bổ sung `classes.sessions_per_week` (V11 — nguồn duy nhất tính phí; `class_requests.sessions_per_week` chỉ là giá trị đề xuất ở đơn) và tính `amount` theo công thức → payment chuyển `NEW → NOT_SUBMITTED`. Gia sư nộp minh chứng (UC-T08) hoặc Lễ tân thu hộ tại quầy (UC-REC-10), **Kế toán đối chiếu số tiền thực nhận và xác nhận** (UC-ACC-03). Lễ tân hoặc Admin chỉnh tỷ lệ phí khi khoản phí `NEW` hoặc `NOT_SUBMITTED`; Kế toán không được chỉnh.
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -463,7 +490,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `class_id` | `BIGINT` | FK → classes.id, NN | FK tới lớp học, phí gắn với lớp |
 | `payer_type` | `VARCHAR(20)` | NN | Người nộp phí: `TUTOR` (gia sư nộp phí nhận lớp), `PARENT` (phụ huynh nộp học phí trước cho lớp online — Quy định nền tảng I.4, II.6) |
 | `fee_percentage` | `DECIMAL(5,2)` | | Tỷ lệ phí nhận lớp, trong khoảng 0-50%, mặc định 40% (Quy định nền tảng I.6). Lễ tân hoặc Admin được chỉnh khi `status = NOT_SUBMITTED`, Kế toán không được chỉnh |
-| `amount` | `DECIMAL(12,0)` | | Số tiền phải nộp (VNĐ), lưu cố định. **`NULL` khi payment ở trạng thái `NEW`** (chưa kích hoạt lớp, chưa có đủ dữ liệu tính). Khi kích hoạt lớp (`TRIAL → ACTIVE`), backend tính = `fee_percentage × sessions_per_week × 4 × price_per_session`, làm tròn đến nghìn đồng → payment chuyển `NEW → NOT_SUBMITTED`. Chỉ tính lại khi Lễ tân hoặc Admin đổi `fee_percentage` lúc chưa có minh chứng. **NOT NULL khi status ≠ NEW** (enforced ở backend) |
+| `amount` | `DECIMAL(12,0)` | | Số tiền phải nộp (VNĐ), lưu cố định. **`NULL` khi payment ở trạng thái `NEW`** (chưa kích hoạt lớp, chưa có đủ dữ liệu tính). Khi kích hoạt lớp (`TRIAL → ACTIVE`), backend tính = `fee_percentage × sessions_per_week × 4 × price_per_session` (đọc `classes.sessions_per_week` + `classes.price_per_session` — V11), làm tròn đến nghìn đồng → payment chuyển `NEW → NOT_SUBMITTED`. Chỉ tính lại khi Lễ tân hoặc Admin đổi `fee_percentage` lúc chưa có minh chứng. **NOT NULL khi status ≠ NEW** (enforced ở backend) |
 | `payment_method` | `VARCHAR(20)` | | Cách nộp: `BANK_TRANSFER` (chuyển khoản, kèm ảnh biên lai), `CASH` (tiền mặt tại quầy, Lễ tân thu hộ — UC-REC-10). Ghi khi nộp minh chứng |
 | `proof_url` | `VARCHAR(500)` | | Đường dẫn ảnh biên lai chuyển khoản (QR Proof) hoặc ảnh phiếu thu tiền mặt trên S3 |
 | `received_amount` | `DECIMAL(12,0)` | | Số tiền **thực nhận** do Kế toán nhập sau khi đối chiếu sao kê ngân hàng hoặc quỹ tiền mặt (UC-ACC-03). Chỉ xác nhận được khi `received_amount >= amount`; thiếu thì yêu cầu nộp lại. Là nguồn số liệu doanh thu (UC-ACC-05) |
@@ -585,6 +612,17 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 ---
 
+#### Bảng `invalidated_token` (hạ tầng)
+
+> Bảng **hạ tầng xác thực JWT** (V1, không phải nghiệp vụ). Lưu access/refresh token đã bị thu hồi khi user logout hoặc refresh: backend tra bảng này để từ chối token đã invalid trong thời gian còn hiệu lực.
+
+| Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
+|---|---|---|---|
+| `id` | `VARCHAR(255)` | PK | Token (chữ ký băm) đã bị thu hồi |
+| `expiry_time` | `TIMESTAMP(6)` | | Thời điểm token hết hạn; token hết hạn có thể purge định kỳ |
+
+---
+
 ### 2.8 MongoDB Collection
 
 #### Collection `ai_chat_messages`
@@ -623,6 +661,11 @@ erDiagram
         BOOLEAN must_change_password
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
+    }
+
+    invalidated_token {
+        VARCHAR id PK
+        TIMESTAMP expiry_time
     }
 
     employees {
@@ -759,6 +802,7 @@ erDiagram
         VARCHAR teaching_mode
         DATE active_from
         DECIMAL price_per_session
+        SMALLINT sessions_per_week
         TEXT tutor_note
         TIMESTAMPTZ created_at
         TIMESTAMPTZ updated_at
@@ -772,6 +816,23 @@ erDiagram
         TIME end_time
         DATE valid_from
         DATE valid_to
+    }
+
+    session_exceptions {
+        BIGSERIAL id PK
+        BIGINT class_id FK
+        BIGINT schedule_id FK
+        DATE exception_date
+        VARCHAR exception_type
+        DATE new_date
+        TIME new_start_time
+        TIME new_end_time
+        VARCHAR new_teaching_mode
+        VARCHAR new_meeting_url
+        VARCHAR new_location
+        TEXT reason
+        BIGINT created_by FK
+        TIMESTAMPTZ created_at
     }
 
     sessions {
@@ -971,6 +1032,9 @@ erDiagram
     tutors ||--o{ classes : "teaches"
     students ||--o{ classes : "enrolls"
     classes ||--o{ class_schedules : "has schedule"
+    class_schedules ||--o{ session_exceptions : "has exception"
+    classes ||--o{ session_exceptions : "has exception"
+    users ||--o{ session_exceptions : "creates"
     classes ||--o{ sessions : "has sessions"
     sessions ||--o{ session_materials : "has materials"
     users ||--o{ session_materials : "uploads"
@@ -1044,6 +1108,9 @@ erDiagram
 | R-23 | `classes` | `sessions` | 1 : 0..* | `sessions` là "buổi học thực tế đã diễn ra" — một lớp có nhiều buổi theo thời gian. |
 | R-24 | `sessions` | `session_materials` | 1 : 0..* | Một buổi học có nhiều tài liệu đính kèm (PDF, Word, audio...). |
 | R-25 | `users` | `session_materials` | 1 : 0..* | Ghi nhận người tải lên tài liệu (gia sư). |
+| R-44 | `class_schedules` | `session_exceptions` | 1 : 0..* | Mỗi ca cố định có nhiều ngoại lệ (mỗi ngày tối đa 1 — UQ `schedule_id`, `exception_date`). `ON DELETE CASCADE`: xóa ca tự dọn ngoại lệ (V13, C-16). |
+| R-45 | `classes` | `session_exceptions` | 1 : 0..* | Ngoại lệ thuộc lớp; cột `class_id` thừa (denormalized từ schedule) phục vụ truy vấn lattice tuần theo lớp mà không JOIN. |
+| R-46 | `users` | `session_exceptions` | 1 : 0..* | `created_by` = gia sư tạo ngoại lệ. |
 
 ### 4.5 Nhóm Quiz, Elo và SKP
 
@@ -1101,6 +1168,8 @@ erDiagram
 | C-12 | Partial UNIQUE (`complaint_id`) WHERE `status IN ('PENDING','PAID')` | `refunds` | Mỗi khiếu nại chỉ có 1 yêu cầu hoàn tiền đang chờ hoặc đã chi. `refunds` `PAID` thì khiếu nại chuyển `RESOLVED`; `REJECTED` thì khiếu nại quay về `PENDING` |
 | C-13 | `fee_percentage` BETWEEN 0 AND 50 (V9); `amount >= 0` khi NOT NULL; chỉ sửa phí khi `status IN ('NEW', 'NOT_SUBMITTED')`; `amount` NOT NULL khi `status != 'NEW'` (backend enforce) | `payments` | Lễ tân hoặc Admin chỉnh tỷ lệ phí trước khi có minh chứng. Payment tạo ở `NEW` khi ghép lớp (snapshot `fee_percentage`); chuyển `NOT_SUBMITTED` + tính `amount` khi kích hoạt lớp. Lớp `TRIAL` bị hủy → payment `NEW` → `CANCELLED` |
 | C-14 | `class_requests.status` transitions (V10): `NEW → OPEN / MATCHED / CANCELLED`; `OPEN → MATCHED / CANCELLED`; `MATCHED → REMATCH / CANCELLED` (lớp `TRIAL` thất bại: phụ huynh muốn tìm gia sư khác → `REMATCH`, không muốn → `CANCELLED`); `REMATCH → MATCHED / CANCELLED`. `CANCELLED` là trạng thái cuối | `class_requests` | Khi `REMATCH`, lượt ứng tuyển `SELECTED` cũ chuyển `TERMINATED` (gia sư cũ bị loại khỏi đơn); kiểm tra ở backend |
+| C-15 | Partial UNIQUE (`class_id`, `session_date`, `start_time`) WHERE `is_trial = FALSE` (V11); UNIQUE (`class_id`) WHERE `is_trial = TRUE` (V5) | `sessions` | Tạo buổi on-demand **idempotent**: bấm "Tạo buổi học" 2 lần cùng ca không nhân đôi session; mỗi lớp tối đa 1 buổi thử |
+| C-16 | UNIQUE (`schedule_id`, `exception_date`) (V13) | `session_exceptions` | Mỗi ca chỉ có 1 ngoại lệ cho 1 ngày; ghi đè bằng `INSERT ... ON CONFLICT DO UPDATE` (idempotent). `class_id`/`schedule_id` đều `ON DELETE CASCADE` — xóa ca cố định tự dọn ngoại lệ |
 
 ---
 
@@ -1135,4 +1204,4 @@ erDiagram
                                                     [Spaced Repetition + AI Sinh bài]
 ```
 
-> **Đọc từ trên xuống:** Phụ huynh gửi yêu cầu → Lễ tân gọi lại, hoàn thiện đơn yêu cầu lớp → chọn/chỉ định gia sư và tạo lớp `TRIAL` → **hệ thống tạo `payments` `NEW`** (snapshot `fee_percentage`) → Dạy thử → Lễ tân kích hoạt lớp (`TRIAL → ACTIVE`, bổ sung `sessions_per_week`) → **payment `NEW → NOT_SUBMITTED`** (tính `amount`) → gia sư nộp hoặc Lễ tân thu hộ minh chứng → Kế toán đối chiếu và xác nhận; khiếu nại `REFUND` → Lễ tân tạo `refunds` → Kế toán hoàn tiền → khiếu nại tự đóng. Nếu dạy thử thất bại → lớp `CANCELLED` → payment `NEW → CANCELLED`.
+> **Đọc từ trên xuống:** Phụ huynh gửi yêu cầu → Lễ tân gọi lại, hoàn thiện đơn yêu cầu lớp (đề xuất `sessions_per_week` ở đơn) → chọn/chỉ định gia sư và tạo lớp `TRIAL` → **hệ thống tạo `payments` `NEW`** (snapshot `fee_percentage`) → Dạy thử → Lễ tân kích hoạt lớp (`TRIAL → ACTIVE`, ghi `classes.sessions_per_week` + `price_per_session` vào lớp — nguồn tính phí V11) → **payment `NEW → NOT_SUBMITTED`** (tính `amount` từ `classes`) → gia sư nộp hoặc Lễ tân thu hộ minh chứng → Kế toán đối chiếu và xác nhận; khiếu nại `REFUND` → Lễ tân tạo `refunds` → Kế toán hoàn tiền → khiếu nại tự đóng. Nếu dạy thử thất bại → lớp `CANCELLED` → payment `NEW → CANCELLED`.
