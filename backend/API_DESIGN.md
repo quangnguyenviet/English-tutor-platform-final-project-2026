@@ -341,7 +341,8 @@ Công thức `payments.amount`: `fee_percentage × sessions_per_week × 4 × pri
 | --- | --- | --- | --- | --- |
 | GET | `/api/v1/skills` | AUTH | Danh mục kỹ năng (seed) | FR-13 |
 | GET | `/api/v1/classes/{classId}/skill-profile` | TUTOR (sở hữu) | Bảng thống kê hồ sơ học sinh (SKP) từ view `v_student_skill_stats`, sắp theo `error_rate` | FR-13 |
-| POST | `/api/v1/lessons/{lessonId}/quizzes` | TUTOR | V16: tạo quiz `DRAFT` gắn **bài giảng** (scope theo lesson, không theo buổi) — gia sư nhập thủ công danh sách câu hỏi (`source = IMPORTED`) | FR-13 |
+| POST | `/api/v1/lessons/{lessonId}/quizzes/ai-chat` | TUTOR | Body JSON `{ message, quizId?, recentMessages[] (tối đa 10 tin {role, content}), pendingQuestions[]? (trọn bộ câu đang trên form) }`. Backend xác thực quyền sở hữu bài giảng (lessons → classes.tutor_id), gom ngữ cảnh ẩn danh (mã HS + cấp + mục tiêu + SKP từ view `v_student_skill_stats` + catalog kỹ năng + bản nháp câu hỏi), gọi AI Service, trả `{ reply, draftQuestions[] }` (shape form: `questionText, optionA–D, correctAnswer, explanation, cefrLevel, skillCode`). Timeout 60 s, retry 1 lần, lỗi → `AI_SERVICE_UNAVAILABLE` (1416). Chat stateless: lịch sử do frontend gửi kèm (chưa lưu MongoDB `ai_chat_messages` — lát cắt sau), đính kèm file (PDF/ảnh) chưa có ở lần này | FR-13 |
+| POST | `/api/v1/lessons/{lessonId}/quizzes` | TUTOR | V16: tạo quiz `DRAFT` gắn **bài giảng** (scope theo lesson, không theo buổi). Body thêm trường tuỳ chọn `source` (`AI_DIRECT` — gộp câu do trợ lý AI đề xuất / `IMPORTED` — nhập tay, mặc định) | FR-13 |
 | GET | `/api/v1/lessons/{lessonId}/quizzes` | TUTOR | V16: danh sách quiz của bài giảng (card "Quiz bài giảng") | FR-13 |
 | GET | `/api/v1/quizzes/import-prompt` | TUTOR | Query `classId`. Trả prompt mẫu (nhúng kỹ năng yếu và chuẩn JSON CEFR) | FR-14 |
 | PUT | `/api/v1/quizzes/{id}` | TUTOR | Sửa tiêu đề + ghi đè câu hỏi khi còn `DRAFT` | FR-13 |
@@ -360,13 +361,14 @@ Công thức `payments.amount`: `fee_percentage × sessions_per_week × 4 × pri
 
 **Elo:** công thức chuẩn `E = 1 / (1 + 10^((Rq − Rs) / 400))`, `Rs' = Rs + K × (S − E)`, K = 32. `Rq` (độ khó câu hỏi) quy từ CEFR: A1=800, A2=1000, B1=1200, B2=1400, C1=1600, C2=1800. Elo khởi điểm của học sinh: 1000. Hằng số đặt trong `EloProperties`.
 
-**AI Service (FastAPI, chỉ backend gọi — không public ra frontend):**
+**AI Service (FastAPI, chỉ backend gọi — không public ra frontend; đường dẫn theo AD-2 trong ARCHITECTURE.md):**
 
-| Method | Path | Mô tả |
-| --- | --- | --- |
-| POST | `/ai/quiz/generate` | Input `{ messages[], skillProfile[], cefrLevel, numQuestions, attachments? }` → `{ reply, questions[] }` (JSON đúng schema `quiz_questions`) |
-| POST | `/ai/quiz/validate-import` | Input `{ json }` → `{ valid, errors[] }` (dự phòng nếu validate ở Python) |
-| GET | `/health` | Đã có |
+| Method | Path | Mô tả | Trạng thái |
+| --- | --- | --- | --- |
+| POST | `/api/v1/ai/quiz/chat` | Input `{ student_code, grade?, learning_goal?, skill_profile[], skill_catalog[], current_draft?, recent_messages[], message, cefr_hint? }` → `{ reply, questions[] }` (mỗi câu theo `QuizDraftSchema`: `content, options{A,B,C,D}, correct, explanation, cefr, skill`). Provider: `openai` (LLM_API_KEY) hoặc `mock` (key trống — không tốn token) | Đã cài (FR-13) |
+| POST | `/api/v1/ai/quiz/validate` | Kiểm định JSON gia sư dán từ AI ngoài → `{ valid, errors[] }` (dự phòng nếu validate ở Python) | Chưa (FR-14) |
+| POST | `/api/v1/ai/moderate` | Kiểm duyệt nội dung đầu vào/đầu ra (AD-2) | Chưa |
+| GET | `/health` | Kiểm tra sức khỏe | Đã có |
 
 ### 3.8. Phí nhận lớp (module `payment`)
 

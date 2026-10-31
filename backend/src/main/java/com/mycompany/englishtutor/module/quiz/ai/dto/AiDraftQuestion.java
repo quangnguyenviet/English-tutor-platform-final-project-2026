@@ -1,0 +1,22 @@
+package com.mycompany.englishtutor.module.quiz.ai.dto;
+
+import java.util.Map;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+/**
+ * Câu hỏi theo QuizDraftSchema (AD-4) — wire object dùng chung giữa Backend
+ * và AI Service cho cả input (draft hiện tại) lẫn output (câu AI đề xuất).
+ *
+ * <p>Serialisation: JSON snake_case (khớp Pydantic phía AI) qua @JsonProperty;
+ * các trường có thể vắng (skill, explanation) để null — @JsonInclude NON_NULL.
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public record AiDraftQuestion(
+        @JsonProperty("content") String content,
+        @JsonProperty("options") Map<String, String> options,
+        @JsonProperty("correct") String correct,
+        @JsonProperty("explanation") String explanation,
+        @JsonProperty("cefr") String cefr,
+        @JsonProperty("skill") String skill) {}

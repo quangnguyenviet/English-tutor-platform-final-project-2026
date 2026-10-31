@@ -176,6 +176,11 @@ public enum ErrorCode {
             1414,
             "Vui lòng bổ sung họ tên học sinh trước khi chuyển đơn sang dạy thử",
             HttpStatus.BAD_REQUEST),
+    AI_SERVICE_UNAVAILABLE(
+            1416, "Dịch vụ AI đang không khả dụng. Vui lòng thử lại sau ít phút.",
+            HttpStatus.BAD_GATEWAY),
+    AI_CHAT_MESSAGE_REQUIRED(
+            1417, "Vui lòng nhập nội dung yêu cầu cho trợ lý AI.", HttpStatus.BAD_REQUEST),
     // --- Quản lý nhân sự (Lễ tân / Kế toán) - module staff (UC-ADM-11, UC-ADM-12) ---
     PHONE_EXISTED(1300, "Số điện thoại đã được đăng ký trong hệ thống", HttpStatus.BAD_REQUEST),
     EMPLOYEE_NOT_FOUND(1301, "Nhân sự không tồn tại", HttpStatus.NOT_FOUND),

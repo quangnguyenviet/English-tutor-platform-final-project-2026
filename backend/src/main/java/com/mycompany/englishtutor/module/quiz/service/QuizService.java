@@ -47,7 +47,11 @@ import lombok.extern.slf4j.Slf4j;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class QuizService {
 
-    /** Giá trị {@code source} của quiz do gia sư nhập tay (CHK V5 chỉ có 2 giá trị). */
+    /**
+     * Giá trị {@code source} mặc định khi quiz không do trợ lý AI sinh (CHK V5 chỉ có
+     * 2 giá trị: IMPORTED và AI_DIRECT). {@code createQuizForSession} dùng giá trị này khi
+     * request không truyền {@code source} (hành vi nhập tay/import cũ).
+     */
     private static final String SOURCE_MANUAL = "IMPORTED";
 
     /** Trạng thái cho phép sửa / giao (DRAFT). */
@@ -76,9 +80,16 @@ public class QuizService {
 
         List<Long> skillIds = resolveSkillIds(request.getQuestions());
 
+        // Nguồn tạo: FE truyền "AI_DIRECT" (gộp câu do trợ lý AI đề xuất) hoặc "IMPORTED"
+        // (nhập tay). Mặc định IMPORTED giữ hành vi cũ khi FE không truyền.
+        String source =
+                request.getSource() == null || request.getSource().isBlank()
+                        ? SOURCE_MANUAL
+                        : request.getSource().trim().toUpperCase(java.util.Locale.ROOT);
+
         Long quizId =
                 quizRepository.insertQuiz(
-                        lessonId, request.getTitle().trim(), SOURCE_MANUAL, request.getQuestions().size());
+                        lessonId, request.getTitle().trim(), source, request.getQuestions().size());
 
         for (int i = 0; i < request.getQuestions().size(); i++) {
             quizRepository.insertQuizQuestion(quizId, i + 1, request.getQuestions().get(i), skillIds.get(i));
