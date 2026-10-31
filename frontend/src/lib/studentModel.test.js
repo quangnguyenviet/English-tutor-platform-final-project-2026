@@ -7,6 +7,7 @@ import {
   eloChangeTone,
   formatEloChange,
   materialAction,
+  normalizeQuestion,
   quizProgressPercent,
   sessionLogState,
   sortQuizzesByDeadline,
@@ -93,4 +94,14 @@ test("deadlineInfo và sortQuizzesByDeadline", () => {
     { id: "c", deadline: "2026-11-01T00:00:00Z" },
   ]);
   assert.deepEqual(sorted.map((q) => q.id), ["c", "b", "a"]);
+});
+
+test("normalizeQuestion: nhận cả options object và optionA..D", () => {
+  const a = normalizeQuestion({ id: 1, content: "Q", options: { A: "x", B: "y", C: "z", D: "w" } });
+  assert.deepEqual(a.options.map((o) => o.key), ["A", "B", "C", "D"]);
+  const b = normalizeQuestion({ questionId: 2, questionText: "Q2", optionA: "1", optionB: "2" });
+  assert.equal(b.id, 2);
+  assert.equal(b.content, "Q2");
+  assert.equal(b.options.length, 2);
+  assert.equal(normalizeQuestion(null), null);
 });

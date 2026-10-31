@@ -166,3 +166,28 @@ export function sortQuizzesByDeadline(quizzes = []) {
   };
   return [...(quizzes || [])].sort((a, b) => key(a) - key(b));
 }
+
+/**
+ * Chuẩn hóa một câu hỏi từ backend: chấp nhận `options` dạng { A, B, C, D }
+ * hoặc các trường rời optionA..optionD; trả về mảng [{ key, text }].
+ */
+export function normalizeQuestion(question) {
+  if (!question) return null;
+  const source = question.options ?? {
+    A: question.optionA,
+    B: question.optionB,
+    C: question.optionC,
+    D: question.optionD,
+  };
+  const options = ["A", "B", "C", "D"]
+    .filter((key) => source?.[key] != null && source[key] !== "")
+    .map((key) => ({ key, text: String(source[key]) }));
+  return {
+    id: question.id ?? question.questionId,
+    orderNo: question.orderNo ?? question.questionNumber ?? null,
+    content: question.content ?? question.questionText ?? "",
+    skillName: question.skillName ?? question.skill ?? "",
+    cefrLevel: question.cefrLevel ?? "",
+    options,
+  };
+}
