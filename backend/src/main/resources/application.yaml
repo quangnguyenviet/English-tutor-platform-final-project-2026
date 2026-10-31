@@ -37,6 +37,11 @@ app:
     max-fee-percentage: 50
     proof-max-bytes: 5242880     # Biên lai tối đa 5 MB
     proof-allowed-types: image/jpeg,image/png,application/pdf
+  elo:
+    k: 32                         # Hệ số K
+    initial-elo: 1000             # Elo khởi điểm của học sinh
+    default-question-rating: 1000 # Câu không gắn CEFR
+    cefr-ratings: {A1: 800, A2: 1000, B1: 1200, B2: 1400, C1: 1600, C2: 1800}
 
 s3:
   endpoint: ${S3_ENDPOINT:http://localhost:9000}

@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,6 +21,7 @@ import com.mycompany.englishtutor.module.quiz.api.response.QuizDetailResponse;
 import com.mycompany.englishtutor.module.quiz.api.response.QuizListItemResponse;
 import com.mycompany.englishtutor.module.quiz.api.response.SkillOptionResponse;
 import com.mycompany.englishtutor.module.quiz.service.QuizService;
+import com.mycompany.englishtutor.module.student.service.StudentPortalService;
 import com.mycompany.englishtutor.shared.api.ApiResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,10 +33,10 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Quiz buổi học cho gia sư — lát cắt nhập THỦ CÔNG (API_DESIGN §3.7, FR-13).
- * Chỉ TUTOR; mọi endpoint kiểm tra quyền sở hữu buổi học trong service.
+ * Chỉ TUTOR, riêng {@code GET /quizzes/{id}} cho thêm STUDENT (ẩn đáp án câu chưa trả lời);
+ * mọi endpoint kiểm tra quyền sở hữu trong service.
  *
- * <p>Chưa có: AI chat / import (T8-B3, T8-C1), làm quiz học sinh &amp; Elo
- * (T8-C2).
+ * <p>Chưa có: AI chat / import (T8-B3, T8-C1). Làm quiz học sinh &amp; Elo nằm ở {@code StudentPortalController}.
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -43,6 +46,7 @@ import lombok.RequiredArgsConstructor;
 public class QuizController {
 
     private final QuizService quizService;
+    private final StudentPortalService studentPortalService;
 
     @PostMapping("/sessions/{sessionId}/quizzes")
     @Operation(
@@ -72,16 +76,15 @@ public class QuizController {
     }
 
     @GetMapping("/quizzes/{id}")
+    @PreAuthorize("hasAnyRole('TUTOR', 'STUDENT')")
     @Operation(
-            summary = "Chi tiết quiz (để mở lại bản nháp và sửa)",
+            summary = "Chi tiết quiz: gia sư xem đủ để sửa; học sinh chỉ thấy đáp án của câu đã trả lời",
             security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<QuizDetailResponse>> getQuizDetail(
-            @PathVariable Long id,
-            HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(
-                ApiResponse.<QuizDetailResponse>builder()
-                        .result(quizService.getQuizDetail(id, httpRequest))
-                        .build());
+    public ResponseEntity<ApiResponse<?>> getQuizDetail(
+            @PathVariable Long id, Authentication authentication, HttpServletRequest httpRequest) {
+        boolean student = AuthorityUtils.authorityListToSet(authentication.getAuthorities()).contains("ROLE_STUDENT");
+        Object result = student ? studentPortalService.getQuizDetail(id) : quizService.getQuizDetail(id, httpRequest);
+        return ResponseEntity.ok(ApiResponse.<Object>builder().result(result).build());
     }
 
     @PutMapping("/quizzes/{id}")

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Repository;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.QuizQuestionForStudent;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizItem;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizQuestion;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentSessionItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentTutorItem;
 
@@ -40,7 +41,8 @@ public class StudentPortalRepository {
             OffsetDateTime deadline,
             Integer totalQuestions,
             Long studentId,
-            Long tutorId) {}
+            Long tutorId,
+            Long sessionId) {}
 
     /** Câu hỏi đầy đủ (có đáp án) — chỉ dùng phía server để chấm. */
     public record QuestionRow(Long id, Long quizId, String correctAnswer, String explanation, String cefrLevel) {}
@@ -330,7 +332,7 @@ public class StudentPortalRepository {
     public Optional<QuizAccessRow> findQuizAccess(Long quizId) {
         return jdbc.query(
                         """
-                        SELECT q.id, q.title, q.status, q.deadline, q.total_questions, c.student_id, c.tutor_id
+                        SELECT q.id, q.title, q.status, q.deadline, q.total_questions, c.student_id, c.tutor_id, q.session_id
                         FROM quizzes q
                         JOIN sessions s ON s.id = q.session_id
                         JOIN classes c ON c.id = s.class_id
@@ -343,7 +345,8 @@ public class StudentPortalRepository {
                                 rs.getObject("deadline", OffsetDateTime.class),
                                 rs.getObject("total_questions", Integer.class),
                                 rs.getLong("student_id"),
-                                rs.getLong("tutor_id")),
+                                rs.getLong("tutor_id"),
+                                rs.getLong("session_id")),
                         quizId)
                 .stream()
                 .findFirst();
@@ -394,6 +397,41 @@ public class StudentPortalRepository {
                         studentId)
                 .stream()
                 .findFirst();
+    }
+
+    /** Toàn bộ câu của quiz kèm bài làm của học sinh; đáp án đúng và giải thích chỉ lộ ra ở câu đã trả lời. */
+    public List<StudentQuizQuestion> findQuestionsForStudent(Long quizId, Long studentId) {
+        return jdbc.query(
+                """
+                SELECT qq.id, qq.question_number, qq.question_text, qq.option_a, qq.option_b, qq.option_c,
+                       qq.option_d, qq.cefr_level, sk.skill_name, qq.correct_answer, qq.explanation,
+                       a.selected_answer, a.is_correct
+                FROM quiz_questions qq
+                LEFT JOIN skills sk ON sk.id = qq.skill_id
+                LEFT JOIN quiz_answers a ON a.question_id = qq.id AND a.student_id = ?
+                WHERE qq.quiz_id = ?
+                ORDER BY qq.question_number
+                """,
+                (rs, i) -> {
+                    boolean answered = rs.getString("selected_answer") != null;
+                    return new StudentQuizQuestion(
+                            rs.getLong("id"),
+                            rs.getInt("question_number"),
+                            rs.getString("question_text"),
+                            rs.getString("option_a"),
+                            rs.getString("option_b"),
+                            rs.getString("option_c"),
+                            rs.getString("option_d"),
+                            rs.getString("skill_name"),
+                            rs.getString("cefr_level"),
+                            answered,
+                            answered ? rs.getString("selected_answer").trim() : null,
+                            answered ? rs.getBoolean("is_correct") : null,
+                            answered ? rs.getString("correct_answer").trim() : null,
+                            answered ? rs.getString("explanation") : null);
+                },
+                studentId,
+                quizId);
     }
 
     public Optional<QuestionRow> findQuestion(Long quizId, Long questionId) {

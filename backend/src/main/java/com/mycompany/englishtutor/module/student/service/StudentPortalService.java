@@ -24,6 +24,7 @@ import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.Quiz
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentInfo;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizItem;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizDetailResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentScheduleResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentSessionItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentTutorItem;
@@ -54,6 +55,8 @@ public class StudentPortalService {
     StudentPortalRepository repository;
     UserRepository userRepository;
     ClassOccurrenceService occurrenceService;
+    EloCalculator eloCalculator;
+    QuizExpiryService quizExpiryService;
 
     private static final DateTimeFormatter DAY_MONTH = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -206,6 +209,18 @@ public class StudentPortalService {
         return repository.findQuizzes(currentUserId(), normalized, sessionId);
     }
 
+    /** Chi tiết quiz cho học sinh sở hữu: đáp án đúng và giải thích chỉ có ở câu đã trả lời. */
+    @Transactional(readOnly = true)
+    public StudentQuizDetailResponse getQuizDetail(Long quizId) {
+        Long studentId = currentUserId();
+        QuizAccessRow quiz = requireOwnedQuiz(quizId, studentId);
+        var questions = repository.findQuestionsForStudent(quizId, studentId);
+        int answered = (int) questions.stream().filter(q -> Boolean.TRUE.equals(q.answered())).count();
+        return new StudentQuizDetailResponse(
+                quizId, quiz.title(), quiz.status(), quiz.deadline(), quiz.sessionId(), questions.size(), answered,
+                questions);
+    }
+
     /** Bắt đầu hoặc làm tiếp: trả câu chưa trả lời kế tiếp + tiến độ. */
     @Transactional
     public AttemptStateResponse startAttempt(Long quizId) {
@@ -251,7 +266,7 @@ public class StudentPortalService {
 
         int currentElo = repository.lockElo(studentId);
         boolean correct = selected.equals(question.correctAnswer());
-        EloCalculator.Result elo = EloCalculator.apply(currentElo, question.cefrLevel(), correct);
+        EloCalculator.Result elo = eloCalculator.apply(currentElo, question.cefrLevel(), correct);
 
         int inserted = repository.insertAnswer(
                 studentId, questionId, selected, correct, elo.before(), elo.after(), elo.change());
@@ -309,7 +324,7 @@ public class StudentPortalService {
     private void requireNotExpired(QuizAccessRow quiz) {
         boolean pastDeadline = quiz.deadline() != null && quiz.deadline().isBefore(java.time.OffsetDateTime.now());
         if ("EXPIRED".equals(quiz.status()) || ("ASSIGNED".equals(quiz.status()) && pastDeadline)) {
-            repository.markQuizExpired(quiz.quizId());
+            quizExpiryService.markExpired(quiz.quizId());
             throw new AppException(ErrorCode.QUIZ_EXPIRED);
         }
     }
