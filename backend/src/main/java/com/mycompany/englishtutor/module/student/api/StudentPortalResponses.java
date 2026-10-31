@@ -113,6 +113,33 @@ public final class StudentPortalResponses {
             String skillName,
             OffsetDateTime answeredAt) {}
 
+    /** Câu trong chi tiết quiz của học sinh: đáp án đúng và giải thích chỉ có khi đã trả lời câu đó. */
+    public record StudentQuizQuestion(
+            Long id,
+            Integer orderNo,
+            String content,
+            String optionA,
+            String optionB,
+            String optionC,
+            String optionD,
+            String skillName,
+            String cefrLevel,
+            Boolean answered,
+            String selectedAnswer,
+            Boolean isCorrect,
+            String correctAnswer,
+            String explanation) {}
+
+    public record StudentQuizDetailResponse(
+            Long quizId,
+            String title,
+            String status,
+            OffsetDateTime deadline,
+            Long sessionId,
+            Integer totalQuestions,
+            Integer answeredCount,
+            List<StudentQuizQuestion> questions) {}
+
     public record EloInfo(Integer current, Integer lastChange) {}
 
     public record StudentInfo(Long id, String fullName) {}
