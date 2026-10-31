@@ -31,7 +31,11 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const { role, profileStatus } = await login(username.trim(), password);
+      const { role, profileStatus, mustChangePassword } = await login(username.trim(), password);
+      if (role === "student" && mustChangePassword) {
+        navigate("/student/change-password", { replace: true });
+        return;
+      }
       // Gia sư chưa có hồ sơ hoàn chỉnh (hoặc bị từ chối) phải tạo/sửa hồ sơ trước
       const needsProfile = role === "tutor" && TUTOR_PROFILE_ACTIONABLE.includes(profileStatus);
       navigate(needsProfile ? "/tutor/profile" : (ROLE_ROUTES[role] ?? "/"), { replace: true });

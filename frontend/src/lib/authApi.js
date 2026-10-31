@@ -32,7 +32,37 @@ export async function apiLogin(username, password) {
     throw new Error(data.message || "Tên đăng nhập hoặc mật khẩu không đúng");
   }
 
-  return data.result; // { token, authenticated }
+  return data.result; // { token, authenticated, mustChangePassword? }
+}
+
+/**
+ * Đổi mật khẩu — POST /api/v1/auth/change-password (API_DESIGN 3.1).
+ * Bắt buộc ở lần đăng nhập đầu của học sinh.
+ *
+ * @param {string} token
+ * @param {{ oldPassword: string, newPassword: string }} body
+ * @throws {Error} khi mật khẩu cũ sai hoặc mật khẩu mới không đạt yêu cầu
+ */
+export async function apiChangePassword(token, { oldPassword, newPassword }) {
+  let res;
+  try {
+    res = await fetch(`${BASE}/api/v1/auth/change-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...bearerHeader(token) },
+      body: JSON.stringify({ oldPassword, newPassword }),
+    });
+  } catch {
+    throw new Error("Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
+  }
+  let data = {};
+  try {
+    data = await res.json();
+  } catch {
+    // body rỗng
+  }
+  if (!res.ok) {
+    throw new Error(data.message || "Đổi mật khẩu thất bại");
+  }
 }
 
 /**

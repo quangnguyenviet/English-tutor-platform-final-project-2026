@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes, useParams } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
+import StudentChangePassword from "./pages/student/StudentChangePassword";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { LessonSessionProvider } from "./context/LessonSessionContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -80,8 +81,11 @@ import AccountantDashboard from "./pages/accountant/AccountantDashboard";
 
 import TutorRegisterPage from "./pages/tutor/TutorRegisterPage";
 
+const FORCE_PASSWORD_PATH = "/student/change-password";
+
 function RequireRole({ role, children }) {
   const { session, authLoading } = useAuth();
+  const { pathname } = useLocation();
   // Đang kiểm tra token lúc khởi động — chưa biết có session hay không, đợi thêm
   if (authLoading) {
     return (
@@ -95,6 +99,10 @@ function RequireRole({ role, children }) {
   }
   if (!session) return <Navigate to="/login" replace />;
   if (session.role !== role) return <Navigate to={`/${session.role}`} replace />;
+  // Học sinh đăng nhập lần đầu phải đổi mật khẩu trước khi dùng các trang khác
+  if (role === "student" && session.mustChangePassword && pathname !== FORCE_PASSWORD_PATH) {
+    return <Navigate to={FORCE_PASSWORD_PATH} replace />;
+  }
   return children;
 }
 
@@ -223,6 +231,14 @@ export default function App() {
           </Route>
 
           {/* Student Routes */}
+          <Route
+            path="/student/change-password"
+            element={
+              <RequireRole role="student">
+                <StudentChangePassword />
+              </RequireRole>
+            }
+          />
           <Route
             path="/student"
             element={
