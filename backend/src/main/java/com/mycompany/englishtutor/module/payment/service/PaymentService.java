@@ -380,13 +380,19 @@ public class PaymentService {
         if (actor.isTutor()) {
             assertOwnedByTutor(payment, actor);
         }
-        if (payment.getStatus() != PaymentStatus.NOT_SUBMITTED
-                && payment.getStatus() != PaymentStatus.RESUBMIT_REQUIRED) {
+        // Gia sư sở hữu lớp được phép thay minh chứng ngay khi đang "Chờ xác nhận" (SUBMITTED)
+        // để không phải chờ kế toán yêu cầu gửi lại. Lễ tân/Admin không thay được ở SUBMITTED.
+        PaymentStatus currentStatus = payment.getStatus();
+        boolean tutorReplaceWhilePending = currentStatus == PaymentStatus.SUBMITTED && actor.isTutor();
+        if (currentStatus != PaymentStatus.NOT_SUBMITTED
+                && currentStatus != PaymentStatus.RESUBMIT_REQUIRED
+                && !tutorReplaceWhilePending) {
             throw new AppException(ErrorCode.PAYMENT_INVALID_STATE);
         }
         validateProofFile(file);
 
-        PaymentStatus oldStatus = payment.getStatus();
+        PaymentStatus oldStatus = currentStatus;
+        String oldProofUrl = payment.getProofUrl();
         String proofUrl = storageService.uploadFile(PROOF_FOLDER, file);
 
         payment.setProofUrl(proofUrl);
@@ -401,6 +407,19 @@ public class PaymentService {
         payment.setReviewedAt(null);
         paymentRepository.saveAndFlush(payment);
 
+        // Xoá minh chứng cũ khỏi storage (best-effort): thay ảnh không để lại file mồ côi.
+        if (oldProofUrl != null && !oldProofUrl.equals(proofUrl)) {
+            try {
+                storageService.deleteFile(oldProofUrl);
+            } catch (Exception e) {
+                log.warn("Không xoá được minh chứng cũ {} của khoản phí #{}: {}", oldProofUrl, paymentId, e.getMessage());
+            }
+        }
+
+        // Thay minh chứng lúc đang Chờ xác nhận (SUBMITTED) dùng action riêng để phân biệt với nộp lần đầu / nộp lại.
+        String effectiveAuditAction = oldStatus == PaymentStatus.SUBMITTED
+                ? "REPLACE_PAYMENT_PROOF"
+                : auditAction;
         Map<String, Object> details = new HashMap<>();
         details.put("oldStatus", oldStatus);
         details.put("newStatus", payment.getStatus());
@@ -408,7 +427,7 @@ public class PaymentService {
         if (!actor.isTutor()) {
             details.put("onBehalfOf", payment.getPayerType());
         }
-        audit(actor, auditAction, paymentId, details);
+        audit(actor, effectiveAuditAction, paymentId, details);
 
         paymentQueryRepository.notifyRole(
                 UserRole.ACCOUNTANT.name(),

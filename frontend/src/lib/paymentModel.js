@@ -89,6 +89,15 @@ export function canSubmitProof(payment) {
   );
 }
 
+/**
+ * Gia sư sở hữu lớp được thay lại minh chứng ngay khi đang "Chờ xác nhận" (SUBMITTED)
+ * — chưa cần qua kế toán yêu cầu gửi lại. Trang chi tiết của gia sư là ngữ cảnh duy nhất dùng helper này;
+ * Lễ tân/Admin không được thay ở SUBMITTED (backend chặn theo actor).
+ */
+export function canReplaceProof(payment) {
+  return payment?.status === PAYMENT_STATUS.SUBMITTED;
+}
+
 /** Lễ tân chỉ chỉnh được tỷ lệ phí khi khoản phí chưa có minh chứng. */
 export function canEditFeeRate(payment) {
   return payment?.status === PAYMENT_STATUS.NOT_SUBMITTED;

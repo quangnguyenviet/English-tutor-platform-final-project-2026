@@ -29,6 +29,7 @@ import {
   METHOD_LABEL,
   PAYMENT_STATUS,
   STATUS_META,
+  canReplaceProof,
   canSubmitProof,
   formatDateTime,
   formatVnd,
@@ -74,8 +75,13 @@ export default function TutorPaymentDetail() {
   }, [id]);
 
   async function handleUpload(file, onProgress) {
+    const replaced = payment.status === PAYMENT_STATUS.SUBMITTED;
     await apiSubmitProof(payment.id, file, onProgress);
-    toast.success("Đã nộp biên lai. Kế toán sẽ đối chiếu trong thời gian sớm nhất.");
+    toast.success(
+      replaced
+        ? "Đã thay ảnh minh chứng. Kế toán sẽ đối chiếu trong thời gian sớm nhất."
+        : "Đã nộp biên lai. Kế toán sẽ đối chiếu trong thời gian sớm nhất.",
+    );
     setUploadOpen(false);
     const refreshed = await apiGetPayment(payment.id);
     setPayment(refreshed);
@@ -112,7 +118,13 @@ export default function TutorPaymentDetail() {
     );
   }
 
-  const canUpload = canSubmitProof(payment);
+  const canUpload = canSubmitProof(payment) || canReplaceProof(payment);
+  const uploadActionLabel =
+    payment.status === PAYMENT_STATUS.RESUBMIT_REQUIRED
+      ? "Nộp lại biên lai"
+      : payment.status === PAYMENT_STATUS.SUBMITTED
+        ? "Thay ảnh minh chứng"
+        : "Nộp biên lai";
   const percent =
     payment.feePercentage !== null && payment.feePercentage !== undefined
       ? `${Number(payment.feePercentage)}%`
@@ -262,7 +274,7 @@ export default function TutorPaymentDetail() {
               className="mt-5 w-full cursor-pointer"
             >
               <Upload size={16} />
-              {payment.status === PAYMENT_STATUS.RESUBMIT_REQUIRED ? "Nộp lại biên lai" : "Nộp biên lai"}
+              {uploadActionLabel}
             </Button>
           )}
         </Card>
@@ -271,7 +283,13 @@ export default function TutorPaymentDetail() {
       <ModalShell
         open={uploadOpen}
         busy={busy}
-        title={payment.status === PAYMENT_STATUS.RESUBMIT_REQUIRED ? "Nộp lại biên lai" : "Nộp biên lai phí nhận lớp"}
+        title={
+          payment.status === PAYMENT_STATUS.RESUBMIT_REQUIRED
+            ? "Nộp lại biên lai"
+            : payment.status === PAYMENT_STATUS.SUBMITTED
+              ? "Thay ảnh minh chứng"
+              : "Nộp biên lai phí nhận lớp"
+        }
         subtitle={`${payment.className || `Lớp #${payment.classId}`} · ${formatVnd(payment.amount)}`}
         onClose={() => setUploadOpen(false)}
       >
@@ -279,6 +297,11 @@ export default function TutorPaymentDetail() {
           <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-800/40 dark:bg-rose-950/40 dark:text-rose-400">
             <span className="font-medium">Lý do cần gửi lại: </span>
             {payment.rejectReason}
+          </p>
+        )}
+        {payment.status === PAYMENT_STATUS.SUBMITTED && (
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Ảnh minh chứng hiện tại sẽ bị thay thế; ảnh cũ sẽ được xoá khỏi hệ thống.
           </p>
         )}
         <p className="text-sm text-slate-600 dark:text-slate-300">
