@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
   CalendarDays,
@@ -96,6 +96,10 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Buổi được trỏ đến từ URL (?sessionId=...) — ưu tiên khi tải danh sách lần đầu,
+  // dùng cho hướng dẫn chuyển tab từ lưới "Lịch dạy" / "Tạo bài giảng".
+  const [searchParams] = useSearchParams();
+  const urlSessionId = searchParams.get("sessionId");
 
   const loadList = useCallback(async () => {
     if (!token || !classId) return;
@@ -105,18 +109,21 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
       const items = await apiGetClassSessions(token, classId, { order: "asc" });
       const mapped = (items || []).map(mapSessionListItem);
       setSessions(mapped);
-      // Chọn buổi đầu (khi chưa chọn hoặc buổi cũ không còn trong danh sách).
-      setSelectedSessionId((current) =>
-        current && mapped.some((s) => s.sessionId === current)
-          ? current
-          : (mapped[0]?.sessionId ?? null)
-      );
+      // Ưu tiên: buổi đang chọn → buổi từ URL → buổi đầu tiên.
+      const firstId = mapped[0]?.sessionId ?? null;
+      setSelectedSessionId((current) => {
+        if (current && mapped.some((s) => s.sessionId === current)) return current;
+        if (urlSessionId && mapped.some((s) => s.sessionId === urlSessionId)) {
+          return urlSessionId;
+        }
+        return firstId;
+      });
     } catch (err) {
       setListError(err.message || "Không thể tải danh sách buổi học.");
     } finally {
       setListLoading(false);
     }
-  }, [token, classId]);
+  }, [token, classId, urlSessionId]);
 
   useEffect(() => {
     loadList();

@@ -1,17 +1,18 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Pencil } from "lucide-react";
 import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
 import ClassScheduleLattice from "../../../components/tutor/ClassScheduleLattice";
 import SessionListCard from "../../../components/tutor/SessionListCard";
-import SessionDetailCard from "../../../components/tutor/SessionDetailCard";
 import { startOfWeek, toISO } from "../../../components/tutor/FixedScheduleGrid";
 import { todayISO } from "../../../lib/classroomApi";
 
 /**
  * Tab "Lịch dạy" của workspace lớp gia sư (kế hoạch class-sessions Phase 2).
  * Thiết kế theo prototype /tutor/schedule: 1 cột dọc — lưới tuần compact trên,
- * danh sách buổi học của tuần bên dưới, chi tiết buổi học cuối.
+ * danh sách buổi học sắp tới bên dưới. Chọn buổi đã có bài giảng (hoặc tạo
+ * buổi mới) thì chuyển sang tab "Buổi học" để xem chi tiết buổi học.
  */
 export default function ClassSchedulePage({
   detail,
@@ -22,11 +23,21 @@ export default function ClassSchedulePage({
   createErrorDate = null,
   onEditSchedules,
 }) {
+  const navigate = useNavigate();
   const [weekStart, setWeekStart] = useState(() => toISO(startOfWeek(todayISO())));
-  const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const bumpRefresh = () => setRefreshKey((key) => key + 1);
+
+  // Chọn buổi học (từ chip / danh sách / tạo mới) → chuyển tab "Buổi học"
+  // với buổi đó được chọn sẵn (?sessionId=...) thay vì mở modal chi tiết.
+  const handleSelectSession = (sessionId) => {
+    navigate(
+      sessionId
+        ? `/tutor/classes/${classId}/sessions?sessionId=${encodeURIComponent(sessionId)}`
+        : `/tutor/classes/${classId}/sessions`,
+    );
+  };
 
   return (
     <div className="space-y-5">
@@ -67,8 +78,7 @@ export default function ClassSchedulePage({
         onCreateSession={onCreateSession}
         creatingSessionDate={creatingSessionDate}
         createError={createError}
-        onSelectSession={setSelectedSessionId}
-        selectedSessionId={selectedSessionId}
+        onSelectSession={handleSelectSession}
         sessionDates={detail?.sessionDates || []}
         createErrorDate={createErrorDate}
         onChanged={bumpRefresh}
@@ -77,16 +87,8 @@ export default function ClassSchedulePage({
 
       <SessionListCard
         classId={classId}
-        onSelectSession={setSelectedSessionId}
-        selectedSessionId={selectedSessionId}
+        onSelectSession={handleSelectSession}
         refreshKey={refreshKey}
-      />
-
-      {/* Chi tiết buổi học — modal: chọn buổi từ lưới / danh sách thì mở lên */}
-      <SessionDetailCard
-        sessionId={selectedSessionId}
-        onChanged={bumpRefresh}
-        onClose={() => setSelectedSessionId(null)}
       />
     </div>
   );

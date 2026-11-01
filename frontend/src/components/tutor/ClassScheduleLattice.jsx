@@ -80,7 +80,6 @@ export default function ClassScheduleLattice({
   creatingSessionDate = null,
   createError = "",
   onSelectSession,
-  selectedSessionId = null,
   onChanged,
   refreshKey = 0,
   sessionDates = [],
@@ -178,7 +177,8 @@ export default function ClassScheduleLattice({
     setModalError("");
   };
 
-  // Tạo buổi học on-demand từ modal cell + tự chọn buổi mới để mở chi tiết.
+  // Tạo buổi học on-demand từ modal cell rồi chuyển thẳng sang trang chi tiết
+  // buổi học (tab "Buổi học") với buổi vừa tạo được chọn sẵn.
   const handleCreateFromModal = async () => {
     if (!detail || creatingFromModal) return;
     setCreatingFromModal(true);
@@ -260,25 +260,29 @@ export default function ClassScheduleLattice({
     return "slate"; // OCCURRENCE — ca cố định chưa có buổi thật
   };
 
+  /** Bấm chip có buổi học thật → chuyển sang trang chi tiết buổi học (callback bên trên). */
+  const goOpenSession = (occ) => {
+    closeDetail();
+    onSelectSession?.(occ.session?.sessionId ?? null);
+  };
+
   /**
-   * Chip sự kiện đồng nhất: chỉ hiện khung giờ, bấm → mở modal thao tác.
-   * Không hover-mở rộng, không kebab — mọi hành động gom trong modal.
+   * Chip sự kiện đồng nhất: chỉ hiện khung giờ.
+   * - Buổi học / buổi dạy thử (đã có bài giảng): bấm thẳng → trang chi tiết buổi học.
+   * - Ca cố định / ngoại lệ: bấm → mở modal thao tác (tạo / dời / hủy).
    */
   const renderDayChip = (occ) => {
-    const session = occ.session || {};
-    const isSelected =
-      selectedSessionId != null && session.sessionId != null && session.sessionId === selectedSessionId;
+    const hasRealSession =
+      occ.source === "SESSION" || occ.source === "TRIAL_SESSION";
     const tone = chipToneFor(occ);
     return (
       <button
         key={occ.occurrenceKey}
         type="button"
-        onClick={() => openDetail(occ)}
-        aria-current={isSelected || undefined}
+        onClick={() => (hasRealSession ? goOpenSession(occ) : openDetail(occ))}
         className={clsx(
           "block w-full cursor-pointer rounded-lg border border-l-4 px-2 py-1.5 text-left transition-all active:scale-[0.99]",
           TONE_SURFACE[tone],
-          isSelected && "ring-2 ring-blue-500/60",
         )}
       >
         <p className="font-mono text-[11px] font-semibold">
@@ -298,17 +302,6 @@ export default function ClassScheduleLattice({
     }
     return "Ca cố định";
   };
-
-  // Ngày chứa buổi học đang được chọn (highlight ô khi chọn từ danh sách).
-  const selectedDate = useMemo(() => {
-    if (selectedSessionId == null) return null;
-    for (const [date, occurrences] of occurrencesByDate.entries()) {
-      if (occurrences.some((occ) => occ.session?.sessionId === selectedSessionId)) {
-        return date;
-      }
-    }
-    return null;
-  }, [selectedSessionId, occurrencesByDate]);
 
   return (
     <Card className="border-slate-200/80 dark:border-slate-800">
@@ -399,9 +392,7 @@ export default function ClassScheduleLattice({
                   "flex flex-col rounded-xl border p-2",
                   day.isToday
                     ? "border-blue-300 bg-blue-50/50 dark:border-blue-800/60 dark:bg-blue-950/20"
-                    : selectedDate === day.iso
-                      ? "border-blue-400 bg-blue-50/30 dark:border-blue-700 dark:bg-blue-950/15"
-                      : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/40",
+                    : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/40",
                 )}
               >
                 {/* Header ngày: vòng tròn số kiểu Google Calendar */}
@@ -679,20 +670,6 @@ export default function ClassScheduleLattice({
                     </Button>
                   )}
                 </div>
-              )}
-              {(detail.source === "SESSION" || detail.source === "TRIAL_SESSION") && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  type="button"
-                  onClick={() => {
-                    onSelectSession?.(detail.session?.sessionId);
-                    closeDetail();
-                  }}
-                  className="w-full cursor-pointer justify-center text-xs font-bold"
-                >
-                  Mở chi tiết buổi học
-                </Button>
               )}
             </div>
           </div>

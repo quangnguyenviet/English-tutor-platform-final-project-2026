@@ -19,7 +19,6 @@ import {
 export default function SessionListCard({
   classId,
   onSelectSession,
-  selectedSessionId,
   refreshKey = 0,
 }) {
   const { token } = useAuth();
@@ -99,12 +98,7 @@ export default function SessionListCard({
                 <button
                   type="button"
                   onClick={() => onSelectSession?.(session.sessionId)}
-                  className={clsx(
-                    "flex w-full cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border p-3 text-left transition-all",
-                    selectedSessionId === session.sessionId
-                      ? "border-blue-300 bg-blue-50/70 dark:border-blue-800 dark:bg-blue-950/30"
-                      : "border-slate-200 bg-white hover:border-blue-200 dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-blue-900",
-                  )}
+                  className="flex w-full cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-slate-200 bg-white p-3 text-left transition-all hover:border-blue-200 dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-blue-900"
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 font-mono text-xs font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
                     {session.sessionNumber}
