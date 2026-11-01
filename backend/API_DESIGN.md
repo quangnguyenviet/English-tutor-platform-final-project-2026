@@ -356,7 +356,7 @@ Công thức `payments.amount`: `fee_percentage × số_dòng_class_schedules ×
 
 `PaymentService.createForClass(classId)` (gọi trong cùng transaction chốt lịch, T7-B3): tạo khoản `NOT_SUBMITTED`, `TUTOR`, tỷ lệ mặc định 40% (`app.payment.default-fee-percentage`), idempotent theo lớp. Khoảng chỉnh tỷ lệ cấu hình ở `app.payment.min/max-fee-percentage` (0–50). ADMIN gọi được mọi endpoint của mục này.
 
-Khi phí `APPROVED` → mở khóa thông tin liên hệ phụ huynh cho gia sư (cờ `contactUnlocked` trong `GET /api/v1/classes/{id}`).
+Khi ghép lớp thành công (`class_requests` chuyển `MATCHED`) → gia sư xem được SĐT phụ huynh (các API trả về `parentPhone` đầy đủ, không che theo trạng thái phí). Khi phí `APPROVED` → kế toán ghi audit log + thông báo; không có cờ `contactUnlocked`.
 
 ### 3.9. Khiếu nại & Hoàn tiền (module `complaint`)
 

@@ -94,7 +94,7 @@ Một ứng dụng Spring Boot, chia thành các gói theo nghiệp vụ dưới
 | `classroom` | Lớp học (TRIAL/ACTIVE), lịch dạy thử, lịch cố định, kiểm tra trùng ca, buổi học, tài liệu, nhật ký | FR-09 đến FR-12, FR-19 đến FR-21 |
 | `quiz` | Quiz, câu hỏi, câu trả lời, chuyển trạng thái draft/assigned, gọi AI Service, import | FR-13, FR-14, FR-22 |
 | `personalization` | Elo, hồ sơ kỹ năng, danh sách ôn tập | FR-22 |
-| `finance` | Khoản phí nhận lớp (tạo khi chốt lịch, chỉnh tỷ lệ), minh chứng và thu hộ, kế toán xác nhận hoặc yêu cầu gửi lại, mở khóa liên hệ; yêu cầu hoàn tiền; thống kê và xuất Excel; dashboard kế toán | FR-15, FR-33, FR-40 đến FR-44 |
+| `finance` | Khoản phí nhận lớp (tạo khi ghép thành công, chỉnh tỷ lệ), minh chứng và thu hộ, kế toán xác nhận hoặc yêu cầu gửi lại; yêu cầu hoàn tiền; thống kê và xuất Excel; dashboard kế toán | FR-15, FR-33, FR-40 đến FR-44 |
 | `complaint` | Khiếu nại: tạo, xem và sửa, giải quyết; tạo yêu cầu hoàn tiền qua service của `finance` | FR-35 đến FR-37 |
 | `staff` | Quản lý học sinh, nhân sự (lễ tân, kế toán), dashboard lễ tân | FR-24, FR-34, FR-38, FR-39 |
 | `common` | Audit log, thông báo, lưu tệp, xử lý lỗi, tiện ích bảo mật | FR-23 và hỗ trợ các gói khác |
@@ -130,7 +130,7 @@ Không cho phép vòng phụ thuộc. `common` không phụ thuộc gói nào kh
 
 ### AD-1. Modular Monolith cho Backend
 - **Quy tắc:** một ứng dụng Spring Boot, chia gói theo mục 3. Gọi chéo gói qua service interface bên trong giao dịch `@Transactional`; cấm gọi repository của gói khác.
-- **Lý do:** nhóm 3 người, 5 tuần còn lại. Các nghiệp vụ cần giao dịch chung (duyệt phí rồi mở khóa liên hệ, chọn gia sư rồi tạo đơn và lớp) nên tách dịch vụ sẽ thêm rủi ro mà không có lợi.
+- **Lý do:** nhóm 3 người, 5 tuần còn lại. Các nghiệp vụ cần giao dịch chung (chọn gia sư rồi tạo đơn và lớp, duyệt phí ghi audit + thông báo) nên tách dịch vụ sẽ thêm rủi ro mà không có lợi.
 
 ### AD-2. AI Service stateless, Backend là cổng duy nhất
 - **Quy tắc:** AI Service không có bảng dữ liệu riêng và không gọi ngược Backend. Backend gửi vào: yêu cầu của gia sư, nội dung tài liệu đã trích, hồ sơ kỹ năng đã **ẩn danh**; nhận về: danh sách câu hỏi theo schema (AD-4).
@@ -175,10 +175,10 @@ Không cho phép vòng phụ thuộc. `common` không phụ thuộc gói nào kh
 - Kiểm định lỗi theo từng câu, ví dụ "thiếu đáp án đúng tại câu 2". Câu hỏi hợp lệ được lưu ở `draft`; gia sư sửa rồi `assigned` kèm hạn nộp.
 - Khi lưu, `skill` được ánh xạ về bảng `skills`; `cefr` quy ra độ khó Elo qua bảng quy đổi ở cấu hình (QĐ-2 trong PRD).
 
-### AD-5. Phí nhận lớp, kế toán xác nhận và mở khóa liên hệ trong một giao dịch
-- **Quy tắc:** thông tin liên hệ phụ huynh trả cho gia sư luôn bị che cho đến khi trung tâm chọn gia sư (QT-3); phần mở khóa gắn với phí được kế toán xác nhận (QT-4).
+### AD-5. Phí nhận lớp và kế toán xác nhận trong một giao dịch
+- **Quy tắc:** thông tin liên hệ phụ huynh mở cho gia sư **ngay khi ghép lớp thành công** (`class_requests` chuyển `MATCHED`, QT-3/QT-4); việc xác nhận phí không gắn với việc mở khóa liên hệ.
 - Trạng thái phí: `NOT_SUBMITTED` → `SUBMITTED` (gia sư nộp hoặc lễ tân thu hộ) → `APPROVED` (kế toán xác nhận). Yêu cầu gửi lại chuyển `RESUBMIT_REQUIRED` kèm lý do, nộp lại thì về `SUBMITTED`.
-- Xác nhận phí là **một giao dịch** gồm: kiểm tra `reviewed_by != uploaded_by`, kiểm tra `received_amount >= amount`, đổi trạng thái, lưu số tiền thực nhận, mở khóa liên hệ, ghi audit log, tạo thông báo.
+- Xác nhận phí là **một giao dịch** gồm: kiểm tra `reviewed_by != uploaded_by`, kiểm tra `received_amount >= amount`, đổi trạng thái, lưu số tiền thực nhận, ghi audit log, tạo thông báo.
 - Khoản phí tạo khi lớp chuyển `ACTIVE` (sự kiện `ClassActivatedEvent`, mục 3). `fee_percentage` mặc định 40, Lễ tân hoặc Admin chỉnh trong khoảng **0 đến 50** khi còn `NOT_SUBMITTED` (kế toán không được chỉnh). `amount = fee_percentage / 100 × số ca mỗi tuần × 4 × price_per_session`, làm tròn đến nghìn đồng.
 - Lớp online do phụ huynh đóng trước dùng cùng công thức và cùng thời điểm tạo; lớp tại nhà thì gia sư nộp khi tròn 30 ngày dạy chính thức.
 
@@ -321,7 +321,7 @@ sequenceDiagram
     alt Đủ tiền
         K->>B: POST /finance/payments/{id}/approve (received_amount)
         B->>B: Kiểm tra người xác nhận khác người tải, received_amount >= amount
-        B->>B: Một giao dịch: APPROVED, mở khóa liên hệ, audit log, thông báo
+        B->>B: Một giao dịch: APPROVED, audit log, thông báo
     else Thiếu tiền hoặc ảnh không hợp lệ
         K->>B: POST /finance/payments/{id}/request-resubmit (lý do)
         B->>B: RESUBMIT_REQUIRED, thông báo người nộp
