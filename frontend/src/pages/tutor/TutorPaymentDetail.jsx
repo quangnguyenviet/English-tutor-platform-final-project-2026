@@ -22,10 +22,9 @@ import PaymentStatusBadge from "../../components/payment/PaymentStatusBadge";
 import ModalShell from "../../components/payment/ModalShell";
 import ProofUploader from "../../components/payment/ProofUploader";
 import ProofPreview from "../../components/payment/ProofPreview";
-import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../hooks/useToast";
 import { apiGetPayment, apiSubmitProof } from "../../lib/paymentApi";
-import { apiGetClassDetail, mapClassDetail, TEACHING_MODE_LABELS, dayOfWeekLabel } from "../../lib/classroomApi";
+import { TEACHING_MODE_LABELS } from "../../lib/classroomApi";
 import {
   METHOD_LABEL,
   PAYMENT_STATUS,
@@ -54,12 +53,10 @@ function statusTone(status) {
 
 export default function TutorPaymentDetail() {
   const { id } = useParams();
-  const { token } = useAuth();
   const toast = useToast();
 
   const [payment, setPayment] = useState(null);
   const [loadError, setLoadError] = useState("");
-  const [classDetail, setClassDetail] = useState(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -75,18 +72,6 @@ export default function TutorPaymentDetail() {
       cancelled = true;
     };
   }, [id]);
-
-  // Ca dạy cố định của lớp (thông tin "Đọc chỉ"), không chặn trang khi lỗi.
-  useEffect(() => {
-    if (!payment || !token) return;
-    let cancelled = false;
-    apiGetClassDetail(token, payment.classId)
-      .then((d) => !cancelled && setClassDetail(mapClassDetail(d)))
-      .catch(() => !cancelled && setClassDetail(null));
-    return () => {
-      cancelled = true;
-    };
-  }, [payment?.classId, token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleUpload(file, onProgress) {
     await apiSubmitProof(payment.id, file, onProgress);
@@ -132,11 +117,7 @@ export default function TutorPaymentDetail() {
     payment.feePercentage !== null && payment.feePercentage !== undefined
       ? `${Number(payment.feePercentage)}%`
       : "—";
-  const scheduleText = classDetail?.hasSchedules
-    ? classDetail.schedules
-        .map((s) => `${dayOfWeekLabel(s.dayOfWeek)} ${s.startTime} – ${s.endTime}`)
-        .join(" · ")
-    : "Chưa có ca dạy cố định";
+  const slotsPerWeek = payment.slotsPerWeek ?? 0;
 
   return (
     <div className="mx-auto min-h-[100dvh] max-w-6xl space-y-6 px-4 py-6 lg:px-8 lg:py-8">
@@ -215,11 +196,11 @@ export default function TutorPaymentDetail() {
                 <CalendarDays size={18} className="text-amber-600 dark:text-amber-400" />
               </span>
               <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Ca dạy cố định</p>
-                <p className="text-slate-900 dark:text-white">{scheduleText}</p>
-                {classDetail?.pricePerSession ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400">Số buổi/tuần</p>
+                <p className="text-slate-900 dark:text-white">{slotsPerWeek} buổi/tuần</p>
+                {payment.pricePerSession ? (
                   <p className="mt-0.5 font-mono text-xs text-slate-500 dark:text-slate-400">
-                    Học phí {formatVnd(classDetail.pricePerSession)}/buổi · {percent} = {formatVnd(payment.amount)}
+                    Học phí {formatVnd(payment.pricePerSession)}/buổi · {percent} = {formatVnd(payment.amount)}
                   </p>
                 ) : null}
               </div>
