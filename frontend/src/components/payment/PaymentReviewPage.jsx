@@ -208,7 +208,7 @@ function ReviewModal({ payment, currentUserId, onClose, onDone }) {
       () => apiApprovePayment(payment.id, received),
       (r) =>
         r?.status === PAYMENT_STATUS.APPROVED
-          ? "Đã xác nhận phí nhận lớp. Gia sư đã được mở thông tin liên hệ phụ huynh."
+          ? "Đã xác nhận phí nhận lớp."
           : "Số tiền thực nhận chưa đủ, đã yêu cầu gia sư nộp lại."
     );
   const resubmit = () =>
