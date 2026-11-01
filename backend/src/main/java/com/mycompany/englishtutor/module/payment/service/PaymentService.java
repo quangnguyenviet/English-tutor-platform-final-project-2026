@@ -106,7 +106,7 @@ public class PaymentService {
         paymentQueryRepository.notifyUser(
                 info.tutorId(),
                 "Khoản phí nhận lớp mới",
-                "Bạn cần nộp phí nhận lớp " + formatVnd(payment.getAmount()) + " để mở thông tin liên hệ phụ huynh.",
+                "Bạn cần nộp phí nhận lớp " + formatVnd(payment.getAmount()) + ".",
                 payment.getId());
 
         log.info("Created payment {} for class {}, amount {}", payment.getId(), classId, payment.getAmount());
@@ -206,7 +206,7 @@ public class PaymentService {
                 .ifPresent(info -> paymentQueryRepository.notifyUser(
                         info.tutorId(),
                         "Khoản phí nhận lớp mới",
-                        "Bạn cần nộp phí nhận lớp " + formatVnd(amount) + " để mở thông tin liên hệ phụ huynh.",
+                        "Bạn cần nộp phí nhận lớp " + formatVnd(amount) + ".",
                         payment.getId()));
         return getDetail(payment.getId(), null);
     }
@@ -230,10 +230,7 @@ public class PaymentService {
     @Transactional(readOnly = true)
     public PageResponse<PaymentResponse> getMyPayments(PaymentStatus tab, int page, int size) {
         Actor actor = currentActor();
-        PageResponse<PaymentResponse> result =
-                paymentQueryRepository.search(null, tab, null, actor.id(), clampPage(page), clampSize(size));
-        result.getItems().forEach(item -> maskForTutor(item, actor));
-        return result;
+        return paymentQueryRepository.search(null, tab, null, actor.id(), clampPage(page), clampSize(size));
     }
 
     @Transactional(readOnly = true)
@@ -344,7 +341,7 @@ public class PaymentService {
         notifyTutor(
                 payment,
                 enough ? "Phí nhận lớp đã được xác nhận" : "Yêu cầu nộp lại biên lai phí nhận lớp",
-                enough ? "Bạn đã có thể xem thông tin liên hệ phụ huynh của lớp." : payment.getRejectReason());
+                enough ? "Kế toán đã xác nhận khoản phí nhận lớp của lớp này." : payment.getRejectReason());
         return getDetail(paymentId, actor);
     }
 
@@ -445,16 +442,7 @@ public class PaymentService {
             response.setProofUrl(storageService.presignedUrl(
                     response.getProofUrl(), Duration.ofSeconds(properties.getProofLinkTtlSeconds())));
         }
-        if (actor != null) {
-            maskForTutor(response, actor);
-        }
         return response;
-    }
-
-    private void maskForTutor(PaymentResponse response, Actor actor) {
-        if (actor.isTutor() && !response.isContactUnlocked()) {
-            response.setParentPhone(null);
-        }
     }
 
     private Payment getPayment(Long paymentId) {
