@@ -31,7 +31,7 @@ public class PaymentResponse {
     String studentName;
     String parentName;
 
-    /** Ẩn với gia sư cho tới khi phí được xác nhận. */
+    /** SĐT phụ huynh — gia sư xem được ngay khi lớp ghép thành công (QT-4), không phụ thuộc trạng thái phí. */
     String parentPhone;
 
     PayerType payerType;
@@ -49,7 +49,4 @@ public class PaymentResponse {
     Long reviewedBy;
     OffsetDateTime reviewedAt;
     OffsetDateTime createdAt;
-
-    /** Phí đã {@code APPROVED} thì gia sư được xem thông tin liên hệ phụ huynh. */
-    boolean contactUnlocked;
 }

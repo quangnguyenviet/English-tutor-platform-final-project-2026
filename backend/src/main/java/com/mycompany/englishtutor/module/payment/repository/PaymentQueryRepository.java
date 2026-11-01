@@ -206,7 +206,6 @@ public class PaymentQueryRepository {
                 .reviewedBy(rs.getObject("reviewed_by", Long.class))
                 .reviewedAt(rs.getObject("reviewed_at", OffsetDateTime.class))
                 .createdAt(rs.getObject("created_at", OffsetDateTime.class))
-                .contactUnlocked(status == PaymentStatus.APPROVED)
                 .build();
     }
 }

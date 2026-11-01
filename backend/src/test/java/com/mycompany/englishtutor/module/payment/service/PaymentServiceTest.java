@@ -495,12 +495,54 @@ class PaymentServiceTest {
     }
 
     @Test
-    void submitProof_whenAlreadySubmittedIsConflict() {
+    void submitProof_whenAlreadySubmittedOnlyOwnerTutorMayReplace() {
         payment.setStatus(PaymentStatus.SUBMITTED);
-        loginAs("tutor");
 
+        // Lễ tân / Admin KHÔNG thay được ở SUBMITTED (nộp hộ chỉ được ở NOT_SUBMITTED / RESUBMIT_REQUIRED).
+        loginAs("letan");
         assertError(ErrorCode.PAYMENT_INVALID_STATE,
                 () -> service.submitProof(PAYMENT_ID, file("image/png", 1024), null));
+        loginAs("admin");
+        assertError(ErrorCode.PAYMENT_INVALID_STATE,
+                () -> service.submitProof(PAYMENT_ID, file("image/png", 1024), null));
+    }
+
+    @Test
+    void submitProof_whenAlreadySubmittedOtherTutorIsDenied() {
+        payment.setStatus(PaymentStatus.SUBMITTED);
+        user("tutor2", 11L, "TUTOR");
+        loginAs("tutor2");
+
+        assertError(ErrorCode.PAYMENT_ACCESS_DENIED,
+                () -> service.submitProof(PAYMENT_ID, file("image/png", 1024), null));
+    }
+
+    @Test
+    void submitProof_ownerTutorCanReplaceProofWhilePending() {
+        payment.setStatus(PaymentStatus.SUBMITTED);
+        payment.setProofUrl("http://minio/bucket/payments/proofs/old.png");
+        loginAs("tutor");
+
+        service.submitProof(PAYMENT_ID, file("image/png", 1024), null);
+
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUBMITTED);
+        assertThat(payment.getProofUrl()).isEqualTo("http://minio/bucket/payments/proofs/a.png");
+        // Ảnh cũ bị xoá khỏi storage để tránh file mồ côi.
+        verify(storageService).deleteFile("http://minio/bucket/payments/proofs/old.png");
+        // Thay minh chứng lúc đang Chờ xác nhận dùng action riêng.
+        verify(auditLogService).log(eq(TUTOR_ID), eq("REPLACE_PAYMENT_PROOF"), eq("PAYMENT"), eq(PAYMENT_ID), any(), any());
+    }
+
+    @Test
+    void submitProof_replaceWithoutOldProofDoesNotDelete() {
+        // SUBMITTED nhưng không có ảnh cũ (ví dụ nộp lần đầu chưa lưu url) -> không gọi deleteFile.
+        payment.setStatus(PaymentStatus.RESUBMIT_REQUIRED);
+        loginAs("tutor");
+
+        service.submitProof(PAYMENT_ID, file("image/png", 1024), null);
+
+        verify(storageService, never()).deleteFile(any());
+        verify(auditLogService).log(eq(TUTOR_ID), eq("SUBMIT_PAYMENT_PROOF"), eq("PAYMENT"), eq(PAYMENT_ID), any(), any());
     }
 
     @Test

@@ -4,6 +4,7 @@ import {
   PAYMENT_STATUS,
   canConfirmPayment,
   canEditFeeRate,
+  canReplaceProof,
   canSubmitProof,
   countByStatus,
   formatVnd,
@@ -46,6 +47,14 @@ test("canSubmitProof / canEditFeeRate theo trạng thái", () => {
   assert.equal(canSubmitProof({ status: PAYMENT_STATUS.APPROVED }), false);
   assert.equal(canEditFeeRate({ status: PAYMENT_STATUS.NOT_SUBMITTED }), true);
   assert.equal(canEditFeeRate({ status: PAYMENT_STATUS.SUBMITTED }), false);
+});
+
+test("canReplaceProof: chỉ cho thay minh chứng khi đang Chờ xác nhận", () => {
+  assert.equal(canReplaceProof({ status: PAYMENT_STATUS.SUBMITTED }), true);
+  assert.equal(canReplaceProof({ status: PAYMENT_STATUS.NOT_SUBMITTED }), false);
+  assert.equal(canReplaceProof({ status: PAYMENT_STATUS.RESUBMIT_REQUIRED }), false);
+  assert.equal(canReplaceProof({ status: PAYMENT_STATUS.APPROVED }), false);
+  assert.equal(canReplaceProof(null), false);
 });
 
 test("isSameActor: so sánh uploadedBy với người đăng nhập", () => {

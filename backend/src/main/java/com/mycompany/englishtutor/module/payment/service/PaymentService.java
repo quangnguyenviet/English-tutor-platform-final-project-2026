@@ -106,7 +106,7 @@ public class PaymentService {
         paymentQueryRepository.notifyUser(
                 info.tutorId(),
                 "Khoản phí nhận lớp mới",
-                "Bạn cần nộp phí nhận lớp " + formatVnd(payment.getAmount()) + " để mở thông tin liên hệ phụ huynh.",
+                "Bạn cần nộp phí nhận lớp " + formatVnd(payment.getAmount()) + ".",
                 payment.getId());
 
         log.info("Created payment {} for class {}, amount {}", payment.getId(), classId, payment.getAmount());
@@ -206,7 +206,7 @@ public class PaymentService {
                 .ifPresent(info -> paymentQueryRepository.notifyUser(
                         info.tutorId(),
                         "Khoản phí nhận lớp mới",
-                        "Bạn cần nộp phí nhận lớp " + formatVnd(amount) + " để mở thông tin liên hệ phụ huynh.",
+                        "Bạn cần nộp phí nhận lớp " + formatVnd(amount) + ".",
                         payment.getId()));
         return getDetail(payment.getId(), null);
     }
@@ -230,10 +230,7 @@ public class PaymentService {
     @Transactional(readOnly = true)
     public PageResponse<PaymentResponse> getMyPayments(PaymentStatus tab, int page, int size) {
         Actor actor = currentActor();
-        PageResponse<PaymentResponse> result =
-                paymentQueryRepository.search(null, tab, null, actor.id(), clampPage(page), clampSize(size));
-        result.getItems().forEach(item -> maskForTutor(item, actor));
-        return result;
+        return paymentQueryRepository.search(null, tab, null, actor.id(), clampPage(page), clampSize(size));
     }
 
     @Transactional(readOnly = true)
@@ -344,7 +341,7 @@ public class PaymentService {
         notifyTutor(
                 payment,
                 enough ? "Phí nhận lớp đã được xác nhận" : "Yêu cầu nộp lại biên lai phí nhận lớp",
-                enough ? "Bạn đã có thể xem thông tin liên hệ phụ huynh của lớp." : payment.getRejectReason());
+                enough ? "Kế toán đã xác nhận khoản phí nhận lớp của lớp này." : payment.getRejectReason());
         return getDetail(paymentId, actor);
     }
 
@@ -383,13 +380,19 @@ public class PaymentService {
         if (actor.isTutor()) {
             assertOwnedByTutor(payment, actor);
         }
-        if (payment.getStatus() != PaymentStatus.NOT_SUBMITTED
-                && payment.getStatus() != PaymentStatus.RESUBMIT_REQUIRED) {
+        // Gia sư sở hữu lớp được phép thay minh chứng ngay khi đang "Chờ xác nhận" (SUBMITTED)
+        // để không phải chờ kế toán yêu cầu gửi lại. Lễ tân/Admin không thay được ở SUBMITTED.
+        PaymentStatus currentStatus = payment.getStatus();
+        boolean tutorReplaceWhilePending = currentStatus == PaymentStatus.SUBMITTED && actor.isTutor();
+        if (currentStatus != PaymentStatus.NOT_SUBMITTED
+                && currentStatus != PaymentStatus.RESUBMIT_REQUIRED
+                && !tutorReplaceWhilePending) {
             throw new AppException(ErrorCode.PAYMENT_INVALID_STATE);
         }
         validateProofFile(file);
 
-        PaymentStatus oldStatus = payment.getStatus();
+        PaymentStatus oldStatus = currentStatus;
+        String oldProofUrl = payment.getProofUrl();
         String proofUrl = storageService.uploadFile(PROOF_FOLDER, file);
 
         payment.setProofUrl(proofUrl);
@@ -404,6 +407,19 @@ public class PaymentService {
         payment.setReviewedAt(null);
         paymentRepository.saveAndFlush(payment);
 
+        // Xoá minh chứng cũ khỏi storage (best-effort): thay ảnh không để lại file mồ côi.
+        if (oldProofUrl != null && !oldProofUrl.equals(proofUrl)) {
+            try {
+                storageService.deleteFile(oldProofUrl);
+            } catch (Exception e) {
+                log.warn("Không xoá được minh chứng cũ {} của khoản phí #{}: {}", oldProofUrl, paymentId, e.getMessage());
+            }
+        }
+
+        // Thay minh chứng lúc đang Chờ xác nhận (SUBMITTED) dùng action riêng để phân biệt với nộp lần đầu / nộp lại.
+        String effectiveAuditAction = oldStatus == PaymentStatus.SUBMITTED
+                ? "REPLACE_PAYMENT_PROOF"
+                : auditAction;
         Map<String, Object> details = new HashMap<>();
         details.put("oldStatus", oldStatus);
         details.put("newStatus", payment.getStatus());
@@ -411,7 +427,7 @@ public class PaymentService {
         if (!actor.isTutor()) {
             details.put("onBehalfOf", payment.getPayerType());
         }
-        audit(actor, auditAction, paymentId, details);
+        audit(actor, effectiveAuditAction, paymentId, details);
 
         paymentQueryRepository.notifyRole(
                 UserRole.ACCOUNTANT.name(),
@@ -445,16 +461,7 @@ public class PaymentService {
             response.setProofUrl(storageService.presignedUrl(
                     response.getProofUrl(), Duration.ofSeconds(properties.getProofLinkTtlSeconds())));
         }
-        if (actor != null) {
-            maskForTutor(response, actor);
-        }
         return response;
-    }
-
-    private void maskForTutor(PaymentResponse response, Actor actor) {
-        if (actor.isTutor() && !response.isContactUnlocked()) {
-            response.setParentPhone(null);
-        }
     }
 
     private Payment getPayment(Long paymentId) {

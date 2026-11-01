@@ -81,7 +81,7 @@ Dạy kèm tiếng Anh 1-1 đang phổ biến, nhưng một trung tâm gia sư n
 
 - **Dashboard**: khoản phí chờ xác nhận, yêu cầu hoàn tiền chờ xử lý, tiền thu và tiền hoàn trong tháng, công nợ, biểu đồ thu - hoàn 6 tháng.
 - **Quản lý khoản phí nhận lớp**: hệ thống tự tạo khoản phí khi gia sư chốt lịch cố định (tỷ lệ mặc định 40%); kế toán xem theo trạng thái, chỉnh tỷ lệ trong khoảng 35 - 40% khi khoản phí chưa có minh chứng.
-- **Xác nhận khoản phí đã nhận**: đối chiếu ảnh biên lai hoặc phiếu thu với sao kê ngân hàng, nhập số tiền thực nhận; đủ tiền thì xác nhận (mở khóa liên hệ cho gia sư), thiếu hoặc chưa thấy tiền thì yêu cầu gửi lại kèm lý do.
+- **Xác nhận khoản phí đã nhận**: đối chiếu ảnh biên lai hoặc phiếu thu với sao kê ngân hàng, nhập số tiền thực nhận; đủ tiền thì xác nhận (ghi audit log + thông báo người nộp), thiếu hoặc chưa thấy tiền thì yêu cầu gửi lại kèm lý do. Việc gia sư xem SĐT phụ huynh diễn ra khi ghép lớp thành công, không gắn với bước xác nhận phí.
 - **Xử lý hoàn tiền**: nhận yêu cầu từ lễ tân, chốt số tiền hoàn (không vượt số tiền đã thu), chuyển khoản, tải biên lai; hoặc từ chối kèm lý do để lễ tân xử lý lại.
 - **Thống kê tài chính**: tiền thu, tiền hoàn, doanh thu thuần, công nợ theo tháng, quý, năm; chia theo gia sư, người nộp, hình thức dạy; xuất Excel.
 

@@ -222,7 +222,7 @@ Admin có toàn bộ FR-24 đến FR-37 của Lễ tân và FR-40 đến FR-44 c
 | --- | --- | --- | --- |
 | FR-40 | Dashboard kế toán: lời chào kèm mã nhân viên, thẻ chỉ số (khoản phí chờ xác nhận, yêu cầu hoàn tiền chờ xử lý, tiền thu và tiền hoàn trong tháng, công nợ), biểu đồ thu - hoàn 6 tháng, lối tắt. Khối nào lỗi thì báo riêng | UC-ACC-01 | S |
 | FR-41 | Quản lý khoản phí nhận lớp: 4 tab (Chưa nộp minh chứng, Chờ xác nhận, Đã xác nhận, Yêu cầu gửi lại), tìm kiếm và lọc theo người nộp, tháng; xem chi tiết kèm cách tính phí; Lễ tân hoặc Admin chỉnh tỷ lệ phí (mặc định 40%, trong khoảng 0 - 50%) khi khoản phí chưa có minh chứng, số tiền tính lại, thông báo người nộp, ghi audit log | UC-REC-10, UC-ACC-02 | S |
-| FR-42 | Xác nhận khoản phí đã nhận: xem ảnh biên lai hoặc phiếu thu, nhập số tiền thực nhận. Đủ tiền thì "Đã xác nhận", mở khóa liên hệ, thông báo, ghi audit log; thiếu tiền thì không cho xác nhận. **Yêu cầu gửi lại** bắt buộc nhập lý do, thông báo người nộp hoặc lễ tân đã thu hộ. Người tải minh chứng không được tự xác nhận | UC-ACC-03 | M |
+| FR-42 | Xác nhận khoản phí đã nhận: xem ảnh biên lai hoặc phiếu thu, nhập số tiền thực nhận. Đủ tiền thì "Đã xác nhận", thông báo, ghi audit log; thiếu tiền thì không cho xác nhận. **Yêu cầu gửi lại** bắt buộc nhập lý do, thông báo người nộp hoặc lễ tân đã thu hộ. Người tải minh chứng không được tự xác nhận. (Việc mở liên hệ phụ huynh cho gia sư diễn ra khi ghép lớp thành công, không gắn với bước xác nhận phí — QT-4) | UC-ACC-03 | M |
 | FR-43 | Xử lý yêu cầu hoàn tiền: 3 tab (Chờ xử lý, Đã hoàn tiền, Đã từ chối); xem khiếu nại, khoản bị hoàn (thực nhận, đã hoàn, còn lại), tài khoản nhận; nhập số tiền hoàn (không vượt số còn lại), tải biên lai (bắt buộc) rồi xác nhận: khiếu nại tự "Đã xử lý". **Từ chối** bắt buộc nhập lý do, khiếu nại về "Chờ xử lý". Người tạo yêu cầu không được tự xử lý | UC-ACC-04 | M |
 | FR-44 | Thống kê tài chính: lọc theo tháng, quý, năm hoặc khoảng ngày, người nộp, hình thức dạy; thẻ tổng hợp (tiền thu, tiền hoàn, doanh thu thuần, số khoản đã xác nhận, công nợ), biểu đồ theo tháng, bảng theo gia sư, danh sách giao dịch có phân trang; xuất Excel theo bộ lọc, ghi audit log. Không có dữ liệu thì khóa nút xuất | UC-ACC-05 | M |
 
@@ -231,7 +231,7 @@ Admin có toàn bộ FR-24 đến FR-37 của Lễ tân và FR-40 đến FR-44 c
 - **QT-1.** Mọi thao tác thay đổi dữ liệu của lễ tân, kế toán và admin đều có hộp thoại xác nhận trước khi thực hiện; hủy thì quay về màn hình trước, không đổi gì.
 - **QT-2.** Hủy lớp hoặc hủy đơn luôn bắt buộc nhập lý do và thông báo cho bên liên quan.
 - **QT-3.** Thông tin liên hệ của phụ huynh chỉ mở cho gia sư sau khi trung tâm chọn gia sư. Thông tin phụ huynh và học sinh trong lớp cần gia sư đã đăng thì ẩn.
-- **QT-4.** Phí nhận lớp mặc định **40% học phí tháng đầu** của lớp, Lễ tân hoặc Admin chỉnh được trong 0 - 50%. Phí được kế toán xác nhận thì mở khóa liên hệ.
+- **QT-4.** Gia sư xem được thông tin liên hệ phụ huynh **ngay khi ghép lớp thành công** (`class_requests` chuyển `MATCHED`); không phụ thuộc trạng thái phí. Phí nhận lớp (mặc định **40% học phí tháng đầu**, Lễ tân hoặc Admin chỉnh được trong 0 - 50%) thu về sau, Kế toán xác nhận minh chứng — không ảnh hưởng việc hiển thị liên hệ.
 - **QT-5.** Bản ghi buổi học chỉ tạo khi gia sư chủ động khởi tạo, không sinh tự động từ lịch cố định.
 - **QT-6.** Một gia sư không được có hai ca trùng giờ: kiểm tra khi đặt lịch dạy thử và khi chốt lịch cố định.
 - **QT-7.** Quiz chỉ mở cho học sinh khi ở trạng thái `assigned` và còn hạn. Mỗi câu chỉ chọn một lần.

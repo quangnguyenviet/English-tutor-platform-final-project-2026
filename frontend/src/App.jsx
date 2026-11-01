@@ -16,6 +16,7 @@ import MatchRequests from "./pages/admin/MatchRequests";
 import ClassRequestManagement from "./pages/admin/ClassRequests";
 import AccountantPayments from "./pages/accountant/AccountantPayments";
 import TutorPayments from "./pages/tutor/TutorPayments";
+import TutorPaymentDetail from "./pages/tutor/TutorPaymentDetail";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminLogs from "./pages/admin/AdminLogs";
 import AdminNotifications from "./pages/admin/AdminNotifications";
@@ -193,6 +194,7 @@ export default function App() {
             <Route index element={<TutorDashboard />} />
             <Route path="schedule" element={<TutorSchedule />} />
             <Route path="payments" element={<TutorPayments />} />
+            <Route path="payments/:id" element={<TutorPaymentDetail />} />
             <Route path="lessons" element={<TutorLessonSessions />} />
             <Route path="exercise-generator" element={<ExerciseGenerator />} />
             <Route path="available-classes" element={<AvailableClasses />} />
