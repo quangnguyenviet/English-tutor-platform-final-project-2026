@@ -12,9 +12,11 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 /**
- * Một ô (lần diễn) trong lattice tuần (mục 4.1). Ưu tiên render:
+ * Một ô (lần diễn) trong lattice tuần (mục 4.1). Ưu tiên render theo ca cố định:
  * SESSION &gt; EXCEPTION &gt; OCCURRENCE — đúng 1 trong {@code session} /
- * {@code exception} khác null tùy {@code source}.
+ * {@code exception} khác null tùy {@code source}. Ô độc lập của buổi dạy thử
+ * (chưa có ca cố định) có {@code source = TRIAL_SESSION}, {@code scheduleId}
+ * null và {@code session.isTrial = true}.
  */
 @Data
 @Builder
@@ -35,7 +37,7 @@ public class OccurrenceResponse {
     @Schema(description = "1 = Thứ 2 ... 7 = Chủ nhật", example = "5")
     Integer dayOfWeek;
 
-    @Schema(description = "Nguồn dữ liệu của ô: SESSION | EXCEPTION | OCCURRENCE")
+    @Schema(description = "Nguồn dữ liệu của ô: SESSION | EXCEPTION | OCCURRENCE | TRIAL_SESSION (ô độc lập, không scheduleId)")
     String source;
 
     @Schema(description = "Giờ ca (đích khi exception RESCHEDULED) theo ca gốc", example = "19:30")

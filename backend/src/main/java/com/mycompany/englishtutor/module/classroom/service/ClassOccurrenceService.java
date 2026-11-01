@@ -107,7 +107,9 @@ public class ClassOccurrenceService {
     /**
      * Lattice tuần (mục 4.1): 7 ngày {@code [weekStart, weekStart+6)} (tuần chuẩn
      * mở thứ 2), mỗi (ca, ngày trong khoảng hiệu lực) = 1 ô; ưu tiên
-     * SESSION &gt; EXCEPTION &gt; OCCURRENCE (mục 0).
+     * SESSION &gt; EXCEPTION &gt; OCCURRENCE (mục 0). Buổi dạy thử (is_trial = TRUE)
+     * là ô độc lập nguồn TRIAL_SESSION — chỉ hiện khi chưa có ca cố định nào khớp
+     * cùng (thứ + giờ bắt đầu + hiệu lực), tránh trùng đè lên ô ca.
      */
     @Transactional(readOnly = true)
     public ClassScheduleResponse listOccurrences(Long classId, LocalDate weekStart) {
@@ -175,6 +177,34 @@ public class ClassOccurrenceService {
                 occurrences.add(builder.build());
             }
         }
+
+        // Buổi dạy thử: ô độc lập (không gắn ca), chỉ hiện khi chưa có ca cố định
+        // nào che cùng (thứ + giờ bắt đầu) trong khoảng hiệu lực.
+        for (OccurrenceSessionRow trial : classroomRepository.findWeekTrialSessions(classId, start)) {
+            int dayOfWeek = trial.sessionDate().getDayOfWeek().getValue();
+            boolean coveredByCa = slots.stream()
+                    .anyMatch(s -> s.dayOfWeek() == dayOfWeek
+                            && s.startTime().equals(trial.startTime())
+                            && inValidity(s, trial.sessionDate()));
+            if (coveredByCa) {
+                continue;
+            }
+            occurrences.add(OccurrenceResponse.builder()
+                    .occurrenceKey("trial_" + trial.sessionId() + "_" + trial.sessionDate())
+                    .date(trial.sessionDate())
+                    .dayOfWeek(dayOfWeek)
+                    .startTime(trial.startTime())
+                    .endTime(trial.endTime())
+                    .source("TRIAL_SESSION")
+                    .session(SessionMini.builder()
+                            .sessionId(trial.sessionId())
+                            .title(trial.title())
+                            .hasLog(trial.hasLog())
+                            .isTrial(true)
+                            .build())
+                    .build());
+        }
+
         return ClassScheduleResponse.builder()
                 .weekStart(start)
                 .occurrences(occurrences)

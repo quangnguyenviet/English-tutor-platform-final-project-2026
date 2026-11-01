@@ -8,12 +8,13 @@ import {
   apiGetClassSessions,
   mapSessionListItem,
   relativeDayLabel,
+  todayISO,
 } from "../../lib/classroomApi";
 
 /**
  * Danh sách buổi học thật của lớp (kế hoạch class-sessions Card 2) — API thật.
  * Số thứ tự = sessionNumber (ROW_NUMBER) của backend nên không nhảy.
- * (Mục -1: bỏ lọc + nhãn trạng thái buổi học.)
+ * Chỉ hiển thị buổi học sắp tới (từ hôm nay trở đi).
  */
 export default function SessionListCard({
   classId,
@@ -36,7 +37,13 @@ export default function SessionListCard({
     setError("");
     apiGetClassSessions(token, classId, { order: "asc" })
       .then((items) => {
-        if (isMounted) setSessions((items || []).map(mapSessionListItem));
+        if (!isMounted) return;
+        // Chỉ giữ buổi học sắp tới: session_date >= hôm nay (so chuỗi ISO an toàn).
+        const today = todayISO();
+        const upcoming = (items || []).filter(
+          (item) => item.sessionDate && String(item.sessionDate) >= today,
+        );
+        setSessions(upcoming.map(mapSessionListItem));
       })
       .catch((err) => {
         if (isMounted) {

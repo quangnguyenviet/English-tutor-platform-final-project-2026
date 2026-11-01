@@ -8,7 +8,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
-/** Trích yếu buổi học thật gắn với 1 ô lattice (mục 4.1 — source = SESSION). */
+/**
+ * Trích yếu buổi học thật gắn với 1 ô lattice (mục 4.1 — source = SESSION /
+ * TRIAL_SESSION). {@code isTrial} = true khi chip là buổi dạy thử độc lập.
+ */
 @Data
 @Builder
 @NoArgsConstructor
@@ -24,4 +27,7 @@ public class SessionMini {
 
     @Schema(description = "Tiêu đề buổi học")
     String title;
+
+    @Schema(description = "Buổi dạy thử (ô độc lập, chưa có ca cố định)")
+    Boolean isTrial;
 }

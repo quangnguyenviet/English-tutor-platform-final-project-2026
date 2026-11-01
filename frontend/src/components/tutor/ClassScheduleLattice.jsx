@@ -263,6 +263,32 @@ export default function ClassScheduleLattice({
       );
     }
 
+    if (occ.source === "TRIAL_SESSION") {
+      // Ô độc lập của buổi dạy thử (chưa có ca cố định khớp) — tone rose
+      // đồng bộ badge "Buổi dạy thử" trong card danh sách; bấm mở chi tiết buổi.
+      const session = occ.session || {};
+      const isSelected = selectedSessionId != null && session.sessionId === selectedSessionId;
+      const surface = TONE_SURFACE.rose;
+      return (
+        <button
+          key={occ.occurrenceKey}
+          type="button"
+          onClick={() => onSelectSession?.(session.sessionId)}
+          aria-current={isSelected || undefined}
+          className={clsx(
+            "block w-full cursor-pointer rounded-lg border border-l-4 px-2 py-1.5 text-left transition-all hover:brightness-[0.97] active:scale-[0.99] dark:hover:brightness-110",
+            surface,
+            isSelected && "ring-2 ring-blue-500/60",
+          )}
+        >
+          <p className="font-mono text-[11px] font-semibold">
+            {formatSessionTime(occ.startTime)} - {formatSessionTime(occ.endTime)}
+          </p>
+          <p className="mt-0.5 text-[10px] opacity-70">Buổi dạy thử</p>
+        </button>
+      );
+    }
+
     if (occ.source === "EXCEPTION") {
       const exc = occ.exception || {};
       const meta = EXCEPTION_TYPE_META[exc.type] || { label: exc.type, tone: "slate" };

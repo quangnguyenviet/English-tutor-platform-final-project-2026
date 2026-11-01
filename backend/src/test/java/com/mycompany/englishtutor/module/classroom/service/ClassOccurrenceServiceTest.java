@@ -2,6 +2,7 @@ package com.mycompany.englishtutor.module.classroom.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -133,7 +134,13 @@ class ClassOccurrenceServiceTest {
     private OccurrenceSessionRow sessionRow(Long id) {
         return new OccurrenceSessionRow(
                 id, FRI, SLOT_START, SLOT_END, "Buổi học chính thức",
-                "ONLINE", "https://meet.google.com/abc", null, false);
+                "ONLINE", "https://meet.google.com/abc", null, false, false);
+    }
+
+    private OccurrenceSessionRow trialRow(Long id) {
+        return new OccurrenceSessionRow(
+                id, SAT, LocalTime.of(14, 0), LocalTime.of(15, 0), "Buổi dạy thử",
+                "ONLINE", "https://meet.google.com/abc", null, false, true);
     }
 
     private SessionExceptionRow exceptionRow(String type, LocalDate newDate) {
@@ -228,6 +235,50 @@ class ClassOccurrenceServiceTest {
 
         assertEquals("OCCURRENCE", result.getOccurrences().getFirst().getSource());
         assertEquals("3_" + FRI, result.getOccurrences().getFirst().getOccurrenceKey());
+    }
+
+    @Test
+    void listOccurrences_trialSessionWithoutMatchingCa_addsStandaloneTrialCell() {
+        mockOwnedClass();
+        // Ca T5 19:30 + buổi thử T7 14:00 (không trùng thứ + giờ nào của ca).
+        when(classroomRepository.findScheduleSlotsWithIds(CLASS_ID)).thenReturn(List.of(SCHEDULE_ROW));
+        when(classroomRepository.findWeekSessions(CLASS_ID, WEEK_START)).thenReturn(List.of());
+        when(classroomRepository.findWeekExceptions(CLASS_ID, WEEK_START)).thenReturn(List.of());
+        when(classroomRepository.findWeekTrialSessions(CLASS_ID, WEEK_START))
+                .thenReturn(List.of(trialRow(9L)));
+
+        ClassScheduleResponse result = classOccurrenceService.listOccurrences(CLASS_ID, WEEK_START);
+
+        assertEquals(2, result.getOccurrences().size());
+        OccurrenceResponse trial = result.getOccurrences().stream()
+                .filter(o -> "TRIAL_SESSION".equals(o.getSource()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(SAT, trial.getDate());
+        // 2026-11-07 = thứ 7 (ISO value 6).
+        assertEquals(6, trial.getDayOfWeek());
+        assertEquals("trial_9_" + SAT, trial.getOccurrenceKey());
+        assertNull(trial.getScheduleId());
+        assertEquals(9L, trial.getSession().getSessionId());
+        assertTrue(trial.getSession().getIsTrial());
+    }
+
+    @Test
+    void listOccurrences_trialSessionCoveredByCa_isHidden() {
+        mockOwnedClass();
+        // Ca T7 14:00 (ISO 6) cùng giờ buổi thử -> buổi thử bị che, không hiện ô độc lập.
+        ScheduleSlotRow sat = new ScheduleSlotRow(8L, 6, LocalTime.of(14, 0), LocalTime.of(15, 0),
+                WEEK_START, null);
+        when(classroomRepository.findScheduleSlotsWithIds(CLASS_ID)).thenReturn(List.of(sat));
+        when(classroomRepository.findWeekSessions(CLASS_ID, WEEK_START)).thenReturn(List.of());
+        when(classroomRepository.findWeekExceptions(CLASS_ID, WEEK_START)).thenReturn(List.of());
+        when(classroomRepository.findWeekTrialSessions(CLASS_ID, WEEK_START))
+                .thenReturn(List.of(trialRow(9L)));
+
+        ClassScheduleResponse result = classOccurrenceService.listOccurrences(CLASS_ID, WEEK_START);
+
+        assertEquals(List.of("OCCURRENCE"),
+                result.getOccurrences().stream().map(OccurrenceResponse::getSource).toList());
     }
 
     @Test

@@ -99,7 +99,10 @@ public class ClassroomQueryRepository {
             Long createdBy,
             OffsetDateTime createdAt) {}
 
-    /** Buổi học thật (non-trial) thuộc 1 lần diễn của ca — ô "SESSION" trong lattice. */
+    /**
+     * Buổi học thật (non-trial) thuộc 1 lần diễn của ca — ô "SESSION" trong lattice.
+     * {@code trial} chỉ phục vụ chip độc lập (bộ so trùng); lattice SESSION luôn false.
+     */
     public record OccurrenceSessionRow(
             Long sessionId,
             LocalDate sessionDate,
@@ -109,7 +112,8 @@ public class ClassroomQueryRepository {
             String teachingMode,
             String meetingUrl,
             String location,
-            boolean hasLog) {}
+            boolean hasLog,
+            boolean trial) {}
 
     /** Chi tiết buổi học (mục 4.5, JOIN tên lớp/học sinh/gia sư + ROW_NUMBER). */
     public record SessionDetailRow(
@@ -565,7 +569,42 @@ public class ClassroomQueryRepository {
                                         rs.getString("teaching_mode"),
                                         rs.getString("meeting_url"),
                                         rs.getString("location"),
-                                        rs.getBoolean("has_log")),
+                                        rs.getBoolean("has_log"),
+                                        false),
+                        classId,
+                        weekStart,
+                        weekStart.plusDays(7))
+                .stream()
+                .toList();
+    }
+
+    /**
+     * Buổi dạy thử trong tuần (chip độc lập trên lattice khi chưa có ca cố định
+     * khớp) — ô "TRIAL_SESSION", không tham gia bộ so trùng ca cố định.
+     */
+    public List<OccurrenceSessionRow> findWeekTrialSessions(Long classId, LocalDate weekStart) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT id, session_date, start_time, end_time, title,
+                               teaching_mode, meeting_url, location,
+                               (log_knowledge IS NOT NULL OR log_homework IS NOT NULL) AS has_log
+                        FROM sessions
+                        WHERE class_id = ? AND is_trial = TRUE
+                          AND session_date >= ? AND session_date < ?
+                        ORDER BY session_date, start_time, id
+                        """,
+                        (ResultSet rs, int rowNum) ->
+                                new OccurrenceSessionRow(
+                                        rs.getLong("id"),
+                                        rs.getObject("session_date", LocalDate.class),
+                                        rs.getObject("start_time", LocalTime.class),
+                                        rs.getObject("end_time", LocalTime.class),
+                                        rs.getString("title"),
+                                        rs.getString("teaching_mode"),
+                                        rs.getString("meeting_url"),
+                                        rs.getString("location"),
+                                        rs.getBoolean("has_log"),
+                                        true),
                         classId,
                         weekStart,
                         weekStart.plusDays(7))
@@ -618,7 +657,8 @@ public class ClassroomQueryRepository {
                                         rs.getString("teaching_mode"),
                                         rs.getString("meeting_url"),
                                         rs.getString("location"),
-                                        rs.getBoolean("has_log")),
+                                        rs.getBoolean("has_log"),
+                                        false),
                         classId,
                         date,
                         startTime)
