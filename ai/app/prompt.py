@@ -42,13 +42,21 @@ Nguyên tắc:
       "correct": "A|B|C|D",
       "explanation": "...",
       "cefr": "A1|A2|B1|B2|C1|C2",
-      "skill": "<skill_code hoặc null>"
+      "skill": "<skill_code hoặc null>",
+      "index": "<số thứ tự câu trong bản nháp hiện tại cần THAY, hoặc null>"
     }}
   ]
 }}
+Quy tắc trường "index" (bắt buộc ở MỌI câu trong "questions"):
+- Bản nháp hiện tại (nếu có) được ĐÁNH SỐ THỨ TỰ 1..N theo đúng thứ tự
+  liệt kê trong ngữ cảnh. Khi gia sư nói "sửa câu số k" (k là con số),
+  ĐÚNG nghĩa là sửa câu thứ k trong danh sách đó → trả câu đã sửa kèm
+  "index": k.
+- Câu MỚI (cộng thêm) để "index": null.
+- Khi gia sư yêu cầu sửa câu hiện có, chỉ trả các câu bị sửa/cộng mới
+  (mỗi câu sửa KẴM "index" đúng số thứ tự gốc), không lặp lại các câu
+  giữ nguyên, kèm note ngắn trong "reply".
 Số lượng câu: theo yêu cầu của gia sư (mặc định 5 nếu không nói rõ).
-Khi gia sư yêu cầu sửa câu hiện có, chỉ trả các câu bị sửa/cộng mới kèm
-note trong "reply", không lặp lại các câu giữ nguyên.
 """
 
 SKILL_CATALOG_NOTE = (
@@ -97,7 +105,16 @@ def build_user_prompt(req: QuizChatRequest) -> str:
         draft = [
             q if isinstance(q, dict) else q.model_dump() for q in req.current_draft
         ]
-        parts.append("Bản nháp câu hỏi hiện tại:\n" + json.dumps(draft, ensure_ascii=False))
+        # Đánh số 1..N theo đúng thứ tự hiển thị để LLM hiểu "sửa câu số k".
+        numbered = []
+        for i, d in enumerate(draft, start=1):
+            item = dict(d)
+            item["__order__"] = i  # chỉ để human/LLM đếm, không dùng trong parse
+            numbered.append(item)
+        parts.append(
+            f"Bản nháp câu hỏi hiện tại ({len(draft)} câu, đánh số 1..{len(draft)}):\n"
+            + json.dumps(numbered, ensure_ascii=False)
+        )
 
     if req.recent_messages:
         msgs = []

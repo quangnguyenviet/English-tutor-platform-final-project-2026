@@ -15,6 +15,8 @@ import com.mycompany.englishtutor.module.quiz.ai.dto.AiRecentMessage;
 import com.mycompany.englishtutor.module.quiz.ai.dto.AiSkillInfo;
 import com.mycompany.englishtutor.module.quiz.api.request.AiChatQuizRequest;
 import com.mycompany.englishtutor.module.quiz.api.request.AiChatQuizRequest.ChatMessage;
+import com.mycompany.englishtutor.module.quiz.api.request.AiChatQuizRequest.PendingQuestion;
+import com.mycompany.englishtutor.module.quiz.api.request.AiChatQuizRequest.PendingQuestion;
 import com.mycompany.englishtutor.module.quiz.api.response.AiChatQuizResponse;
 import com.mycompany.englishtutor.module.quiz.api.response.AiDraftQuestionResponse;
 import com.mycompany.englishtutor.module.quiz.api.response.SkillProfileItemResponse;
@@ -91,6 +93,15 @@ public class AiQuizService {
                                                 s.skillCode(), s.skillName(), s.category()))
                         .toList();
 
+        // "Bản nháp hiện tại" theo ưu tiên: (1) trọn bộ câu đang hiển thị trên
+        // form do FE gửi (pendingQuestions — câu AI sinh chưa save không có ở DB,
+        // phải gửi kèm để LLM hiểu "câu số N"), (2) fallback đọc DB theo quizId
+        // (client cũ chưa gửi pending), (3) rỗng.
+        List<AiDraftQuestion> currentDraft =
+                hasPendingQuestions(request)
+                        ? toDraftFromPending(request.getPendingQuestions())
+                        : currentDraftQuestions(request.getQuizId(), currentUserId);
+
         AiChatPayload payload =
                 AiChatPayload.of(
                         "HS-" + ctx.studentId(),
@@ -98,7 +109,7 @@ public class AiQuizService {
                         ctx.learningGoal(),
                         skillProfile,
                         skillCatalog,
-                        currentDraftQuestions(request.getQuizId(), currentUserId),
+                        currentDraft,
                         toRecentMessages(request.getRecentMessages()),
                         message.trim(),
                         null);
@@ -137,8 +148,53 @@ public class AiQuizService {
                                         q.correctAnswer(),
                                         q.explanation(),
                                         q.cefrLevel(),
-                                        q.skillCode()))
+                                        q.skillCode(),
+                                        null))
                 .toList();
+    }
+
+    /**
+     * Map "trọn bộ câu trên form" (FE gửi kèm) thành draft — không đọc DB vì
+     * câu AI sinh chưa save thì không có ở đâu phía server (AD-2 giữ nguyên:
+     * vẫn chỉ metadata ẩn danh + nội dung câu, không PII). Câu hoàn toàn trống
+     * bị loại; skillCode chưa gắn hợp lệ được giữ (LLM xem tham khảo, không
+     * bảo hiểm DB).
+     */
+    private static boolean hasPendingQuestions(AiChatQuizRequest request) {
+        return request.getPendingQuestions() != null && !request.getPendingQuestions().isEmpty();
+    }
+
+    private List<AiDraftQuestion> toDraftFromPending(List<PendingQuestion> pending) {
+        return pending.stream()
+                .filter(p -> p != null && p.getQuestionText() != null && !p.getQuestionText().isBlank())
+                .map(
+                        p ->
+                                new AiDraftQuestion(
+                                        p.getQuestionText().trim(),
+                                        pendingOptionsOf(p),
+                                        trimToNull(p.getCorrectAnswer()),
+                                        trimToNull(p.getExplanation()),
+                                        trimToNull(p.getCefrLevel()),
+                                        trimToNull(p.getSkillCode()),
+                                        null))
+                .toList();
+    }
+
+    private static java.util.Map<String, String> pendingOptionsOf(PendingQuestion p) {
+        var m = new java.util.LinkedHashMap<String, String>();
+        m.put("A", nvl(p.getOptionA()));
+        m.put("B", nvl(p.getOptionB()));
+        m.put("C", nvl(p.getOptionC()));
+        m.put("D", nvl(p.getOptionD()));
+        return m;
+    }
+
+    private static String trimToNull(String s) {
+        if (s == null) {
+            return null;
+        }
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 
     private java.util.Map<String, String> optionsOf(QuizRepository.QuizQuestionRow q) {
@@ -181,6 +237,7 @@ public class AiQuizService {
                 .explanation(nvl(q.explanation()))
                 .cefrLevel(q.cefr())
                 .skillCode(q.skill())
+                .index(q.index())
                 .build();
     }
 

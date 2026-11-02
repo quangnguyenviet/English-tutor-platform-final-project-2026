@@ -33,7 +33,14 @@ class RecentMessage(BaseModel):
 
 
 class DraftQuestion(BaseModel):
-    """Câu hỏi theo QuizDraftSchema (AD-4) — dùng chung cho chế độ chat và import."""
+    """Câu hỏi theo QuizDraftSchema (AD-4) — dùng chung cho chế độ chat và import.
+
+    ``index`` (tuỳ chọn, chỉ chế độ chat) định vị câu trả về trong "bản nháp hiện
+    tại" mà backend đã đánh số 1..N:
+    - ``index = k`` (1 ≤ k ≤ N) → câu này THAY câu thứ k trong bản nháp (giải nghĩa
+      "sửa câu số k" của gia sư).
+    - ``index = None`` → câu MỚI (cộng thêm, append).
+    """
 
     content: str = Field(description="Nội dung câu hỏi tiếng Anh.")
     options: dict = Field(
@@ -44,6 +51,12 @@ class DraftQuestion(BaseModel):
     cefr: Literal["A1", "A2", "B1", "B2", "C1", "C2"]
     skill: Optional[str] = Field(
         default=None, description="skill_code trong bảng skills, NULL nếu không gắn."
+    )
+    index: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Vị trí (1-based) trong bản nháp hiện tại cần THAY, nếu câu này"
+        " sửa một câu có sẵn; null nếu là câu mới.",
     )
 
 

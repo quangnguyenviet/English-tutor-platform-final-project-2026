@@ -181,6 +181,11 @@ public enum ErrorCode {
             HttpStatus.BAD_GATEWAY),
     AI_CHAT_MESSAGE_REQUIRED(
             1417, "Vui lòng nhập nội dung yêu cầu cho trợ lý AI.", HttpStatus.BAD_REQUEST),
+    AI_CHAT_INPUT_TOO_LONG(
+            1418,
+            "Nội dung câu hỏi trong form quá dài, vượt giới hạn ký tự của trợ lý AI. "
+                    + "Vui lòng rút gọn câu hỏi rồi thử lại.",
+            HttpStatus.BAD_REQUEST),
     // --- Quản lý nhân sự (Lễ tân / Kế toán) - module staff (UC-ADM-11, UC-ADM-12) ---
     PHONE_EXISTED(1300, "Số điện thoại đã được đăng ký trong hệ thống", HttpStatus.BAD_REQUEST),
     EMPLOYEE_NOT_FOUND(1301, "Nhân sự không tồn tại", HttpStatus.NOT_FOUND),

@@ -11,6 +11,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  *
  * <p>Serialisation: JSON snake_case (khớp Pydantic phía AI) qua @JsonProperty;
  * các trường có thể vắng (skill, explanation) để null — @JsonInclude NON_NULL.
+ *
+ * <p>{@code index} (chỉ có nghĩa ở output): số thứ tự 1-based của câu trong
+ * "bản nháp hiện tại" mà câu trả về này THAY thế — cho phép giao diện thay
+ * in-place khi gia sư yêu cầu "sửa câu số k". {@code null} = câu mới (cộng
+ * thêm). Ở input (current_draft) backend luôn để null (vị trí do thứ tự mảng).
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record AiDraftQuestion(
@@ -19,4 +24,5 @@ public record AiDraftQuestion(
         @JsonProperty("correct") String correct,
         @JsonProperty("explanation") String explanation,
         @JsonProperty("cefr") String cefr,
-        @JsonProperty("skill") String skill) {}
+        @JsonProperty("skill") String skill,
+        @JsonProperty("index") Integer index) {}
