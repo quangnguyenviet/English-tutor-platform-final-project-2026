@@ -47,7 +47,7 @@ def quiz_chat(req: QuizChatRequest) -> QuizChatResponse:
     """Một lượt hội thoại soạn/sửa quiz (AD-2, AD-4).
 
     Chỉ backend gọi (mạng nội bộ) — không phải endpoint công khai.
-    Provider: ``openai`` (LLM_API_KEY) hoặc ``mock`` (key trống / LLM_PROVIDER=mock).
+    LLM OpenAI-compatible (LLM_BASE_URL + LLM_API_KEY, bắt buộc cấu hình key).
     Lỗi LLM → 502 để backend map ``AI_SERVICE_UNAVAILABLE``.
     """
     start = time.monotonic()

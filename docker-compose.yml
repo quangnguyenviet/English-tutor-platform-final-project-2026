@@ -87,9 +87,9 @@ services:
     ports:
       - "${AI_PORT:-8000}:8000"
     environment:
-      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
       LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
       LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MONTHLY_BUDGET_USD: ${LLM_MONTHLY_BUDGET_USD:-10}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]

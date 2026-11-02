@@ -13,11 +13,15 @@ Dịch vụ AI hỗ trợ gia sư soạn quiz trắc nghiệm. Dịch vụ **kh�
 
 ## Provider LLM
 
-| `LLM_PROVIDER` | Hành vi |
-| --- | --- |
-| `openai` (mặc định) | Gọi `LLM_MODEL` (gpt-4o-mini) bằng SDK OpenAI. Bắt buộc `LLM_API_KEY`; gọi thất bại → HTTP 502 |
-| `mock` | Không tốn token: chọn 3–5 câu hỏi mẫu từ bộ bank theo kỹ năng có tỷ lệ sai cao nhất + cấp CEFR gợi ý |
-| `openai` nhưng `LLM_API_KEY` trống | Tự chạy chế độ `mock` (hỗ trợ demo end-to-end không cần key thật) |
+Dịch vụ gọi LLM OpenAI-compatible bằng SDK OpenAI: endpoint là `LLM_BASE_URL`
+(mặc định `api.openai.com`), model là `LLM_MODEL`, xác thực bằng `LLM_API_KEY`.
+`LLM_API_KEY` **bắt buộc** — thiếu key → HTTP 502 (backend map
+`AI_SERVICE_UNAVAILABLE`).
+
+Với endpoint OpenAI-compatible (Ollama, LM Studio, OpenRouter, vLLM...): đặt
+`LLM_BASE_URL` (ví dụ `http://host.docker.internal:11434/v1`), `LLM_MODEL`
+theo model của bạn; với Ollama/LM Studio `LLM_API_KEY` có thể là giá trị bất kỳ
+(SDK bắt buộc khác rỗng).
 
 > Giai đoạn này chưa thực hiện cơ chế tính chi phí LLM (budget hằng tháng);
 > `LLM_MONTHLY_BUDGET_USD` vẫn giữ trong `.env.example` cho lát cắt sau.
@@ -52,9 +56,9 @@ Quy tắc kiểm định: đủ 4 phương án A/B/C/D, `correct` thuộc A–D,
 
 | Biến | Mặc định | Ý nghĩa |
 | --- | --- | --- |
-| `LLM_PROVIDER` | `openai` | Nhà cung cấp LLM: `openai` hoặc `mock` (không tốn token, dùng bộ câu hỏi mẫu) |
-| `LLM_MODEL` | `gpt-4o-mini` | Mô hình dùng để sinh quiz |
-| `LLM_API_KEY` | (trống) | Khóa API OpenAI. Để trống (hoặc `LLM_PROVIDER=mock`) thì chạy chế độ mock |
+| `LLM_MODEL` | `gpt-4o-mini` | Mô hình dùng để sinh quiz (theo API của endpoint) |
+| `LLM_API_KEY` | (trống) | Khóa API LLM — **bắt buộc**, thiếu thì endpoint trả 502 |
+| `LLM_BASE_URL` | (trống → `api.openai.com`) | Base URL endpoint OpenAI-compatible (Ollama, LM Studio, OpenRouter, vLLM...) |
 | `LLM_MONTHLY_BUDGET_USD` | `10` | Hạn mức chi phí hằng tháng (dùng ở lát cắt sau) |
 
 ## Công nghệ sử dụng
@@ -99,9 +103,9 @@ Hoặc chạy cùng cả hệ thống bằng `docker compose up --build` ở th�
 ## Endpoints sẵn có
 - `GET /health`: kiểm tra sức khỏe.
 - `GET /docs`: OpenAPI (Swagger UI).
-- `POST /api/v1/ai/quiz/chat`: 1 lượt hội thoại soạn/sửa quiz (mock hoặc OpenAI).
+- `POST /api/v1/ai/quiz/chat`: 1 lượt hội thoại soạn/sửa quiz qua LLM OpenAI-compatible.
 
-### Ví dụ gọi (chế độ mock, không cần key)
+### Ví dụ gọi (cần cấu hình `LLM_API_KEY`)
 ```bash
 curl -X POST http://localhost:8000/api/v1/ai/quiz/chat \
   -H "Content-Type: application/json" \

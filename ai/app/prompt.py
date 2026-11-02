@@ -26,19 +26,19 @@ Nguyên tắc:
 5. Chỉ trả JSON hợp lệ, KHÔNG kèm giải thích văn bản bên ngoài khối JSON.
 
 Định dạng JSON trả về (bắt buộc đúng cấu trúc này):
-{
+{{
   "reply": "<nhận xét ngắn bằng tiếng Việt về bộ câu hỏi vừa soạn/sửa>",
   "questions": [
-    {
+    {{
       "content": "...",
-      "options": {"A": "...", "B": "...", "C": "...", "D": "..."},
+      "options": {{"A": "...", "B": "...", "C": "...", "D": "..."}},
       "correct": "A|B|C|D",
       "explanation": "...",
       "cefr": "A1|A2|B1|B2|C1|C2",
       "skill": "<skill_code hoặc null>"
-    }
+    }}
   ]
-}
+}}
 Số lượng câu: theo yêu cầu của gia sư (mặc định 5 nếu không nói rõ).
 Khi gia sư yêu cầu sửa câu hiện có, chỉ trả các câu bị sửa/cộng mới kèm
 note trong "reply", không lặp lại các câu giữ nguyên.
