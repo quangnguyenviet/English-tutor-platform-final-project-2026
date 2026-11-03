@@ -32,8 +32,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Quiz buổi học cho gia sư — lát cắt nhập THỦ CÔNG (API_DESIGN §3.7, FR-13).
- * Chỉ TUTOR, riêng {@code GET /quizzes/{id}} cho thêm STUDENT (ẩn đáp án câu chưa trả lời);
+ * Quiz cho gia sư — lát cắt nhập THỦ CÔNG (API_DESIGN §3.7, FR-13). V16: quiz
+ * gắn bài giảng (lessons), không gắn buổi học. Chỉ TUTOR, riêng
+ * {@code GET /quizzes/{id}} cho thêm STUDENT (ẩn đáp án câu chưa trả lời);
  * mọi endpoint kiểm tra quyền sở hữu trong service.
  *
  * <p>Chưa có: AI chat / import (T8-B3, T8-C1). Làm quiz học sinh &amp; Elo nằm ở {@code StudentPortalController}.
@@ -48,30 +49,30 @@ public class QuizController {
     private final QuizService quizService;
     private final StudentPortalService studentPortalService;
 
-    @PostMapping("/sessions/{sessionId}/quizzes")
+    @PostMapping("/lessons/{lessonId}/quizzes")
     @Operation(
-            summary = "Tạo quiz bản nháp cho buổi học (danh sách câu hỏi do gia sư nhập)",
+            summary = "Tạo quiz bản nháp cho bài giảng (danh sách câu hỏi do gia sư nhập)",
             security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<QuizDetailResponse>> createQuiz(
-            @PathVariable Long sessionId,
+            @PathVariable Long lessonId,
             @Valid @RequestBody CreateQuizRequest request,
             HttpServletRequest httpRequest) {
         return ResponseEntity.ok(
                 ApiResponse.<QuizDetailResponse>builder()
-                        .result(quizService.createQuizForSession(sessionId, request, httpRequest))
+                        .result(quizService.createQuizForLesson(lessonId, request, httpRequest))
                         .build());
     }
 
-    @GetMapping("/sessions/{sessionId}/quizzes")
+    @GetMapping("/lessons/{lessonId}/quizzes")
     @Operation(
-            summary = "Danh sách quiz của buổi học (card \"Quiz buổi học\")",
+            summary = "Danh sách quiz của bài giảng (card \"Quiz bài giảng\")",
             security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<List<QuizListItemResponse>>> listSessionQuizzes(
-            @PathVariable Long sessionId,
+    public ResponseEntity<ApiResponse<List<QuizListItemResponse>>> listLessonQuizzes(
+            @PathVariable Long lessonId,
             HttpServletRequest httpRequest) {
         return ResponseEntity.ok(
                 ApiResponse.<List<QuizListItemResponse>>builder()
-                        .result(quizService.listSessionQuizzes(sessionId, httpRequest))
+                        .result(quizService.listLessonQuizzes(lessonId, httpRequest))
                         .build());
     }
 

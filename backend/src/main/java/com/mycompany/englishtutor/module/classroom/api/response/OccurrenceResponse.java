@@ -12,11 +12,11 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 /**
- * Một ô (lần diễn) trong lattice tuần (mục 4.1). Ưu tiên render theo ca cố định:
- * SESSION &gt; EXCEPTION &gt; OCCURRENCE — đúng 1 trong {@code session} /
- * {@code exception} khác null tùy {@code source}. Ô độc lập của buổi dạy thử
- * (chưa có ca cố định) có {@code source = TRIAL_SESSION}, {@code scheduleId}
- * null và {@code session.isTrial = true}.
+ * Một ô (lần diễn) trong lattice tuần (V16). Mỗi ca cố định (class_schedules)
+ * x từng ngày trong khoảng hiệu lực = 1 ô; nhật ký dạy học (teaching_logs) và
+ * ngoại lệ (schedule_exceptions) là hai overlay trên ô đó. Ca thử của lớp
+ * (classes.trial_*) là ô độc lập có {@code source = TRIAL}, {@code scheduleId}
+ * null và {@code trial = true}.
  */
 @Data
 @Builder
@@ -25,7 +25,7 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class OccurrenceResponse {
 
-    @Schema(description = "scheduleId_date — key ổn định cho FE (vd 3_2026-11-06)", example = "3_2026-11-06")
+    @Schema(description = "scheduleId_date (hoặc trial_date cho ca thử) — key ổn định cho FE", example = "3_2026-11-06")
     String occurrenceKey;
 
     @Schema(example = "3")
@@ -37,7 +37,7 @@ public class OccurrenceResponse {
     @Schema(description = "1 = Thứ 2 ... 7 = Chủ nhật", example = "5")
     Integer dayOfWeek;
 
-    @Schema(description = "Nguồn dữ liệu của ô: SESSION | EXCEPTION | OCCURRENCE | TRIAL_SESSION (ô độc lập, không scheduleId)")
+    @Schema(description = "Nguồn dữ liệu của ô: OCCURRENCE | EXCEPTION | TRIAL")
     String source;
 
     @Schema(description = "Giờ ca (đích khi exception RESCHEDULED) theo ca gốc", example = "19:30")
@@ -46,8 +46,20 @@ public class OccurrenceResponse {
     @Schema(example = "21:00")
     LocalTime endTime;
 
-    @Schema(description = "Chỉ có khi source = SESSION")
-    SessionMini session;
+    @Schema(description = "Ô ca thử (lấy từ classes.trial_*), chỉ khi source = TRIAL")
+    Boolean trial;
+
+    @Schema(description = "Hình thức ca thử (ONLINE | AT_HOME), chỉ khi source = TRIAL")
+    String teachingMode;
+
+    @Schema(description = "Liên kết phòng học ca thử, chỉ khi source = TRIAL và ONLINE")
+    String meetingUrl;
+
+    @Schema(description = "Địa chỉ ca thử, chỉ khi source = TRIAL và AT_HOME")
+    String location;
+
+    @Schema(description = "Nhật ký dạy học khớp ô (teaching_logs); null nếu chưa ghi")
+    TeachingLogMini log;
 
     @Schema(description = "Chỉ có khi source = EXCEPTION")
     ExceptionInfo exception;

@@ -21,7 +21,7 @@ import com.mycompany.englishtutor.module.quiz.repository.QuizRepository;
 import com.mycompany.englishtutor.module.quiz.repository.QuizRepository.QuizOwnershipRow;
 import com.mycompany.englishtutor.module.quiz.repository.QuizRepository.QuizQuestionRow;
 import com.mycompany.englishtutor.module.quiz.repository.QuizRepository.QuizRow;
-import com.mycompany.englishtutor.module.quiz.repository.QuizRepository.SessionOwnershipRow;
+import com.mycompany.englishtutor.module.quiz.repository.QuizRepository.LessonOwnershipRow;
 import com.mycompany.englishtutor.module.user.domain.User;
 import com.mycompany.englishtutor.module.user.repository.UserRepository;
 import com.mycompany.englishtutor.shared.exception.AppException;
@@ -34,12 +34,12 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Nghiệp vụ quiz buổi học cho gia sư — lát cắt nhập THỦ CÔNG (API_DESIGN §3.7,
- * FR-13): tạo bản nháp, sửa, giao bài (đặt hạn, thông báo học sinh), xem chi
- * tiết, đọc catalog kỹ năng.
+ * Nghiệp vụ quiz cho gia sư — lát cắt nhập THỦ CÔNG (API_DESIGN §3.7, FR-13):
+ * tạo bản nháp, sửa, giao bài (đặt hạn, thông báo học sinh), xem chi tiết,
+ * đọc catalog kỹ năng.
  *
- * <p>Chưa có phần AI / import (T8-B3, T8-C1) và học sinh làm quiz / Elo
- * (T8-C2). Sở hữu suy qua {@code quizzes → sessions → classes.tutor_id}.
+ * <p>V16: quiz gắn bài giảng (quizzes.lesson_id), không gắn buổi học. Sở hữu
+ * suy qua {@code quizzes → lessons → classes.tutor_id}.
  */
 @Slf4j
 @Service
@@ -60,25 +60,25 @@ public class QuizService {
     // ============================================================= CREATE (DRAFT)
 
     /**
-     * Tạo quiz bản nháp cho buổi học. Kiểm tra quyền (gia sư sở hữu buổi) →
+     * Tạo quiz bản nháp cho bài giảng. Kiểm tra quyền (gia sư sở hữu bài giảng) →
      * validate toàn bộ câu hỏi (để lỗi về đúng từng câu, không tạo quiz dở dang
      * — AC: "Import thất bại không tạo quiz dở dang") → insert quiz + câu hỏi
      * trong 1 transaction.
      */
     @Transactional
-    public QuizDetailResponse createQuizForSession(
-            Long sessionId, CreateQuizRequest request, HttpServletRequest httpRequest) {
-        SessionOwnershipRow session =
+    public QuizDetailResponse createQuizForLesson(
+            Long lessonId, CreateQuizRequest request, HttpServletRequest httpRequest) {
+        LessonOwnershipRow lesson =
                 quizRepository
-                        .findSessionOwnership(sessionId)
+                        .findLessonOwnership(lessonId)
                         .orElseThrow(() -> new AppException(ErrorCode.SESSION_NOT_FOUND));
-        requireOwnedSession(session);
+        requireOwnedLesson(lesson);
 
         List<Long> skillIds = resolveSkillIds(request.getQuestions());
 
         Long quizId =
                 quizRepository.insertQuiz(
-                        sessionId, request.getTitle().trim(), SOURCE_MANUAL, request.getQuestions().size());
+                        lessonId, request.getTitle().trim(), SOURCE_MANUAL, request.getQuestions().size());
 
         for (int i = 0; i < request.getQuestions().size(); i++) {
             quizRepository.insertQuizQuestion(quizId, i + 1, request.getQuestions().get(i), skillIds.get(i));
@@ -89,7 +89,7 @@ public class QuizService {
                 "CREATE_QUIZ",
                 "QUIZ",
                 quizId,
-                Map.of("sessionId", sessionId, "title", request.getTitle().trim(), "totalQuestions", request.getQuestions().size()),
+                Map.of("lessonId", lessonId, "title", request.getTitle().trim(), "totalQuestions", request.getQuestions().size()),
                 httpRequest);
 
         return findDetail(quizId);
@@ -98,14 +98,14 @@ public class QuizService {
     // ============================================================= READ
 
     @Transactional(readOnly = true)
-    public List<QuizListItemResponse> listSessionQuizzes(Long sessionId, HttpServletRequest httpRequest) {
-        SessionOwnershipRow session =
+    public List<QuizListItemResponse> listLessonQuizzes(Long lessonId, HttpServletRequest httpRequest) {
+        LessonOwnershipRow lesson =
                 quizRepository
-                        .findSessionOwnership(sessionId)
+                        .findLessonOwnership(lessonId)
                         .orElseThrow(() -> new AppException(ErrorCode.SESSION_NOT_FOUND));
-        requireOwnedSession(session);
+        requireOwnedLesson(lesson);
 
-        return quizRepository.findSessionQuizzes(sessionId).stream()
+        return quizRepository.findLessonQuizzes(lessonId).stream()
                 .map(this::toListItem)
                 .toList();
     }
@@ -116,11 +116,11 @@ public class QuizService {
                 quizRepository
                         .findQuiz(quizId)
                         .orElseThrow(() -> new AppException(ErrorCode.QUIZ_NOT_FOUND));
-        SessionOwnershipRow session =
+        LessonOwnershipRow lesson =
                 quizRepository
-                        .findSessionOwnership(quiz.sessionId())
+                        .findLessonOwnership(quiz.lessonId())
                         .orElseThrow(() -> new AppException(ErrorCode.SESSION_NOT_FOUND));
-        requireOwnedSession(session);
+        requireOwnedLesson(lesson);
         return findDetail(quizId);
     }
 
@@ -163,7 +163,7 @@ public class QuizService {
                 "UPDATE_QUIZ",
                 "QUIZ",
                 quizId,
-                Map.of("sessionId", quiz.sessionId(), "totalQuestions", request.getQuestions().size()),
+                Map.of("lessonId", quiz.lessonId(), "totalQuestions", request.getQuestions().size()),
                 httpRequest);
 
         return findDetail(quizId);
@@ -191,7 +191,7 @@ public class QuizService {
                 "ASSIGN_QUIZ",
                 "QUIZ",
                 quizId,
-                Map.of("sessionId", quiz.sessionId(), "classId", quiz.classId(), "deadline", String.valueOf(request.getDeadline())),
+                Map.of("lessonId", quiz.lessonId(), "classId", quiz.classId(), "deadline", String.valueOf(request.getDeadline())),
                 httpRequest);
 
         return findDetail(quizId);
@@ -199,8 +199,8 @@ public class QuizService {
 
     // ============================================================= GUARDS & HELPERS
 
-    private void requireOwnedSession(SessionOwnershipRow session) {
-        if (!getCurrentUserId().equals(session.tutorId())) {
+    private void requireOwnedLesson(LessonOwnershipRow lesson) {
+        if (!getCurrentUserId().equals(lesson.tutorId())) {
             throw new AppException(ErrorCode.SESSION_NOT_OWNED);
         }
     }
@@ -251,7 +251,7 @@ public class QuizService {
                 .title(quiz.title())
                 .status(quiz.status())
                 .deadline(quiz.deadline())
-                .sessionId(quiz.sessionId())
+                .lessonId(quiz.lessonId())
                 .questions(questions)
                 .build();
     }

@@ -63,9 +63,9 @@ export function apiGetMySessions(token, { classId } = {}) {
   return request(token, `/api/v1/students/me/sessions${query}`);
 }
 
-/** Chi tiết buổi học: tài liệu, quiz, nhật ký (chỉ khi gia sư đã công bố). */
-export function apiGetSessionDetail(token, sessionId) {
-  return request(token, `/api/v1/sessions/${enc(sessionId)}`);
+/** Tài liệu kèm buổi học (từ các bài giảng PUBLISHED của lớp, V16). */
+export function apiGetSessionMaterials(token, logId) {
+  return request(token, `/api/v1/students/me/sessions/${enc(logId)}/materials`);
 }
 
 /** Link ký sẵn (10 phút) + cờ `previewable`. Tệp đã gỡ → lỗi MATERIAL_UNAVAILABLE. */
@@ -87,11 +87,6 @@ export function apiGetMyDashboard(token) {
 export function apiGetMyQuizzes(token, status) {
   const query = status ? `?status=${enc(status)}` : "";
   return request(token, `/api/v1/students/me/quizzes${query}`);
-}
-
-/** Quiz gắn với một buổi học (hiện trong chi tiết buổi). */
-export function apiGetSessionQuizzes(token, sessionId) {
-  return request(token, `/api/v1/students/me/quizzes?sessionId=${enc(sessionId)}`);
 }
 
 /** Bắt đầu hoặc làm tiếp: trả câu chưa trả lời kế tiếp và tiến độ. */

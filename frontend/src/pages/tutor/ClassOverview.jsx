@@ -52,9 +52,6 @@ export default function ClassOverview() {
     classId,
     openTrialForm,
     openScheduleForm,
-    onCreateSession,
-    creatingSessionDate,
-    createError,
   } = useOutletContext();
 
   const canEditTrial = detail.status === "TRIAL" && detail.trialSession?.status === "SCHEDULED";
@@ -281,10 +278,7 @@ export default function ClassOverview() {
             schedules={detail.schedules}
             sessionDates={detail.sessionDates}
             todaySlots={detail.todaySlots}
-            onCreateSession={onCreateSession}
             onEditSchedules={() => openScheduleForm(detail.schedules)}
-            creatingSessionDate={creatingSessionDate}
-            createError={createError}
           />
         </>
       )}

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   Download,
   ExternalLink,
@@ -11,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { apiGetMaterialAccess, apiGetSessionDetail, apiGetSessionQuizzes } from "../../lib/studentApi";
+import { apiGetMaterialAccess, apiGetSessionMaterials } from "../../lib/studentApi";
 import {
   FILE_TYPE_LABELS,
   SESSION_STATUS_META,
@@ -22,7 +21,6 @@ import {
   todayISO,
 } from "../../lib/classroomApi";
 import {
-  QUIZ_STATUS_META,
   isMaterialUnavailableError,
   materialAction,
   sessionLogState,
@@ -80,31 +78,35 @@ function MaterialRow({ material, onOpen, busy, state }) {
  * Chi tiết buổi học dành cho học sinh: thông tin chung, tài liệu (xem/tải), quiz, nhật ký.
  * `onClose` đóng modal; `onLoaded` (tuỳ chọn) báo dữ liệu đã tải.
  */
-export default function StudentSessionDetail({ sessionId, sessionStatus, onClose }) {
+export default function StudentSessionDetail({ sessionId, sessionStatus, sessionItem, onClose }) {
   const { token } = useAuth();
-  const [detail, setDetail] = useState(null);
+  const [materials, setMaterials] = useState([]);
+  const [materialsLoading, setMaterialsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [materialState, setMaterialState] = useState({}); // id → { previewable, unavailable }
   const [notice, setNotice] = useState("");
 
+  // V16: chi tiết buổi = item từ danh sách (lịch / lịch sử) + tài liệu lớp theo buổi.
+  const detail = sessionItem ? { ...sessionItem, status: sessionItem.status ?? sessionStatus } : null;
+
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    setMaterials([]);
+    setMaterialsLoading(true);
     setError("");
-    // Chi tiết buổi không trả trạng thái/quiz: lấy trạng thái từ danh sách, quiz từ /students/me/quizzes
-    Promise.all([
-      apiGetSessionDetail(token, sessionId),
-      apiGetSessionQuizzes(token, sessionId).catch(() => []),
-    ])
-      .then(([data, quizzes]) => !cancelled && setDetail({ ...data, status: data.status ?? sessionStatus, quizzes }))
-      .catch((err) => !cancelled && setError(err.message))
-      .finally(() => !cancelled && setLoading(false));
+    if (!token || !sessionId) {
+      setMaterialsLoading(false);
+      return;
+    }
+    apiGetSessionMaterials(token, sessionId)
+      .then((items) => !cancelled && setMaterials(items || []))
+      .catch(() => !cancelled && setMaterials([]))
+      .finally(() => !cancelled && setMaterialsLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [token, sessionId, sessionStatus]);
+  }, [token, sessionId]);
 
   async function openMaterial(material, mode) {
     const materialId = material.materialId ?? material.id;
@@ -133,8 +135,6 @@ export default function StudentSessionDetail({ sessionId, sessionStatus, onClose
 
   const statusMeta = SESSION_STATUS_META[detail?.status] ?? { label: detail?.status, tone: "slate" };
   const log = detail ? sessionLogState(detail) : null;
-  const materials = detail?.materials ?? [];
-  const quizzes = detail?.quizzes ?? [];
 
   return (
     <div
@@ -157,7 +157,7 @@ export default function StudentSessionDetail({ sessionId, sessionStatus, onClose
           </button>
         </div>
 
-        {loading && <SkeletonRows rows={3} />}
+        {materialsLoading && <SkeletonRows rows={1} />}
         {error && <ErrorBox message={error} />}
 
         {detail && (
@@ -222,35 +222,6 @@ export default function StudentSessionDetail({ sessionId, sessionStatus, onClose
                 </ul>
               )}
             </section>
-
-            {quizzes.length > 0 && (
-              <section className="space-y-2">
-                <h3 className="text-base font-semibold text-slate-900 dark:text-white">Bài quiz</h3>
-                <ul className="space-y-2">
-                  {quizzes.map((quiz) => {
-                    const meta = QUIZ_STATUS_META[quiz.status] ?? { label: quiz.status, tone: "slate" };
-                    return (
-                      <li
-                        key={quiz.id}
-                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-900 dark:text-white">{quiz.title}</p>
-                          <Badge tone={meta.tone} size="xs">
-                            {meta.label}
-                          </Badge>
-                        </div>
-                        {["ASSIGNED", "COMPLETED"].includes(quiz.status) && (
-                          <Button as={Link} to={`/student/exercises/${quiz.id}`} variant="outline" size="sm">
-                            {quiz.status === "ASSIGNED" ? "Làm bài" : "Xem kết quả"}
-                          </Button>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            )}
 
             <section className="space-y-2">
               <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">

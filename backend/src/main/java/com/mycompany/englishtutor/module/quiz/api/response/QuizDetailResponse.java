@@ -11,7 +11,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
-/** Chi tiết quiz (gia sư, sở hữu buổi học): dùng để mở lại bản nháp và sửa. */
+/** Chi tiết quiz (gia sư, sở hữu bài giảng): dùng để mở lại bản nháp và sửa. */
 @Data
 @Builder
 @NoArgsConstructor
@@ -31,8 +31,8 @@ public class QuizDetailResponse {
     @Schema(description = "Thời hạn (null khi chưa giao)", example = "2026-11-02T23:59:00+07:00")
     OffsetDateTime deadline;
 
-    @Schema(description = "Chi tiết buổi học quiz gắn với")
-    Long sessionId;
+    @Schema(description = "Bài giảng quiz gắn với (V16: quiz gắn lesson, không gắn buổi)")
+    Long lessonId;
 
     @Schema(description = "Toàn bộ câu hỏi (chỉ có ý nghĩa với DRAFT/ASSIGNED của gia sư)")
     List<QuizQuestionResponse> questions;

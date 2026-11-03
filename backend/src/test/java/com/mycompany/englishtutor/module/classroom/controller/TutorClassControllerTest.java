@@ -2,8 +2,10 @@ package com.mycompany.englishtutor.module.classroom.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -27,18 +29,20 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mycompany.englishtutor.module.classroom.api.request.CreateSessionRequest;
+import com.mycompany.englishtutor.module.classroom.api.request.CreateLessonRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.FinalizeScheduleRequest;
+import com.mycompany.englishtutor.module.classroom.api.request.UpdateLessonRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpsertTrialSessionRequest;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassDetailResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassSummaryResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.FinalizeScheduleResponse;
-import com.mycompany.englishtutor.module.classroom.api.response.OnDemandSessionResponse;
+import com.mycompany.englishtutor.module.classroom.api.response.LessonDetailResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.ScheduleInfo;
+import com.mycompany.englishtutor.module.classroom.api.response.TeachingLogResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.TrialSessionResponse;
 import com.mycompany.englishtutor.module.classroom.service.TutorClassService;
 
-/** Kiểm tra contract HTTP của API lớp học & lịch dạy thử (API_DESIGN mục 3.5). */
+/** Kiểm tra contract HTTP của API lớp học (V16: ca thử trial_*, lịch cố định, bài giảng, nhật ký). */
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestPropertySource("/test.properties")
@@ -52,6 +56,9 @@ class TutorClassControllerTest {
 
     @MockBean
     private TutorClassService tutorClassService;
+
+    @MockBean
+    private com.mycompany.englishtutor.module.classroom.service.ClassOccurrenceService classOccurrenceService;
 
     private ClassSummaryResponse summaryItem() {
         return ClassSummaryResponse.builder()
@@ -68,7 +75,6 @@ class TutorClassControllerTest {
 
     private TrialSessionResponse trialResponse() {
         return TrialSessionResponse.builder()
-                .sessionId(9L)
                 .sessionDate(LocalDate.of(2026, 10, 28))
                 .startTime(LocalTime.of(19, 0))
                 .endTime(LocalTime.of(20, 30))
@@ -110,8 +116,8 @@ class TutorClassControllerTest {
     }
 
     @Test
-    void createTrialSession_asTutor_shouldReturn201() throws Exception {
-        when(tutorClassService.createTrialSession(eq(1L), any())).thenReturn(trialResponse());
+    void upsertTrialSlot_asTutor_shouldReturn200() throws Exception {
+        when(tutorClassService.upsertTrialSlot(eq(1L), any(), any())).thenReturn(trialResponse());
 
         UpsertTrialSessionRequest body = UpsertTrialSessionRequest.builder()
                 .sessionDate(LocalDate.of(2026, 10, 28))
@@ -121,37 +127,17 @@ class TutorClassControllerTest {
                 .meetingUrl("https://meet.google.com/abc-defg-hij")
                 .build();
 
-        mockMvc.perform(post("/api/v1/classes/1/trial-session")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body))
-                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.result.sessionId").value(9))
-                .andExpect(jsonPath("$.result.status").value("SCHEDULED"));
-    }
-
-    @Test
-    void updateTrialSession_asTutor_shouldReturn200() throws Exception {
-        when(tutorClassService.updateTrialSession(eq(1L), any())).thenReturn(trialResponse());
-
-        UpsertTrialSessionRequest body = UpsertTrialSessionRequest.builder()
-                .sessionDate(LocalDate.of(2026, 10, 29))
-                .startTime(LocalTime.of(19, 30))
-                .endTime(LocalTime.of(21, 0))
-                .teachingMode("AT_HOME")
-                .location("Số 1, ngõ 2, đường X, Cầu Giấy, Hà Nội")
-                .build();
-
-        mockMvc.perform(put("/api/v1/classes/1/trial-session")
+        mockMvc.perform(put("/api/v1/classes/1/trial")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body))
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.result.sessionId").value(9));
+                .andExpect(jsonPath("$.result.status").value("SCHEDULED"))
+                .andExpect(jsonPath("$.result.sessionDate").value("2026-10-28"));
     }
 
     @Test
-    void createTrialSession_missingDate_shouldReturn400() throws Exception {
+    void upsertTrialSlot_missingDate_shouldReturn400() throws Exception {
         String body = """
                 {
                   "startTime": "19:00",
@@ -161,7 +147,7 @@ class TutorClassControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/v1/classes/1/trial-session")
+        mockMvc.perform(put("/api/v1/classes/1/trial")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body)
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
@@ -228,30 +214,6 @@ class TutorClassControllerTest {
     }
 
     @Test
-    void createSession_asTutor_shouldReturn200() throws Exception {
-        LocalDate date = LocalDate.now().plusDays(3);
-        when(tutorClassService.createSessionOnDemand(eq(1L), any(), any()))
-                .thenReturn(OnDemandSessionResponse.builder()
-                        .sessionId(42L)
-                        .sessionDate(date)
-                        .startTime(LocalTime.of(19, 30))
-                        .endTime(LocalTime.of(21, 0))
-                        .isTrial(Boolean.FALSE)
-                        .createdNow(Boolean.TRUE)
-                        .build());
-
-        CreateSessionRequest body = CreateSessionRequest.builder().sessionDate(date).build();
-
-        mockMvc.perform(post("/api/v1/classes/1/sessions")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(body))
-                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.result.sessionId").value(42))
-                .andExpect(jsonPath("$.result.createdNow").value(true));
-    }
-
-    @Test
     void finalizeSchedule_missingValidFrom_shouldReturn400() throws Exception {
         String body = """
                 {
@@ -267,4 +229,240 @@ class TutorClassControllerTest {
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
                 .andExpect(status().isBadRequest());
     }
+
+    // ------------------------------------------------- BÀI GIẢNG (V16)
+
+    @Test
+    void createLesson_asTutor_shouldReturn201() throws Exception {
+        when(tutorClassService.createLesson(eq(1L), any(), any()))
+                .thenReturn(LessonDetailResponse.builder()
+                        .lessonId(70L)
+                        .classId(1L)
+                        .title("Bài 1: Past Simple")
+                        .status("PUBLISHED")
+                        .build());
+
+        CreateLessonRequest body = CreateLessonRequest.builder()
+                .title("Bài 1: Past Simple")
+                .build();
+
+        mockMvc.perform(post("/api/v1/classes/1/lessons")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.result.lessonId").value(70))
+                .andExpect(jsonPath("$.result.status").value("PUBLISHED"));
+    }
+
+    @Test
+    void createLesson_asStudent_shouldReturn403() throws Exception {
+        CreateLessonRequest body = CreateLessonRequest.builder().title("Bài 1").build();
+
+        mockMvc.perform(post("/api/v1/classes/1/lessons")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void updateLesson_asTutor_shouldReturn200() throws Exception {
+        when(tutorClassService.updateLesson(eq(70L), any(), any()))
+                .thenReturn(LessonDetailResponse.builder()
+                        .lessonId(70L)
+                        .classId(1L)
+                        .title("Bài 1 (sửa)")
+                        .status("HIDDEN")
+                        .build());
+
+        mockMvc.perform(put("/api/v1/lessons/70")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                UpdateLessonRequest.builder()
+                                        .title("Bài 1 (sửa)")
+                                        .status("HIDDEN")
+                                        .build()))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.lessonId").value(70))
+                .andExpect(jsonPath("$.result.status").value("HIDDEN"));
+    }
+
+    @Test
+    void updateLesson_asStudent_shouldReturn403() throws Exception {
+        mockMvc.perform(put("/api/v1/lessons/70")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                UpdateLessonRequest.builder()
+                                        .title("Bài 1 (sửa)")
+                                        .build()))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
+                .andExpect(status().isForbidden());
+    }
+
+    // ------------------------------------------------- EXTERNALS (overlay)
+
+    @Test
+    void createException_asTutor_shouldReturn201() throws Exception {
+        when(classOccurrenceService.createException(eq(1L), any(), any()))
+                .thenReturn(com.mycompany.englishtutor.module.classroom.api.response
+                        .SessionExceptionResponse.builder().id(5L).classId(1L).scheduleId(3L).build());
+
+        com.mycompany.englishtutor.module.classroom.api.request.CreateExceptionRequest body =
+                com.mycompany.englishtutor.module.classroom.api.request.CreateExceptionRequest.builder()
+                        .scheduleId(3L)
+                        .exceptionDate(LocalDate.of(2026, 11, 6))
+                        .exceptionType("RESCHEDULED")
+                        .newDate(LocalDate.of(2026, 11, 7))
+                        .newStartTime(LocalTime.of(20, 0))
+                        .newEndTime(LocalTime.of(21, 30))
+                        .build();
+
+        mockMvc.perform(post("/api/v1/classes/1/exceptions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.result.scheduleId").value(3));
+    }
+
+    @Test
+    void createException_asReceptionist_shouldReturn403() throws Exception {
+        com.mycompany.englishtutor.module.classroom.api.request.CreateExceptionRequest body =
+                com.mycompany.englishtutor.module.classroom.api.request.CreateExceptionRequest.builder()
+                        .scheduleId(3L)
+                        .exceptionDate(LocalDate.of(2026, 11, 6))
+                        .exceptionType("CANCELLED")
+                        .build();
+
+        mockMvc.perform(post("/api/v1/classes/1/exceptions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_RECEPTIONIST"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteException_asTutor_shouldReturn200() throws Exception {
+        mockMvc.perform(delete("/api/v1/classes/1/exceptions/3/2026-11-06")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Đã gỡ ngoại lệ lịch dạy"));
+
+        verify(classOccurrenceService)
+                .deleteException(eq(1L), eq(3L), eq(LocalDate.of(2026, 11, 6)), any());
+    }
+
+    // ------------------------------------------------- TEACHING LOGS (V16)
+
+    @Test
+    void saveLog_asTutor_shouldReturn200() throws Exception {
+        when(classOccurrenceService.saveLog(eq(1L), any(), any()))
+                .thenReturn(TeachingLogResponse.builder()
+                        .logId(7L)
+                        .logDate(LocalDate.of(2026, 11, 6))
+                        .startTime(LocalTime.of(19, 30))
+                        .endTime(LocalTime.of(21, 0))
+                        .knowledge("Past Simple")
+                        .hasContent(Boolean.TRUE)
+                        .firstPublish(Boolean.TRUE)
+                        .build());
+
+        com.mycompany.englishtutor.module.classroom.api.request.SaveTeachingLogRequest body =
+                com.mycompany.englishtutor.module.classroom.api.request.SaveTeachingLogRequest.builder()
+                        .logDate(LocalDate.of(2026, 11, 6))
+                        .startTime(LocalTime.of(19, 30))
+                        .endTime(LocalTime.of(21, 0))
+                        .knowledge("Past Simple")
+                        .homework("Bài 12")
+                        .build();
+
+        mockMvc.perform(post("/api/v1/classes/1/logs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.logId").value(7))
+                .andExpect(jsonPath("$.result.firstPublish").value(true));
+    }
+
+    @Test
+    void saveLog_asReceptionist_shouldReturn403() throws Exception {
+        com.mycompany.englishtutor.module.classroom.api.request.SaveTeachingLogRequest body =
+                com.mycompany.englishtutor.module.classroom.api.request.SaveTeachingLogRequest.builder()
+                        .logDate(LocalDate.of(2026, 11, 6))
+                        .startTime(LocalTime.of(19, 30))
+                        .endTime(LocalTime.of(21, 0))
+                        .knowledge("Past Simple")
+                        .build();
+
+        mockMvc.perform(post("/api/v1/classes/1/logs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body))
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_RECEPTIONIST"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteLog_asTutor_shouldReturn200() throws Exception {
+        mockMvc.perform(delete("/api/v1/classes/1/logs/7")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Đã xóa nhật ký dạy học"));
+
+        verify(classOccurrenceService).deleteLog(eq(1L), eq(7L), any());
+    }
+
+    // ------------------------------------------------- BÀI GIẢNG (V16)
+
+    @Test
+    void deleteLesson_asTutor_shouldReturn200() throws Exception {
+        mockMvc.perform(delete("/api/v1/lessons/70")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Đã xóa bài giảng"));
+
+        verify(tutorClassService).deleteLesson(eq(70L), any());
+    }
+
+    @Test
+    void deleteLesson_asStudent_shouldReturn403() throws Exception {
+        mockMvc.perform(delete("/api/v1/lessons/70")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_STUDENT"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void uploadLessonMaterial_asTutor_shouldReturn201() throws Exception {
+        when(classOccurrenceService.uploadMaterial(eq(70L), any(), any()))
+                .thenReturn(com.mycompany.englishtutor.module.classroom.api.response
+                        .LessonMaterialItem.builder()
+                                .materialId(40L)
+                                .fileName("bai-hoc.pdf")
+                                .fileType("PDF")
+                                .build());
+
+        org.springframework.mock.web.MockMultipartFile file =
+                new org.springframework.mock.web.MockMultipartFile(
+                        "file", "bai-hoc.pdf", "application/pdf", "pdf".getBytes());
+
+        mockMvc.perform(org.springframework.test.web.servlet.request
+                        .MockMvcRequestBuilders.multipart("/api/v1/lessons/70/materials")
+                        .file(file)
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.result.materialId").value(40));
+    }
+
+    @Test
+    void deleteLessonMaterial_asTutor_shouldReturn200() throws Exception {
+        mockMvc.perform(delete("/api/v1/lessons/70/materials/40")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Đã gỡ tài liệu bài giảng"));
+
+        verify(classOccurrenceService).deleteMaterial(eq(70L), eq(40L), any());
+    }
+
 }

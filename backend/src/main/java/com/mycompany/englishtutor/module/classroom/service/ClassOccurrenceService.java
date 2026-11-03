@@ -4,16 +4,12 @@ import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,29 +17,25 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.mycompany.englishtutor.module.audit.service.AuditLogService;
 import com.mycompany.englishtutor.module.classroom.api.request.CreateExceptionRequest;
-import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionLogRequest;
-import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionRequest;
+import com.mycompany.englishtutor.module.classroom.api.request.SaveTeachingLogRequest;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassScheduleResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.ExceptionInfo;
+import com.mycompany.englishtutor.module.classroom.api.response.LessonDetailResponse;
+import com.mycompany.englishtutor.module.classroom.api.response.LessonMaterialItem;
 import com.mycompany.englishtutor.module.classroom.api.response.MaterialAccessUrlResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.OccurrenceResponse;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionDetailResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionExceptionResponse;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionListItem;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionLogResponse;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionMaterialItem;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionMini;
+import com.mycompany.englishtutor.module.classroom.api.response.TeachingLogMini;
+import com.mycompany.englishtutor.module.classroom.api.response.TeachingLogResponse;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.ClassState;
-import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.ConflictInfo;
-import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.LockedSessionRow;
-import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.OccurrenceSessionRow;
+import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.LessonDetailRow;
+import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.LessonMaterialRow;
+import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.LogUpsertResult;
+import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.ScheduleExceptionRow;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.ScheduleSlotRow;
-import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.SessionDetailRow;
-import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.SessionExceptionRow;
-import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.SessionInfoUpdate;
-import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.SessionMaterialRow;
-import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.WeeklyConflictInfo;
+import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.TeachingLogRow;
+import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.TrialSlotRow;
 import com.mycompany.englishtutor.module.tutor.service.StorageService;
 import com.mycompany.englishtutor.module.user.domain.User;
 import com.mycompany.englishtutor.module.user.domain.UserRole;
@@ -58,15 +50,11 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Nghiệp vụ tab "Lịch dạy" (kế hoạch class-sessions, UC-T05/UC-T07, API_DESIGN 3.6):
- * lattice tuần (occurrences), overlay exception cho ô ảo, quản lý buổi học thật
- * (danh sách, chi tiết, sửa/dời, nhật ký).
- *
- * <p>Hai nguồn dữ liệu rạch ròi (mục 0): ô ảo tác động bằng
- * {@code session_exceptions}; ô có session thật quản lý bằng {@code sessions}.
- * Notification học sinh (bản tạm INSERT thẳng, T8-A1 thay bằng NotificationService)
- * chỉ cho 2 sự kiện trên session thật: dời, lưu nhật ký lần đầu —
- * exception không bao giờ gửi thông báo. (Mục -1: bỏ trạng thái buổi học / điểm danh.)
+ * Đọc/ghi "Lịch dạy" theo lattice tuần (V16): ca cố định (class_schedules),
+ * ngoại lệ (schedule_exceptions), nhật ký dạy học (teaching_logs) và ca thử
+ * (classes.trial_*). Nhật ký là bảng độc lập khớp ô ca theo
+ * (class_id, log_date, start_time) — không còn "buổi học thật" (session).
+ * Tài liệu giờ gắn bài giảng (lesson_materials).
  */
 @Slf4j
 @Service
@@ -74,13 +62,17 @@ import lombok.extern.slf4j.Slf4j;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ClassOccurrenceService {
 
-    /** Exception type hợp lệ (CHK bảng V13). */
-    private static final Set<String> EXCEPTION_TYPES = Set.of("CANCELLED", "RESCHEDULED", "MODIFIED");
+    private static final String STATUS_ACTIVE = "ACTIVE";
+    private static final String STATUS_TRIAL = "TRIAL";
 
-    /** Folder vật lý trong bucket cho tài liệu buổi học. */
-    private static final String MATERIALS_FOLDER_PREFIX = "session-materials";
+    private static final String EXCEPTION_CANCELLED = "CANCELLED";
+    private static final String EXCEPTION_RESCHEDULED = "RESCHEDULED";
+    private static final String EXCEPTION_MODIFIED = "MODIFIED";
 
-    /** Dung lượng tối đa 1 tài liệu buổi học (API_DESIGN §3.6: ≤ 20 MB). */
+    /** Folder vật lý trong bucket cho tài liệu bài giảng. */
+    private static final String MATERIALS_FOLDER_PREFIX = "lesson-materials";
+
+    /** Dung lượng tối đa 1 tài liệu bài giảng (API_DESIGN §3.6: ≤ 20 MB). */
     private static final long MATERIAL_MAX_BYTES = 20L * 1024 * 1024;
 
     /** Hạn dùng link tải ký sẵn cho tài liệu (API_DESIGN §3.6: 10 phút). */
@@ -92,426 +84,430 @@ public class ClassOccurrenceService {
     private static final Set<String> MATERIAL_AUDIO_TYPES =
             Set.of("audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/ogg");
 
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
+    private static final java.time.format.DateTimeFormatter DATE_FMT = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final java.time.format.DateTimeFormatter TIME_FMT = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
 
     ClassroomQueryRepository classroomRepository;
-    ScheduleConflictChecker conflictChecker;
     UserRepository userRepository;
     AuditLogService auditLogService;
-    JdbcTemplate jdbcTemplate;
     StorageService storageService;
 
-    // ======================================================== LATTICE & DANH SÁCH
+    // ------------------------------------------------------------- LATTICE (đọc)
 
     /**
-     * Lattice tuần (mục 4.1): 7 ngày {@code [weekStart, weekStart+6)} (tuần chuẩn
-     * mở thứ 2), mỗi (ca, ngày trong khoảng hiệu lực) = 1 ô; ưu tiên
-     * SESSION &gt; EXCEPTION &gt; OCCURRENCE (mục 0). Buổi dạy thử (is_trial = TRUE)
-     * là ô độc lập nguồn TRIAL_SESSION — chỉ hiện khi chưa có ca cố định nào khớp
-     * cùng (thứ + giờ bắt đầu + hiệu lực), tránh trùng đè lên ô ca.
+     * Lattice tuần [weekStart, weekStart+6]: mỗi ca cố định x từng ngày trong
+     * khoảng hiệu lực = 1 ô; overlay nhật ký (log chấm "đã có nội dung") và
+     * ngoại lệ; ca thử của lớp là ô độc lập (source = TRIAL).
      */
     @Transactional(readOnly = true)
     public ClassScheduleResponse listOccurrences(Long classId, LocalDate weekStart) {
-        requireReadAccess(classId);
-        LocalDate start = weekStart.with(DayOfWeek.MONDAY);
+        Long userId = currentUserId();
+        ClassState state =
+                classroomRepository
+                        .findClassState(classId)
+                        .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
+        requireClassOwner(state, userId);
 
+        LocalDate monday = weekStart.with(DayOfWeek.MONDAY);
+
+        // Ca cố định kèm id (để key ô ổn định).
         List<ScheduleSlotRow> slots = classroomRepository.findScheduleSlotsWithIds(classId);
 
-        // Buổi thật trong tuần, gán vào ca khớp (đúng thứ + đúng giờ bắt đầu + hiệu lực).
-        Map<Long, OccurrenceSessionRow> sessionBySchedule = new HashMap<>();
-        for (OccurrenceSessionRow session : classroomRepository.findWeekSessions(classId, start)) {
-            slots.stream()
-                    .filter(s -> s.startTime().equals(session.startTime()))
-                    .filter(s -> s.dayOfWeek() == session.sessionDate().getDayOfWeek().getValue())
-                    .filter(s -> inValidity(s, session.sessionDate()))
-                    .findFirst()
-                    .ifPresent(s -> sessionBySchedule.put(s.scheduleId(), session));
+        // Nhật ký trong tuần -> map (date, startTime) -> log.
+        Map<String, TeachingLogRow> logsBySlot = new HashMap<>();
+        for (TeachingLogRow log : classroomRepository.findWeekTeachingLogs(classId, monday)) {
+            logsBySlot.put(logKey(log.logDate(), log.startTime()), log);
         }
 
-        // Ngoại lệ trong tuần, mỗi ca tối đa 1 (UNIQUE schedule_id, exception_date).
-        Map<Long, SessionExceptionRow> exceptionBySchedule = new HashMap<>();
-        for (SessionExceptionRow exception : classroomRepository.findWeekExceptions(classId, start)) {
-            exceptionBySchedule.put(exception.scheduleId(), exception);
+        // Ngoại lệ trong tuần -> map (scheduleId, exceptionDate) -> exception.
+        Map<String, ScheduleExceptionRow> exceptionsBySlot = new HashMap<>();
+        for (ScheduleExceptionRow ex : classroomRepository.findWeekExceptions(classId, monday)) {
+            exceptionsBySlot.put(ex.scheduleId() + "_" + ex.exceptionDate(), ex);
         }
 
         List<OccurrenceResponse> occurrences = new ArrayList<>();
+
+        // Ca cố định x từng ngày.
         for (ScheduleSlotRow slot : slots) {
             for (int offset = 0; offset < 7; offset++) {
-                LocalDate date = start.plusDays(offset);
+                LocalDate date = monday.plusDays(offset);
                 if (date.getDayOfWeek().getValue() != slot.dayOfWeek() || !inValidity(slot, date)) {
                     continue;
                 }
-                OccurrenceSessionRow session = sessionBySchedule.get(slot.scheduleId());
-                SessionExceptionRow exception = exceptionBySchedule.get(slot.scheduleId());
+                String slotKey = slot.scheduleId() + "_" + date;
+                TeachingLogRow log = logsBySlot.get(logKey(date, slot.startTime()));
+                ScheduleExceptionRow ex = exceptionsBySlot.get(slotKey);
 
                 OccurrenceResponse.OccurrenceResponseBuilder builder = OccurrenceResponse.builder()
-                        .occurrenceKey(slot.scheduleId() + "_" + date)
+                        .occurrenceKey(slotKey)
                         .scheduleId(slot.scheduleId())
                         .date(date)
                         .dayOfWeek(slot.dayOfWeek())
+                        .source(ex != null ? "EXCEPTION" : "OCCURRENCE")
                         .startTime(slot.startTime())
-                        .endTime(slot.endTime());
+                        .endTime(slot.endTime())
+                        .log(log != null ? toLogMini(log) : null);
 
-                if (session != null) {
-                    builder.source("SESSION")
-                            .session(SessionMini.builder()
-                                    .sessionId(session.sessionId())
-                                    .title(session.title())
-                                    .hasLog(session.hasLog())
-                                    .build());
-                } else if (exception != null) {
-                    builder.source("EXCEPTION")
-                            .exception(ExceptionInfo.builder()
-                                    .type(exception.exceptionType())
-                                    .newDate(exception.newDate())
-                                    .newStartTime(exception.newStartTime())
-                                    .newEndTime(exception.newEndTime())
-                                    .newTeachingMode(exception.newTeachingMode())
-                                    .newMeetingUrl(exception.newMeetingUrl())
-                                    .newLocation(exception.newLocation())
-                                    .build());
-                } else {
-                    builder.source("OCCURRENCE");
+                if (ex != null) {
+                    builder.exception(toExceptionInfo(ex));
                 }
                 occurrences.add(builder.build());
             }
         }
 
-        // Buổi dạy thử: ô độc lập (không gắn ca), chỉ hiện khi chưa có ca cố định
-        // nào che cùng (thứ + giờ bắt đầu) trong khoảng hiệu lực.
-        for (OccurrenceSessionRow trial : classroomRepository.findWeekTrialSessions(classId, start)) {
-            int dayOfWeek = trial.sessionDate().getDayOfWeek().getValue();
-            boolean coveredByCa = slots.stream()
-                    .anyMatch(s -> s.dayOfWeek() == dayOfWeek
-                            && s.startTime().equals(trial.startTime())
-                            && inValidity(s, trial.sessionDate()));
-            if (coveredByCa) {
-                continue;
-            }
-            occurrences.add(OccurrenceResponse.builder()
-                    .occurrenceKey("trial_" + trial.sessionId() + "_" + trial.sessionDate())
-                    .date(trial.sessionDate())
-                    .dayOfWeek(dayOfWeek)
-                    .startTime(trial.startTime())
-                    .endTime(trial.endTime())
-                    .source("TRIAL_SESSION")
-                    .session(SessionMini.builder()
-                            .sessionId(trial.sessionId())
-                            .title(trial.title())
-                            .hasLog(trial.hasLog())
-                            .isTrial(true)
-                            .build())
-                    .build());
-        }
+        // Ca thử (classes.trial_*) — ô độc lập khi chưa có ca cố định che cùng ca
+        // và ngày ca thử nằm trong tuần đang xem.
+        classroomRepository
+                .findTrialSlot(classId)
+                .filter(
+                        trial ->
+                                trial.trialDate() != null
+                                        && !trial.trialDate().isBefore(weekStart)
+                                        && trial.trialDate().isBefore(weekStart.plusDays(7)))
+                .ifPresent(
+                        trial -> {
+                            if (!classroomRepository.isTrialCoveredBySlot(classId, trial.trialDate(), trial.startTime())) {
+                                TeachingLogRow log = logsBySlot.get(logKey(trial.trialDate(), trial.startTime()));
+                                occurrences.add(
+                                        OccurrenceResponse.builder()
+                                                .occurrenceKey("trial_" + trial.trialDate() + "_" + trial.startTime())
+                                                .scheduleId(null)
+                                                .date(trial.trialDate())
+                                                .dayOfWeek(trial.trialDate().getDayOfWeek().getValue())
+                                                .source("TRIAL")
+                                                .startTime(trial.startTime())
+                                                .endTime(trial.endTime())
+                                                .trial(true)
+                                                .teachingMode(trial.teachingMode())
+                                                .meetingUrl(trial.meetingUrl())
+                                                .location(trial.location())
+                                                .log(log != null ? toLogMini(log) : null)
+                                                .build());
+                            }
+                        });
 
-        return ClassScheduleResponse.builder()
-                .weekStart(start)
-                .occurrences(occurrences)
+        occurrences.sort(
+                (a, b) ->
+                        a.getDate().compareTo(b.getDate()) == 0
+                                ? a.getStartTime().compareTo(b.getStartTime())
+                                : a.getDate().compareTo(b.getDate()));
+
+        return ClassScheduleResponse.builder().weekStart(monday).occurrences(occurrences).build();
+    }
+
+    private static boolean inValidity(ScheduleSlotRow slot, LocalDate date) {
+        return (slot.validFrom() == null || !date.isBefore(slot.validFrom()))
+                && (slot.validTo() == null || !date.isAfter(slot.validTo()));
+    }
+
+    private static String logKey(LocalDate date, LocalTime startTime) {
+        return date + "_" + startTime;
+    }
+
+    private TeachingLogMini toLogMini(TeachingLogRow row) {
+        return TeachingLogMini.builder()
+                .logId(row.id())
+                .hasContent(row.knowledge() != null || row.homework() != null)
+                .knowledge(row.knowledge() != null ? truncate(row.knowledge(), 60) : null)
+                .homework(row.homework() != null ? truncate(row.homework(), 60) : null)
                 .build();
     }
 
-    /** Danh sách buổi học thật của lớp (mục 4.4) — số thứ tự ROW_NUMBER toàn bộ buổi. */
-    @Transactional(readOnly = true)
-    public List<SessionListItem> listSessions(Long classId, String order) {
-        requireReadAccess(classId);
-        boolean descending = order != null && "desc".equalsIgnoreCase(order.trim());
-        return classroomRepository.findSessionList(classId, descending);
+    private static String truncate(String s, int max) {
+        return s.length() > max ? s.substring(0, max) + "…" : s;
     }
 
-    /**
-     * Chi tiết buổi học (mục 4.5). Mọi vai trò READ thấy nhật ký nguyên văn khi
-     * không null (không gating công bố — mục 1 dòng 7).
-     */
-    @Transactional(readOnly = true)
-    public SessionDetailResponse getDetail(Long sessionId) {
-        SessionDetailRow row =
-                classroomRepository.findSessionDetail(sessionId)
-                        .orElseThrow(() -> new AppException(ErrorCode.SESSION_NOT_FOUND));
-        requireReadAccess(row.classId());
-        SessionDetailResponse response = toDetailResponse(row);
-        response.setMaterials(
-                classroomRepository.findSessionMaterials(sessionId).stream()
-                        .map(ClassOccurrenceService::toMaterialItem)
-                        .toList());
-        return response;
+    private ExceptionInfo toExceptionInfo(ScheduleExceptionRow ex) {
+        return ExceptionInfo.builder()
+                .type(ex.exceptionType())
+                .newDate(ex.newDate())
+                .newStartTime(ex.newStartTime())
+                .newEndTime(ex.newEndTime())
+                .newTeachingMode(ex.newTeachingMode())
+                .newMeetingUrl(ex.newMeetingUrl())
+                .newLocation(ex.newLocation())
+                .build();
     }
 
-    // ========================================================= EXCEPTION (TUTOR)
+    // ------------------------------------------------------------- EXCEPTION (ghi)
 
-    /**
-     * Ghi (create/ghi đè) exception cho ô (mục 4.2, 1 transaction):
-     * ca thuộc lớp + trong khoảng hiệu lực → ô chưa có session thật (R3) →
-     * validate theo loại → RESCHEDULED kiểm trùng ca gia sư (không notification)
-     * → upsert idempotent (R4) → audit.
-     */
     @Transactional
     public SessionExceptionResponse createException(
             Long classId, CreateExceptionRequest request, HttpServletRequest httpRequest) {
-        ClassState state = requireOwnedClassForWrite(classId);
+        Long userId = currentUserId();
+        ClassState state =
+                classroomRepository
+                        .findClassState(classId)
+                        .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
+        requireClassOwner(state, userId);
+
         ScheduleSlotRow slot =
-                classroomRepository.findScheduleSlot(classId, request.getScheduleId())
+                classroomRepository
+                        .findScheduleSlot(classId, request.getScheduleId())
                         .orElseThrow(() -> new AppException(ErrorCode.OCCURRENCE_SCHEDULE_NOT_FOUND));
 
-        LocalDate date = request.getExceptionDate();
-        if (!inValidity(slot, date)) {
+        if (request.getExceptionDate().isBefore(slot.validFrom())) {
             throw new AppException(ErrorCode.EXCEPTION_DATE_OUT_OF_RANGE);
         }
-        String type = request.getExceptionType().trim().toUpperCase(Locale.ROOT);
-        if (!EXCEPTION_TYPES.contains(type)) {
+        if (slot.validTo() != null && request.getExceptionDate().isAfter(slot.validTo())) {
+            throw new AppException(ErrorCode.EXCEPTION_DATE_OUT_OF_RANGE);
+        }
+
+        String type = request.getExceptionType();
+        if (!EXCEPTION_CANCELLED.equals(type)
+                && !EXCEPTION_RESCHEDULED.equals(type)
+                && !EXCEPTION_MODIFIED.equals(type)) {
             throw new AppException(ErrorCode.EXCEPTION_TYPE_INVALID);
         }
-
-        // R3: ô đã "vật chất hóa" (có session thật) thì không ghi được exception.
-        if (classroomRepository.findOccurrenceSession(classId, date, slot.startTime()).isPresent()) {
-            throw new AppException(ErrorCode.OCCURRENCE_HAS_SESSION);
+        if (EXCEPTION_RESCHEDULED.equals(type)) {
+            if (request.getNewDate() == null
+                    || request.getNewStartTime() == null
+                    || request.getNewEndTime() == null
+                    || request.getNewEndTime().compareTo(request.getNewStartTime()) <= 0) {
+                throw new AppException(ErrorCode.EXCEPTION_TYPE_INVALID);
+            }
+            if (request.getNewDate().isBefore(LocalDate.now())) {
+                throw new AppException(ErrorCode.EXCEPTION_RESCHEDULE_IN_PAST);
+            }
         }
 
-        LocalDate newDate = null;
-        LocalTime newStart = null;
-        LocalTime newEnd = null;
-        String mode = null;
-        String meetingUrl = null;
-        String location = null;
-
-        switch (type) {
-            case "RESCHEDULED" -> {
-                newDate = request.getNewDate();
-                newStart = request.getNewStartTime();
-                newEnd = request.getNewEndTime();
-                if (newDate == null || newStart == null || newEnd == null) {
-                    throw new AppException(
-                            ErrorCode.EXCEPTION_TYPE_INVALID,
-                            "Ngoại lệ RESCHEDULED cần newDate, newStartTime và newEndTime");
-                }
-                if (!newStart.isBefore(newEnd)) {
-                    throw new AppException(ErrorCode.SCHEDULE_INVALID_TIME);
-                }
-                if (newDate.isBefore(LocalDate.now())) {
-                    throw new AppException(ErrorCode.EXCEPTION_RESCHEDULE_IN_PAST);
-                }
-                mode = normalizeOptionalMode(request.getNewTeachingMode());
-                meetingUrl = ClassroomQueryRepository.trimToNull(request.getNewMeetingUrl());
-                location = ClassroomQueryRepository.trimToNull(request.getNewLocation());
-                validateModeFields(mode, meetingUrl, location);
-                checkRescheduleConflicts(state, newDate, newStart, newEnd, classId);
-            }
-            case "MODIFIED" -> {
-                // Giờ giữ nguyên ca gốc; chỉ override chi tiết (mục 1 dòng 13).
-                mode = normalizeOptionalMode(request.getNewTeachingMode());
-                meetingUrl = ClassroomQueryRepository.trimToNull(request.getNewMeetingUrl());
-                location = ClassroomQueryRepository.trimToNull(request.getNewLocation());
-                validateModeFields(mode, meetingUrl, location);
-            }
-            case "CANCELLED" ->
-                    // chỉ reason (tùy chọn), không conflict check (mục 1 dòng 3)
-                    {
-            }
-            default ->
-                    throw new AppException(ErrorCode.EXCEPTION_TYPE_INVALID);
+        // R-LOG: ô đã có log (CANCELLED/RESCHEDULED) → buổi không diễn ra đúng ca → chặn.
+        if ((EXCEPTION_CANCELLED.equals(type) || EXCEPTION_RESCHEDULED.equals(type))
+                && classroomRepository.countTeachingLogAt(classId, request.getExceptionDate(), slot.startTime()) > 0) {
+            throw new AppException(
+                    ErrorCode.OCCURRENCE_HAS_SESSION,
+                    "Ca này đã có nhật ký dạy học, không thể hủy/dời — xóa log trước.");
         }
 
-        boolean isUpdate = classroomRepository.findSessionException(slot.scheduleId(), date).isPresent();
         Long id =
-                classroomRepository.upsertSessionException(
+                classroomRepository.upsertScheduleException(
                         classId,
-                        slot.scheduleId(),
-                        date,
+                        request.getScheduleId(),
+                        request.getExceptionDate(),
                         type,
-                        newDate,
-                        newStart,
-                        newEnd,
-                        mode,
-                        meetingUrl,
-                        location,
-                        ClassroomQueryRepository.trimToNull(request.getReason()),
-                        getCurrentUserId());
+                        request.getNewDate(),
+                        request.getNewStartTime(),
+                        request.getNewEndTime(),
+                        request.getNewTeachingMode(),
+                        request.getNewMeetingUrl(),
+                        request.getNewLocation(),
+                        request.getReason(),
+                        userId);
 
+        boolean wasUpdate =
+                classroomRepository
+                        .findScheduleException(request.getScheduleId(), request.getExceptionDate())
+                        .isPresent();
         auditLogService.log(
-                getCurrentUserId(),
-                isUpdate ? "UPDATE_OCCURRENCE_EXCEPTION" : "CREATE_OCCURRENCE_EXCEPTION",
-                "SESSION_EXCEPTION",
+                userId,
+                wasUpdate ? "UPDATE_EXCEPTION" : "CREATE_EXCEPTION",
+                "SCHEDULE_EXCEPTION",
                 id,
-                Map.of(
-                        "classId", classId,
-                        "scheduleId", slot.scheduleId(),
-                        "exceptionDate", date.toString(),
-                        "type", type),
+                Map.of("classId", classId, "scheduleId", request.getScheduleId(), "type", type),
                 httpRequest);
 
         return classroomRepository
-                .findSessionException(slot.scheduleId(), date)
-                .map(row -> toExceptionResponse(row, classId))
+                .findScheduleException(request.getScheduleId(), request.getExceptionDate())
+                .map(this::toExceptionResponse)
                 .orElseThrow();
     }
 
-    /** Gỡ exception của ô (mục 4.3) — không tồn tại → 404, audit REMOVE. */
     @Transactional
     public void deleteException(
-            Long classId, Long scheduleId, LocalDate date, HttpServletRequest httpRequest) {
-        requireOwnedClassForWrite(classId);
-        classroomRepository
-                .findSessionException(scheduleId, date)
-                .orElseThrow(() -> new AppException(ErrorCode.EXCEPTION_NOT_FOUND));
-        classroomRepository.deleteSessionException(scheduleId, date);
+            Long classId, Long scheduleId, LocalDate exceptionDate, HttpServletRequest httpRequest) {
+        Long userId = currentUserId();
+        ClassState state =
+                classroomRepository
+                        .findClassState(classId)
+                        .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
+        requireClassOwner(state, userId);
+
+        int deleted = classroomRepository.deleteScheduleException(scheduleId, exceptionDate);
+        if (deleted == 0) {
+            throw new AppException(ErrorCode.EXCEPTION_NOT_FOUND);
+        }
         auditLogService.log(
-                getCurrentUserId(),
-                "REMOVE_OCCURRENCE_EXCEPTION",
-                "SESSION_EXCEPTION",
+                userId,
+                "DELETE_EXCEPTION",
+                "SCHEDULE_EXCEPTION",
                 scheduleId,
-                Map.of(
-                        "classId", classId,
-                        "scheduleId", scheduleId,
-                        "exceptionDate", date.toString()),
+                Map.of("classId", classId, "date", String.valueOf(exceptionDate)),
                 httpRequest);
     }
 
-    // ========================================================= SESSION THẬT (TUTOR)
+    private SessionExceptionResponse toExceptionResponse(ScheduleExceptionRow row) {
+        return SessionExceptionResponse.builder()
+                .id(row.id())
+                .classId(row.classId())
+                .scheduleId(row.scheduleId())
+                .exceptionDate(row.exceptionDate())
+                .exceptionType(row.exceptionType())
+                .newDate(row.newDate())
+                .newStartTime(row.newStartTime())
+                .newEndTime(row.newEndTime())
+                .newTeachingMode(row.newTeachingMode())
+                .newMeetingUrl(row.newMeetingUrl())
+                .newLocation(row.newLocation())
+                .reason(row.reason())
+                .createdBy(row.createdBy())
+                .createdAt(row.createdAt())
+                .build();
+    }
+
+    // ------------------------------------------------------------- TEACHING LOG
 
     /**
-     * Sửa / dời buổi (mục 4.6): date &gt;= hôm nay (1146), start &lt; end (1147),
-     * trùng slot cùng lớp (1148), trùng ca khác lớp (1126).
-     * Đổi ngày/giờ → notification học sinh.
-     * (Mục -1: bỏ guard SCHEDULED / 1144 — buổi thật luôn ở trạng thái SCHEDULED
-     * vì không còn endpoint đổi trạng thái.)
+     * Ghi / sửa nhật ký dạy học (upsert theo (class, log_date, start_time), C-15').
+     * Lần đầu lưu nội dung (firstPublish) → thông báo học sinh (link CLASS).
+     * R-LOG: chặn khi ô đang có exception CANCELLED/RESCHEDULED.
      */
     @Transactional
-    public SessionDetailResponse updateSession(
-            Long sessionId, UpdateSessionRequest request, HttpServletRequest httpRequest) {
-        LockedSessionRow session = requireOwnedSessionForWrite(sessionId);
+    public TeachingLogResponse saveLog(Long classId, SaveTeachingLogRequest request, HttpServletRequest httpRequest) {
+        Long userId = currentUserId();
+        ClassState state =
+                classroomRepository
+                        .findClassState(classId)
+                        .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
+        requireClassOwner(state, userId);
 
-        String mode = ClassroomQueryRepository.normalizeMode(request.getTeachingMode());
-        String meetingUrl = ClassroomQueryRepository.trimToNull(request.getMeetingUrl());
-        String location = ClassroomQueryRepository.trimToNull(request.getLocation());
-        if (!request.getStartTime().isBefore(request.getEndTime())) {
+        if (request.getEndTime() == null || request.getStartTime() == null
+                || request.getEndTime().compareTo(request.getStartTime()) <= 0) {
             throw new AppException(ErrorCode.SESSION_INVALID_TIME);
         }
-        if (request.getSessionDate().isBefore(LocalDate.now())) {
-            throw new AppException(ErrorCode.SESSION_RESCHEDULE_IN_PAST);
-        }
-        validateModeFields(mode, meetingUrl, location);
-
-        // 4a: trùng slot (cùng ngày + cùng giờ bắt đầu) của buổi CHÍNH THỨC khác trong cùng lớp.
-        if (classroomRepository.countDuplicateSlotInClass(
-                        session.classId(), request.getSessionDate(), request.getStartTime(), sessionId)
-                > 0) {
-            throw new AppException(ErrorCode.SESSION_DUPLICATE_SLOT);
-        }
-        // 4b: trùng khung giờ với bất kỳ ca SCHEDULED/IN_PROGRESS khác của gia sư
-        // (loại trừ chính buổi đang sửa) — cùng lớp (giao giờ, giờ khác) lẫn khác lớp.
-        List<ConflictInfo> conflicts =
-                conflictChecker.findConflicts(
-                        session.tutorId(),
-                        request.getSessionDate(),
-                        request.getStartTime(),
-                        request.getEndTime(),
-                        sessionId);
-        if (!conflicts.isEmpty()) {
-            throw new AppException(
-                    ErrorCode.SCHEDULE_CONFLICT,
-                    ScheduleConflictChecker.describeConflict(conflicts.getFirst()));
-        }
-
-        boolean moved =
-                !request.getSessionDate().equals(session.sessionDate())
-                        || !request.getStartTime().equals(session.startTime())
-                        || !request.getEndTime().equals(session.endTime());
-
-        try {
-            classroomRepository.updateSessionInfo(
-                    sessionId,
-                    new SessionInfoUpdate(
-                            ClassroomQueryRepository.trimToNull(request.getTitle()),
-                            request.getSessionDate(),
-                            request.getStartTime(),
-                            request.getEndTime(),
-                            mode,
-                            meetingUrl,
-                            location));
-        } catch (DataIntegrityViolationException ex) {
-            // Race 2 request cùng slot — unique index V11 là chốt chặn (mục 4.6 bước 7).
-            throw new AppException(ErrorCode.SESSION_DUPLICATE_SLOT);
-        }
-
-        auditLogService.log(
-                getCurrentUserId(),
-                "UPDATE_SESSION",
-                "SESSION",
-                sessionId,
-                Map.of(
-                        "before",
-                        Map.of(
-                                "date", session.sessionDate().toString(),
-                                "start", session.startTime().toString(),
-                                "end", session.endTime().toString()),
-                        "after",
-                        Map.of(
-                                "date", request.getSessionDate().toString(),
-                                "start", request.getStartTime().toString(),
-                                "end", request.getEndTime().toString())),
-                httpRequest);
-
-        if (moved) {
-            notifySessionRescheduled(
-                    session, request.getSessionDate(), request.getStartTime(), request.getEndTime());
-        }
-
-        SessionDetailResponse updated =
-                classroomRepository
-                        .findSessionDetail(sessionId)
-                        .map(ClassOccurrenceService::toDetailResponse)
-                        .orElseThrow(() -> new AppException(ErrorCode.SESSION_NOT_FOUND));
-        updated.setMaterials(
-                classroomRepository.findSessionMaterials(sessionId).stream()
-                        .map(ClassOccurrenceService::toMaterialItem)
-                        .toList());
-        return updated;
-    }
-
-    /**
-     * Lưu nhật ký buổi (mục 4.8): ít nhất 1 nội dung (1149); lần đầu (cả 2 log
-     * đang NULL) mới notification học sinh — xóa trắng rồi lưu lại
-     * được chấp nhận báo thêm (mục 1 dòng 7).
-     */
-    @Transactional
-    public SessionLogResponse saveLog(
-            Long sessionId, UpdateSessionLogRequest request, HttpServletRequest httpRequest) {
-        LockedSessionRow session = requireOwnedSessionForWrite(sessionId);
-
-        String knowledge = ClassroomQueryRepository.trimToNull(request.getLogKnowledge());
-        String homework = ClassroomQueryRepository.trimToNull(request.getLogHomework());
+        String knowledge = ClassroomQueryRepository.trimToNull(request.getKnowledge());
+        String homework = ClassroomQueryRepository.trimToNull(request.getHomework());
         if (knowledge == null && homework == null) {
             throw new AppException(ErrorCode.SESSION_LOG_EMPTY);
         }
-        boolean firstPublish =
-                session.logKnowledge() == null && session.logHomework() == null;
 
-        classroomRepository.updateSessionLog(sessionId, knowledge, homework);
+        requireLogSlotWritable(classId, request.getLogDate(), request.getStartTime());
+
+        LogUpsertResult upserted =
+                classroomRepository.upsertTeachingLog(
+                        classId,
+                        request.getLogDate(),
+                        request.getStartTime(),
+                        request.getEndTime(),
+                        knowledge,
+                        homework);
+
+        if (upserted.firstPublish()) {
+            classroomRepository.insertLogFirstPublishNotification(state.studentId(), state.className(), request.getLogDate(), classId);
+        }
+
         auditLogService.log(
-                getCurrentUserId(),
-                "UPDATE_SESSION_LOG",
-                "SESSION",
-                sessionId,
-                Map.of("firstPublish", firstPublish),
+                userId,
+                upserted.firstPublish() ? "CREATE_LOG" : "UPDATE_LOG",
+                "TEACHING_LOG",
+                upserted.logId(),
+                Map.of("classId", classId, "date", String.valueOf(request.getLogDate())),
                 httpRequest);
 
-        if (firstPublish) {
-            notifySessionLogPublished(session);
-        }
-        return SessionLogResponse.builder().sessionId(sessionId).firstPublish(firstPublish).build();
+        TeachingLogRow saved =
+                classroomRepository
+                        .findTeachingLog(classId, request.getLogDate(), request.getStartTime())
+                        .orElseThrow();
+        return toLogResponse(saved, upserted.firstPublish());
     }
 
-    // ================================================== TÀI LIỆU BUỔI HỌC (FR-12, FR-21)
+    /** R-LOG: không ghi log ở ô có exception CANCELLED/RESCHEDULED (buổi không diễn ra đúng ca). */
+    private void requireLogSlotWritable(Long classId, LocalDate date, LocalTime startTime) {
+        var ex =
+                classroomRepository
+                        .findScheduleExceptionAt(classId, date, startTime)
+                        .orElse(null);
+        if (ex != null
+                && (EXCEPTION_CANCELLED.equals(ex.exceptionType())
+                        || EXCEPTION_RESCHEDULED.equals(ex.exceptionType()))) {
+            throw new AppException(
+                    ErrorCode.OCCURRENCE_HAS_SESSION,
+                    "Ca này đang bị hủy/dời, không thể ghi nhật ký tại ca gốc.");
+        }
+    }
 
-    /**
-     * Upload tài liệu buổi học (FR-12): kiểm tra quyền sở hữu (khóa row buổi),
-     * kiểm tra định dạng/dung lượng, lưu S3 + ghi {@code session_materials} + audit.
-     * Định dạng: PDF, DOCX, ảnh, âm thanh — mỗi tệp ≤ 20 MB (API_DESIGN §3.6).
-     */
+    /** Xóa 1 log (FOR UPDATE, guard qua lớp). */
     @Transactional
-    public SessionMaterialItem uploadMaterial(
-            Long sessionId, MultipartFile file, HttpServletRequest httpRequest) {
-        LockedSessionRow session = requireOwnedSessionForWrite(sessionId);
+    public void deleteLog(Long classId, Long logId, HttpServletRequest httpRequest) {
+        Long userId = currentUserId();
+        ClassState state =
+                classroomRepository
+                        .findClassState(classId)
+                        .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
+        requireClassOwner(state, userId);
+
+        int deleted = classroomRepository.deleteTeachingLog(classId, logId);
+        if (deleted == 0) {
+            throw new AppException(ErrorCode.MATERIAL_NOT_FOUND);
+        }
+        auditLogService.log(userId, "DELETE_LOG", "TEACHING_LOG", logId, Map.of("classId", classId), httpRequest);
+    }
+
+    /** Đọc log của 1 ô ca (trống nếu chưa ghi) — cho modal "nhật ký" trên lưới. */
+    @Transactional(readOnly = true)
+    public TeachingLogResponse getLog(Long classId, LocalDate logDate, LocalTime startTime) {
+        Long userId = currentUserId();
+        ClassState state =
+                classroomRepository
+                        .findClassState(classId)
+                        .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
+        requireClassOwner(state, userId);
+        TeachingLogRow row =
+                classroomRepository.findTeachingLog(classId, logDate, startTime).orElse(null);
+        return row != null ? toLogResponse(row, false) : null;
+    }
+
+    private TeachingLogResponse toLogResponse(TeachingLogRow row, boolean firstPublish) {
+        boolean hasContent = row.knowledge() != null || row.homework() != null;
+        return TeachingLogResponse.builder()
+                .logId(row.id())
+                .logDate(row.logDate())
+                .startTime(row.startTime())
+                .endTime(row.endTime())
+                .knowledge(row.knowledge())
+                .homework(row.homework())
+                .hasContent(hasContent)
+                .firstPublish(firstPublish)
+                .updatedAt(row.updatedAt())
+                .build();
+    }
+
+    // ------------------------------------------------------------- BÀI GIẢNG / TÀI LIỆU
+
+    @Transactional(readOnly = true)
+    public LessonDetailResponse getLesson(Long lessonId) {
+        Long userId = currentUserId();
+        // quyền đọc qua chuỗi lesson → class (TUTOR/STUDENT sở hữu) — load & guard trong service lesson.
+        var detail =
+                classroomRepository
+                        .findLessonDetail(lessonId)
+                        .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
+        requireClassOwnerForLesson(detail, userId);
+        List<LessonMaterialItem> materials =
+                classroomRepository.findLessonMaterials(lessonId).stream().map(this::toMaterialItem).toList();
+        return LessonDetailResponse.builder()
+                .lessonId(detail.lessonId())
+                .classId(detail.classId())
+                .className(detail.className())
+                .studentName(detail.studentName())
+                .tutorName(detail.tutorName())
+                .title(detail.title())
+                .status(detail.status())
+                .materials(materials)
+                .quizCount(detail.quizCount())
+                .createdAt(detail.createdAt())
+                .updatedAt(detail.updatedAt())
+                .build();
+    }
+
+    @Transactional
+    public LessonMaterialItem uploadMaterial(Long lessonId, MultipartFile file, HttpServletRequest httpRequest) {
+        Long userId = currentUserId();
+        LessonDetailRow lesson =
+                classroomRepository
+                        .lockLesson(lessonId)
+                        .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
+        requireClassOwnerForLesson(lesson, userId);
+
         if (file == null || file.isEmpty()) {
             throw new AppException(ErrorCode.MATERIAL_NOT_FOUND);
         }
@@ -522,43 +518,48 @@ public class ClassOccurrenceService {
 
         String fileUrl =
                 storageService.uploadFile(
-                        MATERIALS_FOLDER_PREFIX + "/" + session.sessionId(), file, MATERIAL_MAX_BYTES);
+                        MATERIALS_FOLDER_PREFIX + "/" + lessonId, file, MATERIAL_MAX_BYTES);
         Long materialId =
-                classroomRepository.insertSessionMaterial(
-                        session.sessionId(),
-                        getCurrentUserId(),
+                classroomRepository.insertLessonMaterial(
+                        lessonId,
+                        userId,
                         file.getOriginalFilename() != null ? file.getOriginalFilename() : "file",
                         fileUrl,
                         fileType,
                         file.getSize());
 
         auditLogService.log(
-                getCurrentUserId(),
-                "UPLOAD_SESSION_MATERIAL",
-                "SESSION_MATERIAL",
+                userId,
+                "UPLOAD_LESSON_MATERIAL",
+                "LESSON_MATERIAL",
                 materialId,
                 Map.of(
-                        "sessionId", session.sessionId(),
-                        "classId", session.classId(),
+                        "lessonId", lessonId,
+                        "classId", lesson.classId(),
                         "fileName", file.getOriginalFilename(),
                         "fileType", fileType,
                         "fileSize", file.getSize()),
                 httpRequest);
 
         return classroomRepository
-                .findSessionMaterial(session.sessionId(), materialId)
-                .map(ClassOccurrenceService::toMaterialItem)
+                .findLessonMaterial(lessonId, materialId)
+                .map(this::toMaterialItem)
                 .orElseThrow(() -> new AppException(ErrorCode.MATERIAL_NOT_FOUND));
     }
 
-    /** Gỡ tài liệu buổi học (FR-12): xóa S3 object + dòng DB, audit. Material không thuộc buổi → 404. */
+    /** Gỡ tài liệu bài giảng (FR-12): xóa S3 object + dòng DB, audit. Material không thuộc bài → 404. */
     @Transactional
-    public void deleteMaterial(
-            Long sessionId, Long materialId, HttpServletRequest httpRequest) {
-        requireOwnedSessionForWrite(sessionId);
-        SessionMaterialRow material =
+    public void deleteMaterial(Long lessonId, Long materialId, HttpServletRequest httpRequest) {
+        Long userId = currentUserId();
+        LessonDetailRow lesson =
                 classroomRepository
-                        .findSessionMaterial(sessionId, materialId)
+                        .lockLesson(lessonId)
+                        .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
+        requireClassOwnerForLesson(lesson, userId);
+
+        LessonMaterialRow material =
+                classroomRepository
+                        .findLessonMaterial(lessonId, materialId)
                         .orElseThrow(() -> new AppException(ErrorCode.MATERIAL_NOT_FOUND));
 
         try {
@@ -569,80 +570,63 @@ public class ClassOccurrenceService {
                     materialId,
                     e.getMessage());
         }
-        classroomRepository.deleteSessionMaterial(sessionId, materialId);
+        classroomRepository.deleteLessonMaterial(lessonId, materialId);
 
         auditLogService.log(
-                getCurrentUserId(),
-                "DELETE_SESSION_MATERIAL",
-                "SESSION_MATERIAL",
+                userId,
+                "DELETE_LESSON_MATERIAL",
+                "LESSON_MATERIAL",
                 materialId,
                 Map.of(
-                        "sessionId", material.sessionId(),
+                        "lessonId", material.lessonId(),
                         "classId", material.classId(),
                         "fileName", material.fileName()),
                 httpRequest);
     }
 
     /**
-     * Link tải an toàn (ký sẵn 10 phút) cho tài liệu buổi học (FR-21).
+     * Link tải an toàn (ký sẵn 10 phút) cho tài liệu bài giảng (FR-21).
      * TUTOR: phải là gia sư của lớp; STUDENT: phải là học sinh của lớp —
      * người khác / đã gỡ → 404.
      */
     @Transactional(readOnly = true)
     public MaterialAccessUrlResponse getMaterialAccessUrl(Long materialId) {
-        SessionMaterialRow material =
+        Long userId = currentUserId();
+        LessonMaterialRow material =
                 classroomRepository
                         .findMaterialForAccess(materialId)
                         .orElseThrow(() -> new AppException(ErrorCode.MATERIAL_NOT_FOUND));
-        requireMaterialAccess(material);
+        requireMaterialAccess(material, userId);
 
         String url = storageService.presignedUrl(material.fileUrl(), MATERIAL_URL_TTL);
         return MaterialAccessUrlResponse.builder()
                 .url(url)
-                .previewable("PDF".equals(material.fileType())
-                        || "IMAGE".equals(material.fileType())
-                        || "AUDIO".equals(material.fileType()))
+                .previewable(
+                        "PDF".equals(material.fileType())
+                                || "IMAGE".equals(material.fileType())
+                                || "AUDIO".equals(material.fileType()))
                 .build();
     }
 
-    // ---------------------------------------------------------------- MATERIALIZE
-
-    /**
-     * Vật chất hóa (R9, mục 1.8): "Tạo buổi học" (on-demand) vào ô đang có
-     * exception → xóa exception, session thật kế thừa ngày/giờ. Gọi từ
-     * {@code TutorClassService.createSessionOnDemand} sau khi insert thành công,
-     * cùng transaction. Không notification (giữ nguyên hành vi create on-demand).
-     *
-     * @return true nếu có exception bị xóa, false nếu ô không có overlay.
-     */
-    @Transactional
-    public boolean materializeOccurrenceException(
-            Long classId,
-            LocalDate date,
-            int dayOfWeek,
-            LocalTime startTime,
-            Long actorId,
-            HttpServletRequest httpRequest) {
-        var exception =
-                classroomRepository.findExceptionForOccurrence(classId, date, dayOfWeek, startTime);
-        if (exception.isEmpty()) {
-            return false;
-        }
-        classroomRepository.deleteSessionException(exception.get().scheduleId(), exception.get().exceptionDate());
-        auditLogService.log(
-                actorId,
-                "MATERIALIZE_OCCURRENCE",
-                "SESSION_EXCEPTION",
-                exception.get().scheduleId(),
-                Map.of("classId", classId, "exceptionDate", date.toString()),
-                httpRequest);
-        return true;
+    private LessonMaterialItem toMaterialItem(LessonMaterialRow row) {
+        return LessonMaterialItem.builder()
+                .materialId(row.materialId())
+                .fileName(row.fileName())
+                .fileType(row.fileType())
+                .fileSize(row.fileSize())
+                .uploadedByName(row.uploadedByName())
+                .createdAt(row.createdAt())
+                .build();
     }
 
-    // ------------------------------------------------------------------- QUYỀN
+    private void requireClassOwnerForLesson(
+            ClassroomQueryRepository.LessonDetailRow lesson, Long userId) {
+        if (!userId.equals(lesson.tutorId()) && !userId.equals(lesson.studentId())) {
+            throw new AppException(ErrorCode.CLASS_NOT_OWNED);
+        }
+    }
 
-    /** TUTOR phải là gia sư của lớp, STUDENT phải là học sinh của lớp (access-url). */
-    private void requireMaterialAccess(SessionMaterialRow material) {
+    private void requireMaterialAccess(LessonMaterialRow material, Long userId) {
         User user = getCurrentUser();
         if (UserRole.TUTOR.name().equals(user.getRole())) {
             if (!user.getId().equals(material.tutorId())) {
@@ -655,118 +639,6 @@ public class ClassOccurrenceService {
         }
     }
 
-    /**
-     * Quyền đọc (mục 4.1/4.4/4.5, dòng 6): TUTOR sở hữu lớp, STUDENT sở hữu lớp,
-     * RECEPTIONIST/ADMIN không check sở hữu. Lớp không tồn tại → 404; TUTOR/STUDENT
-     * không sở hữu → 403 SESSION_NOT_OWNED.
-     */
-    private ClassState requireReadAccess(Long classId) {
-        ClassState state =
-                classroomRepository.findClassState(classId)
-                        .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
-        User user = getCurrentUser();
-        if (UserRole.TUTOR.name().equals(user.getRole())) {
-            if (!user.getId().equals(state.tutorId())) {
-                throw new AppException(ErrorCode.SESSION_NOT_OWNED);
-            }
-        } else if (UserRole.STUDENT.name().equals(user.getRole())) {
-            if (!user.getId().equals(state.studentId())) {
-                throw new AppException(ErrorCode.SESSION_NOT_OWNED);
-            }
-        }
-        return state;
-    }
-
-    /** Quyền ghi exception (TUTOR sở hữu lớp — mục 4.2/4.3). */
-    private ClassState requireOwnedClassForWrite(Long classId) {
-        ClassState state =
-                classroomRepository.findClassState(classId)
-                        .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
-        if (!getCurrentUserId().equals(state.tutorId())) {
-            throw new AppException(ErrorCode.SESSION_NOT_OWNED);
-        }
-        return state;
-    }
-
-    /** Buổi tồn tại + TUTOR sở hữu lớp chủ (khóa row FOR UPDATE — mục 4.6–4.8). */
-    private LockedSessionRow requireOwnedSessionForWrite(Long sessionId) {
-        LockedSessionRow session =
-                classroomRepository.lockSession(sessionId)
-                        .orElseThrow(() -> new AppException(ErrorCode.SESSION_NOT_FOUND));
-        if (!getCurrentUserId().equals(session.tutorId())) {
-            throw new AppException(ErrorCode.SESSION_NOT_OWNED);
-        }
-        return session;
-    }
-
-    // ----------------------------------------------------------------- HELPERS
-
-    /**
-     * Kiểm trùng khi DỜI ô ảo (RESCHEDULED, mục 1 dòng 3): (a) ca cố định của lớp
-     * KHÁC cùng thứ với new_date + giao giờ + giao hiệu lực, (b) session
-     * SCHEDULED/IN_PROGRESS khác của gia sư cùng new_date. Ô ảo chưa có session
-     * thật nên không loại trừ chính lớp — session thật trùng ngày đó thật sự là
-     * double-booking. Không gửi notification (điều chỉnh lịch tuần).
-     */
-    private void checkRescheduleConflicts(
-            ClassState state, LocalDate newDate, LocalTime newStart, LocalTime newEnd, Long classId) {
-        List<WeeklyConflictInfo> weeklyConflicts =
-                conflictChecker.findWeeklyConflicts(
-                        state.tutorId(),
-                        newDate.getDayOfWeek().getValue(),
-                        newStart,
-                        newEnd,
-                        newDate,
-                        newDate,
-                        classId);
-        if (!weeklyConflicts.isEmpty()) {
-            throw new AppException(
-                    ErrorCode.SCHEDULE_CONFLICT,
-                    ScheduleConflictChecker.describeWeeklyConflict(weeklyConflicts.getFirst()));
-        }
-        List<ConflictInfo> perDateConflicts =
-                conflictChecker.findConflicts(state.tutorId(), newDate, newStart, newEnd, null);
-        if (!perDateConflicts.isEmpty()) {
-            throw new AppException(
-                    ErrorCode.SCHEDULE_CONFLICT,
-                    ScheduleConflictChecker.describeConflict(perDateConflicts.getFirst()));
-        }
-    }
-
-    /** Ngày nằm trong khoảng hiệu lực của ca ({@code valid_from <= date <= valid_to/open}). */
-    private static boolean inValidity(ScheduleSlotRow slot, LocalDate date) {
-        return slot.validFrom().compareTo(date) <= 0
-                && (slot.validTo() == null || slot.validTo().compareTo(date) >= 0);
-    }
-
-    /** null/blank = kế thừa (trường không bắt buộc), ngược lại normalize về UPPER. */
-    private static String normalizeOptionalMode(String mode) {
-        if (mode == null || mode.isBlank()) {
-            return null;
-        }
-        return mode.trim().toUpperCase(Locale.ROOT);
-    }
-
-    /** Validate link/địa chỉ theo hình thức khi override (reused 1129/1130/1131). */
-    private void validateModeFields(String mode, String meetingUrl, String location) {
-        if (mode == null) {
-            return; // kế thừa ca gốc — không validate
-        }
-        if (!"ONLINE".equals(mode) && !"AT_HOME".equals(mode)) {
-            throw new AppException(ErrorCode.TRIAL_SESSION_INVALID_MODE);
-        }
-        if ("ONLINE".equals(mode) && meetingUrl == null) {
-            throw new AppException(ErrorCode.TRIAL_SESSION_MISSING_MEETING_URL);
-        }
-        if ("AT_HOME".equals(mode) && location == null) {
-            throw new AppException(ErrorCode.TRIAL_SESSION_MISSING_LOCATION);
-        }
-    }
-
-    /**
-     * Suy ra {@code file_type} (PDF|DOCX|IMAGE|AUDIO) từ content-type; định dạng
-     * khác bị từ chối (1157). DOCX nhận cả định dạng cũ (.doc).
-     */
     private String resolveMaterialType(MultipartFile file) {
         String contentType = file.getContentType() != null ? file.getContentType() : "";
         if (contentType.startsWith("application/pdf")) {
@@ -785,89 +657,16 @@ public class ClassOccurrenceService {
         throw new AppException(ErrorCode.MATERIAL_FILE_TYPE_INVALID);
     }
 
-    /** Map 1 dòng DB thành item API (kiểm soát cả khi null). */
-    private static SessionMaterialItem toMaterialItem(SessionMaterialRow row) {
-        return SessionMaterialItem.builder()
-                .materialId(row.materialId())
-                .fileName(row.fileName())
-                .fileType(row.fileType())
-                .fileSize(row.fileSize())
-                .uploadedByName(row.uploadedByName())
-                .createdAt(row.createdAt())
-                .build();
+    // ------------------------------------------------------------- HELPERS
+
+    private void requireClassOwner(ClassState state, Long userId) {
+        if (!userId.equals(state.tutorId()) && !userId.equals(state.studentId())) {
+            throw new AppException(ErrorCode.CLASS_NOT_OWNED);
+        }
     }
 
-    private static SessionDetailResponse toDetailResponse(SessionDetailRow row) {
-        boolean hasLog = row.logKnowledge() != null || row.logHomework() != null;
-        return SessionDetailResponse.builder()
-                .sessionId(row.sessionId())
-                .sessionNumber(row.sessionNumber())
-                .classId(row.classId())
-                .className(row.className())
-                .studentName(row.studentName())
-                .tutorName(row.tutorName())
-                .title(row.title())
-                .sessionDate(row.sessionDate())
-                .startTime(row.startTime())
-                .endTime(row.endTime())
-                .teachingMode(row.teachingMode())
-                .meetingUrl(row.meetingUrl())
-                .location(row.location())
-                .isTrial(row.isTrial())
-                .logKnowledge(row.logKnowledge())
-                .logHomework(row.logHomework())
-                .hasLog(hasLog)
-                .build();
-    }
-
-    private static SessionExceptionResponse toExceptionResponse(SessionExceptionRow row, Long classId) {
-        return SessionExceptionResponse.builder()
-                .id(row.id())
-                .classId(classId)
-                .scheduleId(row.scheduleId())
-                .exceptionDate(row.exceptionDate())
-                .exceptionType(row.exceptionType())
-                .newDate(row.newDate())
-                .newStartTime(row.newStartTime())
-                .newEndTime(row.newEndTime())
-                .newTeachingMode(row.newTeachingMode())
-                .newMeetingUrl(row.newMeetingUrl())
-                .newLocation(row.newLocation())
-                .reason(row.reason())
-                .createdBy(row.createdBy())
-                .createdAt(row.createdAt())
-                .build();
-    }
-
-    // ------------------------------------------------- NOTIFICATION (bản tạm, T8-A1 thay)
-
-    /** Dời buổi học thật (đổi ngày/giờ) → báo học sinh. */
-    private void notifySessionRescheduled(
-            LockedSessionRow session, LocalDate newDate, LocalTime newStart, LocalTime newEnd) {
-        jdbcTemplate.update(
-                """
-                INSERT INTO notifications (user_id, title, content, link_entity_type, link_entity_id)
-                VALUES (?, ?, ?, 'CLASS', ?)
-                """,
-                session.studentId(),
-                "Buổi học đã đổi lịch",
-                "Buổi học " + session.sessionDate().format(DATE_FMT) + " đã được dời sang "
-                        + newDate.format(DATE_FMT) + " " + newStart.format(TIME_FMT) + "-"
-                        + newEnd.format(TIME_FMT),
-                session.classId());
-    }
-
-    /** Sự kiện 3/3: gia sư lưu nhật ký lần đầu → báo học sinh. */
-    private void notifySessionLogPublished(LockedSessionRow session) {
-        jdbcTemplate.update(
-                """
-                INSERT INTO notifications (user_id, title, content, link_entity_type, link_entity_id)
-                VALUES (?, ?, ?, 'CLASS', ?)
-                """,
-                session.studentId(),
-                "Gia sư đã ghi nhật ký",
-                "Gia sư đã ghi nhật ký buổi học ngày " + session.sessionDate().format(DATE_FMT),
-                session.classId());
+    private Long currentUserId() {
+        return getCurrentUser().getId();
     }
 
     private User getCurrentUser() {
@@ -875,9 +674,5 @@ public class ClassOccurrenceService {
         return userRepository
                 .findByUsername(authentication.getName())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-    }
-
-    private Long getCurrentUserId() {
-        return getCurrentUser().getId();
     }
 }

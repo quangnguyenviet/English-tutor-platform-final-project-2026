@@ -882,7 +882,7 @@ export const studentNotifications = [
     body: "Cô Nguyễn Lan Anh vừa thêm “Reading Matching Headings – Worksheet” (PDF, 12 trang).",
     createdAt: "2026-08-01T09:05:00+07:00",
     read: true,
-    link: "/student/materials",
+    link: "/student/schedule",
   },
 ];
 

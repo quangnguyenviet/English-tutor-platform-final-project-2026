@@ -24,7 +24,6 @@ import {
   MessageCircle,
   NotebookPen,
   LineChart,
-  FolderOpen,
   Lock,
   Banknote,
   Bell,
@@ -232,7 +231,6 @@ function AppShellInner() {
       { to: "/student/schedule", label: "Lịch học", icon: CalendarDays, locked: !isMatched },
       { to: "/student/exercises", label: "Bài tập & kiểm tra", icon: NotebookPen, locked: !isMatched },
       { to: "/student/progress", label: "Kết quả & tiến bộ", icon: LineChart, locked: !isMatched },
-      { to: "/student/materials", label: "Tài liệu & video", icon: FolderOpen, locked: !isMatched },
       { to: "/student/settings", label: "Cài đặt", icon: Settings },
     ];
   }

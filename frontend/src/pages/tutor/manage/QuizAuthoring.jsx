@@ -20,7 +20,7 @@ import Button from "../../../components/ui/Button";
 import clsx from "clsx";
 import {
   apiAssignQuiz,
-  apiCreateSessionQuiz,
+  apiCreateLessonQuiz,
   apiGetQuiz,
   apiGetSkills,
   apiUpdateQuiz,
@@ -55,7 +55,7 @@ function toIso(value) {
 }
 
 export default function QuizAuthoring({ token, basePath, detail }) {
-  const { sessionId } = useParams();
+  const { lessonId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const quizIdParam = searchParams.get("quizId");
@@ -188,14 +188,14 @@ export default function QuizAuthoring({ token, basePath, detail }) {
       if (isEditing) {
         await apiUpdateQuiz(token, quizIdParam, payload);
       } else {
-        const created = await apiCreateSessionQuiz(token, sessionId, payload);
+        const created = await apiCreateLessonQuiz(token, lessonId, payload);
         id = created.quizId;
         setExisting({ ...created, status: "DRAFT" });
       }
       if (forAssign) return id;
 
       showToast(isEditing ? "Đã lưu chỉnh sửa quiz." : "Đã lưu quiz nháp.");
-      navigate(`${basePath}/sessions`);
+      navigate(`${basePath}/lessons`);
       return id;
     } catch (err) {
       setFormError(err.message || "Không thể lưu quiz. Vui lòng kiểm tra lại nội dung.");
@@ -227,7 +227,7 @@ export default function QuizAuthoring({ token, basePath, detail }) {
       }
       await apiAssignQuiz(token, id, iso);
       showToast("Đã giao quiz cho học sinh.");
-      navigate(`${basePath}/sessions`);
+      navigate(`${basePath}/lessons`);
     } catch (err) {
       setFormError(err.message || "Không thể giao quiz. Vui lòng thử lại.");
       setAssigning(false);
@@ -239,7 +239,7 @@ export default function QuizAuthoring({ token, basePath, detail }) {
     return status ? QUIZ_STATUS_META[status] : null;
   }, [existing]);
 
-  const backTo = `${basePath}/sessions`;
+  const backTo = `${basePath}/lessons`;
 
   return (
     <div className="space-y-5">
@@ -266,19 +266,19 @@ export default function QuizAuthoring({ token, basePath, detail }) {
           to={backTo}
           className="mb-3 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
         >
-          <ArrowLeft size={16} /> Quay lại buổi học
+          <ArrowLeft size={16} /> Quay lại bài giảng
         </Link>
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50">
-                {isEditing ? "Sửa quiz" : "Soạn quiz buổi học"}
+                {isEditing ? "Sửa quiz" : "Soạn quiz bài giảng"}
               </h2>
               {previewMeta && <Badge tone={previewMeta.tone}>{previewMeta.label}</Badge>}
               {!previewMeta && <Badge tone="amber">Nháp</Badge>}
             </div>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {detail?.title ? `Buổi học: ${detail.title}` : "Nhập câu hỏi trắc nghiệm A–D cho buổi học."}
+              {detail?.title ? `Bài giảng: ${detail.title}` : "Nhập câu hỏi trắc nghiệm A–D cho bài giảng."}
               {existing?.deadline ? ` · Hạn làm ${formatDeadlineLabel(existing.deadline)}` : ""}
             </p>
           </div>

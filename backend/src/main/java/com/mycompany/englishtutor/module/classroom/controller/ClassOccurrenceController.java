@@ -1,7 +1,7 @@
 package com.mycompany.englishtutor.module.classroom.controller;
 
 import java.time.LocalDate;
-import java.util.List;
+import java.time.LocalTime;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -14,8 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.mycompany.englishtutor.module.classroom.api.response.ClassScheduleResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.MaterialAccessUrlResponse;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionDetailResponse;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionListItem;
+import com.mycompany.englishtutor.module.classroom.api.response.TeachingLogResponse;
 import com.mycompany.englishtutor.module.classroom.service.ClassOccurrenceService;
 import com.mycompany.englishtutor.shared.api.ApiResponse;
 
@@ -25,67 +24,53 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Đọc "Lịch dạy" (kế hoạch class-sessions mục 4.1/4.4/4.5, [READ] — dòng 6):
- * lattice tuần, danh sách buổi học thật, chi tiết buổi học. Mở cho
- * TUTOR (sở hữu lớp), STUDENT (sở hữu lớp), RECEPTIONIST, ADMIN — khác
- * {@link TutorClassController} (viết, chỉ TUTOR) nên tách riêng để không
- * override class-level {@code @PreAuthorize}.
+ * Đọc "Lịch dạy" + "Bài giảng" (V16, đa vai trò): lattice tuần (ca cố định +
+ * ngoại lệ + nhật ký + ca thử), nhật ký dạy học, danh sách/chi tiết bài giảng,
+ * và link tải tài liệu bài giảng. Mở cho TUTOR (sở hữu lớp), STUDENT (sở hữu
+ * lớp), RECEPTIONIST, ADMIN — tách riêng khỏi {@link TutorClassController}
+ * (viết, chỉ TUTOR) để không override {@code @PreAuthorize}.
  */
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('TUTOR', 'STUDENT', 'RECEPTIONIST', 'ADMIN')")
-@Tag(name = "Class Occurrence (read)", description = "Lịch dạy & buổi học của lớp (đọc đa vai trò)")
+@Tag(name = "Class Occurrence (read)", description = "Lịch dạy, nhật ký & bài giảng (đọc đa vai trò)")
 public class ClassOccurrenceController {
 
     private final ClassOccurrenceService classOccurrenceService;
 
     @GetMapping("/classes/{id}/schedule")
     @Operation(
-            summary = "Lattice tuần (occurrences) của lớp: ô SESSION / EXCEPTION / OCCURRENCE",
+            summary = "Lattice tuần của lớp: ô ca cố định + ngoại lệ + nhật ký + ca thử",
             security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<ClassScheduleResponse>> getClassSchedule(
             @PathVariable Long id,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart) {
-        return ResponseEntity.ok(
-                ApiResponse.<ClassScheduleResponse>builder()
-                        .result(classOccurrenceService.listOccurrences(id, weekStart))
-                        .build());
+        return ResponseEntity.ok(ApiResponse.<ClassScheduleResponse>builder()
+                .result(classOccurrenceService.listOccurrences(id, weekStart))
+                .build());
     }
 
-    @GetMapping("/classes/{id}/sessions")
+    @GetMapping("/classes/{id}/logs")
     @Operation(
-            summary = "Danh sách buổi học thật của lớp (ROW_NUMBER ổn định)",
+            summary = "Đọc nhật ký dạy học của 1 ô ca (cho modal trên lưới lịch)",
             security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<List<SessionListItem>>> getClassSessions(
+    public ResponseEntity<ApiResponse<TeachingLogResponse>> getLog(
             @PathVariable Long id,
-            @RequestParam(required = false, defaultValue = "asc") String order) {
-        return ResponseEntity.ok(
-                ApiResponse.<List<SessionListItem>>builder()
-                        .result(classOccurrenceService.listSessions(id, order))
-                        .build());
-    }
-
-    @GetMapping("/sessions/{id}")
-    @Operation(
-            summary = "Chi tiết buổi học (học sinh thấy nhật ký nguyên văn khi không null)",
-            security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<SessionDetailResponse>> getSessionDetail(@PathVariable Long id) {
-        return ResponseEntity.ok(
-                ApiResponse.<SessionDetailResponse>builder()
-                        .result(classOccurrenceService.getDetail(id))
-                        .build());
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate logDate,
+            @RequestParam String startTime) {
+        return ResponseEntity.ok(ApiResponse.<TeachingLogResponse>builder()
+                .result(classOccurrenceService.getLog(id, logDate, LocalTime.parse(startTime)))
+                .build());
     }
 
     @GetMapping("/materials/{id}/access-url")
     @Operation(
-            summary = "Link tải an toàn (ký sẵn 10 phút) cho tài liệu buổi học (FR-21)",
+            summary = "Link tải an toàn (ký sẵn 10 phút) cho tài liệu bài giảng (FR-21)",
             security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<MaterialAccessUrlResponse>> getMaterialAccessUrl(
-            @PathVariable Long id) {
-        return ResponseEntity.ok(
-                ApiResponse.<MaterialAccessUrlResponse>builder()
-                        .result(classOccurrenceService.getMaterialAccessUrl(id))
-                        .build());
+    public ResponseEntity<ApiResponse<MaterialAccessUrlResponse>> getMaterialAccessUrl(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.<MaterialAccessUrlResponse>builder()
+                .result(classOccurrenceService.getMaterialAccessUrl(id))
+                .build());
     }
 }
