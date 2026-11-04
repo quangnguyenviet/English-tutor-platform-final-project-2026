@@ -8,14 +8,12 @@ import { todayISO } from "../../lib/classroomApi";
 const SUBMIT_LABELS = {
   CANCELLED: "Hủy buổi học",
   RESCHEDULED: "Dời buổi học",
-  MODIFIED: "Lưu chi tiết",
 };
 
 /**
  * Biểu mẫu ghi ngoại lệ (overlay) cho 1 ô lattice — không tạo buổi học thật.
  * Mỗi loại dùng 1 nhóm trường riêng (kế hoạch mục 3.4 "Quy ước trường theo loại"):
- * CANCELLED chỉ có lý do; RESCHEDULED có ngày mới + giờ + (tuỳ chọn) chi tiết;
- * MODIFIED chỉ override hình thức / link / địa chỉ, giờ giữ ca gốc.
+ * CANCELLED chỉ có lý do; RESCHEDULED có ngày mới + giờ + (tuỳ chọn) chi tiết.
  */
 export default function ExceptionForm({
   slot,
@@ -67,18 +65,8 @@ export default function ExceptionForm({
         return;
       }
     }
-    if (exceptionType === "MODIFIED") {
-      if (newTeachingMode === "ONLINE" && !newMeetingUrl.trim()) {
-        setLocalError("Vui lòng nhập liên kết phòng học cho buổi học online.");
-        return;
-      }
-      if (newTeachingMode === "AT_HOME" && !newLocation.trim()) {
-        setLocalError("Vui lòng nhập địa chỉ cho buổi học tại nhà.");
-        return;
-      }
-    }
 
-    const includeDetails = exceptionType === "RESCHEDULED" || exceptionType === "MODIFIED";
+    const includeDetails = exceptionType === "RESCHEDULED";
     onSubmit({
       scheduleId: slot?.scheduleId,
       exceptionDate: slot?.date,
@@ -161,7 +149,7 @@ export default function ExceptionForm({
         </div>
       )}
 
-      {(exceptionType === "RESCHEDULED" || exceptionType === "MODIFIED") && (
+      {exceptionType === "RESCHEDULED" && (
         <>
           <div>
             <p className="mb-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">

@@ -157,11 +157,6 @@ public class StudentPortalService {
                 yield cancelledItem(cls, occurrence,
                         newDate != null ? "Đã dời sang " + newDate.format(DAY_MONTH) : "Đã dời lịch");
             }
-            case "MODIFIED" -> virtualItem(cls, occurrence.getDate(),
-                    exception.getNewStartTime() != null ? exception.getNewStartTime() : occurrence.getStartTime(),
-                    exception.getNewEndTime() != null ? exception.getNewEndTime() : occurrence.getEndTime(),
-                    exception.getNewTeachingMode(), exception.getNewMeetingUrl(), exception.getNewLocation(),
-                    "Đã điều chỉnh");
             default -> virtualItem(cls, occurrence.getDate(), occurrence.getStartTime(), occurrence.getEndTime(),
                     null, null, null, null);
         };

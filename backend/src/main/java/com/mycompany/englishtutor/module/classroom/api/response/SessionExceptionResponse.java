@@ -32,7 +32,7 @@ public class SessionExceptionResponse {
     @Schema(description = "Ngày của ô (lần diễn bị ảnh hưởng)", example = "2026-11-08")
     LocalDate exceptionDate;
 
-    @Schema(description = "CANCELLED | RESCHEDULED | MODIFIED")
+    @Schema(description = "CANCELLED | RESCHEDULED (MODIFIED: dữ liệu cũ, không còn tạo mới)")
     String exceptionType;
 
     @Schema(description = "Ngày mới (RESCHEDULED)")
@@ -44,7 +44,7 @@ public class SessionExceptionResponse {
     @Schema(description = "Giờ kết thúc mới (RESCHEDULED)")
     LocalTime newEndTime;
 
-    @Schema(description = "Hình thức override (RESCHEDULED / MODIFIED)")
+    @Schema(description = "Hình thức override (RESCHEDULED)")
     String newTeachingMode;
 
     @Schema(description = "Liên kết phòng học (hình thức ONLINE)")

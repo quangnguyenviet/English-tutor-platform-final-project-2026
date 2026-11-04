@@ -447,31 +447,19 @@ class ClassOccurrenceServiceTest {
     }
 
     @Test
-    void createException_modified_existingSlot_shouldAuditUpdate() {
+    void createException_modifiedType_shouldBeRejected1155() {
         mockOwnedClass();
         when(classroomRepository.findScheduleSlot(CLASS_ID, 3L)).thenReturn(Optional.of(SCHEDULE_ROW));
-        when(classroomRepository.countTeachingLogAt(CLASS_ID, FRI, SLOT_START)).thenReturn(0);
-        when(classroomRepository.upsertScheduleException(
-                        eq(CLASS_ID), eq(3L), eq(FRI), eq("MODIFIED"),
-                        isNull(), isNull(), isNull(), eq("AT_HOME"), isNull(),
-                        eq("Đổi địa chỉ"), eq("học sinh chuyển nhà"), eq(TUTOR_ID)))
-                .thenReturn(5L);
-        when(classroomRepository.findScheduleException(3L, FRI))
-                .thenReturn(Optional.of(exceptionRow("MODIFIED", null)), Optional.of(exceptionRow("MODIFIED", null)));
+        CreateExceptionRequest request =
+                CreateExceptionRequest.builder()
+                        .scheduleId(3L)
+                        .exceptionDate(FRI)
+                        .exceptionType("MODIFIED")
+                        .build();
 
-        CreateExceptionRequest request = CreateExceptionRequest.builder()
-                .scheduleId(3L)
-                .exceptionDate(FRI)
-                .exceptionType("MODIFIED")
-                .newTeachingMode("AT_HOME")
-                .newLocation("Đổi địa chỉ")
-                .reason("học sinh chuyển nhà")
-                .build();
-        classOccurrenceService.createException(CLASS_ID, request, httpRequest);
-
-        verify(auditLogService)
-                .log(eq(TUTOR_ID), eq("UPDATE_EXCEPTION"), eq("SCHEDULE_EXCEPTION"),
-                        eq(5L), any(), eq(httpRequest));
+        assertErrorCode(
+                () -> classOccurrenceService.createException(CLASS_ID, request, httpRequest),
+                ErrorCode.EXCEPTION_TYPE_INVALID);
     }
 
     @Test

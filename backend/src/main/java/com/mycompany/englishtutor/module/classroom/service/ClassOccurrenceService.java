@@ -67,7 +67,6 @@ public class ClassOccurrenceService {
 
     private static final String EXCEPTION_CANCELLED = "CANCELLED";
     private static final String EXCEPTION_RESCHEDULED = "RESCHEDULED";
-    private static final String EXCEPTION_MODIFIED = "MODIFIED";
 
     /** Folder vật lý trong bucket cho tài liệu bài giảng. */
     private static final String MATERIALS_FOLDER_PREFIX = "lesson-materials";
@@ -254,9 +253,7 @@ public class ClassOccurrenceService {
         }
 
         String type = request.getExceptionType();
-        if (!EXCEPTION_CANCELLED.equals(type)
-                && !EXCEPTION_RESCHEDULED.equals(type)
-                && !EXCEPTION_MODIFIED.equals(type)) {
+        if (!EXCEPTION_CANCELLED.equals(type) && !EXCEPTION_RESCHEDULED.equals(type)) {
             throw new AppException(ErrorCode.EXCEPTION_TYPE_INVALID);
         }
         if (EXCEPTION_RESCHEDULED.equals(type)) {

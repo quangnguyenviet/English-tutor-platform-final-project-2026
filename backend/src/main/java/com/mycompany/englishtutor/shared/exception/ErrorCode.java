@@ -115,7 +115,7 @@ public enum ErrorCode {
             1154, "Ngày ngoại lệ phải nằm trong khoảng hiệu lực của ca lịch cố định",
             HttpStatus.BAD_REQUEST),
     EXCEPTION_TYPE_INVALID(
-            1155, "Loại ngoại lệ không hợp lệ (CANCELLED, RESCHEDULED hoặc MODIFIED)",
+            1155, "Loại ngoại lệ không hợp lệ (CANCELLED hoặc RESCHEDULED)",
             HttpStatus.BAD_REQUEST),
     MATERIAL_NOT_FOUND(1156, "Tài liệu buổi học không tồn tại hoặc đã bị gỡ", HttpStatus.NOT_FOUND),
     MATERIAL_FILE_TYPE_INVALID(

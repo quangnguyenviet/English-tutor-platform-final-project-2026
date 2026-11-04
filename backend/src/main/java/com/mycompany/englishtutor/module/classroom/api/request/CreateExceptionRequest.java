@@ -16,7 +16,7 @@ import lombok.experimental.FieldDefaults;
 /**
  * Body ghi ngoại lệ (overlay) cho 1 ô ảo — lần diễn cụ thể của ca cố định
  * (kế hoạch class-sessions mục 4.2). Các trường {@code new_*} dùng theo loại:
- * RESCHEDULED bắt buộc {@code newDate} + giờ; MODIFIED tùy chọn; CANCELLED bỏ qua.
+ * RESCHEDULED bắt buộc {@code newDate} + giờ; CANCELLED bỏ qua.
  */
 @Data
 @Builder
@@ -35,7 +35,7 @@ public class CreateExceptionRequest {
     LocalDate exceptionDate;
 
     @NotNull(message = "Loại ngoại lệ không được để trống")
-    @Schema(description = "Loại ngoại lệ: CANCELLED | RESCHEDULED | MODIFIED", example = "RESCHEDULED")
+    @Schema(description = "Loại ngoại lệ: CANCELLED | RESCHEDULED", example = "RESCHEDULED")
     String exceptionType;
 
     @Schema(description = "Ngày mới (RESCHEDULED, bắt buộc)", example = "2026-11-09")

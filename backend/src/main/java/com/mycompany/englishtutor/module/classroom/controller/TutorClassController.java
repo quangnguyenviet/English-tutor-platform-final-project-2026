@@ -131,7 +131,7 @@ public class TutorClassController {
 
     @PostMapping("/classes/{id}/exceptions")
     @Operation(
-            summary = "Ghi ngoại lệ (CANCELLED/RESCHEDULED/MODIFIED) cho 1 ô ca; ô có log chặn CANCELLED/RESCHEDULED",
+            summary = "Ghi ngoại lệ (CANCELLED/RESCHEDULED) cho 1 ô ca; ô có log chặn CANCELLED/RESCHEDULED",
             security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<SessionExceptionResponse>> createException(
             @PathVariable Long id,

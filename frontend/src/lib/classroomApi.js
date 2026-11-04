@@ -112,7 +112,7 @@ export function apiGetClassSchedule(token, classId, weekStart) {
 
 /**
  * Ghi ngoại lệ (overlay) cho 1 ô ảo của ca cố định (mục 4.2).
- * @param {Object} payload - { scheduleId, exceptionDate, exceptionType: "CANCELLED" | "RESCHEDULED" | "MODIFIED",
+ * @param {Object} payload - { scheduleId, exceptionDate, exceptionType: "CANCELLED" | "RESCHEDULED",
  *                            newDate?, newStartTime?, newEndTime?, newTeachingMode?, newMeetingUrl?, newLocation?, reason? }
  */
 export function apiCreateException(token, classId, payload) {
@@ -293,7 +293,6 @@ export const SESSION_STATUS_META = {
 export const EXCEPTION_TYPE_META = {
   CANCELLED: { label: "Đã hủy", tone: "rose" },
   RESCHEDULED: { label: "Dời sang", tone: "amber" },
-  MODIFIED: { label: "Đã điều chỉnh", tone: "sky" },
 };
 
 /** "2026-10-28" → "28/10/2026" (không qua Date để tránh lệch múi giờ). */

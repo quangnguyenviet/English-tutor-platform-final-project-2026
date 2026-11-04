@@ -9,7 +9,6 @@ import {
   Eraser,
   Loader2,
   NotebookText,
-  Pencil,
   Save,
   Trash2,
   X,
@@ -39,7 +38,6 @@ import { startOfWeek, toISO } from "./FixedScheduleGrid";
 const MODAL_TITLES = {
   CANCELLED: "Hủy buổi học này",
   RESCHEDULED: "Dời buổi học này",
-  MODIFIED: "Sửa chi tiết buổi học",
 };
 
 /** 7 ngày (Thứ 2 → Chủ nhật) của tuần có mốc weekStart. */
@@ -67,7 +65,6 @@ const TONE_SURFACE = {
   amber: "border-l-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
   emerald: "border-l-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100",
   rose: "border-l-rose-500 bg-rose-50 text-rose-900 dark:bg-rose-950/40 dark:text-rose-100",
-  sky: "border-l-sky-500 bg-sky-50 text-sky-900 dark:bg-sky-950/40 dark:text-sky-100",
   slate: "border-l-slate-400 bg-slate-50 text-slate-800 dark:bg-slate-800/40 dark:text-slate-200",
 };
 
@@ -175,7 +172,7 @@ export default function ClassScheduleLattice({
     setDetail(null);
   };
 
-  // Mở form ngoại lệ (Hủy / Dời / Sửa chi tiết) — gọi từ nút trong modal cell.
+  // Mở form ngoại lệ (Hủy / Dời) — gọi từ nút trong modal cell.
   const openExceptionModal = (occ, exceptionType) => {
     setDetail(null);
     setModalError("");
@@ -194,7 +191,6 @@ export default function ClassScheduleLattice({
    * - OCCURRENCE / TRIAL: theo ô gốc (occ.date, occ.startTime, occ.endTime).
    * - EXCEPTION RESCHEDULED: theo ngày/giờ MỚI (ca đã dời sang đó; backend chặn
    *   ghi log tại ca gốc nên phải key ở ca mới).
-   * - EXCEPTION MODIFIED: ca vẫn ở ca gốc (đổi hình thức, không đổi giờ) → key ca gốc.
    * - EXCEPTION CANCELLED: ca không diễn ra → không ghi được log (trả null).
    */
   const logTargetFor = (occ) => {
@@ -208,14 +204,7 @@ export default function ClassScheduleLattice({
           endTime: formatSessionTime(exc.newEndTime),
         };
       }
-      if (exc.type === "MODIFIED") {
-        return {
-          date: occ.date,
-          startTime: formatSessionTime(occ.startTime),
-          endTime: formatSessionTime(occ.endTime),
-        };
-      }
-      return null; // CANCELLED — ca không diễn ra, không ghi nhật ký
+      return null; // CANCELLED (hoặc ngoại lệ không còn hiệu lực) — ca không diễn ra, không ghi nhật ký
     }
     // OCCURRENCE / TRIAL
     return {
@@ -371,7 +360,7 @@ export default function ClassScheduleLattice({
       const exc = occ.exception || {};
       if (exc.type === "CANCELLED") return "rose";
       if (exc.type === "RESCHEDULED") return "amber";
-      return "sky";
+      return "slate";
     }
     // OCCURRENCE — ca cố định; chấm xanh lục nếu đã có nhật ký.
     return occ.log ? "emerald" : "slate";
@@ -623,10 +612,8 @@ export default function ClassScheduleLattice({
                 >
                   {modal.exceptionType === "CANCELLED" ? (
                     <XCircle size={18} />
-                  ) : modal.exceptionType === "RESCHEDULED" ? (
-                    <ArrowRightLeft size={18} />
                   ) : (
-                    <Pencil size={18} />
+                    <ArrowRightLeft size={18} />
                   )}
                 </span>
                 <div>
@@ -719,7 +706,7 @@ export default function ClassScheduleLattice({
                       </p>
                     );
                   }
-                  return <p>Ca này đã được điều chỉnh chi tiết.</p>;
+                  return <p>Ca này đã được ghi nhận ngoại lệ.</p>;
                 })()}
               </div>
             )}
@@ -758,47 +745,40 @@ export default function ClassScheduleLattice({
                 </Button>
               )}
               {(detail.source === "OCCURRENCE" || detail.source === "EXCEPTION") && (
-                <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-2">
                   {detail.source === "EXCEPTION" && (
                     <Button
                       variant="danger"
                       size="sm"
                       type="button"
                       onClick={() => askDeleteException(detail)}
-                      className="cursor-pointer text-xs font-bold"
+                      className="w-full cursor-pointer text-xs font-bold"
                     >
                       <Eraser size={14} /> Đặt lại ca
                     </Button>
                   )}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    type="button"
-                    onClick={() => openExceptionModal(detail, "RESCHEDULED")}
-                    className="cursor-pointer text-xs font-bold"
-                  >
-                    <ArrowRightLeft size={14} /> Dời ca
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    type="button"
-                    onClick={() => openExceptionModal(detail, "MODIFIED")}
-                    className="cursor-pointer text-xs font-bold"
-                  >
-                    <Pencil size={14} /> Sửa chi tiết
-                  </Button>
-                  {detail.source === "OCCURRENCE" && (
+                  <div className="grid grid-cols-2 gap-2">
                     <Button
                       variant="secondary"
                       size="sm"
                       type="button"
-                      onClick={() => openExceptionModal(detail, "CANCELLED")}
-                      className="col-span-3 cursor-pointer text-xs font-bold"
+                      onClick={() => openExceptionModal(detail, "RESCHEDULED")}
+                      className="cursor-pointer text-xs font-bold"
                     >
-                      <XCircle size={14} /> Hủy ca này
+                      <ArrowRightLeft size={14} /> Dời ca
                     </Button>
-                  )}
+                    {detail.source === "OCCURRENCE" && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        type="button"
+                        onClick={() => openExceptionModal(detail, "CANCELLED")}
+                        className="cursor-pointer text-xs font-bold"
+                      >
+                        <XCircle size={14} /> Hủy ca này
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
