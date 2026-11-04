@@ -20,6 +20,7 @@ import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.Atte
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.DashboardResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.QuizResultResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewItem;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentMaterialItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentScheduleResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentSessionItem;
@@ -71,6 +72,17 @@ public class StudentPortalController {
     @Operation(summary = "Gia sư đang dạy kèm tiến trình", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<List<StudentTutorItem>>> tutors() {
         return ok(service.getTutors());
+    }
+
+    /** Tài liệu lớp (bài giảng PUBLISHED) khi học sinh mở chi tiết buổi học (V16). */
+    @GetMapping("/students/me/sessions/{logId}/materials")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(
+            summary = "Tài liệu kèm buổi học (từ các bài giảng PUBLISHED của lớp)",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<List<StudentMaterialItem>>> sessionMaterials(
+            @PathVariable Long logId) {
+        return ok(service.getClassMaterials(logId));
     }
 
     @GetMapping("/students/me/dashboard")

@@ -57,6 +57,15 @@ public final class StudentPortalResponses {
             String sessionTitle,
             String tutorName) {}
 
+    /** Tài liệu lớp hiển thị trong chi tiết buổi (V16: tài liệu nằm ở lesson của lớp). */
+    public record StudentMaterialItem(
+            Long materialId,
+            String fileName,
+            String fileType,
+            Long fileSize,
+            String uploadedBy,
+            OffsetDateTime createdAt) {}
+
     /** Câu hỏi gửi cho học sinh: KHÔNG có đáp án đúng và giải thích. */
     public record QuizQuestionForStudent(
             Long id,

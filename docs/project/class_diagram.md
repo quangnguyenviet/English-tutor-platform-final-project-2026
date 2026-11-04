@@ -1,6 +1,6 @@
 # **EnglishPath — Biểu đồ lớp pha phân tích**
 
-Cập nhật ngày 19/10
+Cập nhật ngày 19/10 (bổ sung cập nhật V16: lessons, teaching_logs, schedule_exceptions, ca thử trial_* trên classes)
 
 ## 1\. Trích các lớp thực thể hệ thống
 
@@ -13,7 +13,7 @@ Các danh từ liên quan đến người:
 \- Người dùng, Quản trị viên (Admin), Lễ tân, Kế toán, Nhân sự trung tâm, Gia sư, Học sinh, Phụ huynh, Người khiếu nại
 
 Các danh từ liên quan đến vật:  
-\- Đơn yêu cầu lớp, Lượt ứng tuyển, Lớp học, Lịch dạy cố định, Buổi học, Tài liệu buổi học, Chứng chỉ, Thành tích, Chuyên môn, Bảng giá, Lịch rảnh, Khu vực dạy, Kỹ năng, Quiz, Câu hỏi, Câu trả lời, Khoản thanh toán (phí nhận lớp, học phí), Khiếu nại, Minh chứng khiếu nại, Yêu cầu hoàn tiền, Thông báo, Nhật ký hệ thống, Tin nhắn chat AI
+\- Đơn yêu cầu lớp, Lượt ứng tuyển, Lớp học, Ca dạy thử, Lịch dạy cố định, Ngoại lệ lịch, Bài giảng, Tài liệu bài giảng, Nhật ký dạy học, Chứng chỉ, Thành tích, Chuyên môn, Bảng giá, Lịch rảnh, Khu vực dạy, Kỹ năng, Quiz, Câu hỏi, Câu trả lời, Khoản thanh toán (phí nhận lớp, học phí), Khiếu nại, Minh chứng khiếu nại, Yêu cầu hoàn tiền, Thông báo, Nhật ký hệ thống, Tin nhắn chat AI
 
 Các danh từ liên quan đến thông tin:  
 \- Tên đăng nhập, mật khẩu, họ tên, email, số điện thoại, ngày sinh, giới tính, địa chỉ, ảnh đại diện, vai trò, trạng thái, mã nhân viên, ngày vào làm, trường học, khối lớp, mục tiêu học tập, điểm Elo, trường đại học, quê quán, trình độ, số năm kinh nghiệm, giới thiệu, video, trạng thái hồ sơ, lý do từ chối, điểm chứng chỉ, loại chứng chỉ, giá mỗi buổi, hình thức dạy, chương trình, thứ, ca rảnh, giờ bắt đầu, giờ kết thúc, tỉnh/thành phố, quận/huyện, yêu cầu lớp học, lịch mong muốn, yêu cầu gia sư, lý do hủy, lời nhắn ứng tuyển, tên lớp, ngày bắt đầu dạy, ghi chú gia sư, link học online, địa điểm, buổi dạy thử, nhật ký kiến thức, bài tập về nhà, tiêu đề quiz, nguồn tạo quiz, hạn nộp, đáp án, lời giải thích, cấp độ CEFR, mã kỹ năng, nhóm kỹ năng, đáp án đã chọn, đúng/sai, hệ số dễ, lần ôn tập, loại người nộp phí, tỷ lệ phí, số tiền, phương thức thanh toán, biên lai, số tiền thực nhận, lý do từ chối thanh toán, tên người khiếu nại, SĐT người khiếu nại, vai trò người khiếu nại, loại khiếu nại, nội dung khiếu nại, kết quả xử lý, số tiền đề xuất hoàn, số tiền được duyệt hoàn, tên chủ tài khoản, ngân hàng, số tài khoản, biên lai hoàn tiền, nội dung thông báo, liên kết thông báo, loại đối tượng liên kết, trạng thái đã đọc, hành động, loại đối tượng, chi tiết thay đổi, địa chỉ IP
@@ -38,12 +38,14 @@ Các danh từ liên quan đến vật:
 \- Khu vực dạy → lớp **tutor_service_areas**: tutor_id, province, district — Khu vực địa lý gia sư nhận dạy tại nhà, phục vụ bộ lọc tỉnh/quận  
 \- Đơn yêu cầu lớp → lớp **class_requests**: parent_id, requested_tutor_id, student_id, class_requirement, teaching_mode, price_per_session, preferred_schedule, tutor_requirement, status, cancel_reason, created_by, handled_by — Có vòng đời trạng thái riêng (NEW → OPEN → MATCHED hoặc CANCELLED)  
 \- Lượt ứng tuyển → lớp **class_applications**: class_request_id, tutor_id, message, status, applied_at — Bảng nối N-N giữa gia sư và đơn yêu cầu, có thuộc tính riêng (lời nhắn, trạng thái). UNIQUE (class_request_id, tutor_id)  
-\- Lớp học → lớp **classes**: class_request_id, tutor_id, student_id, class_name, status, teaching_mode, active_from, price_per_session, tutor_note — Quan hệ dạy học 1 gia sư — 1 học sinh  
-\- Lịch dạy cố định → lớp **class_schedules**: class_id, day_of_week, start_time, end_time — Mẫu lịch dạy hằng tuần, dùng để sinh trước các sessions  
-\- Buổi học → lớp **sessions**: class_id, title, session_date, start_time, end_time, is_trial, teaching_mode, meeting_url, location, status, log_knowledge, log_homework — Buổi dạy thực tế, có nhật ký dạy học công khai cho HS và PH xem  
-\- Tài liệu buổi học → lớp **session_materials**: session_id, uploaded_by, file_name, file_url, file_type, file_size — Tài liệu đính kèm (PDF, DOCX, hình ảnh, âm thanh)  
+\- Lớp học → lớp **classes**: class_request_id, tutor_id, student_id, class_name, status, teaching_mode, active_from, price_per_session, sessions_per_week, tutor_note, các cột ca thử `trial_date`, `trial_start_time`, `trial_end_time`, `trial_teaching_mode`, `trial_meeting_url`, `trial_location` (V16: ca dạy thử lưu trên chính dòng lớp — R-TRIAL) — Quan hệ dạy học 1 gia sư — 1 học sinh  
+\- Lịch dạy cố định → lớp **class_schedules**: class_id, day_of_week, start_time, end_time, valid_from, valid_to — Mẫu lịch dạy hằng tuần kèm khoảng hiệu lực từng ca (V16: không còn "sinh session on-demand", bỏ R9)  
+\- Bài giảng → lớp **lessons** (V16, thay `sessions`): class_id, title, status (PUBLISHED/HIDDEN), created_at, updated_at — "driver" nhúng vào lớp, CHỈ quan hệ với `classes`, không mang ngày/giờ, không lên lịch (D-02)  
+\- Nhật ký dạy học → lớp **teaching_logs** (V16, bảng mới — tách hoàn toàn khỏi lesson, D-01): class_id, log_date, start_time, end_time, knowledge, homework — Nội dung buổi dạy khớp ô ca theo `(class_id, log_date, start_time)` (C-15'), công khai cho HS và PH  
+\- Tài liệu bài giảng → lớp **lesson_materials** (V16, đổi tên từ `session_materials`): lesson_id, uploaded_by, file_name, file_url, file_type, file_size — Tài liệu đính kèm bài giảng (PDF, DOCX, hình ảnh, âm thanh)  
+\- Ngoại lệ lịch → lớp **schedule_exceptions** (V16, đổi tên từ `session_exceptions`; V17 bỏ 3 cột override + loại MODIFIED): class_id, schedule_id, exception_date, exception_type, new_date, new_start_time, new_end_time, reason, created_by — Overlay cho ô ảo của lịch cố định (CANCELLED/RESCHEDULED; hình thức/link/địa chỉ giữ theo ca gốc của lớp, không override)  
 \- Kỹ năng → lớp **skills**: skill_code, skill_name, category, description — Danh mục thẻ kỹ năng (micro-skill) dùng chung, gắn với câu hỏi để phân loại kiến thức  
-\- Quiz → lớp **quizzes**: session_id, title, status, source, deadline, total_questions — Bài quiz trắc nghiệm gắn với một buổi học, tạo qua AI hoặc import  
+\- Quiz → lớp **quizzes**: lesson_id (V16, thay `session_id`), title, status, source, deadline, total_questions — Bài quiz trắc nghiệm gắn với một **bài giảng** (không còn "thuộc buổi", D-03), tạo thủ công hoặc import  
 \- Câu hỏi → lớp **quiz_questions**: quiz_id, question_number, question_text, option_a, option_b, option_c, option_d, correct_answer, explanation, cefr_level, skill_id — Câu hỏi trắc nghiệm A/B/C/D với đáp án, lời giải thích, cấp độ CEFR và thẻ kỹ năng  
 \- Câu trả lời → lớp **quiz_answers**: question_id, student_id, selected_answer, is_correct, elo_before, elo_after, elo_change, next_review, review_count, easiness_factor, answered_at — Nguồn gốc tính điểm Elo và danh sách ôn tập Spaced Repetition. UNIQUE (student_id, question_id)  
 \- Khoản thanh toán → lớp **payments**: class_id, payer_type, fee_percentage, amount, payment_method, proof_url, received_amount, status, reject_reason, uploaded_by, uploaded_at, reviewed_by, reviewed_at — Khoản thu của trung tâm (phí nhận lớp hoặc học phí đóng trước)  
@@ -52,7 +54,7 @@ Các danh từ liên quan đến vật:
 \- Yêu cầu hoàn tiền → lớp **refunds**: complaint_id, payment_id, requested_amount, approved_amount, recipient_name, bank_name, bank_account_number, status, reject_reason, proof_url, requested_by, processed_by, processed_at — Phát sinh từ khiếu nại REFUND, Lễ tân tạo và Kế toán xử lý  
 \- Thông báo → lớp **notifications**: user_id, title, content, link_url, link_entity_type, link_entity_id, is_read — Thông báo chuông cho người dùng  
 \- Nhật ký hệ thống → lớp **audit_logs**: user_id, action, entity_type, entity_id, details, ip_address — Ghi ngầm các thao tác quan trọng, dùng entity_type \+ entity_id thay FK cứng  
-\- Tin nhắn chat AI → lớp **ai_chat_messages** (MongoDB collection): session_id, tutor_id, role, content, attachments — Lưu ở MongoDB, liên kết mềm qua session_id, không vẽ trong sơ đồ quan hệ
+\- Tin nhắn chat AI → lớp **ai_chat_messages** (MongoDB collection): lesson_id (V16, thay `session_id`), tutor_id, role, content, attachments — Lưu ở MongoDB, liên kết mềm qua lesson_id, không vẽ trong sơ đồ quan hệ
 
 Các danh từ thông tin:  
 \- Tên đăng nhập, mật khẩu, họ tên, email, SĐT, ngày sinh, giới tính, ảnh đại diện, vai trò, trạng thái, cờ buộc đổi mật khẩu → thuộc tính của users  
@@ -68,9 +70,11 @@ Các danh từ thông tin:
 \- Yêu cầu lớp học, hình thức, giá mong muốn, lịch mong muốn, yêu cầu gia sư, trạng thái, lý do hủy → thuộc tính của class_requests  
 \- Lời nhắn ứng tuyển, trạng thái → thuộc tính của class_applications  
 \- Tên lớp, trạng thái, hình thức, ngày bắt đầu dạy, giá mỗi buổi, ghi chú gia sư → thuộc tính của classes  
-\- Thứ, giờ bắt đầu, giờ kết thúc → thuộc tính của class_schedules  
-\- Tiêu đề, ngày dạy, giờ, buổi dạy thử, hình thức, link online, địa điểm, trạng thái, nhật ký kiến thức, bài tập về nhà → thuộc tính của sessions  
-\- Tên file, đường dẫn file, loại file, dung lượng → thuộc tính của session_materials  
+\- Thứ, giờ bắt đầu, giờ kết thúc, khoảng hiệu lực (valid_from/valid_to) → thuộc tính của class_schedules  
+\- Ngày ca thử, giờ ca thử, hình thức ca thử, link/địa chỉ ca thử → thuộc tính của classes (cột trial_*, V16)  
+\- Tiêu đề, trạng thái ẩn/hiện → thuộc tính của lessons (V16, thay sessions)  
+\- Ngày/giờ ca, kiến thức, dặn dò → thuộc tính của teaching_logs (V16, bảng mới)  
+\- Tên file, đường dẫn file, loại file, dung lượng → thuộc tính của lesson_materials (V16, đổi tên từ session_materials)  
 \- Mã kỹ năng, tên kỹ năng, nhóm kỹ năng, mô tả → thuộc tính của skills  
 \- Tiêu đề quiz, trạng thái, nguồn tạo, hạn nộp, tổng số câu → thuộc tính của quizzes  
 \- Số thứ tự câu, nội dung câu hỏi, phương án A/B/C/D, đáp án đúng, lời giải thích, cấp độ CEFR → thuộc tính của quiz_questions  
@@ -111,10 +115,12 @@ Quan hệ 1-n (một-nhiều):
 \- tutors có nhiều classes → tutors \- classes là 1-n (một gia sư dạy nhiều lớp)  
 \- students có nhiều classes → students \- classes là 1-n (một học sinh học nhiều lớp)  
 \- classes có nhiều class_schedules → classes \- class_schedules là 1-n (một lớp có nhiều ca dạy mỗi tuần)  
-\- classes có nhiều sessions → classes \- sessions là 1-n (một lớp có nhiều buổi học)  
-\- sessions có nhiều session_materials → sessions \- session_materials là 1-n (một buổi có nhiều tài liệu)  
-\- users có nhiều session_materials (thông qua uploaded_by) → users \- session_materials là 1-n (một người dùng tải lên nhiều tài liệu)  
-\- sessions có nhiều quizzes → sessions \- quizzes là 1-n (một buổi có nhiều quiz)  
+\- classes có nhiều lessons → classes \- lessons là 1-n (V16: một lớp có nhiều bài giảng "driver", thay quan hệ sessions cũ)  
+\- classes có nhiều teaching_logs → classes \- teaching_logs là 1-n (V16: một lớp có nhiều nhật ký dạy học, mỗi dòng khớp 1 ô ca)  
+\- schedule_exceptions tham chiếu class_schedules (schedule_id) và classes (class_id) → 1-n (V16: đổi tên từ session_exceptions, overlay ô ảo)  
+\- lessons có nhiều lesson_materials → lessons \- lesson_materials là 1-n (V16: một bài giảng có nhiều tài liệu)  
+\- users có nhiều lesson_materials (thông qua uploaded_by) → users \- lesson_materials là 1-n (một người dùng tải lên nhiều tài liệu)  
+\- lessons có nhiều quizzes → lessons \- quizzes là 1-n (V16: một bài giảng có nhiều quiz)  
 \- quizzes có nhiều quiz_questions → quizzes \- quiz_questions là 1-n (một quiz có ít nhất một câu hỏi)  
 \- skills có nhiều quiz_questions → skills \- quiz_questions là 1-n (một kỹ năng gắn với nhiều câu hỏi)  
 \- quiz_questions có nhiều quiz_answers → quiz_questions \- quiz_answers là 1-n (một câu hỏi nhận nhiều câu trả lời từ HS)  
@@ -132,7 +138,7 @@ Quan hệ 1-n (một-nhiều):
 \- users có nhiều audit_logs → users \- audit_logs là 1-n (một người dùng sinh nhiều dòng nhật ký)
 
 Quan hệ liên kết mềm (MongoDB):  
-\- sessions (PostgreSQL) có nhiều ai_chat_messages (MongoDB) → sessions \- ai_chat_messages là 1-n (liên kết mềm qua session_id, không FK thật)
+\- lessons (PostgreSQL) có nhiều ai_chat_messages (MongoDB) → lessons \- ai_chat_messages là 1-n (liên kết mềm qua lesson_id, V16 thay session_id, không FK thật)
 
 **Bước 5: Xác định quan hệ đối tượng giữa các thực thể**
 
@@ -143,8 +149,8 @@ Quan hệ thành phần (Composition):
 \- tutor_availabilities là thành phần của tutors  
 \- tutor_service_areas là thành phần của tutors  
 \- class_schedules là thành phần của classes  
-\- sessions là thành phần của classes  
-\- session_materials là thành phần của sessions  
+\- lessons là thành phần của classes (V16, thay sessions)  
+\- lesson_materials là thành phần của lessons (V16, đổi tên từ session_materials)  
 \- quiz_questions là thành phần của quizzes  
 \- complaint_attachments là thành phần của complaints  
 \- class_applications liên kết tutors và class_requests tạo ra một lượt ứng tuyển duy nhất (UNIQUE: class_request_id \+ tutor_id)  
@@ -157,9 +163,11 @@ Quan hệ tham chiếu (Reference):
 \- class_requests tham chiếu đến parents (parent_id), students (student_id, nullable), tutors (requested_tutor_id, nullable), users (created_by, handled_by)  
 \- class_applications tham chiếu đến class_requests (class_request_id) và tutors (tutor_id)  
 \- classes tham chiếu đến class_requests (class_request_id), tutors (tutor_id), students (student_id)  
-\- sessions tham chiếu đến classes (class_id)  
-\- session_materials tham chiếu đến sessions (session_id) và users (uploaded_by)  
-\- quizzes tham chiếu đến sessions (session_id)  
+\- lessons tham chiếu đến classes (class_id) (V16, thay sessions)  
+\- teaching_logs tham chiếu đến classes (class_id) (V16, bảng mới)  
+\- schedule_exceptions tham chiếu đến classes (class_id) và class_schedules (schedule_id) (V16, đổi tên từ session_exceptions)  
+\- lesson_materials tham chiếu đến lessons (lesson_id) và users (uploaded_by) (V16, đổi tên từ session_materials)  
+\- quizzes tham chiếu đến lessons (lesson_id) (V16, thay session_id)  
 \- quiz_questions tham chiếu đến quizzes (quiz_id) và skills (skill_id)  
 \- quiz_answers tham chiếu đến quiz_questions (question_id) và students (student_id)  
 \- payments tham chiếu đến classes (class_id) và users (uploaded_by, reviewed_by — phải khác nhau, kiểm soát chéo)  
@@ -181,8 +189,10 @@ Thông tin nằm trong:
 \- Thông tin lịch rảnh nằm trong tutor_availabilities  
 \- Thông tin khu vực dạy nằm trong tutor_service_areas  
 \- Thông tin yêu cầu lớp và ứng tuyển nằm trong class_requests, class_applications  
-\- Thông tin lớp học, lịch cố định và buổi dạy nằm trong classes, class_schedules, sessions  
-\- Thông tin tài liệu buổi học nằm trong session_materials  
+\- Thông tin lớp học, ca thử (trial_*), lịch cố định và ngoại lệ nằm trong classes, class_schedules, schedule_exceptions (V16)  
+\- Thông tin bài giảng nằm trong lessons (V16, thay sessions)  
+\- Thông tin nhật ký dạy học nằm trong teaching_logs (V16, bảng mới — tách khỏi lesson)  
+\- Thông tin tài liệu bài giảng nằm trong lesson_materials (V16, đổi tên từ session_materials)  
 \- Thông tin quiz, câu hỏi và câu trả lời nằm trong quizzes, quiz_questions, quiz_answers  
 \- Thông tin kỹ năng nằm trong skills  
 \- Thông tin tài chính (thu phí, xác nhận) nằm trong payments  

@@ -39,7 +39,7 @@ public class ClassDetailResponse {
     /** Lớp đã có lịch dạy cố định chưa (để FE quyết định banner "Thiết lập lịch"). */
     boolean hasSchedules;
 
-    /** Các ngày đã có buổi học chính thức (is_trial = FALSE) — FE render nút "Mở buổi học". */
+    /** Các ngày đã có nhật ký dạy học (teaching_logs) — V16, FE render điểm "đã dạy" trên lưới. */
     List<LocalDate> sessionDates;
 
     /** Ca của hôm nay theo lịch cố định (FE dùng đánh dấu "hôm nay" trên lưới tuần). */

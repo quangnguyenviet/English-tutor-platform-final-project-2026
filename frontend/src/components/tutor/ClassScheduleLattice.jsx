@@ -3,17 +3,18 @@ import {
   AlertCircle,
   ArrowRightLeft,
   BookOpen,
-  CalendarPlus,
   ChevronLeft,
   ChevronRight,
   Clock,
   Eraser,
   Loader2,
-  MoreVertical,
-  Pencil,
+  NotebookText,
+  Save,
+  Trash2,
   X,
   XCircle,
 } from "lucide-react";
+import Button from "../ui/Button";
 import Card from "../ui/Card";
 import ConfirmModal from "../ui/ConfirmModal";
 import ExceptionForm from "./ExceptionForm";
@@ -23,7 +24,10 @@ import {
   EXCEPTION_TYPE_META,
   apiCreateException,
   apiDeleteException,
+  apiDeleteTeachingLog,
   apiGetClassSchedule,
+  apiGetTeachingLog,
+  apiSaveTeachingLog,
   dayOfWeekLabel,
   formatSessionDate,
   formatSessionTime,
@@ -34,7 +38,6 @@ import { startOfWeek, toISO } from "./FixedScheduleGrid";
 const MODAL_TITLES = {
   CANCELLED: "Hủy buổi học này",
   RESCHEDULED: "Dời buổi học này",
-  MODIFIED: "Sửa chi tiết buổi học",
 };
 
 /** 7 ngày (Thứ 2 → Chủ nhật) của tuần có mốc weekStart. */
@@ -62,46 +65,46 @@ const TONE_SURFACE = {
   amber: "border-l-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
   emerald: "border-l-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100",
   rose: "border-l-rose-500 bg-rose-50 text-rose-900 dark:bg-rose-950/40 dark:text-rose-100",
-  sky: "border-l-sky-500 bg-sky-50 text-sky-900 dark:bg-sky-950/40 dark:text-sky-100",
   slate: "border-l-slate-400 bg-slate-50 text-slate-800 dark:bg-slate-800/40 dark:text-slate-200",
 };
 
 /**
- * Lưới tuần kiểu Google Calendar (thiết kế /tutor/schedule): cột giờ bên trái
- * (06:00–22:00), 7 cột ngày, mỗi sự kiện là 1 chip đặt đúng vị trí giờ trên trục.
- * Sự kiện render theo source SESSION / EXCEPTION / OCCURRENCE từ API thật.
+ * Lưới tuần kiểu Google Calendar (thiết kế /tutor/schedule): 7 cột ngày,
+ * mỗi sự kiện là 1 chip đặt theo giờ. V16: chip render theo source
+ * OCCURRENCE / EXCEPTION / TRIAL từ API thật, kèm overlay nhật ký dạy học
+ * (TeachingLogMini trên ô — chấm "Đã có nhật ký"). Nhật ký dạy học ghi / sửa /
+ * xóa trong modal riêng ("ghi nhật ký"), không còn tạo buổi học on-demand.
  * Dưới lg: fallback danh sách dọc theo ngày (mobile không có trục giờ).
  */
 export default function ClassScheduleLattice({
   classId,
   weekStart,
   onWeekStartChange,
-  teachingMode = "ONLINE",
-  onCreateSession,
-  creatingSessionDate = null,
-  createError = "",
-  onSelectSession,
-  selectedSessionId = null,
   onChanged,
   refreshKey = 0,
   sessionDates = [],
-  createErrorDate = null,
 }) {
   const { token } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [detail, setDetail] = useState(null); // cell đang mở modal chi tiết + nút thao tác
   const [modal, setModal] = useState(null); // { slot, exceptionType }
   const [modalError, setModalError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const [kebabKey, setKebabKey] = useState(null); // ô OCCURRENCE đang mở menu
-  const [occDetail, setOccDetail] = useState(null); // occurrence đang mở modal chi tiết (chưa có buổi thật)
-  const [creatingFromModal, setCreatingFromModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null); // occurrence cần gỡ exception
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+
+  // ---------------- Nhật ký dạy học (overlay trên ô ca, V16)
+  const [logCell, setLogCell] = useState(null); // { date, startTime, endTime, occurrenceKey }
+  const [logForm, setLogForm] = useState({ knowledge: "", homework: "" });
+  const [logLoading, setLogLoading] = useState(false);
+  const [logSaving, setLogSaving] = useState(false);
+  const [logDeleting, setLogDeleting] = useState(false);
+  const [logError, setLogError] = useState("");
 
   const load = useCallback(async () => {
     if (!token || !classId || !weekStart) return;
@@ -122,6 +125,7 @@ export default function ClassScheduleLattice({
   }, [load, refreshKey]);
 
   const days = useMemo(() => weekDays(weekStart), [weekStart]);
+  const inWeekDates = useMemo(() => new Set(days.map((day) => day.iso)), [days]);
   const occurrencesByDate = useMemo(() => {
     const map = new Map();
     for (const occ of data?.occurrences || []) {
@@ -130,6 +134,23 @@ export default function ClassScheduleLattice({
     }
     return map;
   }, [data]);
+
+  /**
+   * Chip "dời sang" (RESCHEDULED) có ngày đích nằm trong tuần đang xem: gom theo
+   * ngày đích để render chip nét đứt trên cột ngày mới; ô gốc hạ xuống dòng ghost
+   * (gỡ exception đặt ở chip ngày mới, dùng cùng payload scheduleId + date gốc).
+   */
+  const movedOccurrencesByDate = useMemo(() => {
+    const map = new Map();
+    for (const occ of data?.occurrences || []) {
+      const exc = occ.source === "EXCEPTION" ? occ.exception : null;
+      if (!exc || exc.type !== "RESCHEDULED" || !exc.newDate) continue;
+      if (!inWeekDates.has(exc.newDate)) continue;
+      if (!map.has(exc.newDate)) map.set(exc.newDate, []);
+      map.get(exc.newDate).push(occ);
+    }
+    return map;
+  }, [data, inWeekDates]);
 
   const handleShiftWeek = (direction) => {
     const next = startOfWeek(weekStart);
@@ -141,8 +162,18 @@ export default function ClassScheduleLattice({
     onWeekStartChange(toISO(startOfWeek(todayISO())));
   };
 
+  // Mở modal chi tiết cell (nút thao tác) cho 1 occurrence bất kỳ.
+  const openDetail = (occ) => {
+    setDetail(occ);
+  };
+
+  const closeDetail = () => {
+    setDetail(null);
+  };
+
+  // Mở form ngoại lệ (Hủy / Dời) — gọi từ nút trong modal cell.
   const openExceptionModal = (occ, exceptionType) => {
-    setKebabKey(null);
+    setDetail(null);
     setModalError("");
     setModal({ slot: occ, exceptionType });
   };
@@ -152,34 +183,134 @@ export default function ClassScheduleLattice({
     setModalError("");
   };
 
-  // Tạo buổi học on-demand từ modal chi tiết ca + tự chọn buổi mới để mở chi tiết.
-  const handleCreateFromModal = async () => {
-    if (!occDetail || creatingFromModal) return;
-    setCreatingFromModal(true);
+  // ---------- Modal "ghi nhật ký" (kiến thức + dặn dò) cho 1 ô ca ----------
+
+  /**
+   * Vạch ô "thực tế diễn ra" để khóa log (log_date, start_time, end_time):
+   * - OCCURRENCE / TRIAL: theo ô gốc (occ.date, occ.startTime, occ.endTime).
+   * - EXCEPTION RESCHEDULED: theo ngày/giờ MỚI (ca đã dời sang đó; backend chặn
+   *   ghi log tại ca gốc nên phải key ở ca mới).
+   * - EXCEPTION CANCELLED: ca không diễn ra → không ghi được log (trả null).
+   */
+  const logTargetFor = (occ) => {
+    if (occ.source === "EXCEPTION" && occ.exception) {
+      const exc = occ.exception;
+      if (exc.type === "RESCHEDULED") {
+        if (!exc.newDate || !exc.newStartTime || !exc.newEndTime) return null;
+        return {
+          date: exc.newDate,
+          startTime: formatSessionTime(exc.newStartTime),
+          endTime: formatSessionTime(exc.newEndTime),
+        };
+      }
+      return null; // CANCELLED (hoặc ngoại lệ không còn hiệu lực) — ca không diễn ra, không ghi nhật ký
+    }
+    // OCCURRENCE / TRIAL
+    return {
+      date: occ.date,
+      startTime: formatSessionTime(occ.startTime),
+      endTime: formatSessionTime(occ.endTime),
+    };
+  };
+
+  /** Ô nào được phép ghi nhật ký (có đủ chìa khóa log). */
+  const canLogCell = (occ) => logTargetFor(occ) != null;
+
+  const openLogModal = async (occ) => {
+    const target = logTargetFor(occ);
+    if (!target) return;
+    setDetail(null);
+    setLogCell({
+      date: target.date,
+      startTime: target.startTime,
+      endTime: target.endTime,
+      occurrenceKey: occ.occurrenceKey,
+      trial: Boolean(occ.trial),
+    });
+    setLogForm({ knowledge: "", homework: "" });
+    setLogError("");
+    setLogLoading(true);
     try {
-      const result = await onCreateSession?.(
-        occDetail.date,
-        formatSessionTime(occDetail.startTime),
-        occDetail.dateLabel,
-      );
-      setOccDetail(null);
-      if (result != null) onSelectSession?.(result);
+      const raw = await apiGetTeachingLog(token, classId, target.date, target.startTime);
+      if (raw) {
+        setLogForm({
+          knowledge: raw.knowledge || "",
+          homework: raw.homework || "",
+        });
+      }
+    } catch {
+      // Chưa có log thì để trống; lỗi API hiện khi lưu.
     } finally {
-      setCreatingFromModal(false);
+      setLogLoading(false);
     }
   };
 
-  // Đóng modal exception / modal chi tiết ca bằng ESC (WP2.6).
+  const closeLogModal = () => {
+    setLogCell(null);
+    setLogError("");
+  };
+
+  const handleSaveLog = async () => {
+    if (!token || !logCell || logSaving) return;
+    const knowledge = logForm.knowledge.trim();
+    const homework = logForm.homework.trim();
+    if (!knowledge && !homework) {
+      setLogError("Vui lòng nhập ít nhất một nội dung (kiến thức hoặc dặn dò).");
+      return;
+    }
+    setLogSaving(true);
+    setLogError("");
+    try {
+      await apiSaveTeachingLog(token, classId, {
+        logDate: logCell.date,
+        startTime: logCell.startTime,
+        endTime: logCell.endTime,
+        knowledge: knowledge || null,
+        homework: homework || null,
+      });
+      closeLogModal();
+      onChanged?.();
+    } catch (err) {
+      setLogError(err.message || "Không thể lưu nhật ký dạy học.");
+    } finally {
+      setLogSaving(false);
+    }
+  };
+
+  const askDeleteLog = async () => {
+    if (!token || !logCell || logDeleting) return;
+    setLogDeleting(true);
+    setLogError("");
+    try {
+      const raw = await apiGetTeachingLog(
+        token,
+        classId,
+        logCell.date,
+        logCell.startTime,
+      );
+      if (raw?.logId) {
+        await apiDeleteTeachingLog(token, classId, raw.logId);
+        closeLogModal();
+        onChanged?.();
+      }
+    } catch (err) {
+      setLogError(err.message || "Không thể xóa nhật ký dạy học.");
+    } finally {
+      setLogDeleting(false);
+    }
+  };
+
+  // Đóng modal cell / modal exception bằng ESC.
   useEffect(() => {
-    if (!modal && !occDetail) return;
+    if (!modal && !detail) return;
     const onKey = (event) => {
       if (event.key !== "Escape") return;
       closeExceptionModal();
-      setOccDetail(null);
+      closeDetail();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [modal, occDetail]);
+  }, [modal, detail]);
 
   const handleCreateException = async (payload) => {
     if (!token || submitting) return;
@@ -190,7 +321,7 @@ export default function ClassScheduleLattice({
       closeExceptionModal();
       onChanged?.();
     } catch (err) {
-      setModalError(err.message || "Không thể ghi ngoại lệ lịch dạy.");
+      setModalError(err.message || "Không thể lưu thay đổi.");
     } finally {
       setSubmitting(false);
     }
@@ -215,183 +346,78 @@ export default function ClassScheduleLattice({
       setDeleteTarget(null);
       onChanged?.();
     } catch (err) {
-      setDeleteError(err.message || "Không thể gỡ ngoại lệ.");
+      setDeleteError(err.message || "Không thể đặt lại ca.");
     } finally {
       setDeleting(false);
     }
   };
 
-  const KEBAB_ACTIONS = [
-    { type: "CANCELLED", label: "Hủy ca này", icon: XCircle, tone: "rose" },
-    { type: "RESCHEDULED", label: "Dời ca này", icon: ArrowRightLeft, tone: "amber" },
-    { type: "MODIFIED", label: "Sửa chi tiết ca", icon: Pencil, tone: "sky" },
-  ];
-
-  const kebabTone = {
-    rose: "text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40",
-    amber: "text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40",
-    sky: "text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/40",
+  /** Tone viền trái cho chip theo nguồn dữ liệu V16 (OCCURRENCE | EXCEPTION | TRIAL). */
+  const chipToneFor = (occ) => {
+    if (occ.source === "TRIAL") return "rose";
+    if (occ.source === "EXCEPTION") {
+      const exc = occ.exception || {};
+      if (exc.type === "CANCELLED") return "rose";
+      if (exc.type === "RESCHEDULED") return "amber";
+      return "slate";
+    }
+    // OCCURRENCE — ca cố định; chấm xanh lục nếu đã có nhật ký.
+    return occ.log ? "emerald" : "slate";
   };
 
-  // Chip sự kiện trong ô ngày (không dùng trục giờ): mỗi ca/lượt dạy là 1 chip
-  // hiển thị giờ + trạng thái/nhãn; nhiều ca trong ngày xếp chồng dọc trong ô.
+  /** Bấm chip bất kỳ → mở modal thao tác ô: ô có thể ghi nhật ký hiện nút
+   *  "ghi nhật ký"; ô bị hủy/dời/sửa chi tiết hiện thao tác ngoại lệ. */
+  const goOpenCell = (occ) => {
+    closeDetail();
+    openDetail(occ);
+  };
+
+  /**
+   * Chip sự kiện đồng nhất: khung giờ + chấm nhật ký nếu ô đã có log
+   * (TeachingLogMini từ API). Nhật ký dạy học = overlay trên ô ca.
+   */
   const renderDayChip = (occ) => {
-    if (occ.source === "SESSION") {
-      const session = occ.session || {};
-      const isSelected = selectedSessionId != null && session.sessionId === selectedSessionId;
-      // Mục -1: bỏ nhãn/trạng thái buổi — chip SESSION luôn tone emerald (đã có buổi thật).
-      const surface = TONE_SURFACE.emerald;
-      return (
-        <button
-          key={occ.occurrenceKey}
-          type="button"
-          onClick={() => onSelectSession?.(session.sessionId)}
-          aria-current={isSelected || undefined}
-          className={clsx(
-            "block w-full cursor-pointer rounded-lg border border-l-4 px-2 py-1.5 text-left transition-all hover:brightness-[0.97] active:scale-[0.99] dark:hover:brightness-110",
-            surface,
-            isSelected && "ring-2 ring-blue-500/60",
-          )}
-        >
+    const tone = chipToneFor(occ);
+    return (
+      <button
+        key={occ.occurrenceKey}
+        type="button"
+        onClick={() => goOpenCell(occ)}
+        className={clsx(
+          "block w-full cursor-pointer rounded-lg border border-l-4 px-2 py-1.5 text-left transition-all active:scale-[0.99]",
+          TONE_SURFACE[tone],
+        )}
+      >
+        <div className="flex items-center justify-between gap-1">
           <p className="font-mono text-[11px] font-semibold">
             {formatSessionTime(occ.startTime)} - {formatSessionTime(occ.endTime)}
           </p>
-          {session.hasLog && (
-            <p className="mt-0.5 text-[10px] opacity-70">Có nhật ký</p>
-          )}
-        </button>
-      );
-    }
-
-    if (occ.source === "EXCEPTION") {
-      const exc = occ.exception || {};
-      const meta = EXCEPTION_TYPE_META[exc.type] || { label: exc.type, tone: "slate" };
-      const surface =
-        exc.type === "CANCELLED"
-          ? TONE_SURFACE.rose
-          : exc.type === "RESCHEDULED"
-            ? TONE_SURFACE.amber
-            : TONE_SURFACE.sky;
-      return (
-        <div key={occ.occurrenceKey} className={clsx("rounded-lg border border-l-4 px-2 py-1.5", surface)}>
-          <p className="flex items-center justify-between gap-1 font-mono text-[11px] font-semibold">
-            <span className="flex items-center gap-1">
-              {formatSessionTime(occ.startTime)} - {formatSessionTime(occ.endTime)}
-              <span className="rounded-full bg-white/60 px-1.5 text-[10px] font-bold dark:bg-slate-900/40">
-                {meta.label}
-              </span>
-            </span>
-            <button
-              type="button"
-              onClick={() => askDeleteException(occ)}
-              className="cursor-pointer rounded p-0.5 transition-all hover:bg-white/50 active:scale-[0.98] dark:hover:bg-slate-800/50"
-              aria-label="Gỡ ngoại lệ"
-              title="Gỡ ngoại lệ"
-            >
-              <Eraser size={11} />
-            </button>
-          </p>
-          {exc.type === "RESCHEDULED" && (
-            <p className="mt-0.5 text-[10px] opacity-70">
-              Sang {exc.newDateLabel}
-              {exc.timeLabel ? ` · ${exc.timeLabel}` : ""}
-            </p>
-          )}
-          {exc.type === "CANCELLED" && exc.reason && (
-            <p className="mt-0.5 truncate text-[10px] opacity-70" title={exc.reason}>
-              {exc.reason}
-            </p>
-          )}
+          {occ.log ? (
+            <NotebookText
+              size={11}
+              className="shrink-0 text-emerald-600 dark:text-emerald-400"
+              aria-label="Đã có nhật ký"
+              title="Đã có nhật ký"
+            />
+          ) : occ.trial ? (
+            <span className="text-[10px] font-medium">Buổi dạy thử</span>
+          ) : null}
         </div>
-      );
-    }
-
-    // OCCURRENCE — ca cố định chưa có buổi thật: bấm khung giờ mở modal chi tiết ca
-    // (kèm nút "Tạo bài giảng"), kebab giữ nguyên cho hủy/dời/sửa ca.
-    const kebabOpen = kebabKey === occ.occurrenceKey;
-    return (
-      <div key={occ.occurrenceKey} className="group/occ relative rounded-lg border border-dashed border-slate-300 bg-white px-2 py-1.5 transition-colors hover:border-blue-400 hover:bg-blue-50/40 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-blue-700 dark:hover:bg-blue-950/20">
-        <button
-          type="button"
-          onClick={() => setOccDetail(occ)}
-          className="flex w-full cursor-pointer items-center gap-1 font-mono text-[11px] font-semibold text-slate-600 dark:text-slate-300"
-        >
-          <Clock size={10} className="shrink-0 text-blue-500 dark:text-blue-400" />
-          {formatSessionTime(occ.startTime)} - {formatSessionTime(occ.endTime)}
-        </button>
-        {/* Nút kebab gom 3 hành động exception (desktop: hiện khi hover ô) */}
-        <button
-          type="button"
-          aria-label="Hủy / dời / sửa ca này"
-          aria-expanded={kebabOpen}
-          onClick={() => setKebabKey(kebabOpen ? null : occ.occurrenceKey)}
-          className={clsx(
-            "absolute right-1.5 top-1.5 hidden cursor-pointer rounded-md border border-slate-200 bg-white p-0.5 text-slate-500 shadow-sm transition-all active:scale-[0.98] lg:block",
-            "hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800",
-            "lg:opacity-0 lg:group-hover/occ:opacity-100 lg:group-focus-within/occ:opacity-100 lg:focus:opacity-100",
-            kebabOpen && "opacity-100 border-blue-300 dark:border-blue-800",
-          )}
-        >
-          <MoreVertical size={11} />
-        </button>
-        {kebabOpen && (
-          <>
-            <div className="fixed inset-0 z-30" onClick={() => setKebabKey(null)} aria-hidden="true" />
-            <div
-              role="menu"
-              className="absolute top-full right-0 z-40 mt-1 w-40 space-y-0.5 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
-            >
-              {KEBAB_ACTIONS.map((action) => {
-                const Icon = action.icon;
-                return (
-                  <button
-                    key={action.type}
-                    type="button"
-                    role="menuitem"
-                    onClick={() => openExceptionModal(occ, action.type)}
-                    className={clsx(
-                      "flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] font-bold transition-all active:scale-[0.98]",
-                      kebabTone[action.tone],
-                    )}
-                  >
-                    <Icon size={12} />
-                    {action.label}
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
-        {/* Mobile: 3 nút chữ thay kebab (không có hover trên touch) */}
-        <div className="mt-1 flex gap-1 lg:hidden">
-          {KEBAB_ACTIONS.map((action) => (
-            <button
-              key={action.type}
-              type="button"
-              onClick={() => openExceptionModal(occ, action.type)}
-              className={clsx(
-                "flex-1 cursor-pointer rounded-md px-1 py-0.5 text-[9px] font-bold transition-all active:scale-[0.98]",
-                kebabTone[action.tone],
-              )}
-            >
-              {action.label.replace(" ca này", "").replace(" chi tiết ca", " chi tiết")}
-            </button>
-          ))}
-        </div>
-      </div>
+      </button>
     );
   };
 
-  // Ngày chứa buổi học đang được chọn (highlight ô khi chọn từ danh sách).
-  const selectedDate = useMemo(() => {
-    if (selectedSessionId == null) return null;
-    for (const [date, occurrences] of occurrencesByDate.entries()) {
-      if (occurrences.some((occ) => occ.session?.sessionId === selectedSessionId)) {
-        return date;
-      }
+  /** Nhãn ngắn cho nguồn dữ liệu của 1 occurrence (dùng làm tiêu đề modal). */
+  const sourceLabelFor = (occ) => {
+    if (occ.source === "TRIAL") return "Ca dạy thử";
+    if (occ.source === "EXCEPTION") {
+      const meta = EXCEPTION_TYPE_META[occ.exception?.type] || {};
+      return meta.label || "Ca cố định";
     }
-    return null;
-  }, [selectedSessionId, occurrencesByDate]);
+    return "Ca cố định";
+  };
+
+  const hasLogContent = Boolean(logForm.knowledge.trim() || logForm.homework.trim());
 
   return (
     <Card className="border-slate-200/80 dark:border-slate-800">
@@ -462,10 +488,19 @@ export default function ClassScheduleLattice({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-4 lg:grid-cols-7 lg:gap-3">
-          {/* ===== 7 ô ngày (1 ô/1 ngày), trong ô hiện chip giờ buổi học ===== */}
+          {/* ===== 7 ô ngày (1 ô/1 ngày), trong ô hiện chip giờ ca ===== */}
           {days.map((day) => {
-            const dayOccurrences = occurrencesByDate.get(day.iso) || [];
-            const dayCreateError = createError && createErrorDate === day.iso;
+            // "Dời sang" có đích nằm trong tuần đang xem: ẩn chip trên cột ngày gốc
+            // (đã dời thật), chỉ hiện chip amber trên cột ngày đích.
+            const hiddenInWeek = (occ) =>
+              occ.source === "EXCEPTION" &&
+              occ.exception?.type === "RESCHEDULED" &&
+              inWeekDates.has(occ.exception?.newDate);
+            const dayOccurrences = (occurrencesByDate.get(day.iso) || []).filter(
+              (occ) => !hiddenInWeek(occ),
+            );
+            const dayMovedTargets = movedOccurrencesByDate.get(day.iso) || [];
+            const dayLogDates = sessionDates.includes(day.iso);
             return (
               <div
                 key={day.iso}
@@ -473,9 +508,7 @@ export default function ClassScheduleLattice({
                   "flex flex-col rounded-xl border p-2",
                   day.isToday
                     ? "border-blue-300 bg-blue-50/50 dark:border-blue-800/60 dark:bg-blue-950/20"
-                    : selectedDate === day.iso
-                      ? "border-blue-400 bg-blue-50/30 dark:border-blue-700 dark:bg-blue-950/15"
-                      : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/40",
+                    : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/40",
                 )}
               >
                 {/* Header ngày: vòng tròn số kiểu Google Calendar */}
@@ -511,32 +544,46 @@ export default function ClassScheduleLattice({
                 <div className="flex-1 space-y-1.5">
                   {dayOccurrences.length ? (
                     dayOccurrences.map(renderDayChip)
-                  ) : sessionDates.includes(day.iso) ? (
+                  ) : dayMovedTargets.length ? null : dayLogDates ? (
                     <p className="rounded-lg border border-blue-200 bg-blue-50/70 px-2 py-1.5 text-[10px] font-medium leading-tight text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-300">
-                      Có buổi học ngoài ca cố định — xem ở danh sách buổi học.
+                      Đã dạy — có nhật ký hôm nay.
                     </p>
                   ) : (
                     <p className="px-1 text-[11px] text-slate-400 dark:text-slate-600">
                       Không có ca dạy
                     </p>
                   )}
-                  {dayCreateError && (
-                    <div className="flex items-start gap-1.5 rounded-lg border border-rose-200 bg-rose-50 p-2 text-[10px] leading-snug text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
-                      <AlertCircle size={11} className="mt-0.5 shrink-0 text-rose-500" />
-                      <span>{createError}</span>
-                    </div>
-                  )}
+                  {/* Chip "dời sang" (đích trong tuần): chip đồng nhất chỉ hiện giờ MỚI,
+                      bấm mở modal thao tác của ca gốc (payload gỡ/dời dùng ô gốc). */}
+                  {dayMovedTargets.map((occ) => {
+                    const exc = occ.exception || {};
+                    const newTime =
+                      exc.newStartTime && exc.newEndTime
+                        ? `${formatSessionTime(exc.newStartTime)} - ${formatSessionTime(exc.newEndTime)}`
+                        : `${formatSessionTime(occ.startTime)} - ${formatSessionTime(occ.endTime)}`;
+                    return (
+                      <button
+                        key={`moved-${occ.occurrenceKey}`}
+                        type="button"
+                        onClick={() => openDetail(occ)}
+                        className={clsx(
+                          "block w-full cursor-pointer rounded-lg border border-l-4 px-2 py-1.5 text-left transition-all active:scale-[0.99]",
+                          TONE_SURFACE.amber,
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="font-mono text-[11px] font-semibold">{newTime}</p>
+                          {occ.log ? (
+                            <NotebookText size={11} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+                          ) : null}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             );
           })}
-        </div>
-      )}
-
-      {createError && !createErrorDate && (
-        <div className="mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-[11px] text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
-          <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-500" />
-          <span>{createError}</span>
         </div>
       )}
 
@@ -564,10 +611,8 @@ export default function ClassScheduleLattice({
                 >
                   {modal.exceptionType === "CANCELLED" ? (
                     <XCircle size={18} />
-                  ) : modal.exceptionType === "RESCHEDULED" ? (
-                    <ArrowRightLeft size={18} />
                   ) : (
-                    <Pencil size={18} />
+                    <ArrowRightLeft size={18} />
                   )}
                 </span>
                 <div>
@@ -592,7 +637,6 @@ export default function ClassScheduleLattice({
               key={modal.slot.occurrenceKey}
               slot={modal.slot}
               exceptionType={modal.exceptionType}
-              classTeachingMode={teachingMode}
               submitting={submitting}
               serverError={modalError}
               onCancel={closeExceptionModal}
@@ -602,30 +646,33 @@ export default function ClassScheduleLattice({
         </div>
       )}
 
-      {/* Modal chi tiết ca cố định chưa có buổi thật: nút "Tạo bài giảng" (kèm tài liệu, bài tập, nhật ký) */}
-      {occDetail && (
+      {/* Modal thao tác cell: bấm chip → xem thông tin + nút "ghi nhật ký" / ngoại lệ. */}
+      {detail && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
-          onClick={() => setOccDetail(null)}
+          onClick={closeDetail}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+            className="w-full max-w-md space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
-                  <BookOpen size={18} />
+                  <Clock size={18} />
                 </span>
                 <div>
                   <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                    Ca {formatSessionTime(occDetail.startTime)} - {formatSessionTime(occDetail.endTime)}
+                    {sourceLabelFor(detail)} · {formatSessionTime(detail.startTime)} -{" "}
+                    {formatSessionTime(detail.endTime)}
                   </h4>
-                  <p className="text-[11px] text-slate-400">{formatSessionDate(occDetail.date)}</p>
+                  <p className="text-[11px] text-slate-400">
+                    {formatSessionDate(detail.date)} · {dayOfWeekLabel(detail.dayOfWeek)}
+                  </p>
                 </div>
               </div>
               <button
-                onClick={() => setOccDetail(null)}
+                onClick={closeDetail}
                 className="cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 aria-label="Đóng"
               >
@@ -633,47 +680,254 @@ export default function ClassScheduleLattice({
               </button>
             </div>
 
-            <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
-              <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                Ca này chưa có buổi học.
-              </p>
-              <p className="mt-1 text-[11px] leading-snug text-slate-500 dark:text-slate-400">
-                Tạo bài giảng để đính kèm tài liệu, giao bài tập và viết nhật ký sau buổi học.
-              </p>
-            </div>
+            {/* Bối cảnh theo nguồn: ngoại lệ (lý do / đã dời) hoặc ca có nhật ký. */}
+            {detail.source === "EXCEPTION" && (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-300">
+                {(() => {
+                  const exc = detail.exception || {};
+                  if (exc.type === "CANCELLED") {
+                    return exc.reason ? (
+                      <p>Đã hủy ca này. Lý do: {exc.reason}</p>
+                    ) : (
+                      <p>Đã hủy ca này.</p>
+                    );
+                  }
+                  if (exc.type === "RESCHEDULED") {
+                    const nt =
+                      exc.newStartTime && exc.newEndTime
+                        ? `${formatSessionTime(exc.newStartTime)} - ${formatSessionTime(exc.newEndTime)}`
+                        : "";
+                    return (
+                      <p>
+                        Đã dời sang {exc.newDate ? formatSessionDate(exc.newDate) : "ngày mới"}
+                        {nt ? ` · ${nt}` : ""}.
+                      </p>
+                    );
+                  }
+                  return <p>Ca này đã được ghi nhận ngoại lệ.</p>;
+                })()}
+              </div>
+            )}
+            {detail.log ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <NotebookText size={13} /> Đã có nhật ký dạy học
+                </div>
+                {detail.log.knowledge ? <p className="mt-1 line-clamp-2">{detail.log.knowledge}</p> : null}
+                {detail.log.homework ? (
+                  <p className="mt-1 line-clamp-2 text-emerald-700/80 dark:text-emerald-400/80">
+                    Dặn dò: {detail.log.homework}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-300">
+                {detail.trial
+                  ? "Ca dạy thử của lớp. Sau khi kết thúc, ghi nhật ký dạy học để học sinh và phụ huynh xem được."
+                  : "Ca dạy cố định. Sau buổi học, ghi nhật ký (kiến thức + dặn dò) để học sinh và phụ huynh xem được."}
+              </div>
+            )}
 
-            <button
-              type="button"
-              onClick={handleCreateFromModal}
-              disabled={creatingSessionDate !== null || creatingFromModal}
-              className={clsx(
-                "mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-all active:scale-[0.98] disabled:opacity-50",
-                "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400",
+            {/* Danh sách nút thao tác theo nguồn dữ liệu. */}
+            <div className="space-y-2">
+              {canLogCell(detail) && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  type="button"
+                  onClick={() => openLogModal(detail)}
+                  className="w-full cursor-pointer justify-center text-xs font-bold"
+                >
+                  <NotebookText size={14} />
+                  {detail.log ? "Xem / sửa nhật ký" : "Ghi nhật ký"}
+                </Button>
               )}
-            >
-              {creatingFromModal ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <CalendarPlus size={14} />
+              {(detail.source === "OCCURRENCE" || detail.source === "EXCEPTION") && (
+                <div className="space-y-2">
+                  {detail.source === "EXCEPTION" && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      type="button"
+                      onClick={() => askDeleteException(detail)}
+                      className="w-full cursor-pointer text-xs font-bold"
+                    >
+                      <Eraser size={14} /> Đặt lại ca
+                    </Button>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      type="button"
+                      onClick={() => openExceptionModal(detail, "RESCHEDULED")}
+                      className="cursor-pointer text-xs font-bold"
+                    >
+                      <ArrowRightLeft size={14} /> Dời ca
+                    </Button>
+                    {detail.source === "OCCURRENCE" && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        type="button"
+                        onClick={() => openExceptionModal(detail, "CANCELLED")}
+                        className="cursor-pointer text-xs font-bold"
+                      >
+                        <XCircle size={14} /> Hủy ca này
+                      </Button>
+                    )}
+                  </div>
+                </div>
               )}
-              Tạo bài giảng
-            </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Xác nhận gỡ exception */}
+      {/* Modal "ghi nhật ký" (kiến thức + dặn dò) cho 1 ô ca. */}
+      {logCell && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+          onClick={closeLogModal}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+                  <BookOpen size={18} />
+                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                    {logCell.trial ? "Nhật ký ca dạy thử" : "Nhật ký dạy học"}
+                  </h4>
+                  <p className="text-[11px] text-slate-400">
+                    {formatSessionDate(logCell.date)} · {logCell.startTime} - {logCell.endTime}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeLogModal}
+                className="cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                aria-label="Đóng"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {logError && (
+              <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+                <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-500" />
+                <div className="flex-1">{logError}</div>
+                <button
+                  type="button"
+                  onClick={() => setLogError("")}
+                  className="cursor-pointer text-rose-400 hover:text-rose-600"
+                  aria-label="Đóng thông báo lỗi"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {logLoading ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-xs font-medium text-slate-500 dark:text-slate-400">
+                <Loader2 size={14} className="animate-spin" /> Đang tải nhật ký...
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <label
+                    htmlFor="log-knowledge"
+                    className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200"
+                  >
+                    Kiến thức đã hoàn thành trong buổi học
+                  </label>
+                  <textarea
+                    id="log-knowledge"
+                    rows={3}
+                    value={logForm.knowledge}
+                    onChange={(e) => setLogForm((f) => ({ ...f, knowledge: e.target.value }))}
+                    placeholder="Nhập chi tiết ngữ pháp, từ vựng và bài tập đã giảng trong buổi..."
+                    className="w-full rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="log-homework"
+                    className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200"
+                  >
+                    Dặn dò về nhà &amp; bài tập cần nộp
+                  </label>
+                  <textarea
+                    id="log-homework"
+                    rows={3}
+                    value={logForm.homework}
+                    onChange={(e) => setLogForm((f) => ({ ...f, homework: e.target.value }))}
+                    placeholder="Ghi rõ bài tập cần làm, thời hạn nộp và yêu cầu luyện tập..."
+                    className="w-full rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+              {hasLogContent ? (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  type="button"
+                  onClick={askDeleteLog}
+                  disabled={logDeleting}
+                  className="cursor-pointer text-xs font-bold"
+                >
+                  {logDeleting ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={14} />
+                  )}
+                  Xóa nhật ký
+                </Button>
+              ) : (
+                <span />
+              )}
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" onClick={closeLogModal} type="button">
+                  Hủy
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSaveLog}
+                  disabled={logSaving || logLoading}
+                  className="cursor-pointer"
+                >
+                  {logSaving ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Save size={14} />
+                  )}
+                  {logSaving ? "Đang lưu..." : "Lưu nhật ký"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Xác nhận đặt lại ca về lịch cố định */}
       <ConfirmModal
         open={Boolean(deleteTarget)}
-        title="Gỡ ngoại lệ lịch dạy"
+        title="Đặt lại ca về lịch cố định?"
         message={
           deleteTarget
-            ? `Gỡ ngoại lệ của ca ${formatSessionTime(deleteTarget.startTime)} - ${formatSessionTime(
+            ? `Ca ${formatSessionTime(deleteTarget.startTime)} - ${formatSessionTime(
                 deleteTarget.endTime,
-              )} ngày ${formatSessionDate(deleteTarget.date)}? Ô sẽ quay lại ca cố định bình thường.`
+              )} ngày ${formatSessionDate(deleteTarget.date)} sẽ quay về lịch cố định như ban đầu. Bạn có chắc không?`
             : ""
         }
-        confirmLabel="Gỡ ngoại lệ"
+        confirmLabel="Đặt lại ca"
         confirmTone="rose"
         icon={Eraser}
         onConfirm={handleDeleteException}
@@ -687,7 +941,7 @@ export default function ClassScheduleLattice({
       )}
       {deleting && (
         <div className="fixed bottom-5 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-2xl">
-          <Loader2 size={14} className="animate-spin" /> Đang gỡ...
+          <Loader2 size={14} className="animate-spin" /> Đang đặt lại ca...
         </div>
       )}
     </Card>

@@ -10,14 +10,16 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
-/** Buổi dạy thử của một lớp TRIAL (UC-T08), hiển thị kèm nhãn [Học thử] trên thời khóa biểu. */
+/**
+ * Ca dạy thử của lớp (các cột trial_* trên classes, V16). Chỉ hiện khi
+ * classes.status = TRIAL; "buổi thử đã diễn ra" hiển thị dạng lịch sử.
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class TrialSessionResponse {
-    Long sessionId;
     LocalDate sessionDate;
     LocalTime startTime;
     LocalTime endTime;

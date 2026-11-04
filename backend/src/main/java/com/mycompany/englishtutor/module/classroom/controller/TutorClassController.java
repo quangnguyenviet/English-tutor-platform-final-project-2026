@@ -7,6 +7,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,21 +16,22 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.mycompany.englishtutor.module.classroom.api.request.CreateExceptionRequest;
-import com.mycompany.englishtutor.module.classroom.api.request.CreateSessionRequest;
+import com.mycompany.englishtutor.module.classroom.api.request.CreateLessonRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.FinalizeScheduleRequest;
-import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionLogRequest;
-import com.mycompany.englishtutor.module.classroom.api.request.UpdateSessionRequest;
+import com.mycompany.englishtutor.module.classroom.api.request.SaveTeachingLogRequest;
+import com.mycompany.englishtutor.module.classroom.api.request.UpdateLessonRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpsertTrialSessionRequest;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassDetailResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassSummaryResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.FinalizeScheduleResponse;
-import com.mycompany.englishtutor.module.classroom.api.response.OnDemandSessionResponse;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionDetailResponse;
+import com.mycompany.englishtutor.module.classroom.api.response.LessonDetailResponse;
+import com.mycompany.englishtutor.module.classroom.api.response.LessonListItem;
+import com.mycompany.englishtutor.module.classroom.api.response.LessonMaterialItem;
 import com.mycompany.englishtutor.module.classroom.api.response.SessionExceptionResponse;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionLogResponse;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionMaterialItem;
+import com.mycompany.englishtutor.module.classroom.api.response.TeachingLogResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.TrialSessionResponse;
 import com.mycompany.englishtutor.module.classroom.service.ClassOccurrenceService;
 import com.mycompany.englishtutor.module.classroom.service.TutorClassService;
@@ -41,19 +43,23 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.multipart.MultipartFile;
 
-/** API lớp học của gia sư, lịch dạy thử (UC-T08), lịch cố định (UC-T09) và viết "Lịch dạy". */
+/**
+ * API lớp học của gia sư (V16): lịch dạy thử (classes.trial_*), lịch cố định
+ * (UC-T09), nhật ký dạy học (teaching_logs) trên lưới lịch, và bài giảng
+ * (lessons — tab riêng, driver nhúng vào lớp).
+ */
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('TUTOR')")
-@Tag(name = "Tutor Classroom", description = "Lớp học của gia sư & lịch dạy thử")
+@Tag(name = "Tutor Classroom", description = "Lớp học của gia sư: lịch dạy, nhật ký, bài giảng")
 public class TutorClassController {
 
     private final TutorClassService tutorClassService;
     private final ClassOccurrenceService classOccurrenceService;
+
+    // -------------------------------------------------- READ CLASSES
 
     @GetMapping("/tutors/me/classes")
     @Operation(
@@ -68,7 +74,7 @@ public class TutorClassController {
 
     @GetMapping("/classes/{id}")
     @Operation(
-            summary = "Chi tiết lớp học của gia sư (kèm buổi dạy thử nếu có)",
+            summary = "Chi tiết lớp học của gia sư (kèm ca thử trial_*, lịch cố định, ngày có log)",
             security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<ClassDetailResponse>> getClassDetail(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.<ClassDetailResponse>builder()
@@ -76,30 +82,21 @@ public class TutorClassController {
                 .build());
     }
 
-    @PostMapping("/classes/{id}/trial-session")
-    @Operation(
-            summary = "Thiết lập lịch dạy thử cho lớp đang ở trạng thái TRIAL (mỗi lớp tối đa 1 buổi)",
-            security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<TrialSessionResponse>> createTrialSession(
-            @PathVariable Long id, @Valid @RequestBody UpsertTrialSessionRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.<TrialSessionResponse>builder()
-                        .result(tutorClassService.createTrialSession(id, request))
-                        .build());
-    }
+    // ------------------------------------------------- CA THỬ (classes.trial_*)
 
-    @PutMapping("/classes/{id}/trial-session")
+    @PutMapping("/classes/{id}/trial")
     @Operation(
-            summary = "Chỉnh sửa/dời lịch dạy thử khi buổi thử chưa diễn ra",
+            summary = "Thiết lập / cập nhật ca dạy thử cho lớp TRIAL (6 cột trial_* trên classes)",
             security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<TrialSessionResponse>> updateTrialSession(
-            @PathVariable Long id, @Valid @RequestBody UpsertTrialSessionRequest request) {
+    public ResponseEntity<ApiResponse<TrialSessionResponse>> upsertTrialSlot(
+            @PathVariable Long id, @Valid @RequestBody UpsertTrialSessionRequest request, HttpServletRequest httpRequest) {
         return ResponseEntity.ok(ApiResponse.<TrialSessionResponse>builder()
-                .result(tutorClassService.updateTrialSession(id, request))
+                .message("Đã lưu lịch dạy thử")
+                .result(tutorClassService.upsertTrialSlot(id, request, httpRequest))
                 .build());
     }
 
-    // ------------------------------------------------------------ UC-T09
+    // ------------------------------------------------- LỊCH CỐ ĐỊNH (UC-T09)
 
     @PostMapping("/classes/{id}/finalize-schedule")
     @Operation(
@@ -130,29 +127,11 @@ public class TutorClassController {
                 .build());
     }
 
-    @PostMapping("/classes/{id}/sessions")
-    @Operation(
-            summary = "Tạo buổi học chính thức on-demand theo lịch cố định (idempotent)",
-            security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<OnDemandSessionResponse>> createSessionOnDemand(
-            @PathVariable Long id,
-            @Valid @RequestBody CreateSessionRequest request,
-            HttpServletRequest httpRequest) {
-        OnDemandSessionResponse result =
-                tutorClassService.createSessionOnDemand(id, request, httpRequest);
-        return ResponseEntity.ok(ApiResponse.<OnDemandSessionResponse>builder()
-                .message(result.getCreatedNow()
-                        ? "Đã tạo buổi học chính thức"
-                        : "Buổi học đã tồn tại")
-                .result(result)
-                .build());
-    }
-
-    // ------------------------------------------------- "LỊCH DẠY" (viết, TUTOR)
+    // ------------------------------------------------- EXCEPTION (overlay)
 
     @PostMapping("/classes/{id}/exceptions")
     @Operation(
-            summary = "Ghi ngoại lệ (hủy/dời/sửa chi tiết) cho ô ảo; ô có buổi thật trả 409",
+            summary = "Ghi ngoại lệ (CANCELLED/RESCHEDULED) cho 1 ô ca; ô có log chặn CANCELLED/RESCHEDULED",
             security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<SessionExceptionResponse>> createException(
             @PathVariable Long id,
@@ -180,61 +159,127 @@ public class TutorClassController {
                 .build());
     }
 
-    @PutMapping("/sessions/{id}")
-    @Operation(
-            summary = "Sửa/dời buổi học thật (chỉ trạng thái SCHEDULED)",
-            security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<SessionDetailResponse>> updateSession(
-            @PathVariable Long id,
-            @Valid @RequestBody UpdateSessionRequest request,
-            HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(ApiResponse.<SessionDetailResponse>builder()
-                .message("Đã cập nhật buổi học")
-                .result(classOccurrenceService.updateSession(id, request, httpRequest))
-                .build());
-    }
+    // ------------------------------------------------- TEACHING LOGS (trên lưới lịch)
 
-    @PutMapping("/sessions/{id}/log")
+    @PostMapping("/classes/{id}/logs")
     @Operation(
-            summary = "Lưu nhật ký buổi học (lần đầu lưu sẽ thông báo học sinh)",
+            summary = "Ghi / sửa nhật ký dạy học cho 1 ô ca (upsert theo class, log_date, start_time)",
             security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<SessionLogResponse>> updateSessionLog(
+    public ResponseEntity<ApiResponse<TeachingLogResponse>> saveLog(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateSessionLogRequest request,
+            @Valid @RequestBody SaveTeachingLogRequest request,
             HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(ApiResponse.<SessionLogResponse>builder()
+        return ResponseEntity.ok(ApiResponse.<TeachingLogResponse>builder()
+                .message("Đã lưu nhật ký dạy học")
                 .result(classOccurrenceService.saveLog(id, request, httpRequest))
                 .build());
     }
 
-    // ------------------------------------------------- TÀI LIỆU BUỔI HỌC (FR-12)
-
-    @PostMapping("/sessions/{id}/materials")
+    @DeleteMapping("/classes/{id}/logs/{logId}")
     @Operation(
-            summary = "Đính kèm tài liệu buổi học (PDF, DOCX, ảnh, âm thanh — tối đa 20 MB)",
+            summary = "Xóa 1 nhật ký dạy học",
             security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<SessionMaterialItem>> uploadSessionMaterial(
+    public ResponseEntity<ApiResponse<Void>> deleteLog(
+            @PathVariable Long id,
+            @PathVariable Long logId,
+            HttpServletRequest httpRequest) {
+        classOccurrenceService.deleteLog(id, logId, httpRequest);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .message("Đã xóa nhật ký dạy học")
+                .build());
+    }
+
+    // ------------------------------------------------- BÀI GIẢNG (lessons) — tab riêng
+
+    @PostMapping("/classes/{id}/lessons")
+    @Operation(
+            summary = "Tạo bài giảng mới cho lớp (driver nhúng, không lên lịch)",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<LessonDetailResponse>> createLesson(
+            @PathVariable Long id,
+            @Valid @RequestBody CreateLessonRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.<LessonDetailResponse>builder()
+                        .message("Đã tạo bài giảng")
+                        .result(tutorClassService.createLesson(id, request, httpRequest))
+                        .build());
+    }
+
+    @GetMapping("/classes/{id}/lessons")
+    @Operation(
+            summary = "Danh sách bài giảng của lớp (ROW_NUMBER theo thời gian tạo)",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<List<LessonListItem>>> listLessons(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.<List<LessonListItem>>builder()
+                .result(tutorClassService.listLessons(id))
+                .build());
+    }
+
+    @GetMapping("/lessons/{id}")
+    @Operation(
+            summary = "Chi tiết bài giảng (tiêu đề, trạng thái, tài liệu, số quiz)",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<LessonDetailResponse>> getLessonDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.<LessonDetailResponse>builder()
+                .result(tutorClassService.getLessonDetail(id))
+                .build());
+    }
+
+    @PutMapping("/lessons/{id}")
+    @Operation(
+            summary = "Sửa tiêu đề và/hoặc ẩn/hiện bài giảng (PUBLISHED | HIDDEN)",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<LessonDetailResponse>> updateLesson(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateLessonRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.<LessonDetailResponse>builder()
+                .message("Đã cập nhật bài giảng")
+                .result(tutorClassService.updateLesson(id, request, httpRequest))
+                .build());
+    }
+
+    @DeleteMapping("/lessons/{id}")
+    @Operation(
+            summary = "Xóa bài giảng (CASCADE tự xóa tài liệu + quiz)",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<Void>> deleteLesson(
+            @PathVariable Long id, HttpServletRequest httpRequest) {
+        tutorClassService.deleteLesson(id, httpRequest);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .message("Đã xóa bài giảng")
+                .build());
+    }
+
+    // ------------------------------------------------- TÀI LIỆU BÀI GIẢNG (FR-12)
+
+    @PostMapping("/lessons/{id}/materials")
+    @Operation(
+            summary = "Đính kèm tài liệu bài giảng (PDF, DOCX, ảnh, âm thanh — tối đa 20 MB)",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<LessonMaterialItem>> uploadLessonMaterial(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file,
             HttpServletRequest httpRequest) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.<SessionMaterialItem>builder()
-                        .message("Đã đính kèm tài liệu buổi học")
+                .body(ApiResponse.<LessonMaterialItem>builder()
+                        .message("Đã đính kèm tài liệu bài giảng")
                         .result(classOccurrenceService.uploadMaterial(id, file, httpRequest))
                         .build());
     }
 
-    @DeleteMapping("/sessions/{id}/materials/{materialId}")
+    @DeleteMapping("/lessons/{id}/materials/{materialId}")
     @Operation(
-            summary = "Gỡ tài liệu buổi học",
+            summary = "Gỡ tài liệu bài giảng",
             security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<Void>> deleteSessionMaterial(
+    public ResponseEntity<ApiResponse<Void>> deleteLessonMaterial(
             @PathVariable Long id,
             @PathVariable Long materialId,
             HttpServletRequest httpRequest) {
         classOccurrenceService.deleteMaterial(id, materialId, httpRequest);
         return ResponseEntity.ok(ApiResponse.<Void>builder()
-                .message("Đã gỡ tài liệu buổi học")
+                .message("Đã gỡ tài liệu bài giảng")
                 .build());
     }
 }

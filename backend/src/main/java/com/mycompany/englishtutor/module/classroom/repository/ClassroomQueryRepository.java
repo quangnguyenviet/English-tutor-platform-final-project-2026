@@ -17,9 +17,8 @@ import com.mycompany.englishtutor.module.classroom.api.request.FinalizeScheduleR
 import com.mycompany.englishtutor.module.classroom.api.request.UpsertTrialSessionRequest;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassDetailResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassSummaryResponse;
-import com.mycompany.englishtutor.module.classroom.api.response.OnDemandSessionResponse;
+import com.mycompany.englishtutor.module.classroom.api.response.LessonListItem;
 import com.mycompany.englishtutor.module.classroom.api.response.ScheduleInfo;
-import com.mycompany.englishtutor.module.classroom.api.response.SessionListItem;
 import com.mycompany.englishtutor.module.classroom.api.response.TrialSessionResponse;
 
 import lombok.AccessLevel;
@@ -29,9 +28,11 @@ import lombok.experimental.FieldDefaults;
 /**
  * Truy vấn đọc/ghi cho module lớp học của gia sư (API_DESIGN mục 3.5, UC-T08 + UC-T09).
  *
- * <p>Bảng {@code classes}, {@code sessions} và {@code class_schedules} chưa có entity
- * JPA nên dùng JdbcTemplate, tương tự module matching. Bản ghi buổi dạy thử là dòng
- * {@code sessions} có {@code is_trial = TRUE}.
+ * <p>Bảng {@code classes}, {@code lessons}, {@code teaching_logs},
+ * {@code schedule_exceptions} và {@code class_schedules} chưa có entity JPA nên dùng
+ * JdbcTemplate, tương tự module matching. Ca dạy thử là các cột {@code trial_*}
+ * trên chính dòng {@code classes} (chỉ có khi status = TRIAL); nhật ký dạy học
+ * nằm ở bảng riêng {@code teaching_logs} (không gắn bài giảng, không gắn buổi).
  */
 @Repository
 @RequiredArgsConstructor
@@ -47,10 +48,10 @@ public class ClassroomQueryRepository {
             String className,
             String studentName) {}
 
-    /** Một ca dạy của gia sư có khả năng trùng với khung giờ đang chọn (theo ngày cụ thể). */
-    public record ConflictInfo(
-            Long sessionId,
-            LocalDate sessionDate,
+    /** Ca dạy cố định (class_schedules) trùng khung giờ đang chọn (theo ngày cụ thể). */
+    public record ConflictSlotInfo(
+            Long scheduleId,
+            LocalDate slotDate,
             LocalTime startTime,
             LocalTime endTime,
             String className,
@@ -71,7 +72,7 @@ public class ClassroomQueryRepository {
     /** Biên trên thay thế khi ca mới không có valid_to (mở, không giới hạn). */
     private static final LocalDate NO_END_BOUND = LocalDate.of(9999, 12, 31);
 
-    // ----------------------------- RECORDS: OCCURRENCE & SESSION (T7-B4)
+    // ----------------------------- RECORDS: OCCURRENCE & LOG (V16)
 
     /** Ca cố định kèm id (dùng cho overlay exception, V13). */
     public record ScheduleSlotRow(
@@ -82,8 +83,17 @@ public class ClassroomQueryRepository {
             LocalDate validFrom,
             LocalDate validTo) {}
 
-    /** Một ngoại lệ (session_exceptions) gắn với ca cụ thể tại một ngày. */
-    public record SessionExceptionRow(
+    /** Ca thử của lớp (các cột trial_* trên classes, V16). */
+    public record TrialSlotRow(
+            LocalDate trialDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            String teachingMode,
+            String meetingUrl,
+            String location) {}
+
+    /** Một ngoại lệ (schedule_exceptions) gắn với ca cụ thể tại một ngày. */
+    public record ScheduleExceptionRow(
             Long id,
             Long classId,
             Long scheduleId,
@@ -92,92 +102,45 @@ public class ClassroomQueryRepository {
             LocalDate newDate,
             LocalTime newStartTime,
             LocalTime newEndTime,
-            String newTeachingMode,
-            String newMeetingUrl,
-            String newLocation,
             String reason,
             Long createdBy,
             OffsetDateTime createdAt) {}
 
-    /** Buổi học thật (non-trial) thuộc 1 lần diễn của ca — ô "SESSION" trong lattice. */
-    public record OccurrenceSessionRow(
-            Long sessionId,
-            LocalDate sessionDate,
+    /**
+     * Nhật ký dạy học (bảng teaching_logs, V16) — khớp ô ca theo
+     * (class_id, log_date, start_time), không cần JOIN class_schedules.
+     */
+    public record TeachingLogRow(
+            Long id,
+            LocalDate logDate,
             LocalTime startTime,
             LocalTime endTime,
-            String title,
-            String teachingMode,
-            String meetingUrl,
-            String location,
-            boolean hasLog) {}
+            String knowledge,
+            String homework,
+            boolean firstPublish,
+            OffsetDateTime createdAt,
+            OffsetDateTime updatedAt) {}
 
-    /** Chi tiết buổi học (mục 4.5, JOIN tên lớp/học sinh/gia sư + ROW_NUMBER). */
-    public record SessionDetailRow(
-            Long sessionId,
-            int sessionNumber,
+    /** Kết quả upsert log: id dòng + lần đầu lưu (cả 2 nội dung NULL trước khi ghi). */
+    public record LogUpsertResult(Long logId, boolean firstPublish) {}
+
+    /** Chi tiết bài giảng (lessons, V16) kèm chủ sở hữu lớp + đếm tài liệu / quiz. */
+    public record LessonDetailRow(
+            Long lessonId,
             Long classId,
             String className,
             String studentName,
             String tutorName,
-            String title,
-            LocalDate sessionDate,
-            LocalTime startTime,
-            LocalTime endTime,
-            boolean isTrial,
-            String teachingMode,
-            String meetingUrl,
-            String location,
-            String logKnowledge,
-            String logHomework) {}
-
-    /** Row nội bộ cho UPDATE sessions động (trường null = giữ nguyên, mục 4.6). */
-    public record SessionInfoUpdate(
-            String title,
-            LocalDate sessionDate,
-            LocalTime startTime,
-            LocalTime endTime,
-            String teachingMode,
-            String meetingUrl,
-            String location) {}
-
-    /**
-     * Tài liệu đính kèm buổi học (bảng {@code session_materials}, JOIN tên người
-     * tải lên) — trả về danh sách cho chi tiết buổi học, hoặc 1 dòng kèm chủ
-     * sở hữu lớp (kiểm tra quyền access-url).
-     */
-    public record SessionMaterialRow(
-            Long materialId,
-            Long sessionId,
-            Long classId,
             Long tutorId,
             Long studentId,
-            String fileName,
-            String fileUrl,
-            String fileType,
-            Long fileSize,
-            String uploadedByName,
-            OffsetDateTime createdAt) {}
-
-    /**
-     * Buổi học đang khóa (SELECT ... FOR UPDATE), kèm chủ sở hữu lớp và 2 log
-     * — đủ thông tin cho validate quyền / "lần đầu lưu log".
-     */
-    public record LockedSessionRow(
-            Long sessionId,
-            Long classId,
-            Long tutorId,
-            Long studentId,
-            String className,
-            String studentName,
             String title,
-            LocalDate sessionDate,
-            LocalTime startTime,
-            LocalTime endTime,
-            String teachingMode,
-            String meetingUrl,
-            String location,
-            String logKnowledge,
-            String logHomework) {}
+            String status,
+            int materialCount,
+            int quizCount,
+            OffsetDateTime createdAt,
+            OffsetDateTime updatedAt) {}
+
+    // -------------------------------------------------- QUERIES
 
     private static final String MY_CLASSES_BASE = """
             SELECT c.id AS class_id,
@@ -187,17 +150,14 @@ public class ClassroomQueryRepository {
                    c.price_per_session,
                    c.created_at,
                    u.full_name AS student_name,
-                   s.id AS trial_id,
-                   s.session_date AS trial_date,
-                   s.start_time AS trial_start,
-                   s.end_time AS trial_end,
-                   s.teaching_mode AS trial_mode,
-                   s.meeting_url AS trial_meeting_url,
-                   s.location AS trial_location,
-                   s.status AS trial_status
+                   c.trial_date AS trial_date,
+                   c.trial_start_time AS trial_start,
+                   c.trial_end_time AS trial_end,
+                   c.trial_teaching_mode AS trial_mode,
+                   c.trial_meeting_url AS trial_meeting_url,
+                   c.trial_location AS trial_location
             FROM classes c
             JOIN users u ON u.id = c.student_id
-            LEFT JOIN sessions s ON s.class_id = c.id AND s.is_trial = TRUE
             WHERE c.tutor_id = ?
             """;
 
@@ -213,71 +173,67 @@ public class ClassroomQueryRepository {
                    st.school,
                    st.grade,
                    st.learning_goal,
-                   s.id AS trial_id,
-                   s.session_date AS trial_date,
-                   s.start_time AS trial_start,
-                   s.end_time AS trial_end,
-                   s.teaching_mode AS trial_mode,
-                   s.meeting_url AS trial_meeting_url,
-                   s.location AS trial_location,
-                   s.status AS trial_status
+                   c.trial_date AS trial_date,
+                   c.trial_start_time AS trial_start,
+                   c.trial_end_time AS trial_end,
+                   c.trial_teaching_mode AS trial_mode,
+                   c.trial_meeting_url AS trial_meeting_url,
+                   c.trial_location AS trial_location
             FROM classes c
             JOIN users u ON u.id = c.student_id
             JOIN students st ON st.id = c.student_id
-            LEFT JOIN sessions s ON s.class_id = c.id AND s.is_trial = TRUE
             WHERE c.id = ? AND c.tutor_id = ?
             """;
 
-    private static final String TRIAL_SESSION_QUERY = """
-            SELECT id,
-                   session_date,
-                   start_time,
-                   end_time,
-                   teaching_mode,
-                   meeting_url,
-                   location,
-                   status
-            FROM sessions
-            WHERE class_id = ? AND is_trial = TRUE
+    private static final String TRIAL_SLOT_QUERY = """
+            SELECT trial_date, trial_start_time, trial_end_time,
+                   trial_teaching_mode, trial_meeting_url, trial_location
+            FROM classes
+            WHERE id = ? AND trial_start_time IS NOT NULL
             """;
 
-    private static final String CONFLICTS_QUERY = """
-            SELECT s.id AS session_id,
-                   s.session_date,
-                   s.start_time,
-                   s.end_time,
+    /** Ca cố định của lớp khác (cùng tutor, khác lớp) giao giờ trên một ngày cụ thể. */
+    private static final String SLOTS_CONFLICTS_QUERY = """
+            SELECT cs.id AS schedule_id,
+                   cs.valid_from AS slot_date,
+                   cs.start_time,
+                   cs.end_time,
                    c.class_name,
                    u.full_name AS student_name,
-                   s.is_trial
-            FROM sessions s
-            JOIN classes c ON c.id = s.class_id
-            JOIN users u ON u.id = c.student_id
-            WHERE c.tutor_id = ?
-              AND s.session_date = ?
-              AND s.status IN ('SCHEDULED', 'IN_PROGRESS')
-              AND s.start_time < ?
-              AND s.end_time > ?
-            """;
-
-    /** Như CONFLICTS_QUERY nhưng giới hạn trong khoảng hiệu lực và loại trừ một lớp (UC-T09). */
-    private static final String CONFLICTS_RANGE_QUERY = """
-            SELECT s.id AS session_id,
-                   s.session_date,
-                   s.start_time,
-                   s.end_time,
-                   c.class_name,
-                   u.full_name AS student_name,
-                   s.is_trial
-            FROM sessions s
-            JOIN classes c ON c.id = s.class_id
+                   FALSE AS trial
+            FROM class_schedules cs
+            JOIN classes c ON c.id = cs.class_id
             JOIN users u ON u.id = c.student_id
             WHERE c.tutor_id = ?
               AND c.id <> ?
-              AND s.session_date >= ?
-              AND (?::date IS NULL OR s.session_date <= ?::date)
-              AND s.status IN ('SCHEDULED', 'IN_PROGRESS')
-              AND s.start_time < ?
-              AND s.end_time > ?
+              AND c.status = 'ACTIVE'
+              AND cs.day_of_week = ?
+              AND cs.valid_from <= ?
+              AND (cs.valid_to IS NULL OR cs.valid_to >= ?)
+              AND cs.start_time < ?
+              AND cs.end_time > ?
+            """;
+
+    /** Ca cố định của lớp khác trong khoảng hiệu lực — để check conflict ca tuần (UC-T09). */
+    private static final String SLOTS_CONFLICTS_RANGE_QUERY = """
+            SELECT cs.id AS schedule_id,
+                   cs.valid_from AS slot_date,
+                   cs.start_time,
+                   cs.end_time,
+                   c.class_name,
+                   u.full_name AS student_name,
+                   FALSE AS trial
+            FROM class_schedules cs
+            JOIN classes c ON c.id = cs.class_id
+            JOIN users u ON u.id = c.student_id
+            WHERE c.tutor_id = ?
+              AND c.id <> ?
+              AND c.status = 'ACTIVE'
+              AND cs.day_of_week = ?
+              AND cs.valid_from <= ?
+              AND (cs.valid_to IS NULL OR cs.valid_to >= ?)
+              AND cs.start_time < ?
+              AND cs.end_time > ?
             """;
 
     private static final String WEEKLY_CONFLICTS_QUERY = """
@@ -352,39 +308,45 @@ public class ClassroomQueryRepository {
                 .findFirst();
     }
 
+    /** Ca thử hiện có của lớp (các cột trial_* trên classes; rỗng nếu chưa thiết lập). */
     public Optional<TrialSessionResponse> findTrialSession(Long classId) {
-        return jdbcTemplate.query(TRIAL_SESSION_QUERY, new TrialSessionRowMapper(), classId)
+        return jdbcTemplate.query(
+                        TRIAL_SLOT_QUERY,
+                        (ResultSet rs, int rowNum) -> TrialSessionResponse.builder()
+                                .sessionDate(rs.getObject("trial_date", LocalDate.class))
+                                .startTime(rs.getObject("trial_start_time", LocalTime.class))
+                                .endTime(rs.getObject("trial_end_time", LocalTime.class))
+                                .teachingMode(rs.getString("trial_teaching_mode"))
+                                .meetingUrl(rs.getString("trial_meeting_url"))
+                                .location(rs.getString("trial_location"))
+                                .status("SCHEDULED")
+                                .build(),
+                        classId)
                 .stream()
                 .findFirst();
     }
 
-    /** Các ca SCHEDULED/IN_PROGRESS của gia sư giao khoảng thời gian với khung giờ đang chọn. */
-    public List<ConflictInfo> findConflicts(
-            Long tutorId, LocalDate sessionDate, LocalTime startTime, LocalTime endTime) {
-        return jdbcTemplate.query(
-                CONFLICTS_QUERY + " ORDER BY s.start_time, s.id",
-                new ConflictRowMapper(),
-                tutorId,
-                sessionDate,
-                endTime,
-                startTime);
+    /** Các ngày đã có nhật ký dạy học của lớp (V16, thay "ngày có buổi" cũ) — FE render điểm "đã dạy". */
+    public List<LocalDate> findLogDates(Long classId) {
+        return jdbcTemplate.queryForList(
+                "SELECT DISTINCT log_date FROM teaching_logs WHERE class_id = ? ORDER BY log_date",
+                LocalDate.class,
+                classId);
     }
 
-    /** Như {@link #findConflicts} nhưng loại trừ chính buổi đang sửa (PUT). */
-    public List<ConflictInfo> findConflictsExcluding(
-            Long tutorId,
-            LocalDate sessionDate,
-            LocalTime startTime,
-            LocalTime endTime,
-            Long excludeSessionId) {
+    /** Ca cố định (của lớp khác, cùng tutor, lớp ACTIVE) trùng khung giờ trong 1 ngày. */
+    public List<ConflictSlotInfo> findConflicts(
+            Long tutorId, LocalDate slotDate, LocalTime startTime, LocalTime endTime, Long excludeClassId) {
         return jdbcTemplate.query(
-                CONFLICTS_QUERY + " AND s.id <> ? ORDER BY s.start_time, s.id",
-                new ConflictRowMapper(),
+                SLOTS_CONFLICTS_QUERY + " ORDER BY cs.start_time, cs.id",
+                new ConflictSlotRowMapper(),
                 tutorId,
-                sessionDate,
+                excludeClassId != null ? excludeClassId : 0L,
+                slotDate.getDayOfWeek().getValue(),
+                slotDate,
+                slotDate,
                 endTime,
-                startTime,
-                excludeSessionId);
+                startTime);
     }
 
     // -------------------------------------------------- UC-T09: LỊCH CỐ ĐỊNH
@@ -436,62 +398,87 @@ public class ClassroomQueryRepository {
     }
 
     /**
-     * Ca SCHEDULED/IN_PROGRESS (kể cả buổi thử) của gia sư trong khoảng hiệu lực của ca
-     * mới ({@code [validFrom, validTo]}, {@code validTo} null = mở), giao giờ với khung
-     * đang chọn, thuộc lớp khác ({@code excludeClassId}). Filtering theo thứ trong tuần
-     * do service thực hiện (ít dòng nên an toàn).
+     * Ca cố định của lớp khác (cùng tutor) giao giờ với ca mới trong khoảng hiệu lực
+     * của ca đang chốt (thay thế query session SCHEDULED/IN_PROGRESS cũ — buổi thật
+     * giờ là teaching_log, không còn dòng session).
      */
-    public List<ConflictInfo> findSessionConflicts(
+    public List<ConflictSlotInfo> findSlotConflicts(
             Long tutorId,
             LocalDate validFrom,
             LocalDate validTo,
+            int dayOfWeek,
             LocalTime startTime,
             LocalTime endTime,
             Long excludeClassId) {
+        LocalDate effectiveTo = validTo != null ? validTo : NO_END_BOUND;
         return jdbcTemplate.query(
-                CONFLICTS_RANGE_QUERY,
-                new ConflictRowMapper(),
+                SLOTS_CONFLICTS_RANGE_QUERY,
+                new ConflictSlotRowMapper(),
                 tutorId,
-                excludeClassId,
+                excludeClassId != null ? excludeClassId : 0L,
+                dayOfWeek,
                 validFrom,
-                validTo,
-                validTo,
+                effectiveTo,
                 endTime,
                 startTime);
     }
 
-    /** Ca chính thức (is_trial = FALSE) đã tồn tại tại (class, ngày, giờ bắt đầu) — idempotent. */
-    public Optional<OnDemandSessionResponse> findOnDemandSessionAt(
-            Long classId, LocalDate date, LocalTime startTime) {
-        return jdbcTemplate.query(
-                        """
-                        SELECT id, session_date, start_time, end_time
-                        FROM sessions
-                        WHERE class_id = ? AND session_date = ? AND start_time = ?
-                          AND is_trial = FALSE
-                        """,
-                        (ResultSet rs, int rowNum) -> OnDemandSessionResponse.builder()
-                                .sessionId(rs.getLong("id"))
-                                .sessionDate(rs.getObject("session_date", LocalDate.class))
-                                .startTime(rs.getObject("start_time", LocalTime.class))
-                                .endTime(rs.getObject("end_time", LocalTime.class))
-                                .isTrial(Boolean.FALSE)
-                                .createdNow(Boolean.FALSE)
-                                .build(),
-                        classId,
-                        date,
-                        startTime)
-                .stream()
-                .findFirst();
+    // ------------------------------------------------- CA THỬ (classes.trial_*)
+
+    /** Ghi / cập nhật 6 cột ca thử trên dòng lớp (chỉ khi status = TRIAL). */
+    public void upsertTrialSlot(
+            Long classId,
+            UpsertTrialSessionRequest request,
+            String normalizedMode,
+            String meetingUrl,
+            String location) {
+        jdbcTemplate.update(
+                """
+                UPDATE classes
+                SET trial_date = ?, trial_start_time = ?, trial_end_time = ?,
+                    trial_teaching_mode = ?, trial_meeting_url = ?, trial_location = ?,
+                    updated_at = NOW()
+                WHERE id = ?
+                """,
+                request.getSessionDate(),
+                request.getStartTime(),
+                request.getEndTime(),
+                normalizedMode,
+                meetingUrl,
+                location,
+                classId);
     }
 
-    /** Các ngày đã có buổi học chính thức của lớp (để FE render nút "Mở buổi học"). */
-    public List<LocalDate> findSessionDates(Long classId) {
-        return jdbcTemplate.queryForList(
-                "SELECT DISTINCT session_date FROM sessions"
-                        + " WHERE class_id = ? AND is_trial = FALSE ORDER BY session_date",
-                LocalDate.class,
-                classId);
+    /** Ca thử của 1 lớp khác của cùng tutor, trùng khung giờ (bộ so trùng ca thử). */
+    public List<TrialSlotRow> findTrialConflicts(
+            Long tutorId, Long excludeClassId, LocalDate date, LocalTime startTime, LocalTime endTime) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT c.trial_date, c.trial_start_time, c.trial_end_time,
+                               c.trial_teaching_mode, c.trial_meeting_url, c.trial_location
+                        FROM classes c
+                        WHERE c.tutor_id = ? AND c.id <> ? AND c.status = 'TRIAL'
+                          AND c.trial_date = ?
+                          AND c.trial_start_time IS NOT NULL
+                          AND c.trial_start_time < ?
+                          AND c.trial_end_time > ?
+                        ORDER BY c.trial_start_time
+                        """,
+                        (ResultSet rs, int rowNum) ->
+                                new TrialSlotRow(
+                                        rs.getObject("trial_date", LocalDate.class),
+                                        rs.getObject("trial_start_time", LocalTime.class),
+                                        rs.getObject("trial_end_time", LocalTime.class),
+                                        rs.getString("trial_teaching_mode"),
+                                        rs.getString("trial_meeting_url"),
+                                        rs.getString("trial_location")),
+                        tutorId,
+                        excludeClassId != null ? excludeClassId : 0L,
+                        date,
+                        endTime,
+                        startTime)
+                .stream()
+                .toList();
     }
 
     // ------------------------------------------------- T7-B4: OCCURRENCE (lattice)
@@ -540,32 +527,40 @@ public class ClassroomQueryRepository {
                 .findFirst();
     }
 
-    /**
-     * Buổi chính thức (ô "SESSION" trong lattice) của lớp trong 7 ngày
-     * {@code [weekStart, weekStart+7)} — đọc index {@code idx_sessions_class_date}.
-     */
-    public List<OccurrenceSessionRow> findWeekSessions(Long classId, LocalDate weekStart) {
+    /** Ca thử của lớp (chip độc lập trên lattice khi chưa có ca cố định khớp). */
+    public Optional<TrialSlotRow> findTrialSlot(Long classId) {
         return jdbcTemplate.query(
                         """
-                        SELECT id, session_date, start_time, end_time, title,
-                               teaching_mode, meeting_url, location,
-                               (log_knowledge IS NOT NULL OR log_homework IS NOT NULL) AS has_log
-                        FROM sessions
-                        WHERE class_id = ? AND is_trial = FALSE
-                          AND session_date >= ? AND session_date < ?
-                        ORDER BY session_date, start_time, id
+                        SELECT trial_date, trial_start_time, trial_end_time,
+                               trial_teaching_mode, trial_meeting_url, trial_location
+                        FROM classes
+                        WHERE id = ? AND trial_start_time IS NOT NULL
                         """,
                         (ResultSet rs, int rowNum) ->
-                                new OccurrenceSessionRow(
-                                        rs.getLong("id"),
-                                        rs.getObject("session_date", LocalDate.class),
-                                        rs.getObject("start_time", LocalTime.class),
-                                        rs.getObject("end_time", LocalTime.class),
-                                        rs.getString("title"),
-                                        rs.getString("teaching_mode"),
-                                        rs.getString("meeting_url"),
-                                        rs.getString("location"),
-                                        rs.getBoolean("has_log")),
+                                new TrialSlotRow(
+                                        rs.getObject("trial_date", LocalDate.class),
+                                        rs.getObject("trial_start_time", LocalTime.class),
+                                        rs.getObject("trial_end_time", LocalTime.class),
+                                        rs.getString("trial_teaching_mode"),
+                                        rs.getString("trial_meeting_url"),
+                                        rs.getString("trial_location")),
+                        classId)
+                .stream()
+                .findFirst();
+    }
+
+    /** Nhật ký dạy học của lớp trong 7 ngày {@code [weekStart, weekStart+7)}. */
+    public List<TeachingLogRow> findWeekTeachingLogs(Long classId, LocalDate weekStart) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT id, log_date, start_time, end_time, knowledge, homework,
+                               (knowledge IS NULL AND homework IS NULL) AS first_publish,
+                               created_at, updated_at
+                        FROM teaching_logs
+                        WHERE class_id = ? AND log_date >= ? AND log_date < ?
+                        ORDER BY log_date, start_time, id
+                        """,
+                        new TeachingLogRowMapper(),
                         classId,
                         weekStart,
                         weekStart.plusDays(7))
@@ -575,19 +570,19 @@ public class ClassroomQueryRepository {
 
     /**
      * Ngoại lệ (ô "EXCEPTION" trong lattice) của lớp trong 7 ngày
-     * {@code [weekStart, weekStart+7)} — đọc index {@code idx_session_exceptions_class_date}.
+     * {@code [weekStart, weekStart+7)} — bảng schedule_exceptions (V13, rename V16).
      */
-    public List<SessionExceptionRow> findWeekExceptions(Long classId, LocalDate weekStart) {
+    public List<ScheduleExceptionRow> findWeekExceptions(Long classId, LocalDate weekStart) {
         return jdbcTemplate.query(
                         """
                         SELECT id, class_id, schedule_id, exception_date, exception_type,
-                               new_date, new_start_time, new_end_time, new_teaching_mode,
-                               new_meeting_url, new_location, reason, created_by, created_at
-                        FROM session_exceptions
+                               new_date, new_start_time, new_end_time,
+                               reason, created_by, created_at
+                        FROM schedule_exceptions
                         WHERE class_id = ? AND exception_date >= ? AND exception_date < ?
                         ORDER BY exception_date, schedule_id
                         """,
-                        new SessionExceptionRowMapper(),
+                        new ScheduleExceptionRowMapper(),
                         classId,
                         weekStart,
                         weekStart.plusDays(7))
@@ -595,30 +590,19 @@ public class ClassroomQueryRepository {
                 .toList();
     }
 
-    /** Buổi chính thức (nếu có) tại đúng (lớp, ngày, giờ bắt đầu) — check ô đã "vật chất hóa". */
-    public Optional<OccurrenceSessionRow> findOccurrenceSession(
-            Long classId, LocalDate date, LocalTime startTime) {
+    // ------------------------------------------------- TEACHING LOGS (V16)
+
+    /** Log hiện có tại đúng (lớp, ngày, giờ bắt đầu) — check ô đã "vật chất hóa" thành log. */
+    public Optional<TeachingLogRow> findTeachingLog(Long classId, LocalDate date, LocalTime startTime) {
         return jdbcTemplate.query(
                         """
-                        SELECT id, session_date, start_time, end_time, title,
-                               teaching_mode, meeting_url, location,
-                               (log_knowledge IS NOT NULL OR log_homework IS NOT NULL) AS has_log
-                        FROM sessions
-                        WHERE class_id = ? AND is_trial = FALSE
-                          AND session_date = ? AND start_time = ?
-                        ORDER BY id
+                        SELECT id, log_date, start_time, end_time, knowledge, homework,
+                               (knowledge IS NULL AND homework IS NULL) AS first_publish,
+                               created_at, updated_at
+                        FROM teaching_logs
+                        WHERE class_id = ? AND log_date = ? AND start_time = ?
                         """,
-                        (ResultSet rs, int rowNum) ->
-                                new OccurrenceSessionRow(
-                                        rs.getLong("id"),
-                                        rs.getObject("session_date", LocalDate.class),
-                                        rs.getObject("start_time", LocalTime.class),
-                                        rs.getObject("end_time", LocalTime.class),
-                                        rs.getString("title"),
-                                        rs.getString("teaching_mode"),
-                                        rs.getString("meeting_url"),
-                                        rs.getString("location"),
-                                        rs.getBoolean("has_log")),
+                        new TeachingLogRowMapper(),
                         classId,
                         date,
                         startTime)
@@ -626,19 +610,284 @@ public class ClassroomQueryRepository {
                 .findFirst();
     }
 
-    // ------------------------------------------------------- T7-B4: EXCEPTION
+    /**
+     * Upsert log theo UNIQUE (class_id, log_date, start_time) (C-15', idempotent).
+     * {@code firstPublish} = cả 2 nội dung đang NULL trước khi ghi (notification học sinh).
+     */
+    public LogUpsertResult upsertTeachingLog(
+            Long classId,
+            LocalDate logDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            String knowledge,
+            String homework) {
+        LogUpsertResult result =
+                jdbcTemplate.query(
+                                """
+                                SELECT (knowledge IS NULL AND homework IS NULL) AS first_publish
+                                FROM teaching_logs
+                                WHERE class_id = ? AND log_date = ? AND start_time = ?
+                                FOR UPDATE
+                                """,
+                                (ResultSet rs, int rowNum) ->
+                                        new LogUpsertResult(null, rs.getBoolean("first_publish")),
+                                classId,
+                                logDate,
+                                startTime)
+                        .stream()
+                        .findFirst()
+                        .orElseGet(() -> new LogUpsertResult(null, true));
+        boolean firstPublish = result.firstPublish();
+
+        Long logId =
+                jdbcTemplate.queryForObject(
+                        """
+                        INSERT INTO teaching_logs (
+                            class_id, log_date, start_time, end_time, knowledge, homework)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        ON CONFLICT (class_id, log_date, start_time) DO UPDATE SET
+                            end_time = EXCLUDED.end_time,
+                            knowledge = EXCLUDED.knowledge,
+                            homework = EXCLUDED.homework,
+                            updated_at = NOW()
+                        RETURNING id
+                        """,
+                        Long.class,
+                        classId,
+                        logDate,
+                        startTime,
+                        endTime,
+                        knowledge,
+                        homework);
+        return new LogUpsertResult(logId, firstPublish);
+    }
+
+    /** Xóa 1 log; 0 dòng nếu không tồn tại. */
+    public int deleteTeachingLog(Long classId, Long logId) {
+        return jdbcTemplate.update(
+                "DELETE FROM teaching_logs WHERE id = ? AND class_id = ?", logId, classId);
+    }
+
+    // ------------------------------------------------- BÀI GIẢNG (lessons, V16)
+
+    /**
+     * Danh sách bài giảng của lớp (ROW_NUMBER theo created_at) — tab "Bài giảng".
+     * Không có ngày/giờ (bài giảng không lên lịch nữa).
+     */
+    public List<LessonListItem> findLessonList(Long classId, boolean descending) {
+        return jdbcTemplate.query(
+                """
+                SELECT x.lesson_id, x.lesson_number, x.title, x.status, x.created_at, x.material_count, x.quiz_count
+                FROM (
+                  SELECT l.id AS lesson_id, l.title, l.status, l.created_at,
+                         (SELECT COUNT(*) FROM lesson_materials m WHERE m.lesson_id = l.id) AS material_count,
+                         (SELECT COUNT(*) FROM quizzes q WHERE q.lesson_id = l.id) AS quiz_count,
+                         ROW_NUMBER() OVER (PARTITION BY l.class_id
+                                            ORDER BY l.created_at, l.id)
+                             AS lesson_number
+                  FROM lessons l
+                  WHERE l.class_id = ?
+                ) x
+                ORDER BY x.lesson_number """
+                        + (descending ? " DESC" : " ASC")
+                        + ", x.lesson_id "
+                        + (descending ? " DESC" : " ASC"),
+                (ResultSet rs, int rowNum) ->
+                        LessonListItem.builder()
+                                .lessonId(rs.getLong("lesson_id"))
+                                .lessonNumber(rs.getInt("lesson_number"))
+                                .title(rs.getString("title"))
+                                .status(rs.getString("status"))
+                                .createdAt(rs.getObject("created_at", OffsetDateTime.class))
+                                .materialCount(rs.getInt("material_count"))
+                                .quizCount(rs.getInt("quiz_count"))
+                                .build(),
+                classId)
+                .stream()
+                .toList();
+    }
+
+    /** Chi tiết bài giảng kèm chuỗi sở hữu lớp (kiểm tra quyền + upload tài liệu) — khóa dòng (write-only tx). */
+    public Optional<LessonDetailRow> lockLesson(Long lessonId) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT l.id, l.class_id, l.title, l.status, l.created_at, l.updated_at,
+                               c.class_name, c.tutor_id, c.student_id,
+                               u.full_name AS student_name, t.full_name AS tutor_name,
+                               (SELECT COUNT(*) FROM lesson_materials m WHERE m.lesson_id = l.id) AS material_count,
+                               (SELECT COUNT(*) FROM quizzes q WHERE q.lesson_id = l.id) AS quiz_count
+                        FROM lessons l
+                        JOIN classes c ON c.id = l.class_id
+                        JOIN users u ON u.id = c.student_id
+                        JOIN users t ON t.id = c.tutor_id
+                        WHERE l.id = ?
+                        FOR UPDATE OF l
+                        """,
+                        lessonDetailRowMapper(),
+                        lessonId)
+                .stream()
+                .findFirst();
+    }
+
+    private RowMapper<LessonDetailRow> lessonDetailRowMapper() {
+        return (ResultSet rs, int rowNum) ->
+                new LessonDetailRow(
+                        rs.getLong("id"),
+                        rs.getLong("class_id"),
+                        rs.getString("class_name"),
+                        rs.getString("student_name"),
+                        rs.getString("tutor_name"),
+                        rs.getLong("tutor_id"),
+                        rs.getLong("student_id"),
+                        rs.getString("title"),
+                        rs.getString("status"),
+                        rs.getInt("material_count"),
+                        rs.getInt("quiz_count"),
+                        rs.getObject("created_at", OffsetDateTime.class),
+                        rs.getObject("updated_at", OffsetDateTime.class));
+    }
+
+    /** Chi tiết bài giảng đọc thuần (không khóa) — dùng trong transaction read-only. */
+    public Optional<LessonDetailRow> findLessonDetail(Long lessonId) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT l.id, l.class_id, l.title, l.status, l.created_at, l.updated_at,
+                               c.class_name, c.tutor_id, c.student_id,
+                               u.full_name AS student_name, t.full_name AS tutor_name,
+                               (SELECT COUNT(*) FROM lesson_materials m WHERE m.lesson_id = l.id) AS material_count,
+                               (SELECT COUNT(*) FROM quizzes q WHERE q.lesson_id = l.id) AS quiz_count
+                        FROM lessons l
+                        JOIN classes c ON c.id = l.class_id
+                        JOIN users u ON u.id = c.student_id
+                        JOIN users t ON t.id = c.tutor_id
+                        WHERE l.id = ?
+                        """,
+                        lessonDetailRowMapper(),
+                        lessonId)
+                .stream()
+                .findFirst();
+    }
+
+    /** Tạo bài giảng mới cho lớp (trả về id). */
+    public Long insertLesson(Long classId, String title) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO lessons (class_id, title, status)
+                VALUES (?, ?, 'PUBLISHED')
+                RETURNING id
+                """,
+                Long.class,
+                classId,
+                title);
+    }
+
+    /** Sửa tiêu đề bài giảng (null = giữ nguyên). */
+    public void updateLessonTitle(Long lessonId, String title) {
+        jdbcTemplate.update(
+                """
+                UPDATE lessons SET title = COALESCE(?, title), updated_at = NOW() WHERE id = ?
+                """,
+                title,
+                lessonId);
+    }
+
+    /** Ẩn / hiện bài giảng (PUBLISHED / HIDDEN). */
+    public void updateLessonStatus(Long lessonId, String status) {
+        jdbcTemplate.update(
+                "UPDATE lessons SET status = ?, updated_at = NOW() WHERE id = ?", status, lessonId);
+    }
+
+    /** Xóa bài giảng (CASCADE tự xóa lesson_materials, quizzes). */
+    public int deleteLesson(Long classId, Long lessonId) {
+        return jdbcTemplate.update(
+                "DELETE FROM lessons WHERE id = ? AND class_id = ?", lessonId, classId);
+    }
+
+    // ------------------------------------------------------- MATERIALS (bài giảng)
+
+    private static final String MATERIAL_BASE = """
+            SELECT m.id, m.lesson_id, m.file_name, m.file_url, m.file_type, m.file_size,
+                   m.created_at, c.id AS class_id, c.tutor_id, c.student_id, u.full_name AS uploaded_by_name
+            FROM lesson_materials m
+            JOIN lessons l ON l.id = m.lesson_id
+            JOIN classes c ON c.id = l.class_id
+            JOIN users u ON u.id = m.uploaded_by
+            """;
+
+    /** Toàn bộ tài liệu của 1 bài giảng (tab Bài giảng). */
+    public List<LessonMaterialRow> findLessonMaterials(Long lessonId) {
+        return jdbcTemplate.query(
+                MATERIAL_BASE + " WHERE m.lesson_id = ? ORDER BY m.id",
+                new LessonMaterialRowMapper(),
+                lessonId)
+                .stream()
+                .toList();
+    }
+
+    /** 1 tài liệu kèm chủ sở hữu lớp (kiểm tra quyền access-url / gỡ — không thuộc bài giảng → 404). */
+    public Optional<LessonMaterialRow> findLessonMaterial(Long lessonId, Long materialId) {
+        return jdbcTemplate.query(
+                        MATERIAL_BASE + " WHERE m.id = ? AND m.lesson_id = ?",
+                        new LessonMaterialRowMapper(),
+                        materialId,
+                        lessonId)
+                .stream()
+                .findFirst();
+    }
+
+    /** 1 tài liệu theo id, kèm chủ sở hữu lớp — kiểm tra quyền access-url (TUTOR/STUDENT sở hữu). */
+    public Optional<LessonMaterialRow> findMaterialForAccess(Long materialId) {
+        return jdbcTemplate.query(
+                        MATERIAL_BASE + " WHERE m.id = ?",
+                        new LessonMaterialRowMapper(),
+                        materialId)
+                .stream()
+                .findFirst();
+    }
+
+    /** Gỡ tài liệu (chỉ dòng đúng bài giảng — bảo vệ khỏi xóa nhầm vật liệu của bài khác). */
+    public int deleteLessonMaterial(Long lessonId, Long materialId) {
+        return jdbcTemplate.update(
+                "DELETE FROM lesson_materials WHERE lesson_id = ? AND id = ?", lessonId, materialId);
+    }
+
+    /** Thêm tài liệu (trả về id dòng mới). */
+    public Long insertLessonMaterial(
+            Long lessonId,
+            Long uploadedBy,
+            String fileName,
+            String fileUrl,
+            String fileType,
+            Long fileSize) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO lesson_materials (
+                    lesson_id, uploaded_by, file_name, file_url, file_type, file_size)
+                VALUES (?, ?, ?, ?, ?, ?)
+                RETURNING id
+                """,
+                Long.class,
+                lessonId,
+                uploadedBy,
+                fileName,
+                fileUrl,
+                fileType,
+                fileSize);
+    }
+
+    // ------------------------------------------------------- EXCEPTION (schedule_exceptions)
 
     /** Ngoại lệ hiện có của ô (check ghi đè → audit CREATE hay UPDATE, mục 4.2 bước 5). */
-    public Optional<SessionExceptionRow> findSessionException(Long scheduleId, LocalDate date) {
+    public Optional<ScheduleExceptionRow> findScheduleException(Long scheduleId, LocalDate date) {
         return jdbcTemplate.query(
                         """
                         SELECT id, class_id, schedule_id, exception_date, exception_type,
-                               new_date, new_start_time, new_end_time, new_teaching_mode,
-                               new_meeting_url, new_location, reason, created_by, created_at
-                        FROM session_exceptions
+                               new_date, new_start_time, new_end_time,
+                               reason, created_by, created_at
+                        FROM schedule_exceptions
                         WHERE schedule_id = ? AND exception_date = ?
                         """,
-                        new SessionExceptionRowMapper(),
+                        new ScheduleExceptionRowMapper(),
                         scheduleId,
                         date)
                 .stream()
@@ -646,10 +895,10 @@ public class ClassroomQueryRepository {
     }
 
     /**
-     * Ghi đè ngoại lệ của ô (R4: UNIQUE {@code uq_session_exceptions} +
+     * Ghi đè ngoại lệ của ô (R4: UNIQUE {@code uq_schedule_exceptions} +
      * ON CONFLICT DO UPDATE = upsert idempotent). Trả về id.
      */
-    public Long upsertSessionException(
+    public Long upsertScheduleException(
             Long classId,
             Long scheduleId,
             LocalDate exceptionDate,
@@ -657,27 +906,20 @@ public class ClassroomQueryRepository {
             LocalDate newDate,
             LocalTime newStartTime,
             LocalTime newEndTime,
-            String newTeachingMode,
-            String newMeetingUrl,
-            String newLocation,
             String reason,
             Long createdBy) {
         return jdbcTemplate.queryForObject(
                 """
-                INSERT INTO session_exceptions (
+                INSERT INTO schedule_exceptions (
                     class_id, schedule_id, exception_date, exception_type,
                     new_date, new_start_time, new_end_time,
-                    new_teaching_mode, new_meeting_url, new_location,
                     reason, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (schedule_id, exception_date) DO UPDATE SET
                     exception_type = EXCLUDED.exception_type,
                     new_date = EXCLUDED.new_date,
                     new_start_time = EXCLUDED.new_start_time,
                     new_end_time = EXCLUDED.new_end_time,
-                    new_teaching_mode = EXCLUDED.new_teaching_mode,
-                    new_meeting_url = EXCLUDED.new_meeting_url,
-                    new_location = EXCLUDED.new_location,
                     reason = EXCLUDED.reason,
                     created_by = EXCLUDED.created_by
                 RETURNING id
@@ -690,326 +932,87 @@ public class ClassroomQueryRepository {
                 newDate,
                 newStartTime,
                 newEndTime,
-                newTeachingMode,
-                newMeetingUrl,
-                newLocation,
                 reason,
                 createdBy);
     }
 
-    /** Xóa ngoại lệ của ô (mục 4.3 / vật chất hóa mục 1.8) — 0 nếu không có. */
-    public int deleteSessionException(Long scheduleId, LocalDate date) {
+    /** Xóa ngoại lệ của ô — 0 nếu không có. */
+    public int deleteScheduleException(Long scheduleId, LocalDate date) {
         return jdbcTemplate.update(
-                "DELETE FROM session_exceptions WHERE schedule_id = ? AND exception_date = ?",
+                "DELETE FROM schedule_exceptions WHERE schedule_id = ? AND exception_date = ?",
                 scheduleId,
                 date);
     }
 
-    // ------------------------------------------------- T7-B4: SESSION THẬT
-
-    /**
-     * Danh sách buổi của lớp (mục 4.4): ROW_NUMBER trên toàn bộ buổi (kể cả
-     * trial) nên số thứ tự liên tục. (Mục -1: bỏ lọc theo trạng thái.)
-     */
-    public List<SessionListItem> findSessionList(Long classId, boolean descending) {
-        return jdbcTemplate.query(
-                """
-                SELECT x.session_id, x.session_number, x.title, x.session_date,
-                       x.start_time, x.end_time, x.is_trial, x.teaching_mode,
-                       x.meeting_url, x.location, x.has_log
-                FROM (
-                  SELECT s.id AS session_id, s.title, s.session_date, s.start_time, s.end_time,
-                         s.is_trial, s.teaching_mode, s.meeting_url, s.location,
-                         (s.log_knowledge IS NOT NULL OR s.log_homework IS NOT NULL) AS has_log,
-                         ROW_NUMBER() OVER (PARTITION BY s.class_id
-                                            ORDER BY s.session_date, s.start_time, s.id)
-                             AS session_number
-                  FROM sessions s
-                  WHERE s.class_id = ?
-                ) x
-                ORDER BY x.session_number """
-                        + (descending ? " DESC" : " ASC")
-                        + ", x.session_id "
-                        + (descending ? " DESC" : " ASC"),
-                new SessionListItemRowMapper(),
-                classId);
-    }
-
-    /** Khóa row buổi (FOR UPDATE) kèm chủ sở hữu lớp, dùng cho sửa/dời/lưu log. */
-    public Optional<LockedSessionRow> lockSession(Long sessionId) {
-        return jdbcTemplate.query(
-                        """
-                        SELECT s.id, s.class_id, c.tutor_id, c.student_id, c.class_name,
-                               u.full_name AS student_name,
-                               s.title, s.session_date, s.start_time, s.end_time,
-                               s.teaching_mode, s.meeting_url, s.location,
-                               s.log_knowledge, s.log_homework
-                        FROM sessions s
-                        JOIN classes c ON c.id = s.class_id
-                        JOIN users u ON u.id = c.student_id
-                        WHERE s.id = ?
-                        FOR UPDATE
-                        """,
-                        (ResultSet rs, int rowNum) ->
-                                new LockedSessionRow(
-                                        rs.getLong("id"),
-                                        rs.getLong("class_id"),
-                                        rs.getLong("tutor_id"),
-                                        rs.getLong("student_id"),
-                                        rs.getString("class_name"),
-                                        rs.getString("student_name"),
-                                        rs.getString("title"),
-                                        rs.getObject("session_date", LocalDate.class),
-                                        rs.getObject("start_time", LocalTime.class),
-                                        rs.getObject("end_time", LocalTime.class),
-                                        rs.getString("teaching_mode"),
-                                        rs.getString("meeting_url"),
-                                        rs.getString("location"),
-                                        rs.getString("log_knowledge"),
-                                        rs.getString("log_homework")),
-                        sessionId)
-                .stream()
-                .findFirst();
-    }
-
-    /** Chi tiết buổi học (mục 4.5, đọc không khóa) kèm số thứ tự + tên lớp / học sinh / gia sư. */
-    public Optional<SessionDetailRow> findSessionDetail(Long sessionId) {
-        return jdbcTemplate.query(
-                        """
-                        SELECT s.id, s.class_id, s.title, s.session_date, s.start_time, s.end_time,
-                               s.is_trial, s.teaching_mode, s.meeting_url, s.location,
-                               c.class_name, u.full_name AS student_name, t.full_name AS tutor_name,
-                               s.log_knowledge, s.log_homework,
-                               ROW_NUMBER() OVER (PARTITION BY s.class_id
-                                                  ORDER BY s.session_date, s.start_time, s.id)
-                                   AS session_number
-                        FROM sessions s
-                        JOIN classes c ON c.id = s.class_id
-                        JOIN users u ON u.id = c.student_id
-                        JOIN users t ON t.id = c.tutor_id
-                        WHERE s.id = ?
-                        """,
-                        (ResultSet rs, int rowNum) ->
-                                new SessionDetailRow(
-                                        rs.getLong("id"),
-                                        rs.getInt("session_number"),
-                                        rs.getLong("class_id"),
-                                        rs.getString("class_name"),
-                                        rs.getString("student_name"),
-                                        rs.getString("tutor_name"),
-                                        rs.getString("title"),
-                                        rs.getObject("session_date", LocalDate.class),
-                                        rs.getObject("start_time", LocalTime.class),
-                                        rs.getObject("end_time", LocalTime.class),
-                                        rs.getBoolean("is_trial"),
-                                        rs.getString("teaching_mode"),
-                                        rs.getString("meeting_url"),
-                                        rs.getString("location"),
-                                        rs.getString("log_knowledge"),
-                                        rs.getString("log_homework")),
-                        sessionId)
-                .stream()
-                .findFirst();
-    }
-
-    /** Buổi chính thức khác cùng (lớp, ngày, giờ bắt đầu) — kiểm trùng bước 4a (mục 4.6). */
-    public int countDuplicateSlotInClass(
-            Long classId, LocalDate sessionDate, LocalTime startTime, Long excludeSessionId) {
+    /** R-LOG: số log đang có tại (lớp, ngày, giờ ca) — chặn ghi exception CANCELLED/RESCHEDULED. */
+    public int countTeachingLogAt(Long classId, LocalDate date, LocalTime startTime) {
         Integer count =
                 jdbcTemplate.queryForObject(
                         """
-                        SELECT COUNT(*)
-                        FROM sessions
-                        WHERE class_id = ? AND session_date = ? AND start_time = ?
-                          AND is_trial = FALSE AND id <> ?
+                        SELECT COUNT(*) FROM teaching_logs
+                        WHERE class_id = ? AND log_date = ? AND start_time = ?
                         """,
                         Integer.class,
                         classId,
-                        sessionDate,
-                        startTime,
-                        excludeSessionId);
+                        date,
+                        startTime);
         return count != null ? count : 0;
     }
 
-    /**
-     * Sửa / dời buổi (chỉ buổi SCHEDULED, service validate trước).
-     * {@code meetingUrl}/{@code location} do service tính giá trị hợp lệ —
-     * null = xóa trắng trường đối diện (đổi hình thức); {@code title} null giữ
-     * nguyên giá trị cũ (COALESCE).
-     */
-    public void updateSessionInfo(Long sessionId, SessionInfoUpdate update) {
-        jdbcTemplate.update(
-                """
-                UPDATE sessions
-                SET session_date = ?, start_time = ?, end_time = ?,
-                    teaching_mode = ?,
-                    title = COALESCE(?, title),
-                    meeting_url = ?, location = ?,
-                    updated_at = NOW()
-                WHERE id = ?
-                """,
-                update.sessionDate(),
-                update.startTime(),
-                update.endTime(),
-                update.teachingMode(),
-                update.title(),
-                update.meetingUrl(),
-                update.location(),
-                sessionId);
-    }
-
-    /**
-     * Lấy ngoại lệ (nếu có) gắn với 1 ô (lớp, ngày, giờ ca) — dùng khi "Tạo
-     * buổi học" vật chất hóa ô (mục 1.8): cần schedule_id trước khi xóa.
-     */
-    public Optional<SessionExceptionRow> findExceptionForOccurrence(
-            Long classId, LocalDate date, int dayOfWeek, LocalTime startTime) {
+    /** Ngoài lệ theo (ca, ngày diễn ra) — để R-LOG chặn ghi log ở ô đang bị hủy/dời. */
+    public Optional<ScheduleExceptionRow> findScheduleExceptionAt(Long classId, LocalDate date, LocalTime startTime) {
         return jdbcTemplate.query(
                         """
                         SELECT e.id, e.class_id, e.schedule_id, e.exception_date, e.exception_type,
-                               e.new_date, e.new_start_time, e.new_end_time, e.new_teaching_mode,
-                               e.new_meeting_url, e.new_location, e.reason, e.created_by, e.created_at
-                        FROM session_exceptions e
-                        JOIN class_schedules cs ON cs.id = e.schedule_id
+                               e.new_date, e.new_start_time, e.new_end_time,
+                               e.reason, e.created_by, e.created_at
+                        FROM schedule_exceptions e
+                        JOIN class_schedules sc ON sc.id = e.schedule_id
                         WHERE e.class_id = ? AND e.exception_date = ?
-                          AND cs.day_of_week = ? AND cs.start_time = ?
+                          AND sc.start_time = ? AND sc.day_of_week = ?
                         """,
-                        new SessionExceptionRowMapper(),
+                        new ScheduleExceptionRowMapper(),
                         classId,
                         date,
-                        dayOfWeek,
-                        startTime)
+                        startTime,
+                        date.getDayOfWeek().getValue())
                 .stream()
                 .findFirst();
     }
 
-    /** Lưu nhật ký buổi (cả 2 nội dung, null = xóa trắng phần đó). */
-    public void updateSessionLog(Long sessionId, String logKnowledge, String logHomework) {
+    /** Thông báo học sinh khi lần đầu lưu nhật ký dạy học (link CLASS). */
+    public void insertLogFirstPublishNotification(
+            Long studentId, String className, LocalDate logDate, Long classId) {
         jdbcTemplate.update(
                 """
-                UPDATE sessions
-                SET log_knowledge = ?, log_homework = ?, updated_at = NOW()
-                WHERE id = ?
+                INSERT INTO notifications (user_id, title, content, link_entity_type, link_entity_id)
+                VALUES (?, ?, ?, 'CLASS', ?)
                 """,
-                logKnowledge,
-                logHomework,
-                sessionId);
+                studentId,
+                "Nhật ký buổi học mới",
+                "Gia sư đã cập nhật nhật ký buổi học " + className + " ngày " + logDate,
+                classId);
     }
 
-    // ------------------------------------------------------- MATERIALS (buổi học)
+    // ------------------------------------------------- LATTICE WEEK: TRIAL COVERAGE
 
-    private static final String MATERIAL_BASE = """
-            SELECT m.id, m.session_id, m.file_name, m.file_url, m.file_type, m.file_size,
-                   m.created_at, c.id AS class_id, c.tutor_id, c.student_id, u.full_name AS uploaded_by_name
-            FROM session_materials m
-            JOIN sessions s ON s.id = m.session_id
-            JOIN classes c ON c.id = s.class_id
-            JOIN users u ON u.id = m.uploaded_by
-            """;
-
-    /** Toàn bộ tài liệu của 1 buổi học (chi tiết buổi học, mục 4.5 mở rộng). */
-    public List<SessionMaterialRow> findSessionMaterials(Long sessionId) {
-        return jdbcTemplate.query(
-                MATERIAL_BASE + " WHERE m.session_id = ? ORDER BY m.id",
-                new SessionMaterialRowMapper(),
-                sessionId)
-                .stream()
-                .toList();
-    }
-
-    /** 1 tài liệu kèm chủ sở hữu lớp (kiểm tra quyền access-url / gỡ — không thuộc buổi → 404). */
-    public Optional<SessionMaterialRow> findSessionMaterial(Long sessionId, Long materialId) {
-        return jdbcTemplate.query(
-                        MATERIAL_BASE + " WHERE m.id = ? AND m.session_id = ?",
-                        new SessionMaterialRowMapper(),
-                        materialId,
-                        sessionId)
-                .stream()
-                .findFirst();
-    }
-
-    /** 1 tài liệu theo id, kèm chủ sở hữu lớp — kiểm tra quyền access-url (TUTOR/STUDENT sở hữu). */
-    public Optional<SessionMaterialRow> findMaterialForAccess(Long materialId) {
-        return jdbcTemplate.query(
-                        MATERIAL_BASE + " WHERE m.id = ?",
-                        new SessionMaterialRowMapper(),
-                        materialId)
-                .stream()
-                .findFirst();
-    }
-
-    /** Gỡ tài liệu (chỉ dòng đúng buổi — bảo vệ khỏi xóa nhầm vật liệu của buổi khác). */
-    public int deleteSessionMaterial(Long sessionId, Long materialId) {
-        return jdbcTemplate.update(
-                "DELETE FROM session_materials WHERE session_id = ? AND id = ?", sessionId, materialId);
-    }
-
-    /** Thêm tài liệu (trả về id dòng mới). */
-    public Long insertSessionMaterial(
-            Long sessionId,
-            Long uploadedBy,
-            String fileName,
-            String fileUrl,
-            String fileType,
-            Long fileSize) {
-        return jdbcTemplate.queryForObject(
-                """
-                INSERT INTO session_materials (
-                    session_id, uploaded_by, file_name, file_url, file_type, file_size)
-                VALUES (?, ?, ?, ?, ?, ?)
-                RETURNING id
-                """,
-                Long.class,
-                sessionId,
-                uploadedBy,
-                fileName,
-                fileUrl,
-                fileType,
-                fileSize);
+    /** Ca cố định của lớp (dùng để tính "ca thử bị che bởi ca cố định" trên lattice). */
+    public boolean isTrialCoveredBySlot(Long classId, LocalDate trialDate, LocalTime trialStart) {
+        boolean covered =
+                findScheduleSlotsWithIds(classId).stream()
+                        .anyMatch(
+                                s ->
+                                        s.dayOfWeek() == trialDate.getDayOfWeek().getValue()
+                                                && s.startTime().equals(trialStart)
+                                                && s.validFrom().compareTo(trialDate) <= 0
+                                                && (s.validTo() == null || s.validTo().compareTo(trialDate) >= 0));
+        return covered;
     }
 
     // ----------------------------------------------------------------- WRITE
 
-    public Long insertTrialSession(Long classId, UpsertTrialSessionRequest request) {
-        return jdbcTemplate.queryForObject(
-                """
-                INSERT INTO sessions (
-                    class_id, title, session_date, start_time, end_time,
-                    is_trial, teaching_mode, meeting_url, location, status)
-                VALUES (?, ?, ?, ?, ?, TRUE, ?, ?, ?, 'SCHEDULED')
-                RETURNING id
-                """,
-                Long.class,
-                classId,
-                "Buổi học thử",
-                request.getSessionDate(),
-                request.getStartTime(),
-                request.getEndTime(),
-                normalizeMode(request.getTeachingMode()),
-                trimToNull(request.getMeetingUrl()),
-                trimToNull(request.getLocation()));
-    }
-
-    public void updateTrialSession(Long sessionId, UpsertTrialSessionRequest request) {
-        jdbcTemplate.update(
-                """
-                UPDATE sessions
-                SET session_date = ?, start_time = ?, end_time = ?, teaching_mode = ?,
-                    meeting_url = ?, location = ?
-                WHERE id = ?
-                """,
-                request.getSessionDate(),
-                request.getStartTime(),
-                request.getEndTime(),
-                normalizeMode(request.getTeachingMode()),
-                trimToNull(request.getMeetingUrl()),
-                trimToNull(request.getLocation()),
-                sessionId);
-    }
-
     /** Ghi lịch cố định mới (kèm khoảng hiệu lực từng ca) — dùng khi chốt lần đầu. */
-    public void insertSchedules(
-            Long classId, List<FinalizeScheduleRequest.ScheduleSlot> slots) {
+    public void insertSchedules(Long classId, List<FinalizeScheduleRequest.ScheduleSlot> slots) {
         for (FinalizeScheduleRequest.ScheduleSlot slot : slots) {
             jdbcTemplate.update(
                     """
@@ -1031,33 +1034,12 @@ public class ClassroomQueryRepository {
         jdbcTemplate.update("DELETE FROM class_schedules WHERE class_id = ?", classId);
     }
 
-    /** Tạo buổi học chính thức on-demand đúng ca trong lịch (UC-T09, mục 4.6). */
-    public Long insertOnDemandSession(
-            Long classId,
-            LocalDate date,
-            LocalTime startTime,
-            LocalTime endTime,
-            String teachingMode) {
-        return jdbcTemplate.queryForObject(
-                """
-                INSERT INTO sessions (
-                    class_id, title, session_date, start_time, end_time,
-                    is_trial, teaching_mode, status)
-                VALUES (?, ?, ?, ?, ?, FALSE, ?, 'SCHEDULED')
-                RETURNING id
-                """,
-                Long.class,
-                classId,
-                "Buổi học chính thức",
-                date,
-                startTime,
-                endTime,
-                normalizeMode(teachingMode));
-    }
-
     // --------------------------------------------------------------- HELPERS
 
     public static String normalizeMode(String teachingMode) {
+        if (teachingMode == null) {
+            return null;
+        }
         return teachingMode.trim().toUpperCase();
     }
 
@@ -1070,19 +1052,18 @@ public class ClassroomQueryRepository {
     }
 
     private static TrialSessionResponse mapTrialSession(ResultSet rs) throws SQLException {
-        Object trialId = rs.getObject("trial_id");
-        if (trialId == null) {
+        Object trialStart = rs.getObject("trial_start");
+        if (trialStart == null) {
             return null;
         }
         return TrialSessionResponse.builder()
-                .sessionId(((Number) trialId).longValue())
                 .sessionDate(rs.getObject("trial_date", LocalDate.class))
                 .startTime(rs.getObject("trial_start", LocalTime.class))
                 .endTime(rs.getObject("trial_end", LocalTime.class))
                 .teachingMode(rs.getString("trial_mode"))
                 .meetingUrl(rs.getString("trial_meeting_url"))
                 .location(rs.getString("trial_location"))
-                .status(rs.getString("trial_status"))
+                .status("SCHEDULED")
                 .build();
     }
 
@@ -1122,33 +1103,17 @@ public class ClassroomQueryRepository {
         }
     }
 
-    private static class TrialSessionRowMapper implements RowMapper<TrialSessionResponse> {
+    private static class ConflictSlotRowMapper implements RowMapper<ConflictSlotInfo> {
         @Override
-        public TrialSessionResponse mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return TrialSessionResponse.builder()
-                    .sessionId(rs.getLong("id"))
-                    .sessionDate(rs.getObject("session_date", LocalDate.class))
-                    .startTime(rs.getObject("start_time", LocalTime.class))
-                    .endTime(rs.getObject("end_time", LocalTime.class))
-                    .teachingMode(rs.getString("teaching_mode"))
-                    .meetingUrl(rs.getString("meeting_url"))
-                    .location(rs.getString("location"))
-                    .status(rs.getString("status"))
-                    .build();
-        }
-    }
-
-    private static class ConflictRowMapper implements RowMapper<ConflictInfo> {
-        @Override
-        public ConflictInfo mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return new ConflictInfo(
-                    rs.getLong("session_id"),
-                    rs.getObject("session_date", LocalDate.class),
+        public ConflictSlotInfo mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return new ConflictSlotInfo(
+                    rs.getLong("schedule_id"),
+                    rs.getObject("slot_date", LocalDate.class),
                     rs.getObject("start_time", LocalTime.class),
                     rs.getObject("end_time", LocalTime.class),
                     rs.getString("class_name"),
                     rs.getString("student_name"),
-                    rs.getBoolean("is_trial"));
+                    rs.getBoolean("trial"));
         }
     }
 
@@ -1167,10 +1132,10 @@ public class ClassroomQueryRepository {
         }
     }
 
-    private static class SessionExceptionRowMapper implements RowMapper<SessionExceptionRow> {
+    private static class ScheduleExceptionRowMapper implements RowMapper<ScheduleExceptionRow> {
         @Override
-        public SessionExceptionRow mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return new SessionExceptionRow(
+        public ScheduleExceptionRow mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return new ScheduleExceptionRow(
                     rs.getLong("id"),
                     rs.getLong("class_id"),
                     rs.getLong("schedule_id"),
@@ -1179,21 +1144,48 @@ public class ClassroomQueryRepository {
                     rs.getObject("new_date", LocalDate.class),
                     rs.getObject("new_start_time", LocalTime.class),
                     rs.getObject("new_end_time", LocalTime.class),
-                    rs.getString("new_teaching_mode"),
-                    rs.getString("new_meeting_url"),
-                    rs.getString("new_location"),
                     rs.getString("reason"),
                     rs.getObject("created_by", Long.class),
                     rs.getObject("created_at", OffsetDateTime.class));
         }
     }
 
-    private static class SessionMaterialRowMapper implements RowMapper<SessionMaterialRow> {
+    private static class TeachingLogRowMapper implements RowMapper<TeachingLogRow> {
         @Override
-        public SessionMaterialRow mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return new SessionMaterialRow(
+        public TeachingLogRow mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return new TeachingLogRow(
                     rs.getLong("id"),
-                    rs.getLong("session_id"),
+                    rs.getObject("log_date", LocalDate.class),
+                    rs.getObject("start_time", LocalTime.class),
+                    rs.getObject("end_time", LocalTime.class),
+                    rs.getString("knowledge"),
+                    rs.getString("homework"),
+                    rs.getBoolean("first_publish"),
+                    rs.getObject("created_at", OffsetDateTime.class),
+                    rs.getObject("updated_at", OffsetDateTime.class));
+        }
+    }
+
+    /** Tài liệu đính kèm bài giảng (bảng {@code lesson_materials}, JOIN tên người tải lên). */
+    public record LessonMaterialRow(
+            Long materialId,
+            Long lessonId,
+            Long classId,
+            Long tutorId,
+            Long studentId,
+            String fileName,
+            String fileUrl,
+            String fileType,
+            Long fileSize,
+            String uploadedByName,
+            OffsetDateTime createdAt) {}
+
+    private static class LessonMaterialRowMapper implements RowMapper<LessonMaterialRow> {
+        @Override
+        public LessonMaterialRow mapRow(ResultSet rs, int rowNum) throws SQLException {
+            return new LessonMaterialRow(
+                    rs.getLong("id"),
+                    rs.getLong("lesson_id"),
                     rs.getLong("class_id"),
                     rs.getLong("tutor_id"),
                     rs.getLong("student_id"),
@@ -1203,25 +1195,6 @@ public class ClassroomQueryRepository {
                     rs.getObject("file_size", Long.class),
                     rs.getString("uploaded_by_name"),
                     rs.getObject("created_at", OffsetDateTime.class));
-        }
-    }
-
-    private static class SessionListItemRowMapper implements RowMapper<SessionListItem> {
-        @Override
-        public SessionListItem mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return SessionListItem.builder()
-                    .sessionId(rs.getLong("session_id"))
-                    .sessionNumber(rs.getInt("session_number"))
-                    .title(rs.getString("title"))
-                    .sessionDate(rs.getObject("session_date", LocalDate.class))
-                    .startTime(rs.getObject("start_time", LocalTime.class))
-                    .endTime(rs.getObject("end_time", LocalTime.class))
-                    .teachingMode(rs.getString("teaching_mode"))
-                    .meetingUrl(rs.getString("meeting_url"))
-                    .location(rs.getString("location"))
-                    .isTrial(rs.getBoolean("is_trial"))
-                    .hasLog(rs.getBoolean("has_log"))
-                    .build();
         }
     }
 }

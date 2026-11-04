@@ -11,20 +11,20 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 /**
- * Một tài liệu đính kèm buổi học (bảng {@code session_materials}). Dùng cả trong
- * chi tiết buổi học (mục 4.5 mở rộng) và phản hồi upload/gỡ.
+ * Một tài liệu đính kèm bài giảng (bảng {@code lesson_materials}, V16). Dùng
+ * trong chi tiết bài giảng và phản hồi upload/gỡ.
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class SessionMaterialItem {
+public class LessonMaterialItem {
 
     @Schema(example = "40")
     Long materialId;
 
-    @Schema(example = "bai-tap-buoi-3.pdf")
+    @Schema(example = "bai-tap-bai-3.pdf")
     String fileName;
 
     @Schema(description = "PDF | DOCX | IMAGE | AUDIO")

@@ -19,7 +19,7 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ExceptionInfo {
 
-    @Schema(description = "CANCELLED | RESCHEDULED | MODIFIED")
+    @Schema(description = "CANCELLED | RESCHEDULED")
     String type;
 
     @Schema(description = "Ngày mới (RESCHEDULED)")
@@ -30,13 +30,4 @@ public class ExceptionInfo {
 
     @Schema(description = "Giờ kết thúc mới (RESCHEDULED)")
     LocalTime newEndTime;
-
-    @Schema(description = "Hình thức override (RESCHEDULED / MODIFIED)")
-    String newTeachingMode;
-
-    @Schema(description = "Liên kết phòng học (hình thức ONLINE)")
-    String newMeetingUrl;
-
-    @Schema(description = "Địa chỉ (hình thức AT_HOME)")
-    String newLocation;
 }

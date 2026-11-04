@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
   CalendarDays,
@@ -9,7 +9,7 @@ import {
   File,
   FileCheck,
   Image as ImageIcon,
-  MapPin,
+  ListChecks,
   Music,
   NotebookText,
   Pencil,
@@ -26,24 +26,25 @@ import Button from "../../../components/ui/Button";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
 import clsx from "clsx";
 import {
-  apiDeleteSessionMaterial,
-  apiGetClassSessions,
+  apiCreateLesson,
+  apiDeleteLesson,
+  apiDeleteLessonMaterial,
+  apiGetClassLessons,
+  apiGetLesson,
   apiGetMaterialAccessUrl,
-  apiGetSession,
-  apiUpdateSession,
-  apiUpdateSessionLog,
-  apiUploadSessionMaterial,
-  mapSessionDetail,
-  mapSessionListItem,
-  TEACHING_MODE_LABELS,
+  apiUploadLessonMaterial,
+  apiUpdateLesson,
+  LESSON_STATUS_META,
+  mapLessonDetail,
+  mapLessonListItem,
 } from "../../../lib/classroomApi";
 import {
-  apiGetSessionQuizzes,
+  apiGetLessonQuizzes,
   formatDeadlineLabel,
   QUIZ_STATUS_META,
 } from "../../../lib/quizApi";
 
-/** Tài liệu buổi học tối đa 20 MB (giới hạn backend, kiểm nhanh phía client). */
+/** Tài liệu bài giảng tối đa 20 MB (giới hạn backend, kiểm nhanh phía client). */
 const MATERIAL_MAX_SIZE = 20 * 1024 * 1024;
 
 const MATERIAL_ACCEPT =
@@ -79,44 +80,49 @@ function materialIcon(fileType) {
 }
 
 /**
- * Tab "Buổi học" của workspace lớp (UC-T05 bước 4) — nối API thật:
- * danh sách buổi học của lớp, chi tiết + nhật ký dạy học (2 nội dung),
- * đính kèm / tải / gỡ tài liệu buổi học. Không dùng dữ liệu mock.
- *
- * Tạo buổi học chỉ theo ca: CTA "Tạo buổi học" trỏ sang tab "Lịch dạy"
- * (chip ca trống → modal "Tạo bài giảng").
+ * Tab "Bài giảng" của workspace lớp (V16) — nối API thật:
+ * danh sách bài giảng của lớp, chi tiết (tiêu đề + hiện/ẩn + xóa),
+ * tài liệu đính kèm (upload / tải / gỡ) và quiz bài giảng (FR-13).
+ * Nhật ký dạy học hiện nằm trên lưới lịch (tab "Lịch dạy"), không ở đây.
  */
 export default function ManageSessions({ token, classId, basePath, classDetail }) {
   const navigate = useNavigate();
 
-  // ---------------- Danh sách buổi học
-  const [sessions, setSessions] = useState([]);
+  // ---------------- Danh sách bài giảng
+  const [lessons, setLessons] = useState([]);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [selectedLessonId, setSelectedLessonId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Bài giảng được trỏ đến từ URL (?lessonId=...) — ưu tiên khi tải danh sách lần đầu,
+  // dùng cho việc chuyển tab từ lưới "Lịch dạy" (nút "Tạo bài giảng").
+  const [searchParams] = useSearchParams();
+  const urlLessonId = searchParams.get("lessonId");
 
   const loadList = useCallback(async () => {
     if (!token || !classId) return;
     setListLoading(true);
     setListError("");
     try {
-      const items = await apiGetClassSessions(token, classId, { order: "asc" });
-      const mapped = (items || []).map(mapSessionListItem);
-      setSessions(mapped);
-      // Chọn buổi đầu (khi chưa chọn hoặc buổi cũ không còn trong danh sách).
-      setSelectedSessionId((current) =>
-        current && mapped.some((s) => s.sessionId === current)
-          ? current
-          : (mapped[0]?.sessionId ?? null)
-      );
+      const items = await apiGetClassLessons(token, classId);
+      const mapped = (items || []).map(mapLessonListItem);
+      setLessons(mapped);
+      // Ưu tiên: bài giảng đang chọn → bài giảng từ URL → bài giảng đầu tiên.
+      const firstId = mapped[0]?.lessonId ?? null;
+      setSelectedLessonId((current) => {
+        if (current && mapped.some((l) => l.lessonId === current)) return current;
+        if (urlLessonId && mapped.some((l) => String(l.lessonId) === urlLessonId)) {
+          return urlLessonId;
+        }
+        return firstId;
+      });
     } catch (err) {
-      setListError(err.message || "Không thể tải danh sách buổi học.");
+      setListError(err.message || "Không thể tải danh sách bài giảng.");
     } finally {
       setListLoading(false);
     }
-  }, [token, classId]);
+  }, [token, classId, urlLessonId]);
 
   useEffect(() => {
     loadList();
@@ -124,169 +130,172 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
 
   const bumpRefresh = () => setRefreshKey((k) => k + 1);
 
-  const filteredSessions = useMemo(() => {
+  const filteredLessons = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return sessions;
-    return sessions.filter(
-      (s) =>
-        String(s.title || "")
+    if (!q) return lessons;
+    return lessons.filter(
+      (l) =>
+        String(l.title || "")
           .toLowerCase()
-          .includes(q) || `buổi ${s.sessionNumber}`.includes(q),
+          .includes(q) || `bài ${l.lessonNumber}`.toLowerCase().includes(q),
     );
-  }, [sessions, searchQuery]);
+  }, [lessons, searchQuery]);
 
-  // ---------------- Chi tiết buổi học + nhật ký
+  // ---------------- Chi tiết bài giảng (tiêu đề + hiện/ẩn)
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleInput, setTitleInput] = useState("");
+  const [savingTitle, setSavingTitle] = useState(false);
+  const [titleError, setTitleError] = useState("");
 
   const loadDetail = useCallback(async () => {
-    if (!token || !selectedSessionId) {
+    if (!token || !selectedLessonId) {
       setDetail(null);
       return;
     }
     setDetailLoading(true);
     setDetailError("");
     try {
-      const raw = await apiGetSession(token, selectedSessionId);
-      const mapped = mapSessionDetail(raw);
-      setDetail(mapped);
-      setLogForm({
-        logKnowledge: mapped?.logKnowledge || "",
-        logHomework: mapped?.logHomework || "",
-      });
+      const raw = await apiGetLesson(token, selectedLessonId);
+      setDetail(mapLessonDetail(mapLessonListItem(raw)));
     } catch (err) {
       setDetail(null);
-      setDetailError(err.message || "Không thể tải chi tiết buổi học.");
+      setDetailError(err.message || "Không thể tải chi tiết bài giảng.");
     } finally {
       setDetailLoading(false);
     }
-  }, [token, selectedSessionId]);
+  }, [token, selectedLessonId]);
 
   useEffect(() => {
     loadDetail();
   }, [loadDetail, refreshKey]);
 
-  // ---------------- Nhật ký (2 nội dung: kiến thức + dặn dò)
-  const [logForm, setLogForm] = useState({ logKnowledge: "", logHomework: "" });
-  const [savingLog, setSavingLog] = useState(false);
-  const [logError, setLogError] = useState("");
-
-  const handleSaveLog = async () => {
-    if (!token || !detail || savingLog) return;
-    const payload = {
-      logKnowledge: logForm.logKnowledge.trim(),
-      logHomework: logForm.logHomework.trim(),
-    };
-    if (!payload.logKnowledge && !payload.logHomework) {
-      setLogError("Vui lòng nhập ít nhất một nội dung nhật ký (kiến thức hoặc dặn dò).");
-      return;
-    }
-    setSavingLog(true);
-    setLogError("");
-    try {
-      await apiUpdateSessionLog(token, detail.sessionId, payload);
-      showToast("Đã lưu nhật ký buổi học.", "success");
-      bumpRefresh();
-    } catch (err) {
-      setLogError(err.message || "Không thể lưu nhật ký buổi học.");
-    } finally {
-      setSavingLog(false);
-    }
-  };
-
-  // ---------------- Sửa / dời buổi học (modal, dùng API thật)
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editForm, setEditForm] = useState(null);
-  const [editError, setEditError] = useState("");
-  const [savingEdit, setSavingEdit] = useState(false);
-
-  const openEditModal = () => {
+  const openTitleEdit = () => {
     if (!detail) return;
-    setEditForm({
-      title: detail.title || "",
-      sessionDate: detail.sessionDate || "",
-      startTime: (detail.startTime || "").slice(0, 5),
-      endTime: (detail.endTime || "").slice(0, 5),
-      teachingMode: detail.teachingMode || "ONLINE",
-      meetingUrl: detail.meetingUrl || "",
-      location: detail.location || "",
-    });
-    setEditError("");
-    setShowEditModal(true);
+    setTitleInput(detail.title || "");
+    setTitleError("");
+    setEditingTitle(true);
   };
 
-  const closeEditModal = () => {
-    setShowEditModal(false);
-    setEditError("");
-  };
-
-  const handleSaveEdit = async () => {
-    if (!token || !detail || !editForm || savingEdit) return;
-    const payload = {
-      title: editForm.title.trim() || null,
-      sessionDate: editForm.sessionDate,
-      startTime: editForm.startTime,
-      endTime: editForm.endTime,
-      teachingMode: editForm.teachingMode,
-      meetingUrl:
-        editForm.teachingMode === "ONLINE" ? editForm.meetingUrl.trim() || null : null,
-      location:
-        editForm.teachingMode === "AT_HOME" ? editForm.location.trim() || null : null,
-    };
-    if (!payload.sessionDate || !payload.startTime || !payload.endTime) {
-      setEditError("Vui lòng nhập đủ ngày và giờ bắt đầu / kết thúc.");
+  const handleSaveTitle = async () => {
+    if (!token || !detail || savingTitle) return;
+    const title = titleInput.trim();
+    if (!title) {
+      setTitleError("Vui lòng nhập tiêu đề bài giảng.");
       return;
     }
-    if (payload.teachingMode === "ONLINE" && !payload.meetingUrl) {
-      setEditError("Vui lòng nhập liên kết phòng học (buổi học online).");
-      return;
-    }
-    if (payload.teachingMode === "AT_HOME" && !payload.location) {
-      setEditError("Vui lòng nhập địa chỉ học (buổi học tại nhà).");
-      return;
-    }
-
-    setSavingEdit(true);
-    setEditError("");
+    setSavingTitle(true);
+    setTitleError("");
     try {
-      await apiUpdateSession(token, detail.sessionId, payload);
-      showToast("Đã cập nhật buổi học.", "success");
-      closeEditModal();
+      await apiUpdateLesson(token, detail.lessonId, { title });
+      setEditingTitle(false);
+      showToast("Đã cập nhật tiêu đề bài giảng.", "success");
       bumpRefresh();
     } catch (err) {
-      // Lỗi trùng ca / trùng lịch / ngày quá khứ... trả thông điệp tiếng Việt từ backend.
-      setEditError(err.message || "Không thể cập nhật buổi học.");
+      setTitleError(err.message || "Không thể lưu tiêu đề.");
     } finally {
-      setSavingEdit(false);
+      setSavingTitle(false);
     }
   };
 
-  // ---------------- Quiz buổi học (danh sách, FR-13)
+  const toggleVisibility = async () => {
+    if (!token || !detail) return;
+    const nextStatus = detail.status === "PUBLISHED" ? "HIDDEN" : "PUBLISHED";
+    try {
+      await apiUpdateLesson(token, detail.lessonId, { status: nextStatus });
+      showToast(
+        nextStatus === "HIDDEN" ? "Đã ẩn bài giảng." : "Đã hiển thị bài giảng.",
+        "success",
+      );
+      bumpRefresh();
+    } catch (err) {
+      showToast(err.message || "Không thể đổi trạng thái bài giảng.", "error");
+    }
+  };
+
+  // ---------------- Xóa bài giảng (xác nhận + cascade tài liệu/quiz)
+  const [confirmDeleteLesson, setConfirmDeleteLesson] = useState(false);
+  const [deletingLesson, setDeletingLesson] = useState(false);
+
+  const handleConfirmDeleteLesson = async () => {
+    if (!token || !detail || deletingLesson) return;
+    setDeletingLesson(true);
+    try {
+      await apiDeleteLesson(token, detail.lessonId);
+      setConfirmDeleteLesson(false);
+      showToast("Đã xóa bài giảng (kèm tài liệu và quiz).", "success");
+      // Chọn bài giảng kế tiếp (hoặc bỏ chọn nếu hết).
+      const rest = lessons.filter((l) => l.lessonId !== detail.lessonId);
+      setSelectedLessonId(rest[0]?.lessonId ?? null);
+      bumpRefresh();
+    } catch (err) {
+      showToast(err.message || "Không thể xóa bài giảng.", "error");
+    } finally {
+      setDeletingLesson(false);
+    }
+  };
+
+  // ---------------- Modal "Tạo bài giảng"
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [createError, setCreateError] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const openCreateModal = () => {
+    setNewTitle("");
+    setCreateError("");
+    setShowCreateModal(true);
+  };
+
+  const handleCreateLesson = async () => {
+    if (!token || !classId || creating) return;
+    const title = newTitle.trim();
+    if (!title) {
+      setCreateError("Vui lòng nhập tiêu đề bài giảng.");
+      return;
+    }
+    setCreating(true);
+    setCreateError("");
+    try {
+      const created = await apiCreateLesson(token, classId, { title });
+      setShowCreateModal(false);
+      setSelectedLessonId(created?.lessonId ?? null);
+      showToast("Đã tạo bài giảng.", "success");
+      bumpRefresh();
+    } catch (err) {
+      setCreateError(err.message || "Không thể tạo bài giảng.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // ---------------- Quiz bài giảng (danh sách, FR-13)
   const [quizzes, setQuizzes] = useState([]);
   const [quizzesLoading, setQuizzesLoading] = useState(false);
 
   const loadQuizzes = useCallback(async () => {
-    if (!token || !selectedSessionId) {
+    if (!token || !selectedLessonId) {
       setQuizzes([]);
       return;
     }
     setQuizzesLoading(true);
     try {
-      const items = await apiGetSessionQuizzes(token, selectedSessionId);
+      const items = await apiGetLessonQuizzes(token, selectedLessonId);
       setQuizzes(items || []);
     } catch {
       setQuizzes([]);
     } finally {
       setQuizzesLoading(false);
     }
-  }, [token, selectedSessionId]);
+  }, [token, selectedLessonId]);
 
   useEffect(() => {
     loadQuizzes();
   }, [loadQuizzes, refreshKey]);
 
-  // ---------------- Tài liệu buổi học (upload / tải / gỡ)
+  // ---------------- Tài liệu bài giảng (upload / tải / gỡ)
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [confirmDeleteMaterial, setConfirmDeleteMaterial] = useState(null);
@@ -316,7 +325,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
 
     setIsUploading(true);
     try {
-      await apiUploadSessionMaterial(token, detail.sessionId, file);
+      await apiUploadLessonMaterial(token, detail.lessonId, file);
       showToast(`Đã đính kèm tệp "${file.name}".`, "success");
       bumpRefresh();
     } catch (err) {
@@ -341,8 +350,12 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
     setDeletingMaterialId(confirmDeleteMaterial.materialId);
     setConfirmDeleteMaterial(null);
     try {
-      await apiDeleteSessionMaterial(token, detail.sessionId, confirmDeleteMaterial.materialId);
-      showToast("Đã gỡ tài liệu buổi học.", "success");
+      await apiDeleteLessonMaterial(
+        token,
+        detail.lessonId,
+        confirmDeleteMaterial.materialId,
+      );
+      showToast("Đã gỡ tài liệu bài giảng.", "success");
       bumpRefresh();
     } catch (err) {
       showToast(err.message || "Không thể gỡ tài liệu. Vui lòng thử lại.", "error");
@@ -361,6 +374,10 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
   }, [toast]);
 
   const materials = detail?.materials || [];
+  const statusMeta = detail ? LESSON_STATUS_META[detail.status] || LESSON_STATUS_META.PUBLISHED : null;
+  // LessonDetailResponse không có lessonNumber — lấy từ item danh sách (ROW_NUMBER backend).
+  const lessonNumber =
+    detail?.lessonNumber ?? lessons.find((l) => l.lessonId === detail?.lessonId)?.lessonNumber;
 
   return (
     <div className="space-y-6">
@@ -394,25 +411,22 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50">
-              Quản lý Buổi học &amp; Nhật ký dạy học
+              Bài giảng &amp; Tài liệu
             </h2>
-            <Badge tone="indigo">UC-T05</Badge>
+            <Badge tone="indigo">V16</Badge>
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             {classDetail?.className
-              ? `Nhật ký bài học, tài liệu giảng dạy và điều chỉnh lịch cho ${classDetail.studentName}.`
-              : "Nhật ký bài học, tài liệu giảng dạy và điều chỉnh lịch buổi học."}
+              ? `Bài giảng, tài liệu và quiz cho ${classDetail.studentName}.`
+              : "Bài giảng, tài liệu giảng dạy và quiz cho lớp học."}
           </p>
         </div>
-        <Link
-          to={`${basePath}/schedule`}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700"
-        >
-          <Plus size={15} /> Tạo buổi học (theo ca dạy)
-        </Link>
+        <Button size="sm" onClick={openCreateModal} className="shrink-0 cursor-pointer text-xs font-bold">
+          <Plus size={15} /> Tạo bài giảng
+        </Button>
       </div>
 
-      {/* Layout: danh sách buổi học (4 cột) + chi tiết (8 cột) */}
+      {/* Layout: danh sách bài giảng (4 cột) + chi tiết (8 cột) */}
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Cột trái: danh sách + tìm kiếm */}
         <div className="space-y-3 lg:col-span-4">
@@ -421,7 +435,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
               <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Tìm buổi học..."
+                placeholder="Tìm bài giảng..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-9 pr-3 text-xs outline-none focus:border-blue-400 dark:border-slate-800 dark:bg-slate-900"
@@ -429,7 +443,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
             </div>
 
             <div className="max-h-[560px] space-y-2 overflow-y-auto pr-1">
-              {listLoading && sessions.length === 0 ? (
+              {listLoading && lessons.length === 0 ? (
                 Array.from({ length: 3 }, (_, index) => (
                   <div key={index} className="h-16 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
                 ))
@@ -441,36 +455,38 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                     <button
                       type="button"
                       onClick={loadList}
-                      className="mt-1.5 inline-flex items-center gap-1 font-semibold underline"
+                      className="mt-1.5 inline-flex cursor-pointer items-center gap-1 font-semibold underline"
                     >
                       <RefreshCw size={12} /> Thử lại
                     </button>
                   </div>
                 </div>
-              ) : sessions.length === 0 ? (
+              ) : lessons.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-5 text-center dark:border-slate-700 dark:bg-slate-900/40">
                   <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                    Chưa có buổi học nào.
+                    Chưa có bài giảng nào.
                   </p>
-                  <Link
-                    to={`${basePath}/schedule`}
-                    className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+                  <button
+                    type="button"
+                    onClick={openCreateModal}
+                    className="mt-2 inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
                   >
-                    <Plus size={12} /> Tạo buổi học từ ca dạy
-                  </Link>
+                    <Plus size={12} /> Tạo bài giảng đầu tiên
+                  </button>
                 </div>
-              ) : filteredSessions.length === 0 ? (
+              ) : filteredLessons.length === 0 ? (
                 <p className="py-6 text-center text-xs text-slate-400">
-                  Không tìm thấy buổi học phù hợp.
+                  Không tìm thấy bài giảng phù hợp.
                 </p>
               ) : (
-                filteredSessions.map((session) => {
-                  const isSelected = selectedSessionId === session.sessionId;
+                filteredLessons.map((lesson) => {
+                  const isSelected = String(lesson.lessonId) === String(selectedLessonId);
+                  const meta = LESSON_STATUS_META[lesson.status] || LESSON_STATUS_META.PUBLISHED;
                   return (
                     <button
-                      key={session.sessionId}
+                      key={lesson.lessonId}
                       type="button"
-                      onClick={() => setSelectedSessionId(session.sessionId)}
+                      onClick={() => setSelectedLessonId(lesson.lessonId)}
                       className={clsx(
                         "w-full cursor-pointer rounded-xl border p-3.5 text-left transition-all",
                         isSelected
@@ -481,31 +497,27 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                       <div className="flex items-center justify-between gap-2">
                         <span className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400">
                           <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-100 text-xs font-bold dark:bg-blue-900/60">
-                            {session.sessionNumber}
+                            {lesson.lessonNumber}
                           </span>
-                          Buổi {session.sessionNumber}
+                          Bài {lesson.lessonNumber}
                         </span>
-                        {session.isTrial ? (
-                          <Badge tone="rose" size="xs">
-                            Buổi dạy thử
-                          </Badge>
-                        ) : session.hasLog ? (
-                          <span className="text-emerald-600 dark:text-emerald-400" title="Đã có nhật ký">
-                            <NotebookText size={13} />
-                          </span>
-                        ) : null}
+                        <Badge tone={meta.tone} size="xs">
+                          {meta.label}
+                        </Badge>
                       </div>
                       <p className="mt-1.5 line-clamp-2 text-xs font-semibold text-slate-900 dark:text-slate-100">
-                        {session.title || "Buổi học chưa đặt tên"}
+                        {lesson.title || "Bài giảng chưa đặt tên"}
                       </p>
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400">
                         <span className="inline-flex items-center gap-1">
-                          <CalendarDays size={12} /> {session.dateLabel}
+                          <UploadCloud size={12} /> {lesson.materialCount ?? 0} tài liệu
                         </span>
                         <span className="inline-flex items-center gap-1">
-                          <Clock size={12} /> {session.timeLabel}
+                          <ListChecks size={12} /> {lesson.quizCount ?? 0} quiz
                         </span>
-                        <span>{session.modeLabel}</span>
+                        <span className="inline-flex items-center gap-1">
+                          <CalendarDays size={12} /> {lesson.createdAtLabel}
+                        </span>
                       </div>
                     </button>
                   );
@@ -515,13 +527,14 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
           </Card>
         </div>
 
-        {/* Cột phải: chi tiết buổi học */}
+        {/* Cột phải: chi tiết bài giảng */}
         <div className="lg:col-span-8">
-          {!selectedSessionId ? (
+          {!selectedLessonId ? (
             <Card className="py-12 text-center text-sm text-slate-400">
-              Chưa chọn buổi học nào. Vui lòng chọn một buổi học từ danh sách bên trái.
+              Chưa chọn bài giảng nào. Vui lòng chọn một bài giảng từ danh sách bên trái hoặc tạo
+              bài giảng mới.
             </Card>
-          ) : !detail && detailError ? (
+          ) : detailError ? (
             <Card className="py-12 text-center">
               <AlertCircle size={28} className="mx-auto text-rose-400" />
               <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-400">
@@ -533,7 +546,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                 </Button>
               </div>
             </Card>
-          ) : !detail ? (
+          ) : !detail || detailLoading ? (
             <div className="space-y-4">
               <div className="h-24 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
               <div className="h-40 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
@@ -541,133 +554,88 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
             </div>
           ) : (
             <div className="space-y-5">
-              {/* Header buổi học */}
+              {/* Header bài giảng */}
               <Card className="space-y-3 p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-lg bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
-                      Buổi học {detail.sessionNumber}
+                      Bài giảng {lessonNumber != null ? lessonNumber : ""}
                     </span>
-                    {detail.isTrial && (
-                      <Badge tone="rose">Buổi dạy thử</Badge>
+                    {statusMeta && <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>}
+                    <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                      <Clock size={12} /> {detail.createdAtLabel}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={toggleVisibility}>
+                      {detail.status === "PUBLISHED" ? (
+                        "Ẩn bài giảng"
+                      ) : (
+                        "Hiển thị bài giảng"
+                      )}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setConfirmDeleteLesson(true)}>
+                      <Trash2 size={13} /> Xóa
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Tiêu đề (quick edit: gõ + Enter hoặc nút Lưu) */}
+                {editingTitle ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={titleInput}
+                      onChange={(e) => setTitleInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveTitle();
+                        if (e.key === "Escape") setEditingTitle(false);
+                      }}
+                      maxLength={200}
+                      autoFocus
+                      className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm font-semibold outline-none ring-2 ring-blue-100 dark:border-blue-800 dark:bg-slate-900 dark:ring-blue-950"
+                    />
+                    {titleError && (
+                      <p className="text-xs font-medium text-rose-600 dark:text-rose-400">
+                        {titleError}
+                      </p>
                     )}
-                    {detail.hasLog ? (
-                      <Badge tone="emerald">Đã có nhật ký</Badge>
-                    ) : (
-                      <Badge tone="slate">Chưa có nhật ký</Badge>
-                    )}
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setEditingTitle(false)}
+                        type="button"
+                      >
+                        Hủy
+                      </Button>
+                      <Button size="sm" onClick={handleSaveTitle} disabled={savingTitle}>
+                        {savingTitle ? "Đang lưu..." : "Lưu tiêu đề"}
+                      </Button>
+                    </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={openEditModal}>
-                    <Pencil size={13} /> Sửa / dời buổi học
-                  </Button>
-                </div>
-
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-50">
-                    {detail.title || "Buổi học chưa đặt tên"}
-                  </h3>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400">
-                    <span className="inline-flex items-center gap-1.5">
-                      <CalendarDays size={13} /> {detail.dateLabel}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Clock size={13} /> {detail.timeLabel}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <MapPin size={13} />
-                      {detail.modeLabel}
-                      {detail.teachingMode === "ONLINE" && detail.meetingUrl ? (
-                        <a
-                          href={detail.meetingUrl}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="font-medium text-blue-600 hover:underline dark:text-blue-400"
-                        >
-                          Vào phòng học
-                        </a>
-                      ) : detail.teachingMode === "AT_HOME" && detail.location ? (
-                        <span className="font-medium text-slate-700 dark:text-slate-300">
-                          {detail.location}
-                        </span>
-                      ) : null}
-                    </span>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Nhật ký dạy học (2 nội dung) */}
-              <Card className="space-y-4 p-5">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white">
-                    <NotebookText size={15} />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                      Nhật ký dạy học
-                    </h4>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Học sinh và phụ huynh xem được nội dung này sau khi lưu.
-                    </p>
-                  </div>
-                </div>
-
-                {logError && (
-                  <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
-                    <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-500" />
-                    <div className="flex-1">{logError}</div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-50">
+                      {detail.title || "Bài giảng chưa đặt tên"}
+                    </h3>
                     <button
                       type="button"
-                      onClick={() => setLogError("")}
-                      className="text-rose-400 hover:text-rose-600"
-                      aria-label="Đóng thông báo lỗi"
+                      onClick={openTitleEdit}
+                      className="cursor-pointer rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                      aria-label="Sửa tiêu đề bài giảng"
                     >
-                      <X size={14} />
+                      <Pencil size={13} />
                     </button>
                   </div>
                 )}
-
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">
-                    Kiến thức đã hoàn thành trong buổi học
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={logForm.logKnowledge}
-                    onChange={(e) =>
-                      setLogForm((f) => ({ ...f, logKnowledge: e.target.value }))
-                    }
-                    placeholder="Nhập chi tiết ngữ pháp, từ vựng và bài tập đã giảng trong buổi..."
-                    className="w-full rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">
-                    Dặn dò về nhà &amp; bài tập cần nộp
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={logForm.logHomework}
-                    onChange={(e) =>
-                      setLogForm((f) => ({ ...f, logHomework: e.target.value }))
-                    }
-                    placeholder="Ghi rõ bài tập cần làm, thời hạn nộp và yêu cầu luyện tập..."
-                    className="w-full rounded-lg border border-slate-200 bg-white p-3 text-xs leading-relaxed outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </div>
-
-                <div className="flex justify-end">
-                  <Button
-                    size="sm"
-                    onClick={handleSaveLog}
-                    disabled={savingLog}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    {savingLog ? "Đang lưu..." : "Lưu nhật ký"}
-                  </Button>
-                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Bài giảng là tài liệu driver nhúng trong lớp — học sinh và phụ huynh xem được khi
+                  trạng thái "Đang hiển thị".
+                </p>
               </Card>
 
-              {/* Tài liệu buổi học */}
+              {/* Tài liệu bài giảng */}
               <Card className="space-y-4 p-5">
                 <div className="flex items-center gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white">
@@ -675,7 +643,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                      Tài liệu buổi học
+                      Tài liệu bài giảng
                     </h4>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       PDF, Word, ảnh hoặc âm thanh — mỗi tệp tối đa 20 MB.
@@ -690,7 +658,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                     <button
                       type="button"
                       onClick={() => setUploadError("")}
-                      className="text-rose-400 hover:text-rose-600"
+                      className="cursor-pointer text-rose-400 hover:text-rose-600"
                       aria-label="Đóng thông báo lỗi"
                     >
                       <X size={14} />
@@ -705,11 +673,11 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                     className="absolute inset-0 cursor-pointer opacity-0"
                     accept={MATERIAL_ACCEPT}
                     disabled={isUploading}
-                    aria-label="Chọn tài liệu buổi học"
+                    aria-label="Chọn tài liệu bài giảng"
                   />
                   <UploadCloud size={24} className="mb-1 text-slate-400" />
                   <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                    Nhấp để đính kèm tài liệu buổi học
+                    Nhấp để đính kèm tài liệu bài giảng
                   </p>
                   <p className="mt-0.5 text-[11px] text-slate-400">
                     PDF, Word, ảnh, âm thanh &middot; tối đa 20 MB
@@ -723,7 +691,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
 
                 {materials.length === 0 ? (
                   <p className="py-1 text-center text-xs text-slate-400">
-                    Chưa có tài liệu nào được đính kèm cho buổi học này.
+                    Chưa có tài liệu nào được đính kèm cho bài giảng này.
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -741,7 +709,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                             <p className="text-[11px] text-slate-400">
                               {material.typeLabel}
                               {material.sizeLabel ? ` · ${material.sizeLabel}` : ""}
-                              {material.uploadedBy ? ` · ${material.uploadedBy}` : ""}
+                              {material.uploadedByName ? ` · ${material.uploadedByName}` : ""}
                             </p>
                           </div>
                         </div>
@@ -749,7 +717,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                           <button
                             type="button"
                             onClick={() => handleDownloadMaterial(material)}
-                            className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
+                            className="inline-flex cursor-pointer items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
                           >
                             <Download size={12} /> Tải về
                           </button>
@@ -757,7 +725,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                             type="button"
                             onClick={() => setConfirmDeleteMaterial(material)}
                             disabled={deletingMaterialId === material.materialId}
-                            className="inline-flex items-center gap-1 rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-950"
+                            className="cursor-pointer rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-950"
                             title="Gỡ tài liệu"
                           >
                             {deletingMaterialId === material.materialId ? (
@@ -773,7 +741,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                 )}
               </Card>
 
-              {/* Quiz buổi học (FR-13: danh sách thật + CTA soạn / sửa) */}
+              {/* Quiz bài giảng (FR-13: danh sách thật + CTA soạn / sửa) */}
               <Card className="space-y-3 p-5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
@@ -782,10 +750,10 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                     </div>
                     <div>
                       <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                        Quiz buổi học
+                        Quiz bài giảng
                       </h4>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Soạn quiz trắc nghiệm cho buổi học này và giao cho học sinh.
+                        Soạn quiz trắc nghiệm cho bài giảng này và giao cho học sinh.
                       </p>
                     </div>
                   </div>
@@ -793,7 +761,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                     variant="outline"
                     size="sm"
                     as={Link}
-                    to={`${basePath}/sessions/quiz/${detail.sessionId}`}
+                    to={`${basePath}/lessons/quiz/${detail.lessonId}`}
                   >
                     <Plus size={13} /> Soạn Quiz
                   </Button>
@@ -803,7 +771,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                   <div className="h-12 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
                 ) : quizzes.length === 0 ? (
                   <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/60 p-3 text-center text-xs text-slate-400 dark:border-slate-800 dark:bg-slate-900/40">
-                    Chưa có quiz cho buổi học này.
+                    Chưa có quiz cho bài giảng này.
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -838,10 +806,10 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                                 type="button"
                                 onClick={() =>
                                   navigate(
-                                    `${basePath}/sessions/quiz/${detail.sessionId}?quizId=${quiz.quizId}`,
+                                    `${basePath}/lessons/quiz/${detail.lessonId}?quizId=${quiz.quizId}`,
                                   )
                                 }
-                                className="inline-flex items-center gap-1 rounded px-2 py-1 font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
+                                className="inline-flex cursor-pointer items-center gap-1 rounded px-2 py-1 font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
                               >
                                 <Pencil size={11} /> Sửa
                               </button>
@@ -858,20 +826,22 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
         </div>
       </div>
 
-      {/* Modal: Sửa / dời buổi học */}
-      {showEditModal && editForm && (
+      {/* Modal: tạo bài giảng mới */}
+      {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+          <div className="w-full max-w-md space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                  Sửa / dời buổi học {detail.sessionNumber}
+                  Tạo bài giảng mới
                 </h4>
-                <p className="text-[11px] text-slate-400">{classDetail?.className}</p>
+                <p className="text-[11px] text-slate-400">
+                  Bài giảng nhúng vào lớp, dùng để đính kèm tài liệu và giao quiz.
+                </p>
               </div>
               <button
                 type="button"
-                onClick={closeEditModal}
+                onClick={() => setShowCreateModal(false)}
                 className="cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 aria-label="Đóng"
               >
@@ -879,148 +849,67 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
               </button>
             </div>
 
-            {editError && (
-              <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
-                <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-500" />
-                <span>{editError}</span>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                  Tiêu đề buổi học
-                </label>
-                <input
-                  type="text"
-                  value={editForm.title}
-                  onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="VD: Buổi 5: Task 2: Cấu trúc câu phức"
-                  maxLength={200}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                    Ngày
-                  </label>
-                  <input
-                    type="date"
-                    value={editForm.sessionDate}
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={(e) =>
-                      setEditForm((f) => ({ ...f, sessionDate: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                    Giờ bắt đầu
-                  </label>
-                  <input
-                    type="time"
-                    value={editForm.startTime}
-                    onChange={(e) =>
-                      setEditForm((f) => ({ ...f, startTime: e.target.value }))
-                    }
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                    Giờ kết thúc
-                  </label>
-                  <input
-                    type="time"
-                    value={editForm.endTime}
-                    onChange={(e) => setEditForm((f) => ({ ...f, endTime: e.target.value }))}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                  Hình thức
-                </label>
-                <div className="flex gap-2">
-                  {Object.entries(TEACHING_MODE_LABELS).map(([mode, label]) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => setEditForm((f) => ({ ...f, teachingMode: mode }))}
-                      className={clsx(
-                        "flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition",
-                        editForm.teachingMode === mode
-                          ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
-                          : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800",
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {editForm.teachingMode === "ONLINE" ? (
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                    Liên kết phòng học
-                  </label>
-                  <input
-                    type="url"
-                    value={editForm.meetingUrl}
-                    onChange={(e) =>
-                      setEditForm((f) => ({ ...f, meetingUrl: e.target.value }))
-                    }
-                    placeholder="https://meet.google.com/..."
-                    maxLength={500}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </div>
-              ) : (
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                    Địa chỉ học
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.location}
-                    onChange={(e) =>
-                      setEditForm((f) => ({ ...f, location: e.target.value }))
-                    }
-                    placeholder="VD: 12 Nguyễn Huệ, Q.1, TP. Hồ Chí Minh"
-                    maxLength={500}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                Tiêu đề bài giảng <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreateLesson();
+                }}
+                placeholder="VD: Bài 5: Past Simple và Travel Vocabulary"
+                maxLength={200}
+                autoFocus
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+              {createError && (
+                <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-400">
+                  {createError}
+                </p>
               )}
             </div>
 
             <div className="flex justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-              <Button variant="secondary" size="sm" onClick={closeEditModal}>
+              <Button variant="secondary" size="sm" onClick={() => setShowCreateModal(false)}>
                 Hủy
               </Button>
-              <Button size="sm" onClick={handleSaveEdit} disabled={savingEdit}>
-                {savingEdit ? "Đang lưu..." : "Lưu thay đổi"}
+              <Button size="sm" onClick={handleCreateLesson} disabled={creating}>
+                {creating ? "Đang tạo..." : "Tạo bài giảng"}
               </Button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Confirm modal: xóa bài giảng */}
+      <ConfirmModal
+        open={confirmDeleteLesson}
+        title="Xóa bài giảng?"
+        message={
+          <span>
+            Bạn có chắc muốn xóa bài giảng{" "}
+            <strong>{detail?.title || "chưa đặt tên"}</strong>? Toàn bộ tài liệu đính kèm và quiz
+            của bài giảng cũng sẽ bị xóa khỏi hệ thống.
+          </span>
+        }
+        confirmLabel="Xóa bài giảng"
+        confirmTone="rose"
+        icon={Trash2}
+        onConfirm={handleConfirmDeleteLesson}
+        onCancel={() => setConfirmDeleteLesson(false)}
+      />
+
       {/* Confirm modal: gỡ tài liệu */}
       <ConfirmModal
         open={confirmDeleteMaterial != null}
-        title="Gỡ tài liệu buổi học"
+        title="Gỡ tài liệu bài giảng"
         message={
           <span>
-            Bạn có chắc muốn gỡ tệp{" "}
-            <strong>{confirmDeleteMaterial?.fileName}</strong> khỏi buổi học{" "}
-            {detail?.sessionNumber}? Tệp cũng sẽ bị xóa khỏi hệ thống.
+            Bạn có chắc muốn gỡ tệp <strong>{confirmDeleteMaterial?.fileName}</strong> khỏi bài
+            giảng? Tệp cũng sẽ bị xóa khỏi hệ thống.
           </span>
         }
         confirmLabel="Gỡ tài liệu"

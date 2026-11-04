@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, Loader2, MapPin, Video } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import Button from "../ui/Button";
 import clsx from "clsx";
 import { todayISO } from "../../lib/classroomApi";
@@ -8,19 +8,17 @@ import { todayISO } from "../../lib/classroomApi";
 const SUBMIT_LABELS = {
   CANCELLED: "Hủy buổi học",
   RESCHEDULED: "Dời buổi học",
-  MODIFIED: "Lưu chi tiết",
 };
 
 /**
  * Biểu mẫu ghi ngoại lệ (overlay) cho 1 ô lattice — không tạo buổi học thật.
  * Mỗi loại dùng 1 nhóm trường riêng (kế hoạch mục 3.4 "Quy ước trường theo loại"):
- * CANCELLED chỉ có lý do; RESCHEDULED có ngày mới + giờ + (tuỳ chọn) chi tiết;
- * MODIFIED chỉ override hình thức / link / địa chỉ, giờ giữ ca gốc.
+ * CANCELLED chỉ có lý do; RESCHEDULED có ngày mới + giờ (hình thức / link /
+ * địa chỉ giữ theo ca gốc của lớp, không override qua exception).
  */
 export default function ExceptionForm({
   slot,
   exceptionType,
-  classTeachingMode,
   submitting,
   serverError,
   onCancel,
@@ -32,11 +30,6 @@ export default function ExceptionForm({
     slot?.startTime?.slice(0, 5) || "",
   );
   const [newEndTime, setNewEndTime] = useState(slot?.endTime?.slice(0, 5) || "");
-  const [newTeachingMode, setNewTeachingMode] = useState(
-    classTeachingMode || "ONLINE",
-  );
-  const [newMeetingUrl, setNewMeetingUrl] = useState("");
-  const [newLocation, setNewLocation] = useState("");
   const [localError, setLocalError] = useState("");
 
   const error = localError || serverError;
@@ -58,27 +51,8 @@ export default function ExceptionForm({
         setLocalError("Giờ kết thúc phải sau giờ bắt đầu.");
         return;
       }
-      if (newTeachingMode === "ONLINE" && !newMeetingUrl.trim()) {
-        setLocalError("Vui lòng nhập liên kết phòng học cho buổi học online.");
-        return;
-      }
-      if (newTeachingMode === "AT_HOME" && !newLocation.trim()) {
-        setLocalError("Vui lòng nhập địa chỉ cho buổi học tại nhà.");
-        return;
-      }
-    }
-    if (exceptionType === "MODIFIED") {
-      if (newTeachingMode === "ONLINE" && !newMeetingUrl.trim()) {
-        setLocalError("Vui lòng nhập liên kết phòng học cho buổi học online.");
-        return;
-      }
-      if (newTeachingMode === "AT_HOME" && !newLocation.trim()) {
-        setLocalError("Vui lòng nhập địa chỉ cho buổi học tại nhà.");
-        return;
-      }
     }
 
-    const includeDetails = exceptionType === "RESCHEDULED" || exceptionType === "MODIFIED";
     onSubmit({
       scheduleId: slot?.scheduleId,
       exceptionDate: slot?.date,
@@ -87,11 +61,6 @@ export default function ExceptionForm({
       newStartTime:
         exceptionType === "RESCHEDULED" ? newStartTime : null,
       newEndTime: exceptionType === "RESCHEDULED" ? newEndTime : null,
-      newTeachingMode: includeDetails ? newTeachingMode : null,
-      newMeetingUrl:
-        includeDetails && newTeachingMode === "ONLINE" ? newMeetingUrl.trim() : null,
-      newLocation:
-        includeDetails && newTeachingMode === "AT_HOME" ? newLocation.trim() : null,
       reason: reason.trim() || null,
     });
   };
@@ -159,79 +128,6 @@ export default function ExceptionForm({
             />
           </div>
         </div>
-      )}
-
-      {(exceptionType === "RESCHEDULED" || exceptionType === "MODIFIED") && (
-        <>
-          <div>
-            <p className="mb-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
-              Hình thức học
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setNewTeachingMode("ONLINE")}
-                className={clsx(
-                  "flex cursor-pointer items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-bold transition-all",
-                  newTeachingMode === "ONLINE"
-                    ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
-                )}
-              >
-                <Video size={14} /> Online
-              </button>
-              <button
-                type="button"
-                onClick={() => setNewTeachingMode("AT_HOME")}
-                className={clsx(
-                  "flex cursor-pointer items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-bold transition-all",
-                  newTeachingMode === "AT_HOME"
-                    ? "border-blue-600 bg-blue-600 text-white"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
-                )}
-              >
-                <MapPin size={14} /> Tại nhà
-              </button>
-            </div>
-          </div>
-
-          {newTeachingMode === "ONLINE" ? (
-            <div>
-              <label
-                htmlFor="exception-meeting-url"
-                className="mb-1 block text-xs font-bold text-slate-800 dark:text-slate-200"
-              >
-                Liên kết phòng học (Zoom / Google Meet){" "}
-                <span className="text-rose-500">*</span>
-              </label>
-              <input
-                id="exception-meeting-url"
-                type="url"
-                value={newMeetingUrl}
-                onChange={(event) => setNewMeetingUrl(event.target.value)}
-                placeholder="https://meet.google.com/abc-defg-hij"
-                className={inputClass}
-              />
-            </div>
-          ) : (
-            <div>
-              <label
-                htmlFor="exception-location"
-                className="mb-1 block text-xs font-bold text-slate-800 dark:text-slate-200"
-              >
-                Địa chỉ nhà học sinh <span className="text-rose-500">*</span>
-              </label>
-              <input
-                id="exception-location"
-                type="text"
-                value={newLocation}
-                onChange={(event) => setNewLocation(event.target.value)}
-                placeholder="Số nhà, đường, quận/huyện, tỉnh/thành phố"
-                className={inputClass}
-              />
-            </div>
-          )}
-        </>
       )}
 
       {exceptionType === "CANCELLED" && (

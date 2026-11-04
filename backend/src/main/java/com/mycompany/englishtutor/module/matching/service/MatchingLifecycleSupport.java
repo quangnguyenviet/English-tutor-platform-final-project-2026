@@ -47,8 +47,10 @@ public class MatchingLifecycleSupport {
     }
 
     /**
-     * Hủy payment nháp {@code NEW} của các lớp {@code TRIAL}, hủy buổi học chưa diễn ra
-     * và chuyển mọi lớp chưa kết thúc của đơn sang {@code CANCELLED}.
+     * Hủy payment nháp {@code NEW} của các lớp {@code TRIAL}, ẩn bài giảng của
+     * lớp TRIAL (lớp chết không treo bài giảng) và chuyển mọi lớp chưa kết thúc
+     * của đơn sang {@code CANCELLED}. V16: không còn bảng sessions — bài giảng
+     * (lessons, driver nhúng lớp) chỉ cần ẩn khi lớp TRIAL; lớp ACTIVE giữ nguyên.
      */
     public void closeOpenClasses(Long classRequestId) {
         List<Long> trialClassIds = jdbcTemplate.queryForList(
@@ -56,16 +58,11 @@ public class MatchingLifecycleSupport {
                 Long.class, classRequestId);
         for (Long classId : trialClassIds) {
             paymentService.cancelDraftPayment(classId);
+            jdbcTemplate.update(
+                    "UPDATE lessons SET status = 'HIDDEN', updated_at = NOW() WHERE class_id = ? AND status = 'PUBLISHED'",
+                    classId);
         }
 
-        jdbcTemplate.update(
-                """
-                UPDATE sessions SET status = 'CANCELLED', updated_at = NOW()
-                WHERE status = 'SCHEDULED'
-                  AND class_id IN (SELECT id FROM classes
-                                   WHERE class_request_id = ? AND status IN ('TRIAL', 'ACTIVE'))
-                """,
-                classRequestId);
         jdbcTemplate.update(
                 """
                 UPDATE classes SET status = 'CANCELLED', updated_at = NOW()

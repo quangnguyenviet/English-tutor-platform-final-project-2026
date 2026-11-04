@@ -43,15 +43,15 @@ const routeMeta = {
     "/student/schedule": { label: "Lịch học" },
     "/student/exercises": { label: "Bài tập & kiểm tra" },
     "/student/progress": { label: "Kết quả & tiến bộ" },
-    "/student/materials": { label: "Tài liệu & video" },
     "/student/settings": { label: "Cài đặt" },
   },
 };
 
 const classSubTabs = {
   overview: "Tổng quan",
+  schedule: "Lịch dạy",
   path: "Lộ trình học",
-  sessions: "Nhật ký buổi học",
+  lessons: "Bài giảng",
   exercises: "Bài tập",
   materials: "Tài liệu & video",
 };

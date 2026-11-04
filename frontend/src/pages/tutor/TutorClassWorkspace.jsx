@@ -9,12 +9,10 @@ import clsx from "clsx";
 import { useAuth } from "../../context/AuthContext";
 import { students } from "../../data/mockData";
 import {
-  apiCreateSession,
-  apiCreateTrialSession,
   apiFinalizeSchedule,
   apiGetClassDetail,
   apiUpdateClassSchedules,
-  apiUpdateTrialSession,
+  apiUpsertTrialSlot,
   formatSessionDate,
   mapClassDetail,
 } from "../../lib/classroomApi";
@@ -40,17 +38,14 @@ export default function TutorClassWorkspace() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
-  // Lịch dạy cố định (UC-T09): modal form chốt/sửa + tạo buổi học on-demand.
+  // Lịch dạy cố định (UC-T09): modal form chốt/sửa ca cố định.
   const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [scheduleInitial, setScheduleInitial] = useState([]);
   const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
-  const [creatingSessionDate, setCreatingSessionDate] = useState(null);
-  const [createError, setCreateError] = useState("");
-  const [createErrorDate, setCreateErrorDate] = useState(null);
 
   // Dữ liệu mock của các tab prototype (lộ trình, bài tập, tài liệu) — giữ nguyên.
-  // Tab "Buổi học" đã nối API thật (không dùng mock).
+  // Tab "Bài giảng" đã nối API thật (không dùng mock).
   const [demoStudent] = useState(() => students[0]);
   const [pathItems, setPathItems] = useState(demoStudent.learningPath || []);
   const [exercisesList, setExercisesList] = useState(demoStudent.exercises || []);
@@ -102,16 +97,14 @@ export default function TutorClassWorkspace() {
     setSubmitting(true);
     setFormError("");
     try {
-      if (detail.trialSession) {
-        await apiUpdateTrialSession(token, classId, payload);
-        setToast({ type: "success", message: "Đã cập nhật lịch dạy thử thành công." });
-      } else {
-        await apiCreateTrialSession(token, classId, payload);
-        setToast({
-          type: "success",
-          message: `Đã thiết lập lịch dạy thử thành công cho ngày ${formatSessionDate(payload.sessionDate)}.`,
-        });
-      }
+      // V16: ca dạy thử là 6 cột trial_* trên classes — 1 PUT upsert duy nhất.
+      await apiUpsertTrialSlot(token, classId, payload);
+      setToast({
+        type: "success",
+        message: detail.trialSession
+          ? "Đã cập nhật lịch dạy thử thành công."
+          : `Đã thiết lập lịch dạy thử thành công cho ngày ${formatSessionDate(payload.sessionDate)}.`,
+      });
       setShowForm(false);
       loadDetail();
     } catch (err) {
@@ -150,31 +143,6 @@ export default function TutorClassWorkspace() {
       setScheduleError(err.message || "Không thể lưu lịch dạy cố định.");
     } finally {
       setScheduleSubmitting(false);
-    }
-  };
-
-  const handleCreateSession = async (sessionDate, startTime) => {
-    if (!token || creatingSessionDate) return;
-    setCreatingSessionDate(sessionDate);
-    setCreateError("");
-    setCreateErrorDate(null);
-    try {
-      const created = await apiCreateSession(token, classId, {
-        sessionDate,
-        startTime: startTime || null,
-      });
-      setToast({
-        type: "success",
-        message: `Đã tạo buổi học cho ngày ${formatSessionDate(sessionDate)}.`,
-      });
-      loadDetail();
-      return created?.sessionId ?? null;
-    } catch (err) {
-      setCreateError(err.message || "Không thể tạo buổi học.");
-      // Anchor lỗi ngay ô đã bấm (WP2.4), không phải đáy card.
-      setCreateErrorDate(sessionDate);
-    } finally {
-      setCreatingSessionDate(null);
     }
   };
 
@@ -380,10 +348,6 @@ export default function TutorClassWorkspace() {
           basePath,
           openTrialForm,
           openScheduleForm,
-          onCreateSession: handleCreateSession,
-          creatingSessionDate,
-          createError,
-          createErrorDate,
           // Mock cho 4 tab prototype
           student: demoStudent,
           pathItems,

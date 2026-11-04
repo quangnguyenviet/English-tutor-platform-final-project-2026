@@ -1,7 +1,7 @@
 /**
- * API quiz buổi học của gia sư (soạn quiz thủ công, FR-13) — khớp
- * backend module `quiz` (API_DESIGN.md mục 3.7, lát cắt DRAFT→ASSIGNED).
- * Base URL lấy từ VITE_API_BASE_URL (file .env.local).
+ * API quiz của gia sư (soạn quiz thủ công, FR-13, V16) — quiz gắn BÀI GIẢNG
+ * (lessons), không gắn buổi học. Khớp backend module `quiz` (mục 3.7,
+ * lát cắt DRAFT→ASSIGNED). Base URL lấy từ VITE_API_BASE_URL (.env.local).
  */
 import { bearerHeader } from "./authApi";
 
@@ -53,27 +53,27 @@ async function request(token, path, options = {}) {
   return data.result ?? data;
 }
 
-// ---------------------------------------------------- QUIZ BUỔI HỌC (FR-13)
+// ---------------------------------------------------- QUIZ BÀI GIẢNG (FR-13, V16)
 
 /**
- * Tạo quiz bản nháp (DRAFT) cho buổi học.
+ * Tạo quiz bản nháp (DRAFT) cho BÀI GIẢNG.
  * @param {string} token
- * @param {number|string} sessionId
+ * @param {number|string} lessonId
  * @param {Object} payload - { title: string,
  *   questions: [{ questionText, optionA, optionB, optionC, optionD,
  *                 correctAnswer: "A"|"B"|"C"|"D", explanation?, cefrLevel?, skillCode? }] }
  * @returns {Promise<Object>} chi tiết quiz vừa tạo (kèm danh sách câu hỏi)
  */
-export function apiCreateSessionQuiz(token, sessionId, payload) {
-  return request(token, `/api/v1/sessions/${encodeURIComponent(sessionId)}/quizzes`, {
+export function apiCreateLessonQuiz(token, lessonId, payload) {
+  return request(token, `/api/v1/lessons/${encodeURIComponent(lessonId)}/quizzes`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-/** Danh sách quiz của 1 buổi học (card "Quiz buổi học"). */
-export function apiGetSessionQuizzes(token, sessionId) {
-  return request(token, `/api/v1/sessions/${encodeURIComponent(sessionId)}/quizzes`);
+/** Danh sách quiz của 1 bài giảng (card "Quiz bài giảng"). */
+export function apiGetLessonQuizzes(token, lessonId) {
+  return request(token, `/api/v1/lessons/${encodeURIComponent(lessonId)}/quizzes`);
 }
 
 /** Chi tiết quiz (mở lại bản nháp để sửa). */

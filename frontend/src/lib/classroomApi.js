@@ -1,5 +1,8 @@
 /**
- * API lớp học của gia sư và lịch dạy thử — khớp backend/API_DESIGN.md mục 3.5 (UC-T08).
+ * API lớp học của gia sư (V16) — lịch cố định, ca thử (classes.trial_*),
+ * nhật ký dạy học (teaching_logs) trên lưới lịch, và bài giảng (lessons —
+ * tab riêng, tài liệu + quiz nhúng vào lesson). Khớp backend module
+ * classroom/quiz (API_DESIGN.md mục 3.5–3.7).
  * Base URL lấy từ VITE_API_BASE_URL (file .env.local).
  */
 import { bearerHeader } from "./authApi";
@@ -64,20 +67,12 @@ export function apiGetClassDetail(token, classId) {
 }
 
 /**
- * Thiết lập lịch dạy thử cho lớp TRIAL.
+ * Thiết lập / cập nhật ca dạy thử (V16: 6 cột trial_* trên classes, lớp TRIAL).
  * @param {Object} payload - { sessionDate: "YYYY-MM-DD", startTime: "HH:mm", endTime: "HH:mm",
  *                            teachingMode: "ONLINE" | "AT_HOME", meetingUrl?, location? }
  */
-export function apiCreateTrialSession(token, classId, payload) {
-  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/trial-session`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-/** Chỉnh sửa/dời lịch dạy thử khi buổi thử chưa diễn ra. */
-export function apiUpdateTrialSession(token, classId, payload) {
-  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/trial-session`, {
+export function apiUpsertTrialSlot(token, classId, payload) {
+  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/trial`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
@@ -104,19 +99,9 @@ export function apiUpdateClassSchedules(token, classId, payload) {
 }
 
 /**
- * Tạo buổi học on-demand theo lịch cố định (idempotent).
- * @param {Object} payload - { sessionDate: "YYYY-MM-DD", startTime?: "HH:mm" (bắt buộc khi ngày có nhiều ca) }
- */
-export function apiCreateSession(token, classId, payload) {
-  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/sessions`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-/**
- * Lattice tuần (occurrences): danh sách ô SESSION / EXCEPTION / OCCURRENCE
- * trong [weekStart, weekStart+6] (kế hoạch class-sessions mục 4.1).
+ * Lattice tuần (occurrences): danh sách ô ca cố định + overlay EXCEPTION +
+ * TeachingLogMini + ca thử (source TRIAL) trong [weekStart, weekStart+6]
+ * (kế hoạch class-sessions mục 4.1).
  */
 export function apiGetClassSchedule(token, classId, weekStart) {
   return request(
@@ -127,8 +112,8 @@ export function apiGetClassSchedule(token, classId, weekStart) {
 
 /**
  * Ghi ngoại lệ (overlay) cho 1 ô ảo của ca cố định (mục 4.2).
- * @param {Object} payload - { scheduleId, exceptionDate, exceptionType: "CANCELLED" | "RESCHEDULED" | "MODIFIED",
- *                            newDate?, newStartTime?, newEndTime?, newTeachingMode?, newMeetingUrl?, newLocation?, reason? }
+ * @param {Object} payload - { scheduleId, exceptionDate, exceptionType: "CANCELLED" | "RESCHEDULED",
+ *                            newDate?, newStartTime?, newEndTime?, reason? }
  */
 export function apiCreateException(token, classId, payload) {
   return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/exceptions`, {
@@ -146,38 +131,77 @@ export function apiDeleteException(token, classId, scheduleId, exceptionDate) {
   );
 }
 
-/** Danh sách buổi học thật của lớp (mục 4.4). */
-export function apiGetClassSessions(token, classId, { order = "asc" } = {}) {
-  const params = new URLSearchParams();
-  params.set("order", order);
+// -------------------------------------------------- TEACHING LOG (trên lưới lịch, V16)
+
+/**
+ * Ghi / sửa nhật ký dạy học cho 1 ô ca (upsert theo class + log_date + start_time).
+ * Lần đầu lưu nội dung → thông báo học sinh (firstPublish = true).
+ * @param {Object} payload - { logDate: "YYYY-MM-DD", startTime: "HH:mm", endTime: "HH:mm",
+ *                            knowledge?, homework? }
+ */
+export function apiSaveTeachingLog(token, classId, payload) {
+  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/logs`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Xóa 1 nhật ký dạy học. */
+export function apiDeleteTeachingLog(token, classId, logId) {
   return request(
     token,
-    `/api/v1/classes/${encodeURIComponent(classId)}/sessions?${params.toString()}`,
+    `/api/v1/classes/${encodeURIComponent(classId)}/logs/${encodeURIComponent(logId)}`,
+    { method: "DELETE" },
   );
 }
 
-/** Chi tiết buổi học (mục 4.5) — học sinh thấy nhật ký nguyên văn khi không null. */
-export function apiGetSession(token, sessionId) {
-  return request(token, `/api/v1/sessions/${encodeURIComponent(sessionId)}`);
+/** Đọc nhật ký của 1 ô ca (trống nếu chưa ghi). */
+export function apiGetTeachingLog(token, classId, logDate, startTime) {
+  const params = new URLSearchParams();
+  params.set("logDate", logDate);
+  params.set("startTime", startTime);
+  return request(
+    token,
+    `/api/v1/classes/${encodeURIComponent(classId)}/logs?${params.toString()}`,
+  );
 }
 
-/** Sửa / dời buổi học thật, chỉ trạng thái SCHEDULED (mục 4.6). */
-export function apiUpdateSession(token, sessionId, payload) {
-  return request(token, `/api/v1/sessions/${encodeURIComponent(sessionId)}`, {
+// -------------------------------------------------- BÀI GIẢNG (lessons, tab riêng)
+
+/** Tạo bài giảng mới cho lớp (driver nhúng, không lên lịch). */
+export function apiCreateLesson(token, classId, payload) {
+  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/lessons`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Danh sách bài giảng của lớp (ROW_NUMBER theo thời gian tạo). */
+export function apiGetClassLessons(token, classId) {
+  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/lessons`);
+}
+
+/** Chi tiết bài giảng (tiêu đề, trạng thái, tài liệu, số quiz). */
+export function apiGetLesson(token, lessonId) {
+  return request(token, `/api/v1/lessons/${encodeURIComponent(lessonId)}`);
+}
+
+/** Sửa tiêu đề và/hoặc ẩn/hiện bài giảng (PUBLISHED | HIDDEN). */
+export function apiUpdateLesson(token, lessonId, payload) {
+  return request(token, `/api/v1/lessons/${encodeURIComponent(lessonId)}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
 }
 
-/** Lưu / cập nhật nhật ký buổi học (mục 4.8). */
-export function apiUpdateSessionLog(token, sessionId, payload) {
-  return request(token, `/api/v1/sessions/${encodeURIComponent(sessionId)}/log`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
+/** Xóa bài giảng (CASCADE tự xóa tài liệu + quiz). */
+export function apiDeleteLesson(token, lessonId) {
+  return request(token, `/api/v1/lessons/${encodeURIComponent(lessonId)}`, {
+    method: "DELETE",
   });
 }
 
-// ---------------------------------------------------- TÀI LIỆU BUỔI HỌC (FR-12, FR-21)
+// ---------------------------------------------------- TÀI LIỆU BÀI GIẢNG (FR-12, FR-21)
 
 /**
  * Helper multipart — upload tệp (không phải JSON). Dùng cùng envelope
@@ -209,27 +233,27 @@ async function requestMultipart(token, path, file, field = "file") {
 }
 
 /**
- * Upload tài liệu buổi học (FR-12) — PDF, DOCX, ảnh, âm thanh; tối đa 20 MB.
- * @returns {Promise<Object>} item {@code session_materials} vừa tạo
+ * Upload tài liệu bài giảng (FR-12) — PDF, DOCX, ảnh, âm thanh; tối đa 20 MB.
+ * @returns {Promise<Object>} item {@code lesson_materials} vừa tạo
  */
-export function apiUploadSessionMaterial(token, sessionId, file) {
+export function apiUploadLessonMaterial(token, lessonId, file) {
   return requestMultipart(
     token,
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/materials`,
+    `/api/v1/lessons/${encodeURIComponent(lessonId)}/materials`,
     file,
   );
 }
 
-/** Gỡ tài liệu buổi học (FR-12). */
-export function apiDeleteSessionMaterial(token, sessionId, materialId) {
+/** Gỡ tài liệu bài giảng (FR-12). */
+export function apiDeleteLessonMaterial(token, lessonId, materialId) {
   return request(
     token,
-    `/api/v1/sessions/${encodeURIComponent(sessionId)}/materials/${encodeURIComponent(materialId)}`,
+    `/api/v1/lessons/${encodeURIComponent(lessonId)}/materials/${encodeURIComponent(materialId)}`,
     { method: "DELETE" },
   );
 }
 
-/** Link tải an toàn (ký sẵn 10 phút) cho tài liệu buổi học (FR-21). */
+/** Link tải an toàn (ký sẵn 10 phút) cho tài liệu bài giảng (FR-21). */
 export function apiGetMaterialAccessUrl(token, materialId) {
   return request(
     token,
@@ -269,7 +293,6 @@ export const SESSION_STATUS_META = {
 export const EXCEPTION_TYPE_META = {
   CANCELLED: { label: "Đã hủy", tone: "rose" },
   RESCHEDULED: { label: "Dời sang", tone: "amber" },
-  MODIFIED: { label: "Đã điều chỉnh", tone: "sky" },
 };
 
 /** "2026-10-28" → "28/10/2026" (không qua Date để tránh lệch múi giờ). */
@@ -407,16 +430,13 @@ export function mapExceptionInfo(item) {
     timeLabel: hasNewTime
       ? `${formatSessionTime(item.newStartTime)} - ${formatSessionTime(item.newEndTime)}`
       : "",
-    modeLabel: item.newTeachingMode
-      ? TEACHING_MODE_LABELS[item.newTeachingMode] || item.newTeachingMode
-      : "",
   };
 }
 
 /**
- * Chuẩn hóa 1 ô lattice tuần (mục 4.1): gộp dateLabel/timeLabel và — nếu ô
- * có buổi học thật (source = SESSION) — giữ sessionId/title/hasLog
- * (Mục -1: bỏ trạng thái buổi học).
+ * Chuẩn hóa 1 ô lattice tuần (mục 4.1, V16): ô ca cố định (OCCURRENCE) +
+ * overlay ngoại lệ (EXCEPTION) + ca thử (TRIAL), kèm TeachingLogMini nếu
+ * ô đã có nhật ký. Gộp dateLabel/timeLabel.
  */
 export function mapOccurrence(item) {
   if (!item) return null;
@@ -424,19 +444,32 @@ export function mapOccurrence(item) {
     ...item,
     dateLabel: formatSessionDate(item.date),
     timeLabel: `${formatSessionTime(item.startTime)} - ${formatSessionTime(item.endTime)}`,
+    modeLabel: item.teachingMode ? TEACHING_MODE_LABELS[item.teachingMode] || item.teachingMode : "",
     exception: mapExceptionInfo(item.exception),
+    log: item.log ? { ...item.log } : null,
     session: item.session ? { ...item.session } : null,
   };
 }
 
-/** Chuẩn hóa 1 buổi học trong danh sách (mục 4.4). */
-export function mapSessionListItem(item) {
+/**
+ * Chuẩn hóa 1 item bài giảng (danh sách + chi tiết, vì LessonListItem đã gồm
+ * materials). createdAtLabel "dd/MM/yyyy" cho created_at.
+ */
+export function mapLessonListItem(item) {
   if (!item) return null;
   return {
     ...item,
-    dateLabel: formatSessionDate(item.sessionDate),
-    timeLabel: `${formatSessionTime(item.startTime)} - ${formatSessionTime(item.endTime)}`,
-    modeLabel: TEACHING_MODE_LABELS[item.teachingMode] || item.teachingMode || "",
+    materials: Array.isArray(item.materials) ? item.materials.map(mapLessonMaterial) : [],
+    createdAtLabel: item.createdAt ? formatSessionDate(String(item.createdAt).slice(0, 10)) : "",
+  };
+}
+
+/** Chuẩn hóa chi tiết bài giảng — kèm danh sách tài liệu đính kèm. */
+export function mapLessonDetail(item) {
+  if (!item) return null;
+  return {
+    ...item,
+    materials: Array.isArray(item.materials) ? item.materials.map(mapLessonMaterial) : [],
   };
 }
 
@@ -450,8 +483,8 @@ export function formatBytes(value) {
   return `${bytes} B`;
 }
 
-/** Chuẩn hóa 1 tài liệu buổi học (bảng session_materials). */
-export function mapSessionMaterial(item) {
+/** Chuẩn hóa 1 tài liệu bài giảng (bảng lesson_materials). */
+export function mapLessonMaterial(item) {
   if (!item) return null;
   return {
     ...item,
@@ -460,14 +493,9 @@ export function mapSessionMaterial(item) {
   };
 }
 
-/** Chuẩn hóa chi tiết buổi học (mục 4.5) — kèm danh sách tài liệu đính kèm. */
-export function mapSessionDetail(item) {
-  if (!item) return null;
-  return {
-    ...item,
-    dateLabel: formatSessionDate(item.sessionDate),
-    timeLabel: `${formatSessionTime(item.startTime)} - ${formatSessionTime(item.endTime)}`,
-    modeLabel: TEACHING_MODE_LABELS[item.teachingMode] || item.teachingMode || "",
-    materials: Array.isArray(item.materials) ? item.materials.map(mapSessionMaterial) : [],
-  };
-}
+/** Nhãn trạng thái bài giảng (PUBLISHED | HIDDEN). */
+export const LESSON_STATUS_META = {
+  PUBLISHED: { label: "Đang hiển thị", tone: "emerald" },
+  HIDDEN: { label: "Đã ẩn", tone: "slate" },
+};
+

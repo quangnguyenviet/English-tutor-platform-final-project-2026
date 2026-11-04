@@ -3,27 +3,21 @@ import { Pencil } from "lucide-react";
 import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
 import ClassScheduleLattice from "../../../components/tutor/ClassScheduleLattice";
-import SessionListCard from "../../../components/tutor/SessionListCard";
-import SessionDetailCard from "../../../components/tutor/SessionDetailCard";
 import { startOfWeek, toISO } from "../../../components/tutor/FixedScheduleGrid";
 import { todayISO } from "../../../lib/classroomApi";
 
 /**
- * Tab "Lịch dạy" của workspace lớp gia sư (kế hoạch class-sessions Phase 2).
- * Thiết kế theo prototype /tutor/schedule: 1 cột dọc — lưới tuần compact trên,
- * danh sách buổi học của tuần bên dưới, chi tiết buổi học cuối.
+ * Tab "Lịch dạy" của workspace lớp gia sư (V16: lattice ca cố định +
+ * overlay ngoại lệ + nhật ký dạy học). 1 cột dọc — lưới tuần compact;
+ * nhật ký dạy học (kiến thức + dặn dò) ghi trực tiếp trong lưới (modal
+ * "ghi nhật ký" của ô ca), không còn tạo buổi học on-demand.
  */
 export default function ClassSchedulePage({
   detail,
   classId,
-  onCreateSession,
-  creatingSessionDate = null,
-  createError = "",
-  createErrorDate = null,
   onEditSchedules,
 }) {
   const [weekStart, setWeekStart] = useState(() => toISO(startOfWeek(todayISO())));
-  const [selectedSessionId, setSelectedSessionId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const bumpRefresh = () => setRefreshKey((key) => key + 1);
@@ -44,7 +38,7 @@ export default function ClassSchedulePage({
             )}
           </div>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Quản lý các lần diễn của ca cố định, buổi học thật và nhật ký của lớp.
+            Quản lý các ca cố định, ngoại lệ (hủy / dời) và nhật ký dạy học của lớp.
           </p>
         </div>
         {onEditSchedules && (
@@ -63,30 +57,10 @@ export default function ClassSchedulePage({
         classId={classId}
         weekStart={weekStart}
         onWeekStartChange={setWeekStart}
-        teachingMode={detail?.teachingMode}
-        onCreateSession={onCreateSession}
-        creatingSessionDate={creatingSessionDate}
-        createError={createError}
-        onSelectSession={setSelectedSessionId}
-        selectedSessionId={selectedSessionId}
+        // sessionDates = các ngày đã có nhật ký dạy học (teaching_logs) — V16.
         sessionDates={detail?.sessionDates || []}
-        createErrorDate={createErrorDate}
         onChanged={bumpRefresh}
         refreshKey={refreshKey}
-      />
-
-      <SessionListCard
-        classId={classId}
-        onSelectSession={setSelectedSessionId}
-        selectedSessionId={selectedSessionId}
-        refreshKey={refreshKey}
-      />
-
-      {/* Chi tiết buổi học — modal: chọn buổi từ lưới / danh sách thì mở lên */}
-      <SessionDetailCard
-        sessionId={selectedSessionId}
-        onChanged={bumpRefresh}
-        onClose={() => setSelectedSessionId(null)}
       />
     </div>
   );

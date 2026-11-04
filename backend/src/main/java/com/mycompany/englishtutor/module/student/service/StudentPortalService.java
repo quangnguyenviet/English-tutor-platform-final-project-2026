@@ -23,6 +23,7 @@ import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.EloI
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.QuizResultResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentInfo;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentMaterialItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizDetailResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentScheduleResponse;
@@ -30,6 +31,7 @@ import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.Stud
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentTutorItem;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.ClassBrief;
+import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.LogBrief;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.IncomingReschedule;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.QuizAccessRow;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.StoredAnswerRow;
@@ -80,7 +82,7 @@ public class StudentPortalService {
             }
             for (IncomingReschedule moved : repository.findIncomingReschedules(cls.id(), monday, end)) {
                 items.add(virtualItem(cls, moved.newDate(), moved.newStart(), moved.newEnd(),
-                        moved.teachingMode(), moved.meetingUrl(), moved.location(),
+                        null, null, null,
                         "Dời từ " + moved.originalDate().format(DAY_MONTH)));
             }
         }
@@ -107,14 +109,35 @@ public class StudentPortalService {
     }
 
     /**
-     * Ô lịch cố định chưa có buổi học thật → hiển thị cho học sinh đúng như gia sư đã đặt:
-     * ca thường, hủy, dời (sang ngày khác), điều chỉnh. Ô đã có buổi thật đã nằm trong danh sách buổi học.
+     * Ô lịch V16 chưa có nhật ký (OCCURRENCE), ca thử (TRIAL) hoặc có ngoại lệ
+     * (EXCEPTION) → hiển thị cho học sinh đúng như gia sư đã đặt: ca thường, hủy,
+     * dời (sang ngày khác), điều chỉnh. Ô đã có log thật nằm trong danh sách
+     * nhật ký (findSessionsBetween) nên bỏ qua ở đây để không trùng.
      */
     private StudentSessionItem toVirtualItem(
             ClassBrief cls, OccurrenceResponse occurrence, LocalDate weekStart, LocalDate weekEnd) {
-        if ("SESSION".equals(occurrence.getSource())) {
-            return null;
+        String source = occurrence.getSource();
+        switch (source) {
+            case "OCCURRENCE":
+                // Ô đã có log (nhật ký thật) đã nằm trong danh sách buổi học → không thêm duplicate.
+                if (occurrence.getLog() != null) {
+                    return null;
+                }
+                return virtualItem(cls, occurrence.getDate(), occurrence.getStartTime(), occurrence.getEndTime(),
+                        null, null, null, null);
+            case "TRIAL":
+                return virtualItem(cls, occurrence.getDate(), occurrence.getStartTime(), occurrence.getEndTime(),
+                        occurrence.getTeachingMode(), occurrence.getMeetingUrl(), occurrence.getLocation(),
+                        "Buổi dạy thử");
+            case "EXCEPTION":
+                return exceptionItem(cls, occurrence, weekStart, weekEnd);
+            default:
+                return null;
         }
+    }
+
+    private StudentSessionItem exceptionItem(
+            ClassBrief cls, OccurrenceResponse occurrence, LocalDate weekStart, LocalDate weekEnd) {
         var exception = occurrence.getException();
         if (exception == null) {
             return virtualItem(cls, occurrence.getDate(), occurrence.getStartTime(), occurrence.getEndTime(),
@@ -128,17 +151,12 @@ public class StudentPortalService {
                     yield virtualItem(cls, newDate,
                             exception.getNewStartTime() != null ? exception.getNewStartTime() : occurrence.getStartTime(),
                             exception.getNewEndTime() != null ? exception.getNewEndTime() : occurrence.getEndTime(),
-                            exception.getNewTeachingMode(), exception.getNewMeetingUrl(), exception.getNewLocation(),
+                            null, null, null,
                             "Dời từ " + occurrence.getDate().format(DAY_MONTH));
                 }
                 yield cancelledItem(cls, occurrence,
                         newDate != null ? "Đã dời sang " + newDate.format(DAY_MONTH) : "Đã dời lịch");
             }
-            case "MODIFIED" -> virtualItem(cls, occurrence.getDate(),
-                    exception.getNewStartTime() != null ? exception.getNewStartTime() : occurrence.getStartTime(),
-                    exception.getNewEndTime() != null ? exception.getNewEndTime() : occurrence.getEndTime(),
-                    exception.getNewTeachingMode(), exception.getNewMeetingUrl(), exception.getNewLocation(),
-                    "Đã điều chỉnh");
             default -> virtualItem(cls, occurrence.getDate(), occurrence.getStartTime(), occurrence.getEndTime(),
                     null, null, null, null);
         };
@@ -199,6 +217,26 @@ public class StudentPortalService {
             errors.put(key, "Không tải được khu vực này");
             return null;
         }
+    }
+
+    // ------------------------------------------------- MATERIALS THEO BUỔI (V16)
+
+    /**
+     * Tài liệu lớp khi học sinh mở chi tiết buổi (log). Guard: log phải tồn tại
+     * và lớp của log phải thuộc chính học sinh đăng nhập.
+     */
+    @Transactional(readOnly = true)
+    public List<StudentMaterialItem> getClassMaterials(Long logId) {
+        Long studentId = currentUserId();
+        LogBrief log =
+                repository
+                        .findTeachingLogById(logId)
+                        .orElseThrow(() -> new AppException(ErrorCode.SESSION_NOT_FOUND));
+        Long classStudentId = repository.findClassStudentId(log.classId());
+        if (classStudentId == null || !classStudentId.equals(studentId)) {
+            throw new AppException(ErrorCode.SESSION_NOT_OWNED);
+        }
+        return repository.findClassMaterials(log.classId(), studentId);
     }
 
     // ----------------------------------------------------------------------- QUIZ

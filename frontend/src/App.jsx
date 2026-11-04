@@ -55,7 +55,6 @@ import StudentChat from "./pages/student/StudentChat";
 import StudentExercises from "./pages/student/StudentExercises";
 import ExerciseTaking from "./pages/student/ExerciseTaking";
 import StudentProgress from "./pages/student/StudentProgress";
-import StudentMaterials from "./pages/student/StudentMaterials";
 import SpacedRepetitionSession from "./pages/student/SpacedRepetitionSession";
 import SettingsPage from "./pages/SettingsPage";
 
@@ -208,9 +207,9 @@ export default function App() {
             <Route path="classes/:classId/path" element={<TutorClassWorkspace />}>
               <Route index element={<ManageLearningPathRoute />} />
             </Route>
-            <Route path="classes/:classId/sessions" element={<TutorClassWorkspace />}>
+            <Route path="classes/:classId/lessons" element={<TutorClassWorkspace />}>
               <Route index element={<ManageSessionsRoute />} />
-              <Route path="quiz/:sessionId" element={<QuizAuthoringRoute />} />
+              <Route path="quiz/:lessonId" element={<QuizAuthoringRoute />} />
             </Route>
             <Route path="classes/:classId/schedule" element={<TutorClassWorkspace />}>
               <Route index element={<ClassScheduleRoute />} />
@@ -258,7 +257,6 @@ export default function App() {
             <Route path="exercises/:exerciseId" element={<ExerciseTaking />} />
             <Route path="spaced-repetition" element={<SpacedRepetitionSession />} />
             <Route path="progress" element={<StudentProgress />} />
-            <Route path="materials" element={<StudentMaterials />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 

@@ -168,15 +168,18 @@ Gia sư muốn rút ứng tuyển thì xóa dòng này, chỉ được khi đơn
 | `COMPLETED` | Kết thúc | không |
 | `CANCELLED` | Đã hủy | không |
 
-**Buổi học** (`sessions.status`)
+**Bài giảng** (`lessons.status`) — V16, thay `sessions`
 
 | Trạng thái | Ý nghĩa | Chuyển được sang |
 | --- | --- | --- |
-| `SCHEDULED` | Sắp diễn ra | `IN_PROGRESS`, `ABSENT` (vắng), `CANCELLED` |
-| `IN_PROGRESS` | Đang diễn ra | `COMPLETED` |
-| `COMPLETED` | Đã học | không |
-| `ABSENT` | Vắng | không |
-| `CANCELLED` | Đã hủy | không |
+| `PUBLISHED` | Đang hiển thị cho học sinh | `HIDDEN` (gia sư ẩn; lớp TRIAL bị hủy → `HIDDEN`) |
+| `HIDDEN` | Đã ẩn | `PUBLISHED` (gia sư hiện lại) |
+
+> **V16 — refactor `sessions` → `lessons` + `teaching_logs`:** không còn trạng thái "buổi học"
+> (SCHEDULED/IN_PROGRESS/COMPLETED/ABSENT/CANCELLED) hay luồng "vật chất hóa ô ảo". Nội dung buổi
+> dạy (kiến thức, dặn dò) tách sang bảng `teaching_logs` (khớp ô ca theo `class_id`+`log_date`+
+> `start_time`, UNIQUE C-15'); ca thử lưu trên 6 cột `classes.trial_*` (chỉ khi `status = TRIAL`);
+> bảng con đổi tên `lesson_materials`, `quizzes.lesson_id`, `schedule_exceptions`.
 
 **Phí nhận lớp** (`payments.status`)
 
@@ -268,7 +271,7 @@ Validate SĐT: regex `^(0|\+84|84)(3|5|7|8|9)\d{8}$`, sai trả 400 "Số điệ
 | POST | `/api/v1/class-requests/{id}/cancel` | RECEPTIONIST, ADMIN | Body `{ reason }` bắt buộc. → `CANCELLED`; thông báo gia sư đã ứng tuyển | FR-27 |
 | GET | `/api/v1/class-requests/{id}/applications` | RECEPTIONIST, ADMIN | Danh sách gia sư ứng tuyển (tên, thời gian, lời nhắn) | FR-26 |
 | POST | `/api/v1/class-requests/{id}/select-tutor` | RECEPTIONIST, ADMIN | Body `{ applicationId }`. Đơn `OPEN` hoặc `REMATCH` (khác → 409 `CLASS_REQUEST_NOT_SELECTABLE` 1161). Application `SELECTED`, các application `APPLIED` khác `REJECTED`; tạo `classes` (`TRIAL`) + payment `NEW`; request → `MATCHED`. Một transaction | FR-26 |
-| POST | `/api/v1/match-requests/{id}/rematch` | RECEPTIONIST, ADMIN | Body `{ reason }` bắt buộc. Dạy thử không thành công, phụ huynh muốn tìm gia sư khác (UC-REC-06.1 nhánh 5.2, UC-PA-05): đơn `MATCHED` + lớp mới nhất `TRIAL` (khác → 409 `MATCH_REQUEST_NOT_TRIAL` 1111) → `REMATCH`; hủy lớp `TRIAL`, buổi `SCHEDULED`, payment `NEW`; gia sư cũ `TERMINATED`; thông báo gia sư cũ + học sinh; audit `REMATCH_MATCH_REQUEST`. Danh sách/đếm `GET /match-requests` và `GET /class-requests` có thêm tab `rematch` | FR-30 |
+| POST | `/api/v1/match-requests/{id}/rematch` | RECEPTIONIST, ADMIN | Body `{ reason }` bắt buộc. Dạy thử không thành công, phụ huynh muốn tìm gia sư khác (UC-REC-06.1 nhánh 5.2, UC-PA-05): đơn `MATCHED` + lớp mới nhất `TRIAL` (khác → 409 `MATCH_REQUEST_NOT_TRIAL` 1111) → `REMATCH`; hủy lớp `TRIAL`, bài giảng chuyển `HIDDEN` (V16, thay "buổi SCHEDULED"), payment `NEW`; gia sư cũ `TERMINATED`; thông báo gia sư cũ + học sinh; audit `REMATCH_MATCH_REQUEST`. Danh sách/đếm `GET /match-requests` và `GET /class-requests` có thêm tab `rematch` | FR-30 |
 | POST | `/api/v1/class-requests/{id}/assign-tutor` | RECEPTIONIST, ADMIN | Luồng chỉ định: Body `{ className, sessionsPerWeek, durationMinutes, teachingMode, pricePerSession }`. Tạo `classes` (`TRIAL`); request → `MATCHED` | FR-28, FR-29 |
 | POST | `/api/v1/classes/{id}/cancel` | RECEPTIONIST, ADMIN | Body `{ reason }`. Hủy lớp ở `TRIAL`/`ACTIVE`, thông báo các bên. Nếu đơn gốc còn hiệu lực → cho phép về `OPEN` (ghép lại) | FR-30 |
 | GET | `/api/v1/tutors/me/open-requests` | TUTOR | Lớp `OPEN` đang tuyển, kèm cờ `applied` | FR-08 |
@@ -283,32 +286,52 @@ Validate SĐT: regex `^(0|\+84|84)(3|5|7|8|9)\d{8}$`, sai trả 400 "Số điệ
 | Method | Path | Quyền | Mô tả | FR |
 | --- | --- | --- | --- | --- |
 | GET | `/api/v1/tutors/me/classes` | TUTOR | Lớp của tôi. Query: `status` | FR-09, FR-10 |
-| GET | `/api/v1/classes/{id}` | TUTOR (sở hữu), RECEPTIONIST, ADMIN, STUDENT (sở hữu) | Chi tiết lớp: học sinh, hình thức, học phí, `class_schedules`, trạng thái | FR-09 |
-| POST | `/api/v1/classes/{id}/trial-session` | TUTOR | Body `{ sessionDate, startTime, endTime, teachingMode, meetingUrl?, location? }`. Online bắt buộc `meetingUrl`, tại nhà bắt buộc `location`. Tạo `sessions` (`is_trial = true`), lớp vẫn `TRIAL`. 409 `SCHEDULE_CONFLICT` nếu trùng ca của gia sư; mỗi lớp tối đa 1 buổi thử | FR-09 |
-| PUT | `/api/v1/classes/{id}/trial-session` | TUTOR | Sửa/đổi lịch dạy thử (chỉ khi buổi thử còn `SCHEDULED`) | FR-09 |
-| POST | `/api/v1/classes/{id}/finalize-schedule` | TUTOR | Body `{ activeFrom, teachingMode, slots: [{ dayOfWeek, startTime, endTime }] }`. Kiểm tra trùng với lớp `ACTIVE` khác (trả rõ thứ, giờ, tên học sinh trùng); lưu `class_schedules`; lớp → `ACTIVE`, `active_from`; tạo `payments` (`NOT_SUBMITTED`, `TUTOR`, 40%); sinh `sessions` cho 4 tuần tới. Một transaction | FR-10 |
-| PATCH | `/api/v1/classes/{id}/tutor-note` | TUTOR | Ghi chú riêng của gia sư (học sinh không thấy) | — |
+| GET | `/api/v1/classes/{id}` | TUTOR (sở hữu), RECEPTIONIST, ADMIN, STUDENT (sở hữu) | Chi tiết lớp: học sinh, hình thức, học phí, `class_schedules`, ca thử `trial_*`, các ngày có log | FR-09 |
+| PUT | `/api/v1/classes/{id}/trial` | TUTOR | V16: ca thử lưu trên 6 cột `classes.trial_*` (thay `sessions` `is_trial`). Body `{ sessionDate, startTime, endTime, teachingMode, meetingUrl?, location? }` (upsert). Online bắt buộc `meetingUrl`, tại nhà bắt buộc `location`. Chỉ khi lớp `TRIAL`. 409 `SCHEDULE_CONFLICT` nếu trùng ca của gia sư | FR-09 |
+| POST | `/api/v1/classes/{id}/finalize-schedule` | TUTOR | V16: Body `{ schedules: [{ dayOfWeek, startTime, endTime, validFrom, validTo? }] }` (mỗi ca có khoảng hiệu lực riêng). Kiểm tra trùng với lớp `ACTIVE` khác; lưu `class_schedules`; lớp → `ACTIVE`; tạo `payments` (`NOT_SUBMITTED`). **Không còn sinh session**. Một transaction | FR-10 |
+| PUT | `/api/v1/classes/{id}/schedules` | TUTOR | V16: cập nhật (ghi đè) lịch cố định của lớp `ACTIVE`. Cùng shape body `finalize-schedule`. Xóa `schedule_exceptions` cũ theo ca bị gỡ | FR-10 |
+| POST | `/api/v1/classes/{id}/exceptions` | TUTOR | V16 (bảng `schedule_exceptions`), V17 (bỏ 3 cột override + loại `MODIFIED`): ghi overlay cho 1 ô ca — `{ scheduleId, exceptionDate, exceptionType: CANCELLED\|RESCHEDULED, newDate?, newStartTime?, newEndTime?, reason? }`. `RESCHEDULED` chỉ đổi ngày + khung giờ; hình thức/link/địa chỉ giữ theo ca gốc của lớp. Ô đã có log chặn `CANCELLED`/`RESCHEDULED` (R-LOG) | FR-11 |
+| DELETE | `/api/v1/classes/{id}/exceptions/{scheduleId}/{exceptionDate}` | TUTOR | V16: gỡ ngoại lệ của 1 ô | FR-11 |
 
-Công thức `payments.amount`: `fee_percentage × số_dòng_class_schedules × 4 × price_per_session`, làm tròn nghìn đồng.
+Công thức `payments.amount`: `fee_percentage × sessions_per_week × 4 × price_per_session`, làm tròn nghìn đồng.
 
-### 3.6. Buổi học & Nhật ký (module `session`)
+### 3.6. Lịch dạy, Nhật ký & Bài giảng (module `classroom`, V16)
+
+> **V16 refactor:** nhóm 3.6 cũ (`/sessions`) tách thành 2 luồng: (1) **Lattice + nhật ký dạy học**
+> (ô ca trên lịch — ghi `teaching_logs`, overlay `schedule_exceptions`), (2) **Bài giảng `lessons`**
+> (tab riêng — driver nhúng, không mang ngày/giờ). Không còn endpoint tạo/đổi trạng thái "buổi học".
+
+**Lattice & nhật ký dạy học (đọc đa vai trò — `ClassOccurrenceController`):**
 
 | Method | Path | Quyền | Mô tả | FR |
 | --- | --- | --- | --- | --- |
-| GET | `/api/v1/tutors/me/schedule` | TUTOR | Lịch dạy. Query: `view` (`week`\|`month`), `date` (mốc). Item: học sinh, giờ, hình thức, `sessionId?` | FR-11 |
-| POST | `/api/v1/classes/{classId}/sessions` | TUTOR | Tạo buổi học (từ ca lịch hoặc thủ công). Kiểm tra trùng ca | FR-11, FR-12 |
-| GET | `/api/v1/classes/{classId}/sessions` | TUTOR, STUDENT (sở hữu), RECEPTIONIST, ADMIN | Danh sách buổi, kèm số thứ tự tính bằng `ROW_NUMBER()`. Query `order` (tutor tăng, student giảm), `status` | FR-12, FR-19 |
-| GET | `/api/v1/sessions/{id}` | TUTOR, STUDENT (sở hữu), RECEPTIONIST, ADMIN | Chi tiết: thông tin chung, tài liệu, quiz và kết quả, nhật ký. Học sinh chỉ thấy nhật ký khi đã công bố | FR-12, FR-20 |
-| PUT | `/api/v1/sessions/{id}` | TUTOR | Sửa tiêu đề, ngày giờ, hình thức, link/địa điểm | FR-12 |
-| POST | `/api/v1/sessions/{id}/status` | TUTOR | Body `{ status: IN_PROGRESS\|COMPLETED\|ABSENT\|CANCELLED }` theo máy trạng thái | FR-12 |
-| PUT | `/api/v1/sessions/{id}/log` | TUTOR | Body `{ logKnowledge, logHomework }`. Gửi thông báo cho học sinh khi lưu lần đầu | FR-12 |
-| POST | `/api/v1/sessions/{id}/materials` | TUTOR | Upload tài liệu (`.pdf`, `.docx`, ảnh, âm thanh), kiểm tra loại và dung lượng | FR-12 |
-| DELETE | `/api/v1/sessions/{id}/materials/{materialId}` | TUTOR | Gỡ tài liệu | FR-12 |
-| GET | `/api/v1/materials/{id}/access-url` | TUTOR, STUDENT (sở hữu) | Trả URL ký sẵn có hạn (10 phút) và cờ `previewable` (PDF, ảnh, âm thanh xem trực tiếp; còn lại chỉ tải). Tệp đã gỡ → `MATERIAL_UNAVAILABLE` | FR-21 |
-| GET | `/api/v1/students/me/schedule` | STUDENT | Lịch tuần (T2–CN) với trạng thái buổi. Query `weekStart` | FR-19 |
-| GET | `/api/v1/students/me/sessions` | STUDENT | Lịch sử buổi học, lọc theo gia sư/lớp | FR-19 |
-| GET | `/api/v1/students/me/tutors` | STUDENT | Gia sư đang dạy kèm tiến trình (môn, ngày bắt đầu, lịch cố định, số buổi đã học) | FR-18 (S) |
-| GET | `/api/v1/students/me/dashboard` | STUDENT | Gộp: thông tin học sinh/gia sư, buổi sắp tới và gần nhất, bài cần làm, Elo, thông báo. Mỗi khu vực lỗi độc lập (`null` + `error`), không làm hỏng cả phản hồi | FR-17 |
+| GET | `/api/v1/classes/{id}/schedule?weekStart=` | TUTOR, STUDENT (sở hữu), RECEPTIONIST, ADMIN | Lattice tuần: ô ca cố định (`class_schedules`) + overlay `schedule_exceptions` + nhật ký `teaching_logs` + ca thử (`classes.trial_*`). Item kèm `log` (TeachingLogMini) nếu ô đã có log | FR-11, FR-19 |
+| GET | `/api/v1/classes/{id}/logs?logDate=&startTime=` | TUTOR, STUDENT (sở hữu), RECEPTIONIST, ADMIN | Đọc nhật ký của 1 ô ca (modal trên lưới); trống nếu chưa ghi | FR-12 |
+| POST | `/api/v1/classes/{id}/logs` | TUTOR | Ghi/sửa nhật ký (upsert theo `class_id`+`log_date`+`start_time`, C-15'). Body `{ logDate, startTime, endTime, knowledge?, homework? }`. Log đầu (firstPublish) mới thông báo học sinh; ô có exception `CANCELLED`/`RESCHEDULED` bị chặn (R-LOG) | FR-12 |
+| DELETE | `/api/v1/classes/{id}/logs/{logId}` | TUTOR | Xóa 1 nhật ký dạy học | FR-12 |
+
+**Bài giảng `lessons` (viết — `TutorClassController`, chỉ TUTOR):**
+
+| Method | Path | Quyền | Mô tả | FR |
+| --- | --- | --- | --- | --- |
+| POST | `/api/v1/classes/{id}/lessons` | TUTOR | Tạo bài giảng (driver nhúng, không lên lịch). Body `{ title? }` (mặc định "Bài giảng") | FR-12 |
+| GET | `/api/v1/classes/{id}/lessons` | TUTOR | Danh sách bài giảng của lớp (ROW_NUMBER theo thời gian tạo), kèm số tài liệu + số quiz | FR-12 |
+| GET | `/api/v1/lessons/{id}` | TUTOR | Chi tiết bài giảng: tiêu đề, trạng thái, tài liệu, số quiz | FR-12 |
+| PUT | `/api/v1/lessons/{id}` | TUTOR | Sửa tiêu đề và/hoặc ẩn/hiện (`PUBLISHED` \| `HIDDEN`) | FR-12 |
+| DELETE | `/api/v1/lessons/{id}` | TUTOR | Xóa bài giảng (CASCADE tự xóa tài liệu + quiz) | FR-12 |
+| POST | `/api/v1/lessons/{id}/materials` | TUTOR | Upload tài liệu bài giảng (`.pdf`, `.docx`, ảnh, âm thanh), kiểm tra loại + dung lượng (≤ 20 MB) | FR-12 |
+| DELETE | `/api/v1/lessons/{id}/materials/{materialId}` | TUTOR | Gỡ tài liệu | FR-12 |
+| GET | `/api/v1/materials/{id}/access-url` | TUTOR, STUDENT (sở hữu) | Link tải an toàn (ký sẵn 10 phút) cho tài liệu bài giảng; cờ `previewable`. Tệp đã gỡ → `MATERIAL_UNAVAILABLE` | FR-21 |
+
+**Cổng học sinh (đọc theo log/bài giảng — `StudentPortalController`):**
+
+| Method | Path | Quyền | Mô tả | FR |
+| --- | --- | --- | --- | --- |
+| GET | `/api/v1/students/me/schedule` | STUDENT | Lịch tuần (T2–CN) đọc từ `class_schedules` + `teaching_logs` + `schedule_exceptions` + ca thử `trial_*`. Query `weekStart` | FR-19 |
+| GET | `/api/v1/students/me/sessions` | STUDENT | Lịch sử buổi học (giờ đây = danh sách `teaching_logs`), lọc theo gia sư/lớp | FR-19 |
+| GET | `/api/v1/students/me/sessions/{logId}/materials` | STUDENT | Tài liệu kèm buổi (từ các bài giảng `PUBLISHED` của lớp) | FR-20 |
+| GET | `/api/v1/students/me/tutors` | STUDENT | Gia sư đang dạy kèm tiến trình (môn, ngày bắt đầu, lịch cố định, số bài giảng `PUBLISHED`) | FR-18 (S) |
+| GET | `/api/v1/students/me/dashboard` | STUDENT | Gộp: thông tin HS/gia sư, buổi sắp tới (ô ca `class_schedules`/`trial_*` trong hiệu lực gần nhất) và gần nhất, bài cần làm, Elo, thông báo. Mỗi khu vực lỗi độc lập | FR-17 |
 
 ### 3.7. Quiz, Elo & AI (module `quiz`; AI Service là service riêng)
 
@@ -318,11 +341,10 @@ Công thức `payments.amount`: `fee_percentage × số_dòng_class_schedules ×
 | --- | --- | --- | --- | --- |
 | GET | `/api/v1/skills` | AUTH | Danh mục kỹ năng (seed) | FR-13 |
 | GET | `/api/v1/classes/{classId}/skill-profile` | TUTOR (sở hữu) | Bảng thống kê hồ sơ học sinh (SKP) từ view `v_student_skill_stats`, sắp theo `error_rate` | FR-13 |
-| POST | `/api/v1/sessions/{sessionId}/quizzes/ai-chat` | TUTOR | Body `{ message, quizId?, attachments? }` (multipart). Backend lấy SKP + lịch sử chat (MongoDB `ai_chat_messages`), gọi AI Service, lưu hội thoại, trả `{ reply, draftQuestions[] }`. Timeout 60 s, retry 1 lần | FR-13 |
-| POST | `/api/v1/sessions/{sessionId}/quizzes` | TUTOR | Tạo quiz `DRAFT` (`source = AI_DIRECT`) từ câu hỏi đã chọn | FR-13 |
+| POST | `/api/v1/lessons/{lessonId}/quizzes` | TUTOR | V16: tạo quiz `DRAFT` gắn **bài giảng** (scope theo lesson, không theo buổi) — gia sư nhập thủ công danh sách câu hỏi (`source = IMPORTED`) | FR-13 |
+| GET | `/api/v1/lessons/{lessonId}/quizzes` | TUTOR | V16: danh sách quiz của bài giảng (card "Quiz bài giảng") | FR-13 |
 | GET | `/api/v1/quizzes/import-prompt` | TUTOR | Query `classId`. Trả prompt mẫu (nhúng kỹ năng yếu và chuẩn JSON CEFR) | FR-14 |
-| POST | `/api/v1/sessions/{sessionId}/quizzes/import` | TUTOR | Body `{ json }`. Kiểm định cấu trúc (đủ A–D, `correct_answer` ∈ A–D, `cefr_level`, `skill_code` tồn tại); lỗi trả danh sách `{ questionNumber, field, message }`; thành công tạo quiz `DRAFT` (`IMPORTED`) | FR-14 |
-| PUT | `/api/v1/quizzes/{id}` | TUTOR | Sửa tiêu đề, câu hỏi khi còn `DRAFT` | FR-13 |
+| PUT | `/api/v1/quizzes/{id}` | TUTOR | Sửa tiêu đề + ghi đè câu hỏi khi còn `DRAFT` | FR-13 |
 | POST | `/api/v1/quizzes/{id}/assign` | TUTOR | Body `{ deadline }`. `DRAFT → ASSIGNED`, thông báo học sinh | FR-13 |
 | GET | `/api/v1/quizzes/{id}` | TUTOR (sở hữu), STUDENT (sở hữu, ẩn đáp án chưa trả lời) | Chi tiết quiz | FR-13, FR-22 |
 | GET | `/api/v1/students/me/quizzes` | STUDENT | Bài cần làm. Query `status` | FR-17, FR-22 |
@@ -330,6 +352,11 @@ Công thức `payments.amount`: `fee_percentage × số_dòng_class_schedules ×
 | POST | `/api/v1/quizzes/{id}/questions/{questionId}/answer` | STUDENT | Body `{ selectedAnswer }`. Chấm ngay, trả `{ isCorrect, correctAnswer, explanation, eloBefore, eloAfter, eloChange }`. UNIQUE (student, question) → gọi lại trả lại kết quả cũ (idempotent). Cập nhật `students.elo`. Hoàn tất → quiz `COMPLETED` | FR-22 |
 | GET | `/api/v1/quizzes/{id}/result` | STUDENT, TUTOR | Tổng kết: số đúng/sai, tổng Elo thay đổi | FR-22 |
 | GET | `/api/v1/students/me/review-list` | STUDENT | Danh sách ôn tập: các câu `is_correct = false` | FR-22 |
+
+> **V16:** quiz gắn **bài giảng** (`quizzes.lesson_id`) thay buổi học — học sinh xem quiz theo lớp/bài
+> giảng, không còn "thuộc buổi" (D-03). Đường dẫn quiz đổi từ `/sessions/{sessionId}/quizzes` sang
+> `/lessons/{lessonId}/quizzes`. Lát cắt hiện tại là nhập **thủ công** (chưa có AI chat / import
+> file — mục AI Service bên dưới giữ cho giai đoạn sau).
 
 **Elo:** công thức chuẩn `E = 1 / (1 + 10^((Rq − Rs) / 400))`, `Rs' = Rs + K × (S − E)`, K = 32. `Rq` (độ khó câu hỏi) quy từ CEFR: A1=800, A2=1000, B1=1200, B2=1400, C1=1600, C2=1800. Elo khởi điểm của học sinh: 1000. Hằng số đặt trong `EloProperties`.
 
@@ -401,7 +428,7 @@ Khi ghép lớp thành công (`class_requests` chuyển `MATCHED`) → gia sư x
 | `AuditLogService` | `log(action, entityType, entityId, details)`, tự lấy `user_id` từ `SecurityContext` và IP từ request. Ghi trong cùng transaction với thao tác nghiệp vụ | 3.3, 3.8, 3.9, 3.10 |
 | `NotificationService` | `notify(userId, title, content, entityType, entityId)`. Thông báo cho phụ huynh đi qua tài khoản học sinh | Mọi module |
 | `StorageService` (đã có) | Bổ sung `presignedUrl(key, ttl)` để cấp link tải an toàn | 3.6, 3.8, 3.9 |
-| `ScheduleConflictChecker` | Kiểm tra trùng ca theo gia sư (`class_schedules` của lớp `ACTIVE` + `sessions` `SCHEDULED`) | 3.5, 3.6 |
+| `ScheduleConflictChecker` | V16: kiểm tra trùng ca theo gia sư (so trên `class_schedules` của các lớp `ACTIVE` + ca thử `classes.trial_*`; không còn dựa vào `sessions`) | 3.5, 3.6 |
 | `EloCalculator` | Hàm thuần `(rs, rq, correct) → rs'`, có unit test | 3.7 |
 | `AiClient` | `RestClient` gọi AI Service, timeout 60 s, retry 1 lần, map lỗi về `AI_SERVICE_UNAVAILABLE` | 3.7 |
 
@@ -411,12 +438,19 @@ Khi ghép lớp thành công (`class_requests` chuyển `MATCHED`) → gia sư x
 | --- | --- |
 | V4 | `parents`, `students`, `employees`; cột `users.must_change_password`, `users.status`; seed tài khoản ADMIN/RECEPTIONIST/ACCOUNTANT/STUDENT mẫu |
 | V5 | `class_requests`, `class_applications`, `classes` (partial unique index lớp `TRIAL`/`ACTIVE` theo `class_request_id`), `class_schedules` |
-| V6 | `sessions` (partial unique index buổi thử), `session_materials`, `notifications`, `audit_logs` |
-| V7 | `skills` (seed), `quizzes`, `quiz_questions`, `quiz_answers`, view `v_student_skill_stats` |
+| V6 | `sessions` (đổi tên → `lessons` ở V16), `session_materials` (→ `lesson_materials` ở V16), `notifications`, `audit_logs`; seed mẫu |
+| V7 | `skills` (seed), `quizzes` (cột `session_id` → `lesson_id` ở V16), `quiz_questions`, `quiz_answers`, view `v_student_skill_stats` |
 | V8 | `payments`, `complaints`, `complaint_attachments`, `refunds` |
 | V9 | `payments`: nới `fee_percentage` thành 0–50 và `amount >= 0` (T7-C2) |
+| V10 | `class_requests.sessions_per_week` + `fee_percentage`, trạng thái `REMATCH`; `tutors.is_open_to_teaching` |
+| V11 | `class_schedules.valid_from`/`valid_to` (khoảng hiệu lực từng ca), `classes.sessions_per_week`; `payments` thêm `NEW`/`CANCELLED`, `amount` NULL khi `NEW` |
+| V12 | `payments.amount` nullable (sửa) |
+| V13 | `session_exceptions` (overlay ô ảo) → đổi tên `schedule_exceptions` ở V16 |
+| V14 | Seed catalog kỹ năng (≥ 20, idempotent theo `skill_code`) |
+| V15 | `class_requests` lưu thông tin HS khi đơn `NEW` (chưa có tài khoản) |
+| V16 | **Refactor lessons/logs:** `sessions` → `lessons` (bỏ ngày/giờ, `is_trial`, 2 cột log; `status` PUBLISHED/HIDDEN); bảng mới `teaching_logs` (UNIQUE `class_id`+`log_date`+`start_time`); 6 cột `classes.trial_*`; đổi tên `lesson_materials`, `quizzes.lesson_id`, `schedule_exceptions`; copy seed V6 |
 
-> Thực tế `payments`, `complaints`, `refunds` đã được tạo trong V5; V7–V8 là seed và `unaccent`. `db/migration/` hiện đã có V1–V8, mọi file mới phải tăng version, không sửa file đã merge.
+> Thực tế `payments`, `complaints`, `refunds` đã được tạo trong V5; V7–V8 là seed và `unaccent`. `db/migration/` hiện có **V1–V16**, mọi file mới phải tăng version, không sửa file đã merge (Flyway immutable — V16 đổi tên bảng cũ thay vì sửa lại migration).
 
 ## 6. Ma trận phân quyền tổng hợp
 

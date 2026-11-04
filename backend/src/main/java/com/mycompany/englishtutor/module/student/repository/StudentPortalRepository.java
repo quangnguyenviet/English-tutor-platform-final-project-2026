@@ -16,6 +16,7 @@ import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.Quiz
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizQuestion;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentMaterialItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentSessionItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentTutorItem;
 
@@ -33,7 +34,8 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class StudentPortalRepository {
 
-    /** Quiz kèm chuỗi sở hữu, dùng cho start/answer/result. */
+    /** Quiz kèm chuỗi sở hữu (V16: quiz gắn lesson), dùng cho start/answer/result.
+     *  Trường cuối giữ tên {@code sessionId} cho ổn định (thực chất là lessonId). */
     public record QuizAccessRow(
             Long quizId,
             String title,
@@ -60,30 +62,34 @@ public class StudentPortalRepository {
             LocalDate originalDate,
             LocalDate newDate,
             LocalTime newStart,
-            LocalTime newEnd,
-            String teachingMode,
-            String meetingUrl,
-            String location) {}
+            LocalTime newEnd) {}
 
     JdbcTemplate jdbc;
 
     private static final String SESSION_SELECT =
             """
-            SELECT s.id, s.class_id, c.class_name, t.full_name AS tutor_name, s.title,
-                   s.session_date, s.start_time, s.end_time, s.status, s.teaching_mode,
-                   s.meeting_url, s.location,
-                   (s.log_knowledge IS NOT NULL OR s.log_homework IS NOT NULL) AS has_log,
-                   s.log_knowledge, s.log_homework,
-                   ROW_NUMBER() OVER (PARTITION BY s.class_id
-                                      ORDER BY s.session_date, s.start_time, s.id) AS session_number,
-                   (SELECT COUNT(*) FROM session_materials m WHERE m.session_id = s.id) AS material_count
-            FROM sessions s
-            JOIN classes c ON c.id = s.class_id
-            JOIN users t ON t.id = c.tutor_id
+            SELECT t.id, t.class_id, c.class_name, u.full_name AS tutor_name,
+                   c.class_name AS title,
+                   t.log_date, t.start_time, t.end_time,
+                   'COMPLETED' AS status, c.teaching_mode,
+                   CASE WHEN c.trial_date = t.log_date AND c.trial_start_time = t.start_time
+                        THEN c.trial_meeting_url END AS meeting_url,
+                   CASE WHEN c.trial_date = t.log_date AND c.trial_start_time = t.start_time
+                        THEN c.trial_location END AS location,
+                   TRUE AS has_log,
+                   t.knowledge AS log_knowledge, t.homework AS log_homework,
+                   ROW_NUMBER() OVER (PARTITION BY t.class_id
+                                      ORDER BY t.log_date, t.start_time, t.id) AS session_number,
+                   (SELECT COUNT(*) FROM lesson_materials lm
+                        JOIN lessons l ON l.id = lm.lesson_id
+                      WHERE l.class_id = t.class_id) AS material_count
+            FROM teaching_logs t
+            JOIN classes c ON c.id = t.class_id
+            JOIN users u ON u.id = c.tutor_id
             """;
 
     private static final RowMapper<StudentSessionItem> SESSION_MAPPER = (rs, rowNum) -> {
-        LocalDate date = rs.getObject("session_date", LocalDate.class);
+        LocalDate date = rs.getObject("log_date", LocalDate.class);
         return new StudentSessionItem(
                 rs.getLong("id"),
                 rs.getLong("id"),
@@ -171,9 +177,8 @@ public class StudentPortalRepository {
         return jdbc.query(
                 """
                 SELECT e.class_id, e.exception_date, e.new_date, e.new_start_time, e.new_end_time,
-                       e.new_teaching_mode, e.new_meeting_url, e.new_location,
                        sc.start_time, sc.end_time
-                FROM session_exceptions e
+                FROM schedule_exceptions e
                 JOIN class_schedules sc ON sc.id = e.schedule_id
                 WHERE e.class_id = ? AND e.exception_type = 'RESCHEDULED'
                   AND e.new_date >= ? AND e.new_date < ?
@@ -184,10 +189,7 @@ public class StudentPortalRepository {
                         rs.getObject("exception_date", LocalDate.class),
                         rs.getObject("new_date", LocalDate.class),
                         firstNonNull(rs.getObject("new_start_time", LocalTime.class), rs.getObject("start_time", LocalTime.class)),
-                        firstNonNull(rs.getObject("new_end_time", LocalTime.class), rs.getObject("end_time", LocalTime.class)),
-                        rs.getString("new_teaching_mode"),
-                        rs.getString("new_meeting_url"),
-                        rs.getString("new_location")),
+                        firstNonNull(rs.getObject("new_end_time", LocalTime.class), rs.getObject("end_time", LocalTime.class))),
                 classId,
                 from,
                 to,
@@ -199,49 +201,104 @@ public class StudentPortalRepository {
         return first != null ? first : second;
     }
 
-    /** Buổi học của học sinh trong [from, to) — lịch tuần. */
+    /** Buổi học (nhật ký dạy học) của học sinh trong [from, to) — lịch tuần. */
     public List<StudentSessionItem> findSessionsBetween(Long studentId, LocalDate from, LocalDate to) {
         return jdbc.query(
                 SESSION_SELECT
-                        + " WHERE c.student_id = ? AND s.session_date >= ? AND s.session_date < ?"
-                        + " ORDER BY s.session_date, s.start_time, s.id",
+                        + " WHERE c.student_id = ? AND t.log_date >= ? AND t.log_date < ?"
+                        + " ORDER BY t.log_date, t.start_time, t.id",
                 SESSION_MAPPER,
                 studentId,
                 from,
                 to);
     }
 
-    /** Lịch sử buổi học, mới nhất trước; lọc theo lớp nếu có. */
+    /** Lịch sử buổi học (tất cả nhật ký), mới nhất trước; lọc theo lớp nếu có. */
     public List<StudentSessionItem> findSessionHistory(Long studentId, Long classId) {
         String sql = SESSION_SELECT
                 + " WHERE c.student_id = ?"
-                + (classId != null ? " AND s.class_id = ?" : "")
-                + " ORDER BY s.session_date DESC, s.start_time DESC, s.id DESC";
+                + (classId != null ? " AND t.class_id = ?" : "")
+                + " ORDER BY t.log_date DESC, t.start_time DESC, t.id DESC";
         return classId != null
                 ? jdbc.query(sql, SESSION_MAPPER, studentId, classId)
                 : jdbc.query(sql, SESSION_MAPPER, studentId);
     }
 
-    /** Buổi sắp tới gần nhất (chưa diễn ra, chưa hủy/vắng). */
+    /** Buổi sắp tới gần nhất: ca cố định (class_schedules) hoặc ca thử
+     *  (classes.trial_*) đầu tiên chưa diễn ra, của các lớp đang mở. */
     public Optional<StudentSessionItem> findNextSession(Long studentId) {
         return jdbc.query(
-                        SESSION_SELECT
-                                + " WHERE c.student_id = ? AND s.status IN ('SCHEDULED', 'IN_PROGRESS')"
-                                + " AND (s.session_date > CURRENT_DATE"
-                                + "      OR (s.session_date = CURRENT_DATE AND s.end_time >= CURRENT_TIME))"
-                                + " ORDER BY s.session_date, s.start_time, s.id LIMIT 1",
-                        SESSION_MAPPER,
+                        """
+                        SELECT * FROM (
+                            SELECT c.id AS class_id, c.class_name, u.full_name AS tutor_name,
+                                   cs.id AS schedule_id, cs.day_of_week AS day_of_week,
+                                   cs.start_time, cs.end_time, 'SCHEDULED' AS status,
+                                   c.teaching_mode, NULL::text AS meeting_url, NULL::text AS location,
+                                   CASE
+                                       WHEN cs.valid_from IS NOT NULL AND cs.valid_from > CURRENT_DATE
+                                           THEN cs.valid_from + (((cs.day_of_week - FLOOR(DATE_PART('isodow', cs.valid_from)) + 7) % 7)::int)
+                                       ELSE CURRENT_DATE + (((cs.day_of_week - FLOOR(DATE_PART('isodow', CURRENT_DATE)) + 7) % 7)::int)
+                                   END AS next_date,
+                                   2 AS kind
+                            FROM classes c
+                            JOIN users u ON u.id = c.tutor_id
+                            JOIN class_schedules cs ON cs.class_id = c.id
+                            WHERE c.student_id = ? AND c.status IN ('TRIAL', 'ACTIVE')
+                            UNION ALL
+                            SELECT c.id, c.class_name, u.full_name,
+                                   NULL, NULL, c.trial_start_time, c.trial_end_time,
+                                   CASE WHEN c.trial_date IS NULL THEN NULL
+                                        WHEN c.trial_date >= CURRENT_DATE THEN 'SCHEDULED' ELSE NULL END,
+                                   c.trial_teaching_mode, c.trial_meeting_url, c.trial_location,
+                                   c.trial_date, 1 AS kind
+                            FROM classes c
+                            JOIN users u ON u.id = c.tutor_id
+                            WHERE c.student_id = ? AND c.status = 'TRIAL' AND c.trial_date IS NOT NULL
+                        ) x
+                        WHERE x.next_date IS NOT NULL
+                          AND (x.kind = 1 OR (x.next_date > CURRENT_DATE
+                               OR (x.next_date = CURRENT_DATE AND x.end_time >= CURRENT_TIME)))
+                        ORDER BY x.next_date, x.start_time, x.kind
+                        LIMIT 1
+                        """,
+                        (rs, i) -> {
+                            LocalDate date = rs.getObject("next_date", LocalDate.class);
+                            String status =
+                                    date != null && date.isAfter(LocalDate.now()) ? "SCHEDULED" : "IN_PROGRESS";
+                            return new StudentSessionItem(
+                                    null,
+                                    null,
+                                    rs.getLong("class_id"),
+                                    rs.getString("class_name"),
+                                    rs.getString("tutor_name"),
+                                    null,
+                                    rs.getString("class_name"),
+                                    date,
+                                    date,
+                                    rs.getObject("start_time", LocalTime.class),
+                                    rs.getObject("end_time", LocalTime.class),
+                                    status,
+                                    rs.getString("teaching_mode"),
+                                    rs.getString("meeting_url"),
+                                    rs.getString("location"),
+                                    false,
+                                    null,
+                                    null,
+                                    0,
+                                    null);
+                        },
+                        studentId,
                         studentId)
                 .stream()
                 .findFirst();
     }
 
-    /** Buổi đã hoàn thành gần nhất. */
+    /** Buổi đã hoàn thành gần nhất = nhật ký dạy học mới nhất. */
     public Optional<StudentSessionItem> findLastCompletedSession(Long studentId) {
         return jdbc.query(
                         SESSION_SELECT
-                                + " WHERE c.student_id = ? AND s.status = 'COMPLETED'"
-                                + " ORDER BY s.session_date DESC, s.start_time DESC, s.id DESC LIMIT 1",
+                                + " WHERE c.student_id = ?"
+                                + " ORDER BY t.log_date DESC, t.start_time DESC, t.id DESC LIMIT 1",
                         SESSION_MAPPER,
                         studentId)
                 .stream()
@@ -252,7 +309,7 @@ public class StudentPortalRepository {
         return jdbc.query(
                 """
                 SELECT c.id, c.class_name, c.status, c.tutor_id, t.full_name AS tutor_name, c.active_from,
-                       (SELECT COUNT(*) FROM sessions s WHERE s.class_id = c.id AND s.status = 'COMPLETED') AS done
+                       (SELECT COUNT(*) FROM lessons l WHERE l.class_id = c.id AND l.status = 'PUBLISHED') AS done
                 FROM classes c
                 JOIN users t ON t.id = c.tutor_id
                 WHERE c.student_id = ? AND c.status IN ('TRIAL', 'ACTIVE')
@@ -283,31 +340,84 @@ public class StudentPortalRepository {
                 classId);
     }
 
+    // ------------------------------------------------------------------- MATERIALS
+
+    /** Trỏ buổi-log (id, class_id) để guard quyền truy cập tài liệu theo học sinh. */
+    public record LogBrief(Long id, Long classId) {}
+
+    public Optional<LogBrief> findTeachingLogById(Long logId) {
+        return jdbc.query(
+                        "SELECT id, class_id FROM teaching_logs WHERE id = ?",
+                        (rs, i) -> new LogBrief(rs.getLong("id"), rs.getLong("class_id")),
+                        logId)
+                .stream()
+                .findFirst();
+    }
+
+    public Long findClassStudentId(Long classId) {
+        return jdbc.query(
+                        "SELECT student_id FROM classes WHERE id = ?",
+                        (rs, i) -> rs.getLong("student_id"),
+                        classId)
+                .stream()
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Tài liệu của các bài giảng PUBLISHED thuộc lớp của chính học sinh (V16:
+     * tài liệu nằm ở lesson của lớp, không ở buổi). Hiển thị trong chi tiết
+     * buổi học khi học sinh mở buổi của lớp đó.
+     */
+    public List<StudentMaterialItem> findClassMaterials(Long classId, Long studentId) {
+        return jdbc.query(
+                """
+                SELECT lm.id, lm.file_name, lm.file_type, lm.file_size,
+                       u.full_name AS uploaded_by, lm.created_at
+                FROM lesson_materials lm
+                JOIN lessons l ON l.id = lm.lesson_id
+                JOIN classes c ON c.id = l.class_id
+                JOIN users u ON u.id = lm.uploaded_by
+                WHERE c.id = ? AND c.student_id = ? AND l.status = 'PUBLISHED'
+                ORDER BY lm.id
+                """,
+                (rs, i) -> new StudentMaterialItem(
+                        rs.getLong("id"),
+                        rs.getString("file_name"),
+                        rs.getString("file_type"),
+                        rs.getObject("file_size", Long.class),
+                        rs.getString("uploaded_by"),
+                        rs.getObject("created_at", OffsetDateTime.class)),
+                classId,
+                studentId);
+    }
+
     // ------------------------------------------------------------------- QUIZZES
 
     /**
      * Quiz học sinh nhìn thấy (ASSIGNED/COMPLETED/EXPIRED). Quiz ASSIGNED quá hạn được tính là EXPIRED.
-     * {@code status}, {@code sessionId} lọc tùy chọn; {@code answeredCount} đếm bài làm của chính học sinh.
+     * {@code status}, {@code lessonId} (vẫn nhận dưới tên tham số sessionId cho ổn định API) lọc tùy chọn;
+     * {@code answeredCount} đếm bài làm của chính học sinh.
      */
     public List<StudentQuizItem> findQuizzes(Long studentId, String status, Long sessionId) {
         String sql =
                 """
                 SELECT * FROM (
-                    SELECT q.id, q.title, q.deadline, q.total_questions, q.session_id,
-                           s.title AS session_title, t.full_name AS tutor_name,
+                    SELECT q.id, q.title, q.deadline, q.total_questions, q.lesson_id,
+                           l.title AS session_title, t.full_name AS tutor_name,
                            CASE WHEN q.status = 'ASSIGNED' AND q.deadline IS NOT NULL AND q.deadline < NOW()
                                 THEN 'EXPIRED' ELSE q.status END AS eff_status,
                            (SELECT COUNT(*) FROM quiz_answers a
                               JOIN quiz_questions qq ON qq.id = a.question_id
                              WHERE qq.quiz_id = q.id AND a.student_id = c.student_id) AS answered
                     FROM quizzes q
-                    JOIN sessions s ON s.id = q.session_id
-                    JOIN classes c ON c.id = s.class_id
+                    JOIN lessons l ON l.id = q.lesson_id
+                    JOIN classes c ON c.id = l.class_id
                     JOIN users t ON t.id = c.tutor_id
                     WHERE c.student_id = ? AND q.status <> 'DRAFT'
                 ) x
                 WHERE (?::text IS NULL OR x.eff_status = ?)
-                  AND (?::bigint IS NULL OR x.session_id = ?)
+                  AND (?::bigint IS NULL OR x.lesson_id = ?)
                 ORDER BY x.deadline NULLS LAST, x.id DESC
                 """;
         return jdbc.query(
@@ -319,7 +429,7 @@ public class StudentPortalRepository {
                         rs.getObject("deadline", OffsetDateTime.class),
                         rs.getObject("total_questions", Integer.class),
                         rs.getInt("answered"),
-                        rs.getLong("session_id"),
+                        rs.getLong("lesson_id"),
                         rs.getString("session_title"),
                         rs.getString("tutor_name")),
                 studentId,
@@ -329,13 +439,14 @@ public class StudentPortalRepository {
                 sessionId);
     }
 
+    /** {@code lessonId} = bài giảng quiz gắn với (V16: quiz gắn lesson, không gắn buổi). */
     public Optional<QuizAccessRow> findQuizAccess(Long quizId) {
         return jdbc.query(
                         """
-                        SELECT q.id, q.title, q.status, q.deadline, q.total_questions, c.student_id, c.tutor_id, q.session_id
+                        SELECT q.id, q.title, q.status, q.deadline, q.total_questions, c.student_id, c.tutor_id, q.lesson_id
                         FROM quizzes q
-                        JOIN sessions s ON s.id = q.session_id
-                        JOIN classes c ON c.id = s.class_id
+                        JOIN lessons l ON l.id = q.lesson_id
+                        JOIN classes c ON c.id = l.class_id
                         WHERE q.id = ?
                         """,
                         (rs, i) -> new QuizAccessRow(
@@ -346,7 +457,7 @@ public class StudentPortalRepository {
                                 rs.getObject("total_questions", Integer.class),
                                 rs.getLong("student_id"),
                                 rs.getLong("tutor_id"),
-                                rs.getLong("session_id")),
+                                rs.getLong("lesson_id")),
                         quizId)
                 .stream()
                 .findFirst();

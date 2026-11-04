@@ -250,7 +250,7 @@ stateDiagram-v2
 ### AD-10. Kiểm tra trùng ca của gia sư chạy trong giao dịch có khóa
 - **Quy tắc:** đặt lịch dạy thử (UC-T05) và chốt lịch cố định (UC-T06) đều kiểm tra trùng ca của gia sư trong cùng giao dịch, khóa theo gia sư (khóa mức hàng hoặc `SELECT ... FOR UPDATE` trên hàng gia sư) để hai yêu cầu đồng thời không cùng qua.
 - Thông báo lỗi nêu rõ thứ, khung giờ, tên học sinh bị trùng.
-- Bản ghi buổi học **chỉ tạo khi gia sư khởi tạo** (QT-5), nên kiểm tra trùng dựa trên lịch cố định và lịch dạy thử, không dựa vào bảng `sessions`.
+- Bản ghi nhật ký dạy học **chỉ tạo khi gia sư ghi** (QT-5), nên kiểm tra trùng dựa trên lịch cố định và lịch dạy thử (`classes.trial_*`), không dựa vào bảng `teaching_logs` (V16).
 
 ### AD-11. Hoàn tiền và thống kê tài chính
 - **Hoàn tiền là một giao dịch có khóa:** khi kế toán xác nhận đã hoàn, Backend `SELECT ... FOR UPDATE` hàng `payments` bị hoàn, kiểm tra tổng tiền đã hoàn cộng khoản mới không vượt `received_amount` (C-10 trong ERD), rồi trong cùng giao dịch: `refunds` → `PAID`, khiếu nại → `RESOLVED` kèm kết quả tự sinh, ghi audit log, thông báo lễ tân. Khóa hàng để hai kế toán không cùng hoàn một khoản.
@@ -291,7 +291,7 @@ sequenceDiagram
     participant A as AI Service
     participant L as LLM
 
-    T->>B: POST /sessions/{id}/quiz-drafts/chat (tin nhắn, tài liệu)
+    T->>B: POST /lessons/{lessonId}/quizzes (ngữ cảnh bài giảng + tin nhắn)
     B->>B: Lấy hồ sơ kỹ năng của học sinh, ẩn danh
     B->>A: POST /quiz/chat (ngữ cảnh + tin nhắn)
     A->>A: Kiểm duyệt đầu vào
@@ -362,7 +362,7 @@ ERD đầy đủ ở [`docs/New_ERD.md`](../New_ERD.md). Nhóm bảng:
 | Tài khoản | `users`, `employees` (Admin, Lễ tân, Kế toán), `parents` (chỉ lưu liên hệ, không đăng nhập), `students` |
 | Hồ sơ gia sư | `tutors`, `tutor_credentials`, `tutor_specialties`, `tutor_prices`, `tutor_availabilities`, `tutor_service_areas` |
 | Yêu cầu và ghép lớp | `class_requests`, `class_applications` |
-| Lớp và buổi học | `classes`, `class_schedules`, `sessions`, `session_materials` |
+| Lớp và bài giảng (V16) | `classes` (kèm ca thử `trial_*`), `class_schedules`, `lessons`, `lesson_materials`, `teaching_logs`, `schedule_exceptions` |
 | Quiz và Elo | `skills`, `quizzes`, `quiz_questions`, `quiz_answers`, view `v_student_skill_stats`; MongoDB `ai_chat_messages` |
 | Tài chính và khiếu nại | `payments`, `refunds`, `complaints`, `complaint_attachments` |
 | Hệ thống | `notifications`, `audit_logs` |
