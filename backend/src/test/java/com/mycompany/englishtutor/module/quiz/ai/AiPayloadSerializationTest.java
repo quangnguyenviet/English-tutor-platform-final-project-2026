@@ -43,7 +43,8 @@ class AiPayloadSerializationTest {
                                         "B",
                                         "Hiện tại đơn.",
                                         "A1",
-                                        "present_simple")),
+                                        "present_simple",
+                                        0)),
                         List.of(new AiRecentMessage("user", "Tạo 5 câu")),
                         "Tạo 5 câu B1",
                         "B1");

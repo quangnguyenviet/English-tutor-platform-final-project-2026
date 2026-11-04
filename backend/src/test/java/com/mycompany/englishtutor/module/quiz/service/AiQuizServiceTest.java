@@ -142,7 +142,8 @@ class AiQuizServiceTest {
                                         "B",
                                         "Quá khứ đơn.",
                                         "B1",
-                                        "narrative_tense")));
+                                        "narrative_tense",
+                                        0)));
         when(aiClient.quizChat(any(AiChatPayload.class))).thenReturn(ai);
 
         AiChatQuizResponse result = aiQuizService.aiChatQuiz(LESSON_ID, chatRequest("Tạo 1 câu B1"));
