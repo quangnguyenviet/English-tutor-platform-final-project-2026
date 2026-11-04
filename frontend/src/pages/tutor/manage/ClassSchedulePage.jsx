@@ -57,7 +57,6 @@ export default function ClassSchedulePage({
         classId={classId}
         weekStart={weekStart}
         onWeekStartChange={setWeekStart}
-        teachingMode={detail?.teachingMode}
         // sessionDates = các ngày đã có nhật ký dạy học (teaching_logs) — V16.
         sessionDates={detail?.sessionDates || []}
         onChanged={bumpRefresh}

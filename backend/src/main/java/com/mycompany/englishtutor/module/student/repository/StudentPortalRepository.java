@@ -62,10 +62,7 @@ public class StudentPortalRepository {
             LocalDate originalDate,
             LocalDate newDate,
             LocalTime newStart,
-            LocalTime newEnd,
-            String teachingMode,
-            String meetingUrl,
-            String location) {}
+            LocalTime newEnd) {}
 
     JdbcTemplate jdbc;
 
@@ -180,7 +177,6 @@ public class StudentPortalRepository {
         return jdbc.query(
                 """
                 SELECT e.class_id, e.exception_date, e.new_date, e.new_start_time, e.new_end_time,
-                       e.new_teaching_mode, e.new_meeting_url, e.new_location,
                        sc.start_time, sc.end_time
                 FROM schedule_exceptions e
                 JOIN class_schedules sc ON sc.id = e.schedule_id
@@ -193,10 +189,7 @@ public class StudentPortalRepository {
                         rs.getObject("exception_date", LocalDate.class),
                         rs.getObject("new_date", LocalDate.class),
                         firstNonNull(rs.getObject("new_start_time", LocalTime.class), rs.getObject("start_time", LocalTime.class)),
-                        firstNonNull(rs.getObject("new_end_time", LocalTime.class), rs.getObject("end_time", LocalTime.class)),
-                        rs.getString("new_teaching_mode"),
-                        rs.getString("new_meeting_url"),
-                        rs.getString("new_location")),
+                        firstNonNull(rs.getObject("new_end_time", LocalTime.class), rs.getObject("end_time", LocalTime.class))),
                 classId,
                 from,
                 to,

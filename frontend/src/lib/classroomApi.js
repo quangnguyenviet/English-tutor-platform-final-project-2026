@@ -113,7 +113,7 @@ export function apiGetClassSchedule(token, classId, weekStart) {
 /**
  * Ghi ngoại lệ (overlay) cho 1 ô ảo của ca cố định (mục 4.2).
  * @param {Object} payload - { scheduleId, exceptionDate, exceptionType: "CANCELLED" | "RESCHEDULED",
- *                            newDate?, newStartTime?, newEndTime?, newTeachingMode?, newMeetingUrl?, newLocation?, reason? }
+ *                            newDate?, newStartTime?, newEndTime?, reason? }
  */
 export function apiCreateException(token, classId, payload) {
   return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/exceptions`, {
@@ -429,9 +429,6 @@ export function mapExceptionInfo(item) {
     newDateLabel: item.newDate ? formatSessionDate(item.newDate) : "",
     timeLabel: hasNewTime
       ? `${formatSessionTime(item.newStartTime)} - ${formatSessionTime(item.newEndTime)}`
-      : "",
-    modeLabel: item.newTeachingMode
-      ? TEACHING_MODE_LABELS[item.newTeachingMode] || item.newTeachingMode
       : "",
   };
 }

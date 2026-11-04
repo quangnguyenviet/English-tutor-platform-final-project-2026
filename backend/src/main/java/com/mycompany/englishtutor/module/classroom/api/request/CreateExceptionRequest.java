@@ -5,7 +5,6 @@ import java.time.LocalTime;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -16,7 +15,8 @@ import lombok.experimental.FieldDefaults;
 /**
  * Body ghi ngoại lệ (overlay) cho 1 ô ảo — lần diễn cụ thể của ca cố định
  * (kế hoạch class-sessions mục 4.2). Các trường {@code new_*} dùng theo loại:
- * RESCHEDULED bắt buộc {@code newDate} + giờ; CANCELLED bỏ qua.
+ * RESCHEDULED bắt buộc {@code newDate} + giờ; CANCELLED bỏ qua. Hình thức /
+ * link / địa chỉ giữ theo ca gốc của lớp (không override qua exception).
  */
 @Data
 @Builder
@@ -46,17 +46,6 @@ public class CreateExceptionRequest {
 
     @Schema(description = "Giờ kết thúc mới (RESCHEDULED)", example = "21:30")
     LocalTime newEndTime;
-
-    @Schema(description = "Hình thức học override (ONLINE | AT_HOME)", example = "ONLINE")
-    String newTeachingMode;
-
-    @Size(max = 500, message = "Liên kết phòng học tối đa 500 ký tự")
-    @Schema(description = "Liên kết phòng học (bắt buộc khi hình thức là ONLINE)")
-    String newMeetingUrl;
-
-    @Size(max = 500, message = "Địa chỉ học tối đa 500 ký tự")
-    @Schema(description = "Địa chỉ (bắt buộc khi hình thức là AT_HOME)")
-    String newLocation;
 
     @Schema(description = "Lý do (tuỳ chọn, hiện rõ nhất với CANCELLED)")
     String reason;

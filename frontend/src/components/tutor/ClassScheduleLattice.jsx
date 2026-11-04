@@ -80,7 +80,6 @@ export default function ClassScheduleLattice({
   classId,
   weekStart,
   onWeekStartChange,
-  teachingMode = "ONLINE",
   onChanged,
   refreshKey = 0,
   sessionDates = [],
@@ -638,7 +637,6 @@ export default function ClassScheduleLattice({
               key={modal.slot.occurrenceKey}
               slot={modal.slot}
               exceptionType={modal.exceptionType}
-              classTeachingMode={teachingMode}
               submitting={submitting}
               serverError={modalError}
               onCancel={closeExceptionModal}

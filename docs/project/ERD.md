@@ -309,7 +309,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `class_schedules`
 
-> **Mẫu lịch dạy hằng tuần** (thứ, giờ) kèm **khoảng hiệu lực** từng ca (`valid_from`/`valid_to`), chốt giữa phụ huynh và gia sư. Dùng để FE **render lịch tuần** và kiểm tra trùng ca (UC-T06). Render lịch dựa vào `valid_from`/`valid_to` trên từng ca, không dựa vào `classes.active_from` (trường này chỉ còn ghi nhận ngày kích hoạt). `valid_to = NULL` nghĩa là ca áp dụng không giới hạn (cho tới khi sửa lịch). Không phải lịch thực tế: mỗi ca × từng ngày trong khoảng hiệu lực là một **ô ảo** (occurrence); thay đổi ô ảo (hủy, dời, đổi hình thức/link/địa điểm) ghi qua bảng `schedule_exceptions` (V16, đổi tên từ `session_exceptions` — lớp overlay). **Không còn luồng vật chất hóa ô ảo** (bỏ R9, V16): ô không được "sinh" thành session thật; nội dung buổi dạy (kiến thức, dặn dò) do gia sư ghi trực tiếp vào `teaching_logs` khớp ô ca theo `(class_id, log_date, start_time)`. Hình thức/link/địa chỉ của ca thật lấy từ `classes.teaching_mode`/`location` (hoặc từ exception `MODIFIED`/`RESCHEDULED` nếu có); ca thử lấy từ `classes.trial_*`.
+> **Mẫu lịch dạy hằng tuần** (thứ, giờ) kèm **khoảng hiệu lực** từng ca (`valid_from`/`valid_to`), chốt giữa phụ huynh và gia sư. Dùng để FE **render lịch tuần** và kiểm tra trùng ca (UC-T06). Render lịch dựa vào `valid_from`/`valid_to` trên từng ca, không dựa vào `classes.active_from` (trường này chỉ còn ghi nhận ngày kích hoạt). `valid_to = NULL` nghĩa là ca áp dụng không giới hạn (cho tới khi sửa lịch). Không phải lịch thực tế: mỗi ca × từng ngày trong khoảng hiệu lực là một **ô ảo** (occurrence); thay đổi ô ảo (hủy, dời) ghi qua bảng `schedule_exceptions` (V16, đổi tên từ `session_exceptions` — lớp overlay). **Không còn luồng vật chất hóa ô ảo** (bỏ R9, V16): ô không được "sinh" thành session thật; nội dung buổi dạy (kiến thức, dặn dò) do gia sư ghi trực tiếp vào `teaching_logs` khớp ô ca theo `(class_id, log_date, start_time)`. Hình thức/link/địa chỉ của ca lấy từ `classes.teaching_mode`/`location` (hủy/dời chỉ đổi ngày + giờ, không override chi tiết — V17); ca thử lấy từ `classes.trial_*`.
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -342,7 +342,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `teaching_logs`
 
-> **Nhật ký dạy học** (V16, bảng mới — tách hoàn toàn khỏi `lessons`, D-01): chỉ chứa nội dung buổi dạy (kiến thức + dặn dò) khớp **ô ca** theo `(class_id, log_date, start_time)`. Không có `lesson_id`, không có cờ `is_trial` (D-04). Hiển thị trực tiếp trên lưới lịch dạy: bấm chip ca → modal có log + form ghi/sửa (D-06). **Không ghi/sửa log ở ô có exception `CANCELLED`/`RESCHEDULED`** (buổi không diễn ra đúng ca đó) — `MODIFIED` vẫn được (R-LOG). Log đầu tiên (cả 2 nội dung NULL trước khi lưu = `firstPublish`) mới gửi thông báo cho học sinh. Ca thử cũng chỉ là 1 dòng log thường tại ca `classes.trial_*` — không có endpoint/cờ riêng.
+> **Nhật ký dạy học** (V16, bảng mới — tách hoàn toàn khỏi `lessons`, D-01): chỉ chứa nội dung buổi dạy (kiến thức + dặn dò) khớp **ô ca** theo `(class_id, log_date, start_time)`. Không có `lesson_id`, không có cờ `is_trial` (D-04). Hiển thị trực tiếp trên lưới lịch dạy: bấm chip ca → modal có log + form ghi/sửa (D-06). **Không ghi/sửa log ở ô có exception `CANCELLED`/`RESCHEDULED`** (buổi không diễn ra đúng ca đó) (R-LOG). Log đầu tiên (cả 2 nội dung NULL trước khi lưu = `firstPublish`) mới gửi thông báo cho học sinh. Ca thử cũng chỉ là 1 dòng log thường tại ca `classes.trial_*` — không có endpoint/cờ riêng.
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -362,7 +362,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `schedule_exceptions`
 
-> **Lớp overlay (ngoại lệ) cho ô ảo của lịch cố định** (V13; đổi tên từ `session_exceptions` ở V16 — thuật ngữ "exception" giờ là overlay của **lịch**, không còn gắn với session). Mỗi ca `class_schedules` × từng ngày trong khoảng hiệu lực là một ô ảo; bảng này ghi ngoại lệ cho **một lần diễn cụ thể** mà không tạo dòng nào khác. Mỗi `(schedule_id, exception_date)` tối đa 1 ngoại lệ (UQ) — ghi đè bằng `INSERT ... ON CONFLICT DO UPDATE` (idempotent). `schedule_id` có `ON DELETE CASCADE`: xóa ca cố định (ghi đè lịch) tự dọn ngoại lệ của ca đó. Exception không bao giờ gửi thông báo (notification).
+> **Lớp overlay (ngoại lệ) cho ô ảo của lịch cố định** (V13; đổi tên từ `session_exceptions` ở V16 — thuật ngữ "exception" giờ là overlay của **lịch**, không còn gắn với session; V17 bỏ 3 cột override `new_teaching_mode`/`new_meeting_url`/`new_location` + loại `MODIFIED`). Mỗi ca `class_schedules` × từng ngày trong khoảng hiệu lực là một ô ảo; bảng này ghi ngoại lệ cho **một lần diễn cụ thể** mà không tạo dòng nào khác. Mỗi `(schedule_id, exception_date)` tối đa 1 ngoại lệ (UQ) — ghi đè bằng `INSERT ... ON CONFLICT DO UPDATE` (idempotent). `schedule_id` có `ON DELETE CASCADE`: xóa ca cố định (ghi đè lịch) tự dọn ngoại lệ của ca đó. Exception không bao giờ gửi thông báo (notification).
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -370,13 +370,10 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `class_id` | `BIGINT` | FK → classes.id, NN, ON DELETE CASCADE | FK tới lớp (giúp truy vấn lattice tuần theo lớp mà không JOIN qua schedule) |
 | `schedule_id` | `BIGINT` | FK → class_schedules.id, NN, ON DELETE CASCADE | Ca cố định sở hữu ngoại lệ. Xóa ca (ghi đè lịch) tự xóa ngoại lệ kèm theo |
 | `exception_date` | `DATE` | NN | Ngày diễn ra ô bị ảnh hưởng (ô ảo trong khoảng hiệu lực của ca) |
-| `exception_type` | `VARCHAR(20)` | NN, CHECK (`IN ('CANCELLED','RESCHEDULED','MODIFIED')`) | `CANCELLED` (ẩn lần diễn — "Đã hủy"), `RESCHEDULED` (dời sang `new_date` + giờ mới), `MODIFIED` (override chi tiết hình thức/link/địa điểm, giờ giữ nguyên ca gốc). Ô có log: `CANCELLED`/`RESCHEDULED` bị chặn (R-LOG) |
+| `exception_type` | `VARCHAR(20)` | NN, CHECK (`IN ('CANCELLED','RESCHEDULED')`) | `CANCELLED` (ẩn lần diễn — "Đã hủy"), `RESCHEDULED` (dời sang `new_date` + giờ mới; hình thức/link/địa chỉ giữ theo ca gốc). Ô có log: `CANCELLED`/`RESCHEDULED` bị chặn (R-LOG) |
 | `new_date` | `DATE` | | Ngày mới — bắt buộc với `RESCHEDULED` (backend validate `≥ hôm nay`) |
 | `new_start_time` | `TIME` | | Giờ bắt đầu mới — bắt buộc với `RESCHEDULED` |
 | `new_end_time` | `TIME` | | Giờ kết thúc mới — bắt buộc với `RESCHEDULED` (backend validate `new_start < new_end`) |
-| `new_teaching_mode` | `VARCHAR(20)` | | Hình thức mới (override) — dùng cho `RESCHEDULED`/`MODIFIED`; NULL = giữ ca gốc |
-| `new_meeting_url` | `VARCHAR(500)` | | Link phòng học mới — dùng cho `RESCHEDULED`/`MODIFIED` |
-| `new_location` | `VARCHAR(500)` | | Địa chỉ dạy mới — dùng cho `RESCHEDULED`/`MODIFIED` |
 | `reason` | `TEXT` | | Lý do ngoại lệ (hiện rõ nhất với `CANCELLED`) |
 | `created_by` | `BIGINT` | FK → users.id | Người tạo ngoại lệ (gia sư) |
 | `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm tạo |
@@ -852,9 +849,6 @@ erDiagram
         DATE new_date
         TIME new_start_time
         TIME new_end_time
-        VARCHAR new_teaching_mode
-        VARCHAR new_meeting_url
-        VARCHAR new_location
         TEXT reason
         BIGINT created_by FK
         TIMESTAMPTZ created_at
@@ -1199,7 +1193,7 @@ erDiagram
 | C-12 | Partial UNIQUE (`complaint_id`) WHERE `status IN ('PENDING','PAID')` | `refunds` | Mỗi khiếu nại chỉ có 1 yêu cầu hoàn tiền đang chờ hoặc đã chi. `refunds` `PAID` thì khiếu nại chuyển `RESOLVED`; `REJECTED` thì khiếu nại quay về `PENDING` |
 | C-13 | `fee_percentage` BETWEEN 0 AND 50 (V9); `amount >= 0` khi NOT NULL; chỉ sửa phí khi `status IN ('NEW', 'NOT_SUBMITTED')`; `amount` NOT NULL khi `status != 'NEW'` (backend enforce) | `payments` | Lễ tân hoặc Admin chỉnh tỷ lệ phí trước khi có minh chứng. Payment tạo ở `NEW` khi ghép lớp (snapshot `fee_percentage`); chuyển `NOT_SUBMITTED` + tính `amount` khi kích hoạt lớp. Lớp `TRIAL` bị hủy → payment `NEW` → `CANCELLED` |
 | C-14 | `class_requests.status` transitions (V10): `NEW → OPEN / MATCHED / CANCELLED`; `OPEN → MATCHED / CANCELLED`; `MATCHED → REMATCH / CANCELLED` (lớp `TRIAL` thất bại: phụ huynh muốn tìm gia sư khác → `REMATCH`, không muốn → `CANCELLED`); `REMATCH → MATCHED / CANCELLED`. `CANCELLED` là trạng thái cuối | `class_requests` | Khi `REMATCH`, lượt ứng tuyển `SELECTED` cũ chuyển `TERMINATED` (gia sư cũ bị loại khỏi đơn); kiểm tra ở backend |
-| C-15 | UNIQUE (`class_id`, `log_date`, `start_time`) (V16, thay C-15 cũ của `sessions` — bỏ luồng tạo buổi on-demand) | `teaching_logs` | 1 ca diễn ra 1 ngày = tối đa 1 log; ghi đè bằng upsert (idempotent). **R-LOG:** không ghi/sửa log ở ô có exception `CANCELLED`/`RESCHEDULED` (buổi không diễn ra đúng ca đó), `MODIFIED` vẫn được — kiểm tra ở backend |
+| C-15 | UNIQUE (`class_id`, `log_date`, `start_time`) (V16, thay C-15 cũ của `sessions` — bỏ luồng tạo buổi on-demand) | `teaching_logs` | 1 ca diễn ra 1 ngày = tối đa 1 log; ghi đè bằng upsert (idempotent). **R-LOG:** không ghi/sửa log ở ô có exception `CANCELLED`/`RESCHEDULED` (buổi không diễn ra đúng ca đó) — kiểm tra ở backend |
 | C-16 | UNIQUE (`schedule_id`, `exception_date`) (V16: bảng đổi tên `schedule_exceptions`) | `schedule_exceptions` | Mỗi ca chỉ có 1 ngoại lệ cho 1 ngày; ghi đè bằng `INSERT ... ON CONFLICT DO UPDATE` (idempotent). `class_id`/`schedule_id` đều `ON DELETE CASCADE` — xóa ca cố định tự dọn ngoại lệ |
 | R-TRIAL | 1 lớp TRIAL = đúng 1 ca thử, lưu trên 6 cột `trial_*` của chính dòng `classes` (V16, thay dòng `sessions` có `is_trial = TRUE`); chỉ có giá trị khi `status = TRIAL` (enforce backend); ca thử `ONLINE` bắt buộc đủ bộ `trial_date` + `trial_end_time` + `trial_meeting_url` (CHECK). Log thử là 1 dòng `teaching_logs` thường tại ca thử, không có cờ/trạng thái riêng | `classes` | Kế hoạch refactor V16 (R-TRIAL) |
 | C-LESSON | CHECK `status IN ('PUBLISHED','HIDDEN')` (V16, thay C-15/C-16 status của `sessions`) | `lessons` | Bài giảng "driver" nhúng vào lớp — chỉ ẩn/hiện, không có trạng thái dạy. Lớp TRIAL bị hủy → bài giảng `HIDDEN` (matching `closeOpenClasses`) |

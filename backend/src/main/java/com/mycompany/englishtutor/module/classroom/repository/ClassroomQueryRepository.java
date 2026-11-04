@@ -102,9 +102,6 @@ public class ClassroomQueryRepository {
             LocalDate newDate,
             LocalTime newStartTime,
             LocalTime newEndTime,
-            String newTeachingMode,
-            String newMeetingUrl,
-            String newLocation,
             String reason,
             Long createdBy,
             OffsetDateTime createdAt) {}
@@ -579,8 +576,8 @@ public class ClassroomQueryRepository {
         return jdbcTemplate.query(
                         """
                         SELECT id, class_id, schedule_id, exception_date, exception_type,
-                               new_date, new_start_time, new_end_time, new_teaching_mode,
-                               new_meeting_url, new_location, reason, created_by, created_at
+                               new_date, new_start_time, new_end_time,
+                               reason, created_by, created_at
                         FROM schedule_exceptions
                         WHERE class_id = ? AND exception_date >= ? AND exception_date < ?
                         ORDER BY exception_date, schedule_id
@@ -885,8 +882,8 @@ public class ClassroomQueryRepository {
         return jdbcTemplate.query(
                         """
                         SELECT id, class_id, schedule_id, exception_date, exception_type,
-                               new_date, new_start_time, new_end_time, new_teaching_mode,
-                               new_meeting_url, new_location, reason, created_by, created_at
+                               new_date, new_start_time, new_end_time,
+                               reason, created_by, created_at
                         FROM schedule_exceptions
                         WHERE schedule_id = ? AND exception_date = ?
                         """,
@@ -909,9 +906,6 @@ public class ClassroomQueryRepository {
             LocalDate newDate,
             LocalTime newStartTime,
             LocalTime newEndTime,
-            String newTeachingMode,
-            String newMeetingUrl,
-            String newLocation,
             String reason,
             Long createdBy) {
         return jdbcTemplate.queryForObject(
@@ -919,17 +913,13 @@ public class ClassroomQueryRepository {
                 INSERT INTO schedule_exceptions (
                     class_id, schedule_id, exception_date, exception_type,
                     new_date, new_start_time, new_end_time,
-                    new_teaching_mode, new_meeting_url, new_location,
                     reason, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (schedule_id, exception_date) DO UPDATE SET
                     exception_type = EXCLUDED.exception_type,
                     new_date = EXCLUDED.new_date,
                     new_start_time = EXCLUDED.new_start_time,
                     new_end_time = EXCLUDED.new_end_time,
-                    new_teaching_mode = EXCLUDED.new_teaching_mode,
-                    new_meeting_url = EXCLUDED.new_meeting_url,
-                    new_location = EXCLUDED.new_location,
                     reason = EXCLUDED.reason,
                     created_by = EXCLUDED.created_by
                 RETURNING id
@@ -942,9 +932,6 @@ public class ClassroomQueryRepository {
                 newDate,
                 newStartTime,
                 newEndTime,
-                newTeachingMode,
-                newMeetingUrl,
-                newLocation,
                 reason,
                 createdBy);
     }
@@ -977,8 +964,8 @@ public class ClassroomQueryRepository {
         return jdbcTemplate.query(
                         """
                         SELECT e.id, e.class_id, e.schedule_id, e.exception_date, e.exception_type,
-                               e.new_date, e.new_start_time, e.new_end_time, e.new_teaching_mode,
-                               e.new_meeting_url, e.new_location, e.reason, e.created_by, e.created_at
+                               e.new_date, e.new_start_time, e.new_end_time,
+                               e.reason, e.created_by, e.created_at
                         FROM schedule_exceptions e
                         JOIN class_schedules sc ON sc.id = e.schedule_id
                         WHERE e.class_id = ? AND e.exception_date = ?
@@ -1157,9 +1144,6 @@ public class ClassroomQueryRepository {
                     rs.getObject("new_date", LocalDate.class),
                     rs.getObject("new_start_time", LocalTime.class),
                     rs.getObject("new_end_time", LocalTime.class),
-                    rs.getString("new_teaching_mode"),
-                    rs.getString("new_meeting_url"),
-                    rs.getString("new_location"),
                     rs.getString("reason"),
                     rs.getObject("created_by", Long.class),
                     rs.getObject("created_at", OffsetDateTime.class));

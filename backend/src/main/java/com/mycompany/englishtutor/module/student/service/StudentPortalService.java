@@ -82,7 +82,7 @@ public class StudentPortalService {
             }
             for (IncomingReschedule moved : repository.findIncomingReschedules(cls.id(), monday, end)) {
                 items.add(virtualItem(cls, moved.newDate(), moved.newStart(), moved.newEnd(),
-                        moved.teachingMode(), moved.meetingUrl(), moved.location(),
+                        null, null, null,
                         "Dời từ " + moved.originalDate().format(DAY_MONTH)));
             }
         }
@@ -151,7 +151,7 @@ public class StudentPortalService {
                     yield virtualItem(cls, newDate,
                             exception.getNewStartTime() != null ? exception.getNewStartTime() : occurrence.getStartTime(),
                             exception.getNewEndTime() != null ? exception.getNewEndTime() : occurrence.getEndTime(),
-                            exception.getNewTeachingMode(), exception.getNewMeetingUrl(), exception.getNewLocation(),
+                            null, null, null,
                             "Dời từ " + occurrence.getDate().format(DAY_MONTH));
                 }
                 yield cancelledItem(cls, occurrence,

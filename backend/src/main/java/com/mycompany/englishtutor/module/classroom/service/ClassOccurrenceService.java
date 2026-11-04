@@ -222,9 +222,6 @@ public class ClassOccurrenceService {
                 .newDate(ex.newDate())
                 .newStartTime(ex.newStartTime())
                 .newEndTime(ex.newEndTime())
-                .newTeachingMode(ex.newTeachingMode())
-                .newMeetingUrl(ex.newMeetingUrl())
-                .newLocation(ex.newLocation())
                 .build();
     }
 
@@ -285,9 +282,6 @@ public class ClassOccurrenceService {
                         request.getNewDate(),
                         request.getNewStartTime(),
                         request.getNewEndTime(),
-                        request.getNewTeachingMode(),
-                        request.getNewMeetingUrl(),
-                        request.getNewLocation(),
                         request.getReason(),
                         userId);
 
@@ -342,9 +336,6 @@ public class ClassOccurrenceService {
                 .newDate(row.newDate())
                 .newStartTime(row.newStartTime())
                 .newEndTime(row.newEndTime())
-                .newTeachingMode(row.newTeachingMode())
-                .newMeetingUrl(row.newMeetingUrl())
-                .newLocation(row.newLocation())
                 .reason(row.reason())
                 .createdBy(row.createdBy())
                 .createdAt(row.createdAt())

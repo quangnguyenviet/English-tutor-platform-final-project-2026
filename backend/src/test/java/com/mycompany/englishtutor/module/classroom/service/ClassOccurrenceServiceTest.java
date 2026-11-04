@@ -151,7 +151,7 @@ class ClassOccurrenceServiceTest {
                 5L, CLASS_ID, 3L, FRI, type, newDate,
                 newDate != null ? LocalTime.of(20, 0) : null,
                 newDate != null ? LocalTime.of(21, 30) : null,
-                null, null, null, "giáo viên bận", TUTOR_ID, OffsetDateTime.now());
+                "giáo viên bận", TUTOR_ID, OffsetDateTime.now());
     }
 
     private TrialSlotRow trialSlot() {
@@ -424,7 +424,7 @@ class ClassOccurrenceServiceTest {
         when(classroomRepository.countTeachingLogAt(CLASS_ID, FRI, SLOT_START)).thenReturn(0);
         when(classroomRepository.upsertScheduleException(
                         eq(CLASS_ID), eq(3L), eq(FRI), eq("CANCELLED"),
-                        isNull(), isNull(), isNull(), isNull(), isNull(), isNull(),
+                        isNull(), isNull(), isNull(),
                         eq("giáo viên bận"), eq(TUTOR_ID)))
                 .thenReturn(5L);
         // Lần 1 (check ghi đè) = empty, lần 2 (đọc lại response) = row vừa ghi.
