@@ -8,22 +8,13 @@ import {
   UserX,
   Users,
   Clock,
-  ShieldCheck,
   Mail,
   Phone,
-  Calendar,
   GraduationCap,
   Eye,
-  MapPin,
-  Award,
-  BookOpen,
-  FileCheck,
-  FileText,
   Lock,
-  Info,
   CheckCircle,
   AlertCircle,
-  ExternalLink,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
@@ -38,6 +29,10 @@ import Button from "../../components/ui/Button";
 import StatCard from "../../components/ui/StatCard";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import {
+  CredentialImagePreview,
+  TutorDetailSections,
+} from "../../components/tutor/TutorDetailSections";
+import {
   apiGetTutors,
   apiGetTutorCounts,
   apiGetTutorDetail,
@@ -48,10 +43,10 @@ import {
 } from "../../lib/tutorApi";
 
 const statusTabs = [
+  { value: "ALL", label: "Tất cả", tone: "blue", icon: Users },
   { value: "PENDING", label: "Chờ duyệt", tone: "amber", icon: Clock },
   { value: "ACTIVE", label: "Đang hoạt động", tone: "emerald", icon: UserCheck },
   { value: "INACTIVE", label: "Ngưng hoạt động", tone: "slate", icon: UserX },
-  { value: "ALL", label: "Tất cả", tone: "blue", icon: Users },
 ];
 
 const statusMeta = {
@@ -326,15 +321,24 @@ export function TutorManagement() {
       {/* Toast thông báo */}
       {toastMessage && (
         <div
-          className={`fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-xl px-4 py-3 text-xs font-semibold shadow-2xl transition-all ${
+          className={`fixed bottom-5 right-5 z-50 flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm shadow-2xl transition-all ${
             toastMessage.isError
               ? "bg-rose-600 text-white shadow-rose-900/30"
               : "bg-emerald-600 text-white shadow-emerald-900/30"
           }`}
         >
-          {toastMessage.isError ? <AlertCircle size={16} /> : <CheckCircle size={16} />}
+          {toastMessage.isError ? (
+            <AlertCircle size={18} className="shrink-0" />
+          ) : (
+            <CheckCircle size={18} className="shrink-0" />
+          )}
           <span>{toastMessage.text}</span>
-          <button onClick={() => setToastMessage(null)} className="ml-2 opacity-70 hover:opacity-100">
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="ml-1 cursor-pointer opacity-70 transition-opacity hover:opacity-100"
+            aria-label="Đóng thông báo"
+          >
             <X size={14} />
           </button>
         </div>
@@ -643,202 +647,7 @@ export function TutorManagement() {
 
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
-              {/* Lý do từ chối nếu có */}
-              {viewingTutor.rejectionReason && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-950 dark:bg-rose-950/30">
-                  <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 font-bold mb-1">
-                    <AlertCircle size={15} />
-                    Lý do từ chối trước đó:
-                  </div>
-                  <p className="text-rose-800 dark:text-rose-200">{viewingTutor.rejectionReason}</p>
-                </div>
-              )}
-
-              {/* 1. Thông tin liên hệ & cá nhân */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/40 space-y-3">
-                <h4 className="font-bold uppercase tracking-wider text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                  <UserCheck size={14} className="text-blue-500" />
-                  1. Thông tin liên hệ &amp; Cá nhân
-                </h4>
-                <div className="grid gap-2.5 sm:grid-cols-2">
-                  <div className="flex justify-between border-b border-slate-200/60 pb-1.5 dark:border-slate-700/60">
-                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><Mail size={13} /> Email:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-100">{viewingTutor.email}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-200/60 pb-1.5 dark:border-slate-700/60">
-                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><Phone size={13} /> SĐT:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-100">{viewingTutor.phone || "Chưa cập nhật"}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-200/60 pb-1.5 dark:border-slate-700/60">
-                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><Calendar size={13} /> Ngày sinh:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-100">{viewingTutor.dateOfBirth || "Chưa cập nhật"}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-200/60 pb-1.5 dark:border-slate-700/60">
-                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><MapPin size={13} /> Quê quán:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-100">{viewingTutor.hometown || "Chưa cập nhật"}</span>
-                  </div>
-                  <div className="sm:col-span-2 flex justify-between border-b border-slate-200/60 pb-1.5 dark:border-slate-700/60">
-                    <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5"><MapPin size={13} /> Địa chỉ cư trú:</span>
-                    <span className="font-medium text-slate-800 dark:text-slate-100">{viewingTutor.address || "Chưa cập nhật"}</span>
-                  </div>
-                </div>
-
-                {viewingTutor.bio && (
-                  <div className="mt-2 rounded-lg bg-white p-3 border border-slate-200/70 dark:bg-slate-900 dark:border-slate-800">
-                    <span className="font-semibold text-slate-700 dark:text-slate-300 block mb-1">Giới thiệu bản thân:</span>
-                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed">{viewingTutor.bio}</p>
-                  </div>
-                )}
-
-                {viewingTutor.videoUrl && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                      <Video size={13} className="text-rose-500" /> Video giới thiệu:
-                    </span>
-                    <a
-                      href={viewingTutor.videoUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-blue-600 hover:underline dark:text-blue-400 font-medium"
-                    >
-                      {viewingTutor.videoUrl} <ExternalLink size={12} />
-                    </a>
-                  </div>
-                )}
-              </div>
-
-              {/* 2. Lý lịch học vấn & Bằng cấp */}
-              <div className="rounded-xl border border-blue-100 bg-blue-50/30 p-4 dark:border-blue-950 dark:bg-blue-950/20 space-y-3">
-                <h4 className="font-bold uppercase tracking-wider text-[11px] text-blue-900 dark:text-blue-300 flex items-center gap-2">
-                  <GraduationCap size={15} className="text-blue-600 dark:text-blue-400" />
-                  2. Lý lịch học vấn &amp; Kinh nghiệm
-                </h4>
-                <div className="grid gap-2.5 sm:grid-cols-2">
-                  <div className="flex justify-between bg-white p-2.5 rounded-lg border border-blue-100 dark:bg-slate-900 dark:border-slate-800">
-                    <span className="text-slate-500 dark:text-slate-400">Trường Đại học:</span>
-                    <span className="font-bold text-slate-900 dark:text-slate-100">{viewingTutor.university || "Chưa cập nhật"}</span>
-                  </div>
-                  <div className="flex justify-between bg-white p-2.5 rounded-lg border border-blue-100 dark:bg-slate-900 dark:border-slate-800">
-                    <span className="text-slate-500 dark:text-slate-400">Tình trạng học vấn:</span>
-                    <span className="font-semibold text-blue-700 dark:text-blue-400">
-                      {viewingTutor.educationStatus === "STUDENT"
-                        ? "Sinh viên"
-                        : viewingTutor.educationStatus === "GRADUATED"
-                        ? "Đã tốt nghiệp"
-                        : viewingTutor.educationStatus === "LECTURER"
-                        ? "Giảng viên"
-                        : viewingTutor.educationStatus || "Chưa cập nhật"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between bg-white p-2.5 rounded-lg border border-blue-100 dark:bg-slate-900 dark:border-slate-800">
-                    <span className="text-slate-500 dark:text-slate-400">Kinh nghiệm giảng dạy:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {viewingTutor.experienceYears ? `${viewingTutor.experienceYears} năm kinh nghiệm` : "Mới bắt đầu"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between bg-white p-2.5 rounded-lg border border-blue-100 dark:bg-slate-900 dark:border-slate-800">
-                    <span className="text-slate-500 dark:text-slate-400">Thời điểm gửi duyệt:</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                      {viewingTutor.submittedAt ? new Date(viewingTutor.submittedAt).toLocaleString("vi-VN") : "Chưa có"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 3. Chứng chỉ & Bằng cấp kèm ảnh thẩm định (Theo Use Case UC-REC-08) */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/40 space-y-3">
-                <h4 className="font-bold uppercase tracking-wider text-[11px] text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <FileCheck size={15} className="text-emerald-500" />
-                    3. Bằng cấp &amp; Chứng chỉ tải lên (Thẩm định)
-                  </span>
-                  <span className="text-[10px] text-slate-400">Bắt buộc xem kỹ trước khi duyệt</span>
-                </h4>
-
-                {viewingTutor.credentials && viewingTutor.credentials.length > 0 ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {viewingTutor.credentials.map((cred, idx) => (
-                      <div
-                        key={cred.id || idx}
-                        className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-slate-900 dark:text-white text-xs">{cred.title}</span>
-                            <Badge tone="blue">{cred.type || "Chứng chỉ"}</Badge>
-                          </div>
-                          {cred.score && (
-                            <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                              Điểm/Xếp loại: {cred.score}
-                            </p>
-                          )}
-                        </div>
-
-                        {cred.fileUrl && (
-                          <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2 dark:border-slate-800">
-                            <span className="text-[10px] text-slate-400 truncate max-w-[150px]">
-                              {cred.fileUrl.split("/").pop()}
-                            </span>
-                            <button
-                              onClick={() => setPreviewImage(cred.fileUrl)}
-                              className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300"
-                            >
-                              <Eye size={12} /> Xem ảnh scan
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-400 italic">Gia sư chưa tải lên tệp chứng chỉ nào.</p>
-                )}
-              </div>
-
-              {/* 4. Chuyên môn & Bảng giá & Lịch rảnh */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                {/* Chuyên môn */}
-                <div className="rounded-xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                  <h5 className="font-bold text-[11px] uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-1.5">
-                    <BookOpen size={13} className="text-blue-500" /> Chuyên môn &amp; Khối lớp
-                  </h5>
-                  {viewingTutor.specialties && viewingTutor.specialties.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {viewingTutor.specialties.map((s, idx) => (
-                        <span
-                          key={idx}
-                          className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
-                        >
-                          {s.specialty} {s.gradeLevel ? `(${s.gradeLevel})` : ""}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-slate-400 italic">Chưa cập nhật</span>
-                  )}
-                </div>
-
-                {/* Bảng giá */}
-                <div className="rounded-xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                  <h5 className="font-bold text-[11px] uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2 flex items-center gap-1.5">
-                    <Award size={13} className="text-amber-500" /> Bảng giá giảng dạy
-                  </h5>
-                  {viewingTutor.prices && viewingTutor.prices.length > 0 ? (
-                    <div className="space-y-1.5">
-                      {viewingTutor.prices.map((p, idx) => (
-                        <div key={idx} className="flex justify-between text-[11px] border-b border-slate-100 pb-1 dark:border-slate-800">
-                          <span className="text-slate-600 dark:text-slate-300">{p.program || p.teachingMode}:</span>
-                          <span className="font-bold text-blue-600 dark:text-blue-400 font-mono">
-                            {Number(p.pricePerSession).toLocaleString("vi-VN")} ₫/buổi
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-slate-400 italic">Chưa cập nhật bảng giá</span>
-                  )}
-                </div>
-              </div>
+              <TutorDetailSections tutor={viewingTutor} onPreviewImage={setPreviewImage} />
             </div>
 
             {/* Modal Footer với nút Duyệt / Từ chối nếu PENDING */}
@@ -890,49 +699,7 @@ export function TutorManagement() {
 
       {/* Modal Xem trước ảnh chứng chỉ (Image Lightbox) */}
       {previewImage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
-          onClick={() => setPreviewImage(null)}
-        >
-          <div
-            className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-              <span className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
-                <FileCheck size={15} className="text-emerald-500" /> Minh chứng chứng chỉ gốc
-              </span>
-              <div className="flex items-center gap-2">
-                <a
-                  href={previewImage}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                  title="Mở trong tab mới"
-                >
-                  <ExternalLink size={15} />
-                </a>
-                <button
-                  onClick={() => setPreviewImage(null)}
-                  className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center justify-center p-4 bg-slate-950/10 dark:bg-slate-950/50">
-              <img
-                src={previewImage}
-                alt="Scan chứng chỉ"
-                className="max-h-[75vh] w-auto rounded-lg object-contain shadow-lg"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = "https://placehold.co/600x400?text=File+kh%C3%B4ng+ph%E1%BA%A3i+%E1%BA%A3nh+ho%E1%BA%B7c+l%E1%BB%97i+t%E1%BA%A3i";
-                }}
-              />
-            </div>
-          </div>
-        </div>
+        <CredentialImagePreview url={previewImage} onClose={() => setPreviewImage(null)} />
       )}
 
       {/* Modal Popup Nhập Lý Do Từ Chối (Bắt buộc theo UC-REC-08 & FlowWork Luồng 21) */}

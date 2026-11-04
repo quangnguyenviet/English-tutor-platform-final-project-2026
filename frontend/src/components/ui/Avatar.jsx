@@ -1,3 +1,4 @@
+import { useState } from "react";
 import clsx from "clsx";
 
 const palette = [
@@ -14,18 +15,24 @@ function hashTone(str) {
   return palette[h];
 }
 
-export default function Avatar({ initials, size = "md", className }) {
+export default function Avatar({ src, initials, size = "md", className }) {
   const sizes = { sm: "h-8 w-8 text-xs", md: "h-10 w-10 text-sm", lg: "h-14 w-14 text-lg" };
+  const [failedSrc, setFailedSrc] = useState(null);
+  const showImage = src && src !== failedSrc;
   return (
     <div
       className={clsx(
-        "flex shrink-0 items-center justify-center rounded-full font-semibold",
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold",
         hashTone(initials || "?"),
         sizes[size],
         className
       )}
     >
-      {initials}
+      {showImage ? (
+        <img src={src} alt={initials} className="h-full w-full object-cover" onError={() => setFailedSrc(src)} />
+      ) : (
+        initials
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ package com.mycompany.englishtutor.module.staff.api.response;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Map;
 
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -26,4 +27,6 @@ public class EmployeeDetailResponse {
     String status;
     String statusLabel;
     OffsetDateTime createdAt;
+    /** Số liệu công việc theo vai trò (FR-38), khóa khác nhau giữa Lễ tân và Kế toán. */
+    Map<String, Long> workStats;
 }

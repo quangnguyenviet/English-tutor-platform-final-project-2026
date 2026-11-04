@@ -67,10 +67,10 @@ Lỗi (code khác 1000, kèm mã HTTP tương ứng):
 | 1000 – 1099 | Đăng nhập, người dùng, hồ sơ gia sư (đã dùng đến 1017) |
 | 1100 – 1199 | Cổng công khai, yêu cầu tìm gia sư, ứng tuyển |
 | 1200 – 1299 | Lớp học, lịch dạy, buổi học |
-| 1300 – 1399 | Phí nhận lớp |
+| 1300 – 1399 | Phí nhận lớp; riêng 1300 – 1304 đang dùng cho nhân sự và trạng thái tài khoản (giữ nguyên vì nhiều tài liệu đã tham chiếu) |
 | 1400 – 1499 | Quiz, Elo |
 | 1500 – 1599 | Khiếu nại, hoàn tiền |
-| 1600 – 1699 | Nhân sự, thông báo, nhật ký hệ thống |
+| 1600 – 1699 | Nhân sự, thông báo, nhật ký hệ thống (1600 buộc đổi mật khẩu, 1601 giá trị trạng thái sai, 1602 trùng liên hệ khi tạo đồng thời) |
 
 ### 2.2. Phân trang
 
@@ -228,8 +228,8 @@ Gia sư muốn rút ứng tuyển thì xóa dòng này, chỉ được khi đơn
 | --- | --- | --- | --- | --- | --- |
 | POST | `/api/v1/auth/token` | PUBLIC | Đăng nhập. Từ chối tài khoản `LOCKED`/`INACTIVE` (hướng dẫn liên hệ trung tâm). Response thêm cờ `mustChangePassword` | FR-05 | Có (cần bổ sung) |
 | POST | `/api/v1/auth/register-tutor` | PUBLIC | Đăng ký gia sư, tạo `tutors.profile_status = INCOMPLETE` | FR-07 | Có |
-| POST | `/api/v1/auth/refresh`, `/api/v1/auth/logout`, `/api/v1/auth/introspect` | PUBLIC | Làm mới / thu hồi / kiểm tra token | FR-05 | Có |
-| POST | `/api/v1/auth/change-password` | AUTH | Body `{ oldPassword, newPassword }`. Bắt buộc ở lần đăng nhập đầu; mật khẩu mới không trùng mặc định, đạt độ mạnh | FR-06, FR-16 | Mới |
+| POST | `/api/v1/auth/refresh`, `/api/v1/auth/logout`, `/api/v1/auth/introspect` | PUBLIC | Làm mới / thu hồi / kiểm tra token. `refresh` từ chối tài khoản không `ACTIVE` (403 mã 1304); token của tài khoản đã khóa cũng bị 403 ở mọi API cần đăng nhập | FR-05 | Có |
+| POST | `/api/v1/auth/change-password` | AUTH | Body `{ oldPassword, newPassword }`. Bắt buộc ở lần đăng nhập đầu; mật khẩu mới không trùng mặc định, đạt độ mạnh. Lễ tân, kế toán chưa đổi thì mọi API khác trả 403 mã 1600 | FR-06, FR-16 | Mới |
 | GET | `/api/v1/users/my-info` | AUTH | Thông tin tài khoản hiện tại kèm role | FR-05 | Có |
 | PUT | `/api/v1/students/me/profile` | STUDENT | Sửa ảnh đại diện, trường, lớp hiện tại, mục tiêu học tập (multipart) | FR-16 (S) | Mới |
 
@@ -414,7 +414,8 @@ Khi ghép lớp thành công (`class_requests` chuyển `MATCHED`) → gia sư x
 | PATCH | `/api/v1/students/{id}/status` | RECEPTIONIST, ADMIN | Đổi trạng thái; khóa/mở tài khoản | FR-34 |
 | GET | `/api/v1/reception/dashboard` | RECEPTIONIST, ADMIN | Lời chào + mã nhân viên, KPI: đơn ghép lớp chờ xử lý, khiếu nại chờ xử lý, khiếu nại chờ hoàn tiền, gia sư đang hoạt động | FR-24 |
 | GET | `/api/v1/employees` | ADMIN | Lọc theo vai trò, trạng thái, tìm kiếm | FR-38 (S) |
-| GET | `/api/v1/employees/{id}` | ADMIN | Chi tiết nhân sự | FR-38 (S) |
+| GET | `/api/v1/employees/counts` | ADMIN | Số nhân sự theo trạng thái cho badge tab, lọc được theo vai trò | FR-38 (S) |
+| GET | `/api/v1/employees/{id}` | ADMIN | Chi tiết nhân sự, kèm `workStats` theo vai trò (lễ tân: `handledClassRequests`, `receivedComplaints`, `reviewedPayments`; kế toán: `reviewedPayments`, `processedRefunds`) | FR-38 (S) |
 | PATCH | `/api/v1/employees/{id}/status` | ADMIN | Khóa/mở khóa | FR-38 (S) |
 | POST | `/api/v1/employees` | ADMIN | Body `{ role: RECEPTIONIST\|ACCOUNTANT, fullName, email, phone, startDate }`; kiểm tra trùng email/SĐT; tạo user + mã nhân viên (`NV-xxxx`); audit `CREATE_EMPLOYEE` | FR-39 (S) |
 | GET | `/api/v1/notifications` | AUTH | Thông báo của tôi. Query `unreadOnly`, phân trang; kèm `unreadCount` | FR-23 |

@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { KeyRound, Loader2, ShieldCheck } from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
-import ThemeToggle from "../../components/theme-toggle";
-import { validateNewPassword } from "../../lib/studentModel";
+import { useAuth } from "../context/AuthContext";
+import ThemeToggle from "../components/theme-toggle";
+import { ROLE_ROUTES } from "../lib/authRoutes";
+import { validateNewPassword } from "../lib/studentModel";
 
 const inputClass =
   "w-full h-11 px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40";
 
-/** Màn bắt buộc đổi mật khẩu ở lần đăng nhập đầu của học sinh (API_DESIGN 3.1). */
-export default function StudentChangePassword() {
+/** Màn bắt buộc đổi mật khẩu ở lần đăng nhập đầu của học sinh và nhân sự (API_DESIGN 3.1). */
+export default function ChangePasswordPage() {
   const { session, changePassword } = useAuth();
   const navigate = useNavigate();
   const [oldPassword, setOldPassword] = useState("");
@@ -18,8 +19,11 @@ export default function StudentChangePassword() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const homePath = ROLE_ROUTES[session?.role] ?? "/";
+  const purpose = session?.role === "student" ? "bắt đầu học" : "bắt đầu làm việc";
+
   // Đã đổi rồi (hoặc vào nhầm) thì không giữ ở màn này
-  if (session && !session.mustChangePassword) return <Navigate to="/student" replace />;
+  if (session && !session.mustChangePassword) return <Navigate to={homePath} replace />;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,7 +36,7 @@ export default function StudentChangePassword() {
     setError("");
     try {
       await changePassword(oldPassword, newPassword);
-      navigate("/student", { replace: true });
+      navigate(homePath, { replace: true });
     } catch (err) {
       setError(err.message || "Đổi mật khẩu thất bại");
     } finally {
@@ -53,7 +57,7 @@ export default function StudentChangePassword() {
             </div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Đổi mật khẩu lần đầu</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Vì lý do bảo mật, bạn cần đặt mật khẩu mới trước khi bắt đầu học.
+              Vì lý do bảo mật, bạn cần đặt mật khẩu mới trước khi {purpose}.
             </p>
           </div>
 

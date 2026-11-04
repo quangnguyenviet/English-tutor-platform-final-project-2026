@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
-import StudentChangePassword from "./pages/student/StudentChangePassword";
+import ChangePasswordPage from "./pages/ChangePasswordPage";
+import { FORCE_PASSWORD_PATHS } from "./lib/authRoutes";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { LessonSessionProvider } from "./context/LessonSessionContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -81,8 +82,6 @@ import AccountantDashboard from "./pages/accountant/AccountantDashboard";
 
 import TutorRegisterPage from "./pages/tutor/TutorRegisterPage";
 
-const FORCE_PASSWORD_PATH = "/student/change-password";
-
 function RequireRole({ role, children }) {
   const { session, authLoading } = useAuth();
   const { pathname } = useLocation();
@@ -98,10 +97,11 @@ function RequireRole({ role, children }) {
     );
   }
   if (!session) return <Navigate to="/login" replace />;
-  if (session.role !== role) return <Navigate to={`/${session.role}`} replace />;
-  // Học sinh đăng nhập lần đầu phải đổi mật khẩu trước khi dùng các trang khác
-  if (role === "student" && session.mustChangePassword && pathname !== FORCE_PASSWORD_PATH) {
-    return <Navigate to={FORCE_PASSWORD_PATH} replace />;
+  if (![].concat(role).includes(session.role)) return <Navigate to={`/${session.role}`} replace />;
+  // Học sinh và nhân sự đăng nhập lần đầu phải đổi mật khẩu trước khi dùng các trang khác
+  const forcePasswordPath = FORCE_PASSWORD_PATHS[session.role];
+  if (forcePasswordPath && session.mustChangePassword && pathname !== forcePasswordPath) {
+    return <Navigate to={forcePasswordPath} replace />;
   }
   return children;
 }
@@ -236,7 +236,7 @@ export default function App() {
             path="/student/change-password"
             element={
               <RequireRole role="student">
-                <StudentChangePassword />
+                <ChangePasswordPage />
               </RequireRole>
             }
           />
@@ -259,6 +259,16 @@ export default function App() {
             <Route path="progress" element={<StudentProgress />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
+
+          {/* Đổi mật khẩu lần đầu của nhân sự (Lễ tân, Kế toán) */}
+          <Route
+            path="/change-password"
+            element={
+              <RequireRole role={["receptionist", "accountant"]}>
+                <ChangePasswordPage />
+              </RequireRole>
+            }
+          />
 
           {/* Receptionist Routes */}
           <Route

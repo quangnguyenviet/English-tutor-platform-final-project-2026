@@ -3,14 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { GraduationCap, Lock, User, ArrowLeft, LogIn, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "../components/theme-toggle";
-
-const ROLE_ROUTES = {
-  admin: "/admin",
-  tutor: "/tutor",
-  student: "/student",
-  receptionist: "/receptionist",
-  accountant: "/accountant",
-};
+import { FORCE_PASSWORD_PATHS, ROLE_ROUTES } from "../lib/authRoutes";
 
 const TUTOR_PROFILE_ACTIONABLE = ["INCOMPLETE", "REJECTED"];
 
@@ -32,8 +25,8 @@ export default function LoginPage() {
     setError("");
     try {
       const { role, profileStatus, mustChangePassword } = await login(username.trim(), password);
-      if (role === "student" && mustChangePassword) {
-        navigate("/student/change-password", { replace: true });
+      if (FORCE_PASSWORD_PATHS[role] && mustChangePassword) {
+        navigate(FORCE_PASSWORD_PATHS[role], { replace: true });
         return;
       }
       // Gia sư chưa có hồ sơ hoàn chỉnh (hoặc bị từ chối) phải tạo/sửa hồ sơ trước

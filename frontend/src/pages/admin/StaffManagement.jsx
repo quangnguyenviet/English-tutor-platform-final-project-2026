@@ -18,6 +18,7 @@ import {
   ChevronRight,
   KeyRound,
   BadgeCheck,
+  BarChart3,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/ui/PageHeader";
@@ -53,6 +54,13 @@ const roleOptions = [
   { value: "RECEPTIONIST", label: "Lễ tân" },
   { value: "ACCOUNTANT", label: "Kế toán" },
 ];
+
+const workStatLabels = {
+  handledClassRequests: "Đơn ghép lớp đã xử lý",
+  receivedComplaints: "Khiếu nại đã tiếp nhận",
+  reviewedPayments: "Khoản phí đã duyệt",
+  processedRefunds: "Hoàn tiền đã xử lý",
+};
 
 const inputClass =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:focus:ring-blue-950 dark:text-slate-100";
@@ -182,8 +190,8 @@ export default function StaffManagement() {
     setConfirmModal({
       open: true,
       title: "Xác nhận tạo tài khoản",
-      message: `Bạn có chắc chắn muốn tạo tài khoản ${form.role === "ACCOUNTANT" ? "Kế toán" : "Lễ tân"} cho "${form.fullName.trim()}"?`,
-      confirmLabel: "Tạo tài khoản",
+      message: "Bạn có chắc chắn muốn tạo tài khoản nhân sự này không?",
+      confirmLabel: "Đồng ý",
       confirmTone: "blue",
       onConfirm: doCreate,
     });
@@ -197,7 +205,7 @@ export default function StaffManagement() {
         role: form.role,
         fullName: form.fullName.trim(),
         email: form.email.trim(),
-        phone: form.phone.trim(),
+        phone: form.phone.replace(/\s+/g, ""),
         startDate: form.startDate || todayIso(),
       };
       const result = await apiCreateEmployee(payload, token);
@@ -249,8 +257,8 @@ export default function StaffManagement() {
     setConfirmModal({
       open: true,
       title: "Xác nhận thay đổi trạng thái",
-      message: `Bạn có chắc chắn muốn thay đổi trạng thái của nhân sự "${viewing.fullName}" sang "${viewingStatus === "ACTIVE" ? "Đang hoạt động" : "Ngưng hoạt động"}"?`,
-      confirmLabel: "Lưu thay đổi",
+      message: "Bạn có chắc chắn muốn thay đổi trạng thái của nhân sự này không?",
+      confirmLabel: "Đồng ý",
       confirmTone: viewingStatus === "ACTIVE" ? "emerald" : "amber",
       onConfirm: doSaveStatus,
     });
@@ -653,10 +661,10 @@ export default function StaffManagement() {
         </div>
       )}
 
-      {/* Modal Chi tiết nhân sự */}
+      {/* Modal Chi tiết nhân sự (dưới ConfirmModal z-[60] để popup xác nhận bấm được) */}
       {viewing && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[50] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
           onClick={() => setViewing(null)}
         >
           <div
@@ -725,6 +733,22 @@ export default function StaffManagement() {
                       </div>
                     </div>
                   </div>
+
+                  {viewing.workStats && (
+                    <div className="space-y-2.5 rounded-lg border border-slate-100 bg-slate-50/60 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
+                      <h4 className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        <BarChart3 size={14} className="text-blue-500" /> Số liệu công việc
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3 pt-1 sm:grid-cols-3">
+                        {Object.entries(viewing.workStats).map(([key, value]) => (
+                          <div key={key}>
+                            <span className="mb-0.5 block text-[11px] text-slate-400">{workStatLabels[key] ?? key}</span>
+                            <span className="font-mono text-sm font-semibold text-slate-900 dark:text-white">{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50/60 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
                     <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200">Trạng thái hoạt động</h4>

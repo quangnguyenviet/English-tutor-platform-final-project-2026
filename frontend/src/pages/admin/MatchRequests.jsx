@@ -167,8 +167,8 @@ export function MatchRequests() {
   const [toastMessage, setToastMessage] = useState(null);
   const [successPopup, setSuccessPopup] = useState(null);
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
+  const showToast = (msg, isError = false) => {
+    setToastMessage({ text: msg, isError });
     setTimeout(() => setToastMessage(null), 3500);
   };
 
@@ -217,7 +217,7 @@ export function MatchRequests() {
         window.dispatchEvent(new CustomEvent("match-requests-updated", { detail: countsRes }));
       }
     } catch (err) {
-      showToast(err.message || "Không thể tải danh sách đơn ghép lớp.");
+      showToast(err.message || "Không thể tải danh sách đơn ghép lớp.", true);
     } finally {
       setIsLoading(false);
     }
@@ -385,7 +385,7 @@ export function MatchRequests() {
   const handleConfirmRequest = (req) => {
     // Phụ huynh chưa có tài khoản: cần họ tên học sinh để hệ thống tạo tài khoản khi chuyển dạy thử
     if (!req.studentName) {
-      showToast("Vui lòng bổ sung thông tin học sinh trước khi chuyển sang dạy thử.");
+      showToast("Vui lòng bổ sung thông tin học sinh trước khi chuyển sang dạy thử.", true);
       openInfoModal(req);
       return;
     }
@@ -411,7 +411,7 @@ export function MatchRequests() {
           );
           loadData();
         } catch (err) {
-          showToast(err.message || "Xác nhận đơn thất bại.");
+          showToast(err.message || "Xác nhận đơn thất bại.", true);
         } finally {
           setIsSubmitting(false);
         }
@@ -600,9 +600,29 @@ export function MatchRequests() {
     <div className="space-y-6">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 rounded-xl border border-blue-200 bg-slate-900 px-4 py-3 text-sm text-white shadow-xl transition-all dark:border-blue-900 dark:bg-slate-900 animate-fade-in">
-          <CheckCircle2 size={18} className="text-blue-400 shrink-0" />
-          <span>{toastMessage}</span>
+        <div
+          className={`fixed bottom-5 right-5 z-50 flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm text-white shadow-xl animate-fade-in ${
+            toastMessage.isError
+              ? "bg-rose-600"
+              : "border border-blue-200 bg-slate-900 dark:border-blue-900"
+          }`}
+        >
+          {toastMessage.isError ? (
+            <AlertCircle size={18} className="shrink-0" />
+          ) : (
+            <CheckCircle2 size={18} className="text-blue-400 shrink-0" />
+          )}
+          <span>{toastMessage.text}</span>
+          {toastMessage.isError && (
+            <button
+              type="button"
+              onClick={() => setToastMessage(null)}
+              className="ml-1 cursor-pointer opacity-70 transition-opacity hover:opacity-100"
+              aria-label="Đóng thông báo"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
       )}
 

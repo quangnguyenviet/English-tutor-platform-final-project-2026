@@ -192,6 +192,9 @@ public enum ErrorCode {
     INVALID_EMPLOYEE_ROLE(1302, "Vai trò nhân sự không hợp lệ (chỉ RECEPTIONIST hoặc ACCOUNTANT)", HttpStatus.BAD_REQUEST),
     INVALID_EMPLOYEE_STATUS(1303, "Trạng thái nhân sự không hợp lệ", HttpStatus.CONFLICT),
     ACCOUNT_INACTIVE(1304, "Tài khoản đã bị vô hiệu hóa, vui lòng liên hệ quản trị viên", HttpStatus.FORBIDDEN),
+    PASSWORD_CHANGE_REQUIRED(1600, "Bạn cần đổi mật khẩu trước khi tiếp tục sử dụng hệ thống", HttpStatus.FORBIDDEN),
+    EMPLOYEE_STATUS_VALUE_INVALID(1601, "Giá trị trạng thái nhân sự không hợp lệ", HttpStatus.BAD_REQUEST),
+    EMPLOYEE_CONTACT_EXISTED(1602, "Email hoặc Số điện thoại đã được đăng ký trong hệ thống", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

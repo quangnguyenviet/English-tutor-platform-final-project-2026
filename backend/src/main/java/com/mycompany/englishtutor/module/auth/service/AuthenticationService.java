@@ -236,12 +236,18 @@ public class AuthenticationService {
 
     public AuthenticationResponse refreshToken(RefreshRequest request) throws ParseException, JOSEException {
         var signedJWT = verifyToken(request.getToken(), true);
-        invalidate(signedJWT);
 
         var username = signedJWT.getJWTClaimsSet().getSubject();
 
         var user =
                 userRepository.findByUsername(username).orElseThrow(() -> new AppException(ErrorCode.UNAUTHENTICATED));
+
+        // Tài khoản đã bị khóa không được gia hạn phiên (Luồng 25)
+        if (!"ACTIVE".equalsIgnoreCase(user.getStatus())) {
+            throw new AppException(ErrorCode.ACCOUNT_INACTIVE);
+        }
+
+        invalidate(signedJWT);
 
         var token = generateToken(user);
 
