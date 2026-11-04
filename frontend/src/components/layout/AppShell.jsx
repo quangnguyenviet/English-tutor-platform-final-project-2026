@@ -29,6 +29,8 @@ import {
   Bell,
   FileWarning,
   Megaphone,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { AiAssistantProvider, useAiAssistant } from "../../context/AiAssistantContext";
@@ -63,6 +65,12 @@ function AppShellInner() {
   const location = useLocation();
   const { open: chatOpen } = useAiAssistant();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [classSidebarCollapsed, setClassSidebarCollapsed] = useState(
+    () => localStorage.getItem("ep_classSidebarCollapsed") === "1"
+  );
+  useEffect(() => {
+    localStorage.setItem("ep_classSidebarCollapsed", classSidebarCollapsed ? "1" : "0");
+  }, [classSidebarCollapsed]);
   let studentMatching = null;
   try {
     studentMatching = useStudentMatching();
@@ -238,6 +246,7 @@ function AppShellInner() {
   // Detect workspace lớp học. Parse pathname vì useParams() ở layout route không thấy param của route con
   // (và /tutor/available-classes/:classId cũng có classId nên không được nhầm).
   const isClassWorkspace = isTutor && /^\/tutor\/classes\/[^/]+/.test(location.pathname);
+  const classSidebarCompact = isClassWorkspace && classSidebarCollapsed;
 
   function handleLogout() {
     logout();
@@ -257,9 +266,11 @@ function AppShellInner() {
       {/* Sidebar — desktop: always visible; mobile: drawer from left */}
       <aside
         className={clsx(
-          "flex h-full w-64 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+          "flex h-full shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+          "w-64",
+          classSidebarCompact && "lg:w-20",
           "fixed inset-y-0 left-0 z-50 lg:static",
-          "transform transition-transform duration-200 ease-out",
+          "transform transition-[transform,width] duration-200 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
@@ -279,17 +290,37 @@ function AppShellInner() {
           </button>
         </div>
 
-        {/* Desktop logo */}
-        <div className="hidden items-center gap-2 px-5 py-5 lg:flex">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg accent-bg text-white">
+        {/* Desktop logo + nút thu gọn khi ở workspace lớp học */}
+        <div
+          className={clsx(
+            "hidden items-center gap-2 py-4 lg:flex",
+            classSidebarCompact ? "flex-col px-2" : "px-5"
+          )}
+        >
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg accent-bg text-white">
             <BookOpenCheck size={18} strokeWidth={1.75} />
           </div>
-          <span className="font-semibold text-slate-900 dark:text-slate-50">EnglishPath</span>
+          {!classSidebarCompact && (
+            <span className="font-semibold text-slate-900 dark:text-slate-50">EnglishPath</span>
+          )}
+          {isClassWorkspace && (
+            <button
+              onClick={() => setClassSidebarCollapsed((v) => !v)}
+              title={classSidebarCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
+              aria-label={classSidebarCollapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
+              className={clsx(
+                "rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300",
+                !classSidebarCompact && "ml-auto"
+              )}
+            >
+              {classSidebarCollapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
+            </button>
+          )}
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3">
           {isClassWorkspace ? (
-            <TutorClassSidebar />
+            <TutorClassSidebar collapsed={classSidebarCollapsed} />
           ) : (
             <>
               {/* Section Header for Student */}
@@ -373,12 +404,19 @@ function AppShellInner() {
 
         {/* User footer */}
         <div className="border-t border-slate-200 p-3 dark:border-slate-800">
-          <div className="flex items-center gap-3 rounded-lg px-2 py-2">
+          <div
+            className={clsx(
+              "flex items-center gap-3 rounded-lg px-2 py-2",
+              classSidebarCompact && "flex-col gap-2 px-1"
+            )}
+          >
             <Avatar initials={session?.initials} size="sm" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-50">{session?.name}</p>
-              <p className="truncate text-xs text-slate-500 dark:text-slate-400">{roleLabel[session?.role]}</p>
-            </div>
+            {!classSidebarCompact && (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-50">{session?.name}</p>
+                <p className="truncate text-xs text-slate-500 dark:text-slate-400">{roleLabel[session?.role]}</p>
+              </div>
+            )}
             <button
               onClick={handleLogout}
               title="Đăng xuất"

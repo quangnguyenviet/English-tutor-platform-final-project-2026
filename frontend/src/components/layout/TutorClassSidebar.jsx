@@ -23,7 +23,11 @@ const NAV_ITEMS = [
   { to: "materials", label: "Tài liệu & video", icon: FileText },
 ];
 
-export default function TutorClassSidebar() {
+/**
+ * Sidebar quản lý 1 lớp học cụ thể. Nhận prop `collapsed` từ AppShell
+ * (khi workspace thu gọn): chỉ giữ lại nút quay về + icon các mục điều hướng.
+ */
+export default function TutorClassSidebar({ collapsed = false }) {
   const { token } = useAuth();
   const location = useLocation();
   // Sidebar được render bởi AppShell (layout route) nên useParams() không thấy classId của route con.
@@ -56,51 +60,59 @@ export default function TutorClassSidebar() {
   }, [token, classId]);
 
   return (
-    <nav className="flex flex-1 flex-col overflow-y-auto px-3">
+    <nav className={clsx("flex flex-1 flex-col overflow-y-auto", collapsed ? "px-2.5" : "px-3")}>
       {/* Back button */}
       <NavLink
         to="/tutor/classes"
-        className="group flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-900/80 transition"
+        title={collapsed ? "Về lớp học của tôi" : undefined}
+        className={clsx(
+          "group flex items-center rounded-lg py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-900/80 transition",
+          collapsed ? "justify-center" : "gap-2.5 px-3"
+        )}
       >
-        <ArrowLeft size={16} className="transition group-hover:-translate-x-0.5" strokeWidth={1.75} />
-        <span>Lớp học của tôi</span>
+        <ArrowLeft size={16} className="shrink-0 transition group-hover:-translate-x-0.5" strokeWidth={1.75} />
+        {!collapsed && <span>Lớp học của tôi</span>}
       </NavLink>
 
-      {/* Class profile card */}
-      <div className="mx-1 mt-3 mb-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 p-4 dark:from-blue-950/40 dark:to-indigo-950/40 ring-1 ring-blue-200/50 dark:ring-blue-800/30">
-        {loading ? (
-          <div className="space-y-2.5">
-            <div className="h-3.5 w-16 animate-pulse rounded bg-white/70 dark:bg-slate-800/70" />
-            <div className="h-4 w-3/4 animate-pulse rounded bg-white/70 dark:bg-slate-800/70" />
-            <div className="h-3 w-1/2 animate-pulse rounded bg-white/70 dark:bg-slate-800/70" />
-          </div>
-        ) : detail ? (
-          <div className="space-y-2">
-            <Badge tone={detail.statusTone}>{detail.statusLabel}</Badge>
-            <p className="text-sm font-semibold leading-snug text-slate-900 dark:text-slate-50">
-              {detail.className}
-            </p>
-            <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-              Học viên: {detail.studentName || "Đang cập nhật"}
-            </p>
-            <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-              Hình thức: {detail.modeLabel}
-            </p>
-          </div>
-        ) : (
-          <p className="text-xs text-slate-500 dark:text-slate-400">Đang tải thông tin lớp...</p>
-        )}
-      </div>
+      {/* Class profile card — chỉ hiện ở chế độ mở rộng */}
+      {!collapsed && (
+        <div className="mx-1 mt-3 mb-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 p-4 dark:from-blue-950/40 dark:to-indigo-950/40 ring-1 ring-blue-200/50 dark:ring-blue-800/30">
+          {loading ? (
+            <div className="space-y-2.5">
+              <div className="h-3.5 w-16 animate-pulse rounded bg-white/70 dark:bg-slate-800/70" />
+              <div className="h-4 w-3/4 animate-pulse rounded bg-white/70 dark:bg-slate-800/70" />
+              <div className="h-3 w-1/2 animate-pulse rounded bg-white/70 dark:bg-slate-800/70" />
+            </div>
+          ) : detail ? (
+            <div className="space-y-2">
+              <Badge tone={detail.statusTone}>{detail.statusLabel}</Badge>
+              <p className="text-sm font-semibold leading-snug text-slate-900 dark:text-slate-50">
+                {detail.className}
+              </p>
+              <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                Học viên: {detail.studentName || "Đang cập nhật"}
+              </p>
+              <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                Hình thức: {detail.modeLabel}
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500 dark:text-slate-400">Đang tải thông tin lớp...</p>
+          )}
+        </div>
+      )}
 
       {/* Section label */}
-      <div className="mb-1 px-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-          Quản lý lớp học
-        </p>
-      </div>
+      {!collapsed && (
+        <div className="mb-1 px-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            Quản lý lớp học
+          </p>
+        </div>
+      )}
 
       {/* Navigation items */}
-      <div className="space-y-0.5">
+      <div className="mt-2 space-y-0.5">
         {NAV_ITEMS.map((item) => {
           const to = `/tutor/classes/${classId}/${item.to}`;
           const isActive = location.pathname === to;
@@ -108,8 +120,10 @@ export default function TutorClassSidebar() {
             <NavLink
               key={item.to}
               to={to}
+              title={collapsed ? item.label : undefined}
               className={clsx(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+                "flex items-center rounded-lg py-2.5 text-sm font-medium transition-all duration-150",
+                collapsed ? "justify-center" : "gap-3 px-3",
                 isActive
                   ? "bg-white text-blue-700 shadow-sm ring-1 ring-blue-200 dark:bg-slate-800 dark:text-blue-300 dark:ring-blue-800/50"
                   : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900/60"
@@ -123,7 +137,7 @@ export default function TutorClassSidebar() {
                   isActive ? "text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-slate-500"
                 )}
               />
-              <span>{item.label}</span>
+              {!collapsed && <span>{item.label}</span>}
             </NavLink>
           );
         })}
