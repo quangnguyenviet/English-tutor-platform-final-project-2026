@@ -405,12 +405,12 @@ export default function ClassScheduleLattice({
             {formatSessionTime(occ.startTime)} - {formatSessionTime(occ.endTime)}
           </p>
           {occ.log ? (
-            <span
-              className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400"
+            <NotebookText
+              size={11}
+              className="shrink-0 text-emerald-600 dark:text-emerald-400"
+              aria-label="Đã có nhật ký"
               title="Đã có nhật ký"
-            >
-              <NotebookText size={11} /> Đã có nhật ký
-            </span>
+            />
           ) : occ.trial ? (
             <span className="text-[10px] font-medium">Buổi dạy thử</span>
           ) : null}
