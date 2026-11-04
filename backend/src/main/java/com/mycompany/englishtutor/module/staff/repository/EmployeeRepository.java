@@ -14,8 +14,6 @@ import com.mycompany.englishtutor.module.staff.domain.Employee;
 @Repository
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
-    boolean existsByEmployeeCode(String employeeCode);
-
     /**
      * Tìm nhân sự theo danh sách vai trò, trạng thái (tùy chọn) và từ khóa (tùy chọn).
      * Từ khóa khớp theo họ tên / email / SĐT / mã nhân viên (không phân biệt hoa thường).
@@ -47,8 +45,25 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     long countByFilter(@Param("roles") List<String> roles, @Param("status") String status);
 
     /**
-     * Đếm số nhân sự có mã bắt đầu bằng prefix (để sinh số thứ tự mã nhân viên kế tiếp).
+     * Số thứ tự lớn nhất trong các mã {@code NV-xxxx} (để sinh mã nhân viên kế tiếp).
      */
-    @Query("SELECT COUNT(e) FROM Employee e WHERE e.employeeCode LIKE CONCAT(:prefix, '%')")
-    long countByEmployeeCodePrefix(@Param("prefix") String prefix);
+    @Query(value = """
+            SELECT COALESCE(MAX(CAST(SUBSTRING(employee_code FROM 4) AS INTEGER)), 0)
+            FROM employees WHERE employee_code ~ '^NV-[0-9]+$'
+            """, nativeQuery = true)
+    int findMaxEmployeeNumber();
+
+    // Số liệu công việc theo vai trò (FR-38); các bảng thuộc module khác nên dùng native query.
+
+    @Query(value = "SELECT COUNT(*) FROM class_requests WHERE handled_by = :userId", nativeQuery = true)
+    long countHandledClassRequests(@Param("userId") Long userId);
+
+    @Query(value = "SELECT COUNT(*) FROM complaints WHERE received_by = :userId", nativeQuery = true)
+    long countReceivedComplaints(@Param("userId") Long userId);
+
+    @Query(value = "SELECT COUNT(*) FROM payments WHERE reviewed_by = :userId", nativeQuery = true)
+    long countReviewedPayments(@Param("userId") Long userId);
+
+    @Query(value = "SELECT COUNT(*) FROM refunds WHERE processed_by = :userId", nativeQuery = true)
+    long countProcessedRefunds(@Param("userId") Long userId);
 }

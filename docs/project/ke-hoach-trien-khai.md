@@ -108,7 +108,7 @@ Dọn khỏi routing/menu các trang cũ nằm ngoài use case:
 | **6.0** | **Lát cắt 4: Quản lý Vận hành, Khiếu nại & Hoàn thiện**                                            |                                            |                   |
 | 6.1           | Lễ tân/Admin: Quản lý học sinh, tiếp nhận và xử lý khiếu nại (FR-34 → FR-37)                          | API & UI khiếu nại                       | Chưa làm        |
 | 6.2           | Dọn dẹp triệt để frontend, thay 100% dữ liệu mock bằng API thật                                           | Giao diện 4 cổng liên thông            | Chưa làm        |
-| 6.3           | *(S)* Admin: Quản lý lễ tân; Học sinh: Hồ sơ cá nhân (FR-16, FR-18, FR-38, FR-39)                       | Tính năng phụ (nếu kịp)               | Chưa làm        |
+| 6.3           | *(S)* Admin: Quản lý lễ tân; Học sinh: Hồ sơ cá nhân (FR-16, FR-18, FR-38, FR-39)                       | Tính năng phụ (nếu kịp)               | Đã làm phần Admin   |
 | **7.0** | **Tích hợp, Kiểm thử & Đóng gói Bàn giao**                                                           |                                            |                   |
 | 7.1           | Unit test & Integration test cho các luồng nghiệp vụ cốt lõi                                                 | Test suite pass                            | Chưa làm        |
 | 7.2           | UAT nội bộ theo các hành trình người dùng (UJ-1 đến UJ-6)                                                | Biên bản test & sửa bug                 | Chưa làm        |

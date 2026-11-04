@@ -6,6 +6,7 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  AlertCircle,
   Megaphone,
   Eye,
   PlusCircle,
@@ -31,6 +32,12 @@ import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import StatCard from "../../components/ui/StatCard";
 import ConfirmModal from "../../components/ui/ConfirmModal";
+import Avatar from "../../components/ui/Avatar";
+import {
+  CredentialImagePreview,
+  TutorDetailSections,
+} from "../../components/tutor/TutorDetailSections";
+import { apiGetTutorDetail } from "../../lib/tutorApi";
 import {
   apiGetClassRequests,
   apiGetClassRequestCounts,
@@ -134,9 +141,12 @@ export function ClassRequestManagement() {
   const [confirmModal, setConfirmModal] = useState({ open: false });
   const [toastMessage, setToastMessage] = useState(null);
   const [successPopup, setSuccessPopup] = useState(null);
+  const [previewTutor, setPreviewTutor] = useState(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
+  const showToast = (msg, isError = false) => {
+    setToastMessage({ text: msg, isError });
     setTimeout(() => setToastMessage(null), 3500);
   };
   const closeConfirmModal = () => setConfirmModal((prev) => ({ ...prev, open: false, onConfirm: null }));
@@ -152,7 +162,7 @@ export function ClassRequestManagement() {
       setTotalPages(listRes.totalPages || 1);
       if (countsRes) setCounts(countsRes);
     } catch (err) {
-      showToast(err.message || "Không thể tải danh sách lớp cần gia sư.");
+      showToast(err.message || "Không thể tải danh sách lớp cần gia sư.", true);
     } finally {
       setIsLoading(false);
     }
@@ -305,7 +315,7 @@ export function ClassRequestManagement() {
           showToast("Đã đăng lớp cần gia sư lên trang gia sư.");
           loadData();
         } catch (err) {
-          showToast(err.message || "Đăng tuyển thất bại.");
+          showToast(err.message || "Đăng tuyển thất bại.", true);
         } finally {
           setIsSubmitting(false);
         }
@@ -321,10 +331,21 @@ export function ClassRequestManagement() {
       const items = await apiGetClassApplications(req.id, currentToken);
       setApplicationsModal({ request: req, items: items || [] });
     } catch (err) {
-      showToast(err.message || "Không thể tải danh sách gia sư ứng tuyển.");
+      showToast(err.message || "Không thể tải danh sách gia sư ứng tuyển.", true);
       setApplicationsModal(null);
     } finally {
       setIsApplicationsLoading(false);
+    }
+  };
+
+  const handlePreviewTutor = async (application) => {
+    setPreviewLoadingId(application.applicationId);
+    try {
+      setPreviewTutor(await apiGetTutorDetail(application.tutorId, currentToken));
+    } catch (err) {
+      showToast(err.message || "Không thể tải hồ sơ gia sư.", true);
+    } finally {
+      setPreviewLoadingId(null);
     }
   };
 
@@ -347,7 +368,7 @@ export function ClassRequestManagement() {
           );
           loadData();
         } catch (err) {
-          showToast(err.message || "Chọn gia sư thất bại.");
+          showToast(err.message || "Chọn gia sư thất bại.", true);
         } finally {
           setIsSubmitting(false);
         }
@@ -417,9 +438,29 @@ export function ClassRequestManagement() {
   return (
     <div className="space-y-6">
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2.5 rounded-xl border border-blue-200 bg-slate-900 px-4 py-3 text-sm text-white shadow-xl dark:border-blue-900 animate-fade-in">
-          <CheckCircle2 size={18} className="text-blue-400 shrink-0" />
-          <span>{toastMessage}</span>
+        <div
+          className={`fixed bottom-5 right-5 z-50 flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm text-white shadow-xl animate-fade-in ${
+            toastMessage.isError
+              ? "bg-rose-600"
+              : "border border-blue-200 bg-slate-900 dark:border-blue-900"
+          }`}
+        >
+          {toastMessage.isError ? (
+            <AlertCircle size={18} className="shrink-0" />
+          ) : (
+            <CheckCircle2 size={18} className="text-blue-400 shrink-0" />
+          )}
+          <span>{toastMessage.text}</span>
+          {toastMessage.isError && (
+            <button
+              type="button"
+              onClick={() => setToastMessage(null)}
+              className="ml-1 cursor-pointer opacity-70 transition-opacity hover:opacity-100"
+              aria-label="Đóng thông báo"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
       )}
 
@@ -986,19 +1027,37 @@ export function ClassRequestManagement() {
                           </div>
                         </div>
                       </div>
-                      {app.status !== "APPLIED" ? (
-                        <ApplicationStatusBadge status={app.status} />
-                      ) : (
+                      <div className="flex shrink-0 flex-col items-stretch gap-2">
+                        {app.status !== "APPLIED" ? (
+                          <div className="self-end">
+                            <ApplicationStatusBadge status={app.status} />
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => handleSelectTutor(app)}
+                            disabled={isSubmitting}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer"
+                          >
+                            <CheckCircle2 size={15} />
+                            <span>Chọn gia sư</span>
+                          </Button>
+                        )}
                         <Button
+                          variant="outline"
                           size="sm"
-                          onClick={() => handleSelectTutor(app)}
-                          disabled={isSubmitting}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer shrink-0"
+                          onClick={() => handlePreviewTutor(app)}
+                          disabled={previewLoadingId === app.applicationId}
+                          className="cursor-pointer"
                         >
-                          <CheckCircle2 size={15} />
-                          <span>Chọn gia sư</span>
+                          {previewLoadingId === app.applicationId ? (
+                            <Loader2 size={15} className="animate-spin" />
+                          ) : (
+                            <Eye size={15} />
+                          )}
+                          <span>Xem chi tiết</span>
                         </Button>
-                      )}
+                      </div>
                     </div>
                     {app.message && (
                       <div className="text-xs text-muted-foreground flex items-start gap-1.5 pl-1">
@@ -1018,6 +1077,52 @@ export function ClassRequestManagement() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── MODAL: XEM TRƯỚC HỒ SƠ GIA SƯ ỨNG TUYỂN ───────────────────────── */}
+      {previewTutor && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+          onClick={() => setPreviewTutor(null)}
+        >
+          <div
+            className="fade-slide-in relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border p-5">
+              <div className="flex items-center gap-3 min-w-0">
+                <Avatar
+                  src={previewTutor.avatarUrl}
+                  initials={(previewTutor.fullName || "GS").substring(0, 2).toUpperCase()}
+                  size="lg"
+                />
+                <div className="min-w-0">
+                  <h3 className="truncate text-base font-bold text-slate-900 dark:text-white">{previewTutor.fullName}</h3>
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Hồ sơ gia sư ứng tuyển</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewTutor(null)}
+                className="cursor-pointer rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                aria-label="Đóng"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 space-y-5 overflow-y-auto p-5 text-xs">
+              <TutorDetailSections tutor={previewTutor} onPreviewImage={setPreviewImage} />
+            </div>
+            <div className="flex justify-end border-t border-border p-4">
+              <Button variant="secondary" size="sm" onClick={() => setPreviewTutor(null)} className="cursor-pointer">
+                Đóng
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {previewImage && (
+        <CredentialImagePreview url={previewImage} onClose={() => setPreviewImage(null)} />
       )}
 
       {/* ── MODAL: HỦY LỚP (UC-REC-04) ─────────────────────────────────────── */}

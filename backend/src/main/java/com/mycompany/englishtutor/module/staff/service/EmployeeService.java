@@ -3,8 +3,10 @@ package com.mycompany.englishtutor.module.staff.service;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -94,7 +96,7 @@ public class EmployeeService {
      */
     @PreAuthorize("hasRole('ADMIN')")
     public EmployeeDetailResponse getEmployee(Long id) {
-        return employeeMapper.toDetail(findManagedEmployee(id));
+        return toDetailWithStats(findManagedEmployee(id));
     }
 
     /**
@@ -105,10 +107,10 @@ public class EmployeeService {
     public EmployeeCreatedResponse createEmployee(EmployeeCreationRequest request) {
         String role = normalizeRole(request.getRole());
         String fullName = request.getFullName().trim();
-        String email = request.getEmail().trim();
-        String phone = request.getPhone().trim();
+        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
+        String phone = normalizePhone(request.getPhone());
 
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new AppException(ErrorCode.EMAIL_EXISTED);
         }
         if (userRepository.existsByPhone(phone)) {
@@ -116,7 +118,7 @@ public class EmployeeService {
         }
 
         String username = generateUsername(role, phone);
-        String employeeCode = generateEmployeeCode(role);
+        String employeeCode = generateEmployeeCode();
         LocalDate hiredDate = request.getStartDate() != null ? request.getStartDate() : LocalDate.now();
 
         User user = User.builder()
@@ -129,14 +131,19 @@ public class EmployeeService {
                 .status("ACTIVE")
                 .mustChangePassword(true)
                 .build();
-        user = userRepository.save(user);
-
-        Employee employee = Employee.builder()
-                .user(user)
-                .employeeCode(employeeCode)
-                .hiredDate(hiredDate)
-                .build();
-        employee = employeeRepository.save(employee);
+        Employee employee;
+        try {
+            user = userRepository.saveAndFlush(user);
+            employee = employeeRepository.saveAndFlush(Employee.builder()
+                    .user(user)
+                    .employeeCode(employeeCode)
+                    .hiredDate(hiredDate)
+                    .build());
+        } catch (DataIntegrityViolationException exception) {
+            // Hai request tạo cùng lúc vượt qua được bước kiểm tra trùng ở trên.
+            log.warn("Tạo nhân sự bị trùng dữ liệu: {}", exception.getMessage());
+            throw new AppException(ErrorCode.EMPLOYEE_CONTACT_EXISTED);
+        }
 
         Long actorId = getCurrentUserId();
         auditLogService.log(actorId, "CREATE_EMPLOYEE", "EMPLOYEE", user.getId(),
@@ -147,7 +154,7 @@ public class EmployeeService {
                 employeeCode, role, username, actorId);
 
         return EmployeeCreatedResponse.builder()
-                .employee(employeeMapper.toDetail(employee))
+                .employee(toDetailWithStats(employee))
                 .username(username)
                 .defaultPassword(DEFAULT_PASSWORD)
                 .build();
@@ -155,7 +162,7 @@ public class EmployeeService {
 
     /**
      * Đổi trạng thái hoạt động của nhân sự (UC-ADM-11): ACTIVE ↔ INACTIVE.
-     * Chuyển sai trạng thái → 409 (INVALID_EMPLOYEE_STATUS).
+     * Giá trị lạ → 400 (EMPLOYEE_STATUS_VALUE_INVALID); chuyển sai trạng thái → 409 (INVALID_EMPLOYEE_STATUS).
      */
     @PreAuthorize("hasRole('ADMIN')")
     @Transactional
@@ -167,7 +174,7 @@ public class EmployeeService {
         String targetStatus = request.getStatus() == null ? "" : request.getStatus().trim().toUpperCase();
 
         if (!"ACTIVE".equals(targetStatus) && !"INACTIVE".equals(targetStatus)) {
-            throw new AppException(ErrorCode.INVALID_EMPLOYEE_STATUS);
+            throw new AppException(ErrorCode.EMPLOYEE_STATUS_VALUE_INVALID);
         }
         // Chỉ cho phép đổi qua lại; đặt lại cùng trạng thái cũ là chuyển không hợp lệ.
         if (targetStatus.equals(currentStatus)) {
@@ -185,7 +192,7 @@ public class EmployeeService {
         log.info("Cập nhật trạng thái nhân sự id={}: {} -> {} bởi admin={}",
                 id, currentStatus, targetStatus, actorId);
 
-        return employeeMapper.toDetail(employee);
+        return toDetailWithStats(employee);
     }
 
     // ----------------------------------------------------------------------------
@@ -227,9 +234,35 @@ public class EmployeeService {
         }
         String normalized = status.trim().toUpperCase();
         if (!"ACTIVE".equals(normalized) && !"INACTIVE".equals(normalized)) {
-            throw new AppException(ErrorCode.INVALID_EMPLOYEE_STATUS);
+            throw new AppException(ErrorCode.EMPLOYEE_STATUS_VALUE_INVALID);
         }
         return normalized;
+    }
+
+    /** Đưa SĐT dạng {@code +84...} / {@code 84...} về dạng {@code 0...} để kiểm tra trùng chính xác. */
+    private String normalizePhone(String phone) {
+        return phone.trim().replaceFirst("^(\\+84|84)", "0");
+    }
+
+    private EmployeeDetailResponse toDetailWithStats(Employee employee) {
+        EmployeeDetailResponse detail = employeeMapper.toDetail(employee);
+        detail.setWorkStats(buildWorkStats(employee));
+        return detail;
+    }
+
+    /** Số liệu công việc theo vai trò (FR-38, hậu điều kiện UC-ADM-11). */
+    private Map<String, Long> buildWorkStats(Employee employee) {
+        Long userId = employee.getId();
+        Map<String, Long> stats = new LinkedHashMap<>();
+        if (UserRole.RECEPTIONIST.name().equals(employee.getUser().getRole())) {
+            stats.put("handledClassRequests", employeeRepository.countHandledClassRequests(userId));
+            stats.put("receivedComplaints", employeeRepository.countReceivedComplaints(userId));
+            stats.put("reviewedPayments", employeeRepository.countReviewedPayments(userId));
+        } else {
+            stats.put("reviewedPayments", employeeRepository.countReviewedPayments(userId));
+            stats.put("processedRefunds", employeeRepository.countProcessedRefunds(userId));
+        }
+        return stats;
     }
 
     /**
@@ -248,17 +281,10 @@ public class EmployeeService {
     }
 
     /**
-     * Sinh mã nhân viên theo seed DB: {@code EMP-REC-00N} / {@code EMP-ACC-00N}.
+     * Sinh mã nhân viên {@code NV-xxxx} (API_DESIGN 3.10), đánh số chung cho mọi vai trò.
      */
-    private String generateEmployeeCode(String role) {
-        String prefix = UserRole.RECEPTIONIST.name().equals(role) ? "EMP-REC-" : "EMP-ACC-";
-        long next = employeeRepository.countByEmployeeCodePrefix(prefix) + 1;
-        String code = String.format("%s%03d", prefix, next);
-        while (employeeRepository.existsByEmployeeCode(code)) {
-            next++;
-            code = String.format("%s%03d", prefix, next);
-        }
-        return code;
+    private String generateEmployeeCode() {
+        return String.format("NV-%04d", employeeRepository.findMaxEmployeeNumber() + 1);
     }
 
     private Long getCurrentUserId() {
