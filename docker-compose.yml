@@ -77,28 +77,26 @@ services:
   #   networks:
   #     - app-network
 
-  # # AI Service — Python & FastAPI
-  # ai:
-  #   build:
-  #     context: ./ai
-  #     dockerfile: Dockerfile
-  #   container_name: tutor-ai
-  #   restart: always
-  #   ports:
-  #     - "${AI_PORT:-8000}:8000"
-  #   environment:
-  #     LLM_PROVIDER: ${LLM_PROVIDER:-openai}
-  #     LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
-  #     LLM_API_KEY: ${LLM_API_KEY:-}
-  #     LLM_MONTHLY_BUDGET_USD: ${LLM_MONTHLY_BUDGET_USD:-10}
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #     start_period: 5s
-  #   networks:
-  #     - app-network
+  # AI Service — Python & FastAPI (AD-2: stateless, backend là cổng duy nhất)
+  ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    container_name: tutor-ai
+    restart: always
+    ports:
+      - "${AI_PORT:-8000}:8000"
+    environment:
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MONTHLY_BUDGET_USD: ${LLM_MONTHLY_BUDGET_USD:-10}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   # # Frontend Service — ReactJS + Vite (Nginx)
   # frontend:

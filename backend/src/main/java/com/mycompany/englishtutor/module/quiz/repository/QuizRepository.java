@@ -216,8 +216,9 @@ public class QuizRepository {
 
     // ------------------------------------------------------------------- WRITE
 
-    /** Tạo quiz bản nháp. {@code source} do service quyết định (quiz nhập
-     *  *thủ công ghi 'IMPORTED' — không có giá trị 'MANUAL' trong CHK V5). */
+    /** Tạo quiz bản nháp. {@code source} do service quyết định: 'IMPORTED'
+     *  (nhập tay/import) hoặc 'AI_DIRECT' (do trợ lý AI sinh) — CHK V5 chỉ cho
+     *  phép 2 giá trị này. */
     public Long insertQuiz(Long lessonId, String title, String source, int totalQuestions) {
         return jdbcTemplate.queryForObject(
                 """

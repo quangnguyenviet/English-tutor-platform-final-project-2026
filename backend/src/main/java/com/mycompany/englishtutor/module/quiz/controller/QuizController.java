@@ -14,12 +14,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.mycompany.englishtutor.module.quiz.api.request.AiChatQuizRequest;
 import com.mycompany.englishtutor.module.quiz.api.request.AssignQuizRequest;
 import com.mycompany.englishtutor.module.quiz.api.request.CreateQuizRequest;
 import com.mycompany.englishtutor.module.quiz.api.request.UpdateQuizRequest;
+import com.mycompany.englishtutor.module.quiz.api.response.AiChatQuizResponse;
 import com.mycompany.englishtutor.module.quiz.api.response.QuizDetailResponse;
 import com.mycompany.englishtutor.module.quiz.api.response.QuizListItemResponse;
 import com.mycompany.englishtutor.module.quiz.api.response.SkillOptionResponse;
+import com.mycompany.englishtutor.module.quiz.api.response.SkillProfileItemResponse;
+import com.mycompany.englishtutor.module.quiz.service.AiQuizService;
 import com.mycompany.englishtutor.module.quiz.service.QuizService;
 import com.mycompany.englishtutor.module.student.service.StudentPortalService;
 import com.mycompany.englishtutor.shared.api.ApiResponse;
@@ -37,7 +41,9 @@ import lombok.RequiredArgsConstructor;
  * {@code GET /quizzes/{id}} cho thêm STUDENT (ẩn đáp án câu chưa trả lời);
  * mọi endpoint kiểm tra quyền sở hữu trong service.
  *
- * <p>Chưa có: AI chat / import (T8-B3, T8-C1). Làm quiz học sinh &amp; Elo nằm ở {@code StudentPortalController}.
+ * <p>Kèm trợ lý AI soạn/sửa quiz (ai-chat) + bảng hồ sơ kỹ năng học sinh
+ * (skill-profile) — FR-13. Chưa có: import JSON (T8-C1, FR-14). Làm quiz học
+ * sinh &amp; Elo nằm ở {@code StudentPortalController}.
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -48,6 +54,7 @@ public class QuizController {
 
     private final QuizService quizService;
     private final StudentPortalService studentPortalService;
+    private final AiQuizService aiQuizService;
 
     @PostMapping("/lessons/{lessonId}/quizzes")
     @Operation(
@@ -124,6 +131,32 @@ public class QuizController {
         return ResponseEntity.ok(
                 ApiResponse.<List<SkillOptionResponse>>builder()
                         .result(quizService.listSkills())
+                        .build());
+    }
+
+    @PostMapping("/lessons/{lessonId}/quizzes/ai-chat")
+    @Operation(
+            summary = "Trợ lý AI soạn/sửa quiz (FR-13, V16: scope theo bài giảng): gửi yêu cầu, nhận xét + bộ câu đề xuất",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<AiChatQuizResponse>> aiChatQuiz(
+            @PathVariable Long lessonId,
+            @Valid @RequestBody AiChatQuizRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(
+                ApiResponse.<AiChatQuizResponse>builder()
+                        .result(aiQuizService.aiChatQuiz(lessonId, request))
+                        .build());
+    }
+
+    @GetMapping("/classes/{classId}/skill-profile")
+    @Operation(
+            summary = "Bảng thống kê hồ sơ kỹ năng học sinh của lớp (FR-13, drawer SKP)",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<List<SkillProfileItemResponse>>> getStudentSkillProfile(
+            @PathVariable Long classId, HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(
+                ApiResponse.<List<SkillProfileItemResponse>>builder()
+                        .result(aiQuizService.getStudentSkillProfile(classId))
                         .build());
     }
 }

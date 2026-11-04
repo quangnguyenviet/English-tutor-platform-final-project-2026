@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -35,4 +36,8 @@ public class CreateQuizRequest {
     @Valid
     @Schema(description = "Danh sách câu hỏi (thứ tự = số thứ tự câu)")
     List<QuizQuestionRequest> questions;
+
+    @Pattern(regexp = "^(AI_DIRECT|IMPORTED)$", message = "Nguồn tạo quiz phải là AI_DIRECT hoặc IMPORTED")
+    @Schema(description = "Nguồn tạo (tuỳ chọn): AI_DIRECT (trợ lý AI) hoặc IMPORTED (nhập tay/import). Mặc định IMPORTED", example = "AI_DIRECT")
+    String source;
 }

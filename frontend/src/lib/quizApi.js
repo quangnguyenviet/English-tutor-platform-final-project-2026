@@ -106,6 +106,45 @@ export function apiGetSkills(token) {
   return request(token, `/api/v1/skills`);
 }
 
+// ---------------------------------------------------- TRỢ LÝ AI SOẠN QUIZ (FR-13, UC-T06)
+
+/**
+ * Trò chuyện với trợ lý AI để soạn / sửa bộ câu hỏi quiz. Backend gọi AI
+ * Service, ghép ngữ cảnh ẩn danh của học sinh (SKP + catalog kỹ năng) và
+ * trả về nhận xét + bộ câu đề xuất (sẵn map vào form).
+ *
+ * @param {string} token
+ * @param {number|string} lessonId - Bài giảng (V16; guard quyền sở hữu)
+ * @param {Object} payload
+ * @param {string} payload.message - Yêu cầu của gia sư (bắt buộc)
+ * @param {number} [payload.quizId] - ID quiz DRAFT đang sửa (nếu có)
+ * @param {Array<{role: string, content: string}>} [payload.recentMessages]
+ *        - Lịch hội thoại gần nhất (chat stateless, tối đa 10 tin)
+ * @returns {Promise<{reply: string, draftQuestions: Array<{
+ *   questionText, optionA, optionB, optionC, optionD, correctAnswer,
+ *   explanation, cefrLevel, skillCode }>}>}
+ */
+export function apiAiChatQuiz(token, lessonId, payload) {
+  return request(
+    token,
+    `/api/v1/lessons/${encodeURIComponent(lessonId)}/quizzes/ai-chat`,
+    { method: "POST", body: JSON.stringify(payload) }
+  );
+}
+
+/**
+ * Bảng thống kê hồ sơ kỹ năng học sinh của lớp (drawer SKP, FR-13).
+ * Sắp theo tỷ lệ sai giảm dần + thời gian chưa ôn. Rỗng nếu chưa có dữ
+ * liệu trả lời quiz.
+ * @param {string} token
+ * @param {number|string} classId
+ * @returns {Promise<Array<{skillCode, skillName, category, totalCorrect,
+ *   totalIncorrect, totalAttempts, errorRate, lastPracticedAt}>>}
+ */
+export function apiGetSkillProfile(token, classId) {
+  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/skill-profile`);
+}
+
 // ---------------------------------------------------- META HIỂN THỊ
 
 /** Trạng thái quiz → nhãn + tone badge (chuẩn tone AGENTS.md). */
