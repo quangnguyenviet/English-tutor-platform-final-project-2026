@@ -1,16 +1,17 @@
 // Mock Data Entry Point - Tổng hợp dữ liệu từ các file role-based trong ./mock/
+// (Kèm extension .js: Vite hỗ trợ cả hai dạng, node:test (Node ESM) bắt buộc extension)
 
-export * from "./mock/tutorsData";
-export * from "./mock/studentsData";
-export * from "./mock/requestsData";
-export * from "./mock/libraryData";
-export * from "./mock/adminData";
-export * from "./mock/receptionistData";
-export * from "./mock/guestData";
+export * from "./mock/tutorsData.js";
+export * from "./mock/studentsData.js";
+export * from "./mock/requestsData.js";
+export * from "./mock/libraryData.js";
+export * from "./mock/adminData.js";
+export * from "./mock/receptionistData.js";
+export * from "./mock/guestData.js";
 
-import { students } from "./mock/studentsData";
-import { classRequests } from "./mock/requestsData";
-import { pathTemplates } from "./mock/libraryData";
+import { students } from "./mock/studentsData.js";
+import { classRequests } from "./mock/requestsData.js";
+import { pathTemplates } from "./mock/libraryData.js";
 
 // Helper functions cho toàn bộ ứng dụng
 export function getStudentById(id) {
