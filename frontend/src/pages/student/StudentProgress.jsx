@@ -1,20 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  AlertCircle,
   ArrowRight,
   Award,
-  BarChart3,
-  BookOpen,
   Brain,
   CheckCircle2,
   ChevronRight,
   CalendarDays,
-  Lightbulb,
-  Map,
-  Target,
   TrendingUp,
-  RotateCcw,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -22,38 +15,15 @@ import {
   apiGetMyQuizzes,
   apiGetMySessions,
   apiGetMyTutors,
-  apiGetReviewList,
 } from "../../lib/studentApi";
-import { formatSessionDate, formatSessionTime, SESSION_STATUS_META } from "../../lib/classroomApi";
+import { formatSessionDate, SESSION_STATUS_META } from "../../lib/classroomApi";
 import { sortSessionsDesc } from "../../lib/studentModel";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import PageHeader from "../../components/ui/PageHeader";
-import ProgressBar from "../../components/ui/ProgressBar";
 import StudentSessionDetail from "../../components/student/StudentSessionDetail";
 import { EmptyState, ErrorBox, SkeletonRows } from "../../components/student/AsyncBlock";
-
-const VIEW_OPTIONS = [
-  {
-    id: "overview",
-    label: "Tổng quan",
-    description: "Xu hướng & kết quả",
-    icon: BarChart3,
-  },
-  {
-    id: "skills",
-    label: "Năng lực",
-    description: "Điểm mạnh & điểm yếu",
-    icon: Brain,
-  },
-  {
-    id: "roadmap",
-    label: "Lộ trình",
-    description: "Mục tiêu & chặng học",
-    icon: Map,
-  },
-];
 
 function SummaryMetric({ icon: Icon, label, value, hint, tone = "blue" }) {
   const toneClasses = {
@@ -84,7 +54,6 @@ function SummaryMetric({ icon: Icon, label, value, hint, tone = "blue" }) {
 
 export default function StudentProgress() {
   const { token, session } = useAuth();
-  const [mainViewMode, setMainViewMode] = useState("overview");
   const [overviewTutorId, setOverviewTutorId] = useState("all");
   const [selectedSessionForModal, setSelectedSessionForModal] = useState(null);
 
@@ -95,7 +64,6 @@ export default function StudentProgress() {
   const [sessionsData, setSessionsData] = useState([]);
   const [quizzesData, setQuizzesData] = useState([]);
   const [tutorsData, setTutorsData] = useState([]);
-  const [reviewListData, setReviewListData] = useState([]);
 
   const loadData = useCallback(async () => {
     if (!token) return;
@@ -103,12 +71,11 @@ export default function StudentProgress() {
     setError("");
 
     try {
-      const [dashRes, sessRes, quizRes, tutorRes, revRes] = await Promise.allSettled([
+      const [dashRes, sessRes, quizRes, tutorRes] = await Promise.allSettled([
         apiGetMyDashboard(token),
         apiGetMySessions(token),
         apiGetMyQuizzes(token),
         apiGetMyTutors(token),
-        apiGetReviewList(token),
       ]);
 
       if (dashRes.status === "fulfilled") setDashboardData(dashRes.value);
@@ -121,12 +88,9 @@ export default function StudentProgress() {
       if (tutorRes.status === "fulfilled") {
         setTutorsData(Array.isArray(tutorRes.value) ? tutorRes.value : tutorRes.value?.content ?? []);
       }
-      if (revRes.status === "fulfilled") {
-        setReviewListData(Array.isArray(revRes.value) ? revRes.value : revRes.value?.content ?? []);
-      }
 
       // Nếu tất cả request đều lỗi
-      const allFailed = [dashRes, sessRes, quizRes, tutorRes, revRes].every(
+      const allFailed = [dashRes, sessRes, quizRes, tutorRes].every(
         (r) => r.status === "rejected"
       );
       if (allFailed) {
@@ -164,26 +128,11 @@ export default function StudentProgress() {
     return 1000;
   }, [dashboardData, session]);
 
-  // Tỉ lệ hoàn thành / đúng hạn
+  // Tỉ lệ hoàn thành
   const completionRate = useMemo(() => {
     if (!quizzesData.length) return 0;
     return Math.round((completedQuizzes.length / quizzesData.length) * 100);
   }, [quizzesData, completedQuizzes]);
-
-  // Nhóm kỹ năng từ review list (câu sai)
-  const skillErrors = useMemo(() => {
-    const map = {};
-    reviewListData.forEach((item) => {
-      const skill = item.skillName || "Tổng quát";
-      if (!map[skill]) map[skill] = [];
-      map[skill].push(item);
-    });
-    return Object.entries(map).map(([name, items]) => ({
-      name,
-      count: items.length,
-      items,
-    }));
-  }, [reviewListData]);
 
   // Bộ lọc theo gia sư ở tab Tổng quan
   const visibleTutors = useMemo(() => {
@@ -206,7 +155,7 @@ export default function StudentProgress() {
         className="mb-0"
         eyebrow="Kết quả học tập"
         title="Kết quả & Tiến bộ"
-        description="Xem xu hướng học tập, điểm cần cải thiện và tiến trình cùng gia sư."
+        description="Xem xu hướng học tập, tiến trình cùng gia sư và các bài kiểm tra đã hoàn thành."
         actions={
           <Button as={Link} to="/student/exercises" size="sm">
             Tiếp tục làm bài
@@ -215,41 +164,10 @@ export default function StudentProgress() {
         }
       />
 
-      <div
-        role="tablist"
-        aria-label="Nội dung kết quả và tiến bộ"
-        className="grid w-full sm:w-auto grid-cols-1 gap-1 rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900 sm:inline-grid sm:grid-cols-3"
-      >
-        {VIEW_OPTIONS.map((option) => {
-          const Icon = option.icon;
-          const isActive = mainViewMode === option.id;
-          return (
-            <button
-              key={option.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => setMainViewMode(option.id)}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
-                isActive
-                  ? "bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-              }`}
-            >
-              <Icon size={16} strokeWidth={1.75} />
-              <span>
-                <span className="block text-xs font-semibold">{option.label}</span>
-                <span className="hidden text-[10px] font-normal opacity-75 lg:block">{option.description}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
       {loading && <SkeletonRows rows={4} className="h-24" />}
       {!loading && error && <ErrorBox message={error} onRetry={loadData} />}
 
-      {!loading && !error && mainViewMode === "overview" && (
+      {!loading && !error && (
         <div className="space-y-6">
           <section aria-label="Chỉ số tiến bộ" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <SummaryMetric
@@ -430,173 +348,6 @@ export default function StudentProgress() {
               <p className="px-5 py-8 text-center text-xs text-slate-400">Chưa có bài hoàn thành trong mục này.</p>
             )}
           </Card>
-        </div>
-      )}
-
-      {!loading && !error && mainViewMode === "skills" && (
-        <div className="space-y-6">
-          <section className="grid grid-cols-1 gap-5 lg:grid-cols-5">
-            <Card className="border-blue-200 bg-blue-50/60 p-5 dark:border-blue-900/60 dark:bg-blue-950/20 lg:col-span-3">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
-                    <Brain size={22} strokeWidth={1.75} />
-                  </span>
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300">Hồ sơ năng lực</p>
-                    <h2 className="mt-1 text-base font-bold text-slate-900 dark:text-white">Mức tinh thông Elo</h2>
-                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Cập nhật theo thời gian thực sau mỗi câu quiz.</p>
-                  </div>
-                </div>
-                <div className="shrink-0 text-left sm:text-right">
-                  <p className="font-mono text-3xl font-bold text-slate-900 dark:text-white">
-                    {currentElo}
-                  </p>
-                  <Badge tone="blue">Đang phát triển</Badge>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-5 lg:col-span-2">
-              <div className="flex items-center gap-2">
-                <Lightbulb size={17} className="text-amber-500" />
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">Ôn tập câu sai</h2>
-              </div>
-              <p className="mt-3 text-sm font-semibold text-slate-800 dark:text-slate-200">
-                {reviewListData.length > 0 ? `${reviewListData.length} câu cần củng cố` : "Không có câu sai"}
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                {reviewListData.length > 0
-                  ? "Xem lại các câu hỏi đã trả lời chưa chính xác để ghi nhớ kiến thức tốt hơn."
-                  : "Bạn đang trả lời rất tốt! Khi có câu chưa đúng, hệ thống sẽ lưu vào mục ôn tập."}
-              </p>
-              {reviewListData.length > 0 && (
-                <Button as={Link} to="/student/spaced-repetition" variant="outline" size="sm" className="mt-4 w-full">
-                  <RotateCcw size={14} />
-                  Vào trang ôn tập
-                  <ArrowRight size={14} />
-                </Button>
-              )}
-            </Card>
-          </section>
-
-          {skillErrors.length > 0 ? (
-            <section aria-labelledby="skills-error-heading" className="space-y-3">
-              <div>
-                <h2 id="skills-error-heading" className="text-base font-bold text-slate-900 dark:text-white">
-                  Phân bố câu sai theo kỹ năng
-                </h2>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  Các kỹ năng cần lưu ý dựa trên lịch sử làm bài kiểm tra.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {skillErrors.map((skill) => (
-                  <Card key={skill.name} className="p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <Badge tone="rose" size="xs">Cần củng cố</Badge>
-                      <span className="font-mono text-sm font-bold text-rose-600 dark:text-rose-400">
-                        {skill.count} câu sai
-                      </span>
-                    </div>
-                    <h3 className="mt-3 text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      {skill.name}
-                    </h3>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      Ôn luyện thường xuyên để cải thiện kỹ năng này.
-                    </p>
-                  </Card>
-                ))}
-              </div>
-            </section>
-          ) : (
-            <EmptyState
-              icon={Brain}
-              title="Chưa có kỹ năng cần ôn lại"
-              description="Khi làm bài tập có câu chưa chính xác, hệ thống sẽ tự động phân loại theo kỹ năng để bạn ôn tập."
-            />
-          )}
-        </div>
-      )}
-
-      {!loading && !error && mainViewMode === "roadmap" && (
-        <div className="space-y-5">
-          <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Lớp học & Lộ trình</h2>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Lộ trình học tập cá nhân hóa được gia sư thiết kế theo từng lớp học.
-            </p>
-          </div>
-
-          {tutorsData.length > 0 ? (
-            <div className="space-y-4">
-              {tutorsData.map((tutor) => {
-                const classSessions = sortedSessions.filter((s) => s.classId === tutor.classId);
-                const completedCount = tutor.completedSessions ?? classSessions.filter((s) => s.status === "COMPLETED").length;
-                return (
-                  <Card key={tutor.classId || tutor.tutorId} className="p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <Badge tone="blue">{tutor.className}</Badge>
-                          <span className="text-xs text-slate-500 dark:text-slate-400">
-                            Gia sư {tutor.tutorName}
-                          </span>
-                        </div>
-                        <h3 className="mt-2 text-base font-bold text-slate-900 dark:text-white">
-                          Tiến trình: {completedCount} buổi đã hoàn thành
-                        </h3>
-                      </div>
-                      <Button as={Link} to="/student/schedule" variant="outline" size="sm">
-                        Xem lịch lớp học <ArrowRight size={14} />
-                      </Button>
-                    </div>
-
-                    {classSessions.length > 0 && (
-                      <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-800">
-                        <p className="mb-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                          Các buổi học gần đây của lớp
-                        </p>
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                          {classSessions.slice(0, 6).map((sessionItem) => {
-                            const meta = SESSION_STATUS_META[sessionItem.status] ?? {
-                              label: sessionItem.status,
-                              tone: "slate",
-                            };
-                            return (
-                              <button
-                                key={sessionItem.id || sessionItem.sessionId}
-                                type="button"
-                                onClick={() => setSelectedSessionForModal(sessionItem)}
-                                className="flex cursor-pointer items-center justify-between gap-2 rounded-xl border border-slate-200 p-2.5 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/30 dark:border-slate-800 dark:hover:border-blue-800"
-                              >
-                                <div className="min-w-0">
-                                  <p className="truncate text-xs font-medium text-slate-900 dark:text-white">
-                                    {sessionItem.title || sessionItem.className || "Buổi học"}
-                                  </p>
-                                  <p className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
-                                    {formatSessionDate(sessionItem.sessionDate || sessionItem.date)}
-                                  </p>
-                                </div>
-                                <Badge tone={meta.tone} size="xs">{meta.label}</Badge>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </Card>
-                );
-              })}
-            </div>
-          ) : (
-            <EmptyState
-              icon={Map}
-              title="Chưa có lớp học nào"
-              description="Khi bạn đăng ký học cùng gia sư, lộ trình chi tiết của lớp sẽ hiển thị tại đây."
-            />
-          )}
         </div>
       )}
 

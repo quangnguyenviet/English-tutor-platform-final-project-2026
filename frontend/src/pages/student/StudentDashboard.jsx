@@ -53,6 +53,7 @@ export default function StudentDashboard() {
 
       <section aria-label="Chỉ số" className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StudentMetricCard
+          to="/student/progress"
           icon={TrendingUp}
           tone="blue"
           value={loading ? "–" : elo.error || eloValue == null ? "–" : Math.round(eloValue)}
@@ -61,18 +62,21 @@ export default function StudentDashboard() {
           }
         />
         <StudentMetricCard
+          to="/student/exercises"
           icon={ClipboardList}
           tone={pending.some((q) => deadlineInfo(q.deadline).overdue) ? "rose" : "amber"}
           value={loading ? "–" : quizzes.error ? "–" : pending.length}
           label="Bài cần làm"
         />
         <StudentMetricCard
+          to="/student/schedule"
           icon={CalendarClock}
           tone="emerald"
           value={loading ? "–" : nextSession.value ? relativeDayLabel(nextSession.value.sessionDate) : "–"}
           label="Buổi học tiếp theo"
         />
         <StudentMetricCard
+          to="/student/schedule"
           icon={NotebookPen}
           tone="blue"
           value={loading ? "–" : lastSession.value ? formatSessionDate(lastSession.value.sessionDate).slice(0, 5) : "–"}
