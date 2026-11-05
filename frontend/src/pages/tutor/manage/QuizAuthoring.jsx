@@ -4,8 +4,6 @@ import {
   AlertCircle,
   ArrowLeft,
   Check,
-  ChevronDown,
-  Eye,
   ListChecks,
   Plus,
   Save,
@@ -61,69 +59,6 @@ function toIso(value) {
 /** Câu đã "đủ": có nội dung câu hỏi + cả 4 lựa chọn A–D (vì validate bắt buộc). */
 function isQuestionComplete(q) {
   return Boolean(q.questionText?.trim()) && q.options.every((o) => o?.trim());
-}
-
-/**
- * Xem nhanh từng câu trong khung "Xem trước" (cột phải): các lựa chọn A–D
- * hiển thị khi mở, đáp án đúng highlight emerald.
- */
-function PreviewQuestionRow({ q, index }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="py-2">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between gap-2 rounded-md px-1 py-1 text-left transition hover:bg-slate-50 active:scale-[0.99] dark:hover:bg-slate-800/60"
-      >
-        <p className="min-w-0 truncate text-xs font-medium text-slate-800 dark:text-slate-100">
-          {index + 1}. {q.questionText || "Câu chưa có nội dung"}
-        </p>
-        <ChevronDown
-          size={13}
-          className={clsx("shrink-0 text-slate-400 transition-transform", open && "rotate-180")}
-        />
-      </button>
-      {open && (
-        <div className="mt-1.5 space-y-1.5 pl-1">
-          <div className="grid grid-cols-2 gap-1.5">
-            {ANSWER_LETTERS.map((letter, oi) => {
-              const isCorrect = q.correctAnswer === letter;
-              return (
-                <div
-                  key={letter}
-                  className={clsx(
-                    "rounded-lg border px-2 py-1.5 text-[11px] leading-snug",
-                    isCorrect
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/40 dark:bg-emerald-950/40 dark:text-emerald-300"
-                      : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
-                  )}
-                >
-                  <span className={clsx("mr-1 font-semibold", isCorrect && "text-emerald-600 dark:text-emerald-400")}>
-                    {letter}.
-                  </span>
-                  {q.options[oi] || "…"}
-                  {isCorrect && (
-                    <span className="ml-1 inline-flex items-center gap-0.5 text-[10px] font-medium">
-                      <Check size={10} /> đáp án
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {q.cefrLevel && <Badge tone="blue">{q.cefrLevel}</Badge>}
-            {q.skillCode && <Badge tone="violet">{q.skillCode}</Badge>}
-            <span className="text-[10px] text-slate-400 dark:text-slate-500">
-              Đáp án {q.correctAnswer}
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 export default function QuizAuthoring({ token, classId, basePath, detail }) {
@@ -787,27 +722,6 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                 onDrafts={(qs) => setAiDrafts((prev) => [...prev, ...qs])}
               />
             </div>
-
-            {/* Xem trước: đầy đủ các câu, mở từng câu để xem đáp án A–D */}
-            <Card className="space-y-3 p-5">
-              <div className="flex items-center gap-2">
-                <Eye size={15} className="text-blue-500" />
-                <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">Xem trước</h4>
-              </div>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                {title.trim() || "Quiz chưa đặt tên"}
-              </p>
-              <div className="max-h-64 divide-y divide-slate-100 overflow-y-auto pr-1 dark:divide-slate-800">
-                {questions.map((q, i) => (
-                  <PreviewQuestionRow key={i} q={q} index={i} />
-                ))}
-                {questions.length === 0 && (
-                  <p className="py-2 text-xs text-slate-400 dark:text-slate-500">
-                    Chưa có câu hỏi nào.
-                  </p>
-                )}
-              </div>
-            </Card>
 
             {/* Trạng thái khi sửa / xem quiz đã giao */}
             {existing && isDraft && (
