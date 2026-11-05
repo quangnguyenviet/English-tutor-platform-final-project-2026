@@ -1,11 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, Award, User, X, Search } from "lucide-react";
-import { tutors } from "../../data/mockData";
+import { apiGetPublicTutors } from "../../lib/tutorApi";
+import { mapPublicTutor } from "../../lib/publicTutorMapper";
 import { useStudentMatching } from "../../context/StudentMatchingContext";
 import TutorCard from "../../components/guest/TutorCard";
 import TutorDetailModal from "./TutorDetailModal";
 import PageHeader from "../../components/ui/PageHeader";
+import Button from "../../components/ui/Button";
+import { EmptyState, ErrorBox, SkeletonRows } from "../../components/student/AsyncBlock";
 
 const SUBJECTS = [
   "IELTS",
@@ -17,7 +20,7 @@ const SUBJECTS = [
   "Luyện thi Chuyên Anh",
   "Ngữ pháp & Từ vựng",
   "Phát âm chuẩn IPA",
-  "Tiếng Anh Mất gốc / Foundation"
+  "Tiếng Anh Mất gốc / Foundation",
 ];
 
 const HIGHLIGHT_OPTIONS = [
@@ -30,7 +33,7 @@ const HIGHLIGHT_OPTIONS = [
   "Á khoa",
   "Học bổng",
   "Chuyên dạy học sinh mất gốc",
-  "Chuyên luyện thi Đại học"
+  "Chuyên luyện thi Đại học",
 ];
 
 const GENDERS = ["Tất cả giới tính", "Nam", "Nữ"];
@@ -39,79 +42,45 @@ export default function StudentMarketplace() {
   const navigate = useNavigate();
   const { selectTutorAndStartOnboarding } = useStudentMatching();
 
+  const [tutors, setTutors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [totalPages, setTotalPages] = useState(1);
   const [selectedTutorForDetail, setSelectedTutorForDetail] = useState(null);
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedHighlight, setSelectedHighlight] = useState("");
   const [selectedGender, setSelectedGender] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // 3 gia sư mỗi hàng, tối đa 2 hàng = 6 gia sư / trang
-  const tutorsPerPage = 6;
+  const fetchTutors = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const keyword = [selectedSubject, selectedHighlight].filter(Boolean).join(" ").trim();
+      const gender =
+        selectedGender === "Nam" ? "MALE" : selectedGender === "Nữ" ? "FEMALE" : undefined;
 
-  // Filter tutors by 3 criteria
-  const filteredTutors = useMemo(() => {
-    return tutors.filter((t) => {
-      // 1. Chuyên môn Tiếng Anh
-      if (selectedSubject) {
-        const sLow = selectedSubject.toLowerCase();
-        const combinedText = [
-          ...(t.subjects || []),
-          ...(t.specialization || []),
-          t.bio || "",
-          t.university || ""
-        ].join(" ").toLowerCase();
+      const res = await apiGetPublicTutors({
+        page: currentPage - 1,
+        size: 6,
+        keyword: keyword || undefined,
+        gender,
+      });
 
-        let matched = combinedText.includes(sLow);
-        if (!matched) {
-          if (sLow.includes("ielts") && combinedText.includes("ielts")) matched = true;
-          if (sLow.includes("toeic") && combinedText.includes("toeic")) matched = true;
-          if (sLow.includes("giao tiếp") && (combinedText.includes("giao tiếp") || combinedText.includes("speaking"))) matched = true;
-          if (sLow.includes("thpt") && (combinedText.includes("thpt") || combinedText.includes("cấp 3"))) matched = true;
-          if (sLow.includes("thcs") && (combinedText.includes("thcs") || combinedText.includes("cấp 2") || combinedText.includes("chuyên"))) matched = true;
-          if (sLow.includes("tiểu học") && (combinedText.includes("tiểu học") || combinedText.includes("cấp 1"))) matched = true;
-          if (sLow.includes("ngữ pháp") && combinedText.includes("ngữ pháp")) matched = true;
-          if (sLow.includes("phát âm") && (combinedText.includes("phát âm") || combinedText.includes("ipa"))) matched = true;
-          if (sLow.includes("mất gốc") && combinedText.includes("mất gốc")) matched = true;
-        }
-        if (!matched) return false;
-      }
+      const items = (res?.items || []).map(mapPublicTutor);
+      setTutors(items);
+      setTotalPages(Math.max(1, res?.totalPages || 1));
+    } catch (err) {
+      setError(err.message || "Không thể tải danh sách gia sư. Vui lòng thử lại sau.");
+      setTutors([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedSubject, selectedHighlight, selectedGender, currentPage]);
 
-      // 2. Thành tích nổi bật
-      if (selectedHighlight) {
-        const hLow = selectedHighlight.toLowerCase();
-        let matched = (t.highlights || []).some(
-          (th) => th.toLowerCase().includes(hLow) || hLow.includes(th.toLowerCase())
-        );
-
-        if (!matched) {
-          const bioAwardsText = [
-            t.bio || "",
-            t.highSchool || "",
-            t.academicRank || "",
-            ...(t.awards || []).map((a) => a.title || ""),
-            ...(t.certificates || []).map((c) => c.name || "")
-          ].join(" ").toLowerCase();
-
-          matched = bioAwardsText.includes(hLow);
-        }
-        if (!matched) return false;
-      }
-
-      // 3. Giới tính
-      if (selectedGender && selectedGender !== "Tất cả giới tính") {
-        if ((t.gender || "").toLowerCase() !== selectedGender.toLowerCase()) return false;
-      }
-
-      return true;
-    });
-  }, [selectedSubject, selectedHighlight, selectedGender]);
-
-  // Pagination calculation
-  const totalPages = Math.ceil(filteredTutors.length / tutorsPerPage);
-  const paginatedTutors = useMemo(() => {
-    const start = (currentPage - 1) * tutorsPerPage;
-    return filteredTutors.slice(start, start + tutorsPerPage);
-  }, [filteredTutors, currentPage, tutorsPerPage]);
+  useEffect(() => {
+    fetchTutors();
+  }, [fetchTutors]);
 
   const handlePageChange = (pageNum) => {
     setCurrentPage(pageNum);
@@ -125,7 +94,9 @@ export default function StudentMarketplace() {
   };
 
   function handleConnectTutor(tutorItem) {
-    selectTutorAndStartOnboarding(tutorItem);
+    if (selectTutorAndStartOnboarding) {
+      selectTutorAndStartOnboarding(tutorItem);
+    }
     navigate("/student/onboarding");
   }
 
@@ -227,11 +198,37 @@ export default function StudentMarketplace() {
         )}
       </div>
 
+      {/* Loading state */}
+      {loading && (
+        <div className="space-y-4">
+          <SkeletonRows rows={3} className="h-44" />
+        </div>
+      )}
+
+      {/* Error state */}
+      {!loading && error && <ErrorBox message={error} onRetry={fetchTutors} />}
+
+      {/* Empty state */}
+      {!loading && !error && tutors.length === 0 && (
+        <EmptyState
+          icon={Search}
+          title="Không tìm thấy gia sư phù hợp"
+          description="Không có gia sư nào thỏa mãn tiêu chí lọc hiện tại. Thử chọn lại chuyên môn hoặc thành tích khác."
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" size="sm" onClick={handleResetFilters}>
+                Đặt lại bộ lọc
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
+
       {/* Tutor Cards Grid: 3 gia sư mỗi hàng, tối đa 2 hàng (6 gia sư/trang) */}
-      {paginatedTutors.length > 0 ? (
+      {!loading && !error && tutors.length > 0 && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {paginatedTutors.map((tutor, i) => (
+            {tutors.map((tutor, i) => (
               <TutorCard
                 key={tutor.id}
                 tutor={tutor}
@@ -280,25 +277,6 @@ export default function StudentMarketplace() {
             </div>
           )}
         </>
-      ) : (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900">
-          <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-            <Search className="h-7 w-7 text-slate-400" strokeWidth={1.75} />
-          </div>
-          <h3 className="mb-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
-            Không tìm thấy gia sư phù hợp
-          </h3>
-          <p className="mb-4 max-w-xs text-xs text-slate-500 dark:text-slate-400">
-            Không có gia sư nào thỏa mãn cả 3 tiêu chí lọc hiện tại. Thử chọn lại chuyên môn hoặc thành tích khác.
-          </p>
-          <button
-            type="button"
-            onClick={handleResetFilters}
-            className="cursor-pointer rounded-xl bg-blue-600 px-4 py-2 text-xs font-medium text-white transition-all hover:bg-blue-700 active:scale-[0.98]"
-          >
-            Đặt lại bộ lọc
-          </button>
-        </div>
       )}
 
       {/* Tutor Detail Modal */}

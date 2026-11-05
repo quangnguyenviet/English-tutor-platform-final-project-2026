@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  SESSION_STATUS_META,
   addDays,
   dashboardArea,
   buildWeekDays,
@@ -120,4 +121,34 @@ test("dashboardArea: lỗi một khu vực không ảnh hưởng khu khác", () 
   assert.equal(next.error, "");
   assert.equal(next.empty, true);
   assert.equal(dashboardArea(null, "elo").empty, true);
+});
+
+test("SESSION_STATUS_META: đủ nhãn tiếng Việt cho các trạng thái buổi học backend và frontend", () => {
+  const expected = [
+    "SCHEDULED",
+    "PLANNED",
+    "IN_PROGRESS",
+    "STARTED",
+    "COMPLETED",
+    "ABSENT",
+    "STUDENT_ABSENT",
+    "TUTOR_ABSENT",
+    "RESCHEDULED",
+    "ADJUSTED",
+    "CANCELLED",
+  ];
+
+  for (const status of expected) {
+    const meta = SESSION_STATUS_META[status];
+    assert.ok(meta, `Thiếu trạng thái: ${status}`);
+    assert.ok(meta.label && typeof meta.label === "string" && meta.label.length > 0);
+    assert.ok(["blue", "amber", "emerald", "rose", "slate"].includes(meta.tone));
+  }
+
+  assert.equal(SESSION_STATUS_META.SCHEDULED.label, "Đã lên lịch");
+  assert.equal(SESSION_STATUS_META.IN_PROGRESS.label, "Đang diễn ra");
+  assert.equal(SESSION_STATUS_META.COMPLETED.label, "Đã hoàn thành");
+  assert.equal(SESSION_STATUS_META.RESCHEDULED.label, "Đã dời lịch");
+  assert.equal(SESSION_STATUS_META.ADJUSTED.label, "Đã điều chỉnh");
+  assert.equal(SESSION_STATUS_META.CANCELLED.label, "Đã hủy");
 });

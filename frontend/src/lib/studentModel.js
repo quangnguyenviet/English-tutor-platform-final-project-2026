@@ -69,6 +69,22 @@ export function weekRangeLabel(weekStart) {
   return `${start} – ${ed}/${em}/${ey}`;
 }
 
+// ---------- Trạng thái buổi học ----------
+
+export const SESSION_STATUS_META = {
+  SCHEDULED: { label: "Đã lên lịch", tone: "blue" },
+  PLANNED: { label: "Đã lên lịch", tone: "blue" },
+  IN_PROGRESS: { label: "Đang diễn ra", tone: "amber" },
+  STARTED: { label: "Đang diễn ra", tone: "amber" },
+  COMPLETED: { label: "Đã hoàn thành", tone: "emerald" },
+  ABSENT: { label: "Vắng mặt", tone: "rose" },
+  STUDENT_ABSENT: { label: "Học sinh vắng", tone: "rose" },
+  TUTOR_ABSENT: { label: "Gia sư vắng", tone: "rose" },
+  RESCHEDULED: { label: "Đã dời lịch", tone: "amber" },
+  ADJUSTED: { label: "Đã điều chỉnh", tone: "amber" },
+  CANCELLED: { label: "Đã hủy", tone: "rose" },
+};
+
 // ---------- Buổi học & nhật ký ----------
 
 /**
