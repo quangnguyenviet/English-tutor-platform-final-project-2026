@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
@@ -100,6 +100,65 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
       .then((items) => setSkills(items || []))
       .catch(() => setSkills([]));
   }, [token]);
+
+  // --- Split-pane: chiều cao khả dụng cho vùng nội dung ---
+  // Trên desktop, trang soạn quiz dùng mô hình 2 cột độc lập: cột trái tự
+  // cuộn, cột phải (panel chat AI) đứng yên. Để trang KHÔNG còn cuộn được
+  // (kể cả ở đầu/cuối), chiều cao trang phải khớp chính xác chiều cao vùng
+  // cuộn. Tính bằng: clientHeight(vùng cuộn) - vị trí đầu trang - padding
+  // đáy của lớp bọc. Nếu dư/chênh, vùng cuộn sẽ cuộn được và mọi khối bên
+  // trong trôi theo ở hai đầu — đây là lý do phải đo chứ không hardcode theo vh.
+  const pageRef = useRef(null);
+  const [pageHeight, setPageHeight] = useState(null);
+
+  useLayoutEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      // Chỉ áp dụng split-pane ở desktop; mobile dùng luồng cuộn của trang.
+      if (window.innerWidth < 1024) {
+        setPageHeight(null);
+        return;
+      }
+      // Vùng cuộn thật là <main> của AppShell (không phải window).
+      const scroller = el.closest("main");
+      if (!scroller) {
+        setPageHeight(null);
+        return;
+      }
+      const scrollerRect = scroller.getBoundingClientRect();
+
+      // Lớp bọc có padding của AppShell (px-4 py-6 lg:py-8) — cần trừ
+      // padding đáy vì nó nằm SAU trang trong luồng, nếu quên thì vùng cuộn
+      // dư đúng bằng padding và trang cuộn được.
+      let padBottom = 0;
+      for (let n = el.parentElement; n && n !== scroller; n = n.parentElement) {
+        const pb = parseFloat(getComputedStyle(n).paddingBottom) || 0;
+        if (pb > 0) {
+          padBottom = pb;
+          break;
+        }
+      }
+
+      // Vị trí đầu trang tính từ mép trên nội dung của vùng cuộn (cộng lại
+      // scrollTop để không phụ thuộc vị trí cuộn hiện tại).
+      const offsetTop = el.getBoundingClientRect().top - scrollerRect.top + scroller.scrollTop;
+      const h = scroller.clientHeight - offsetTop - padBottom;
+      setPageHeight(h > 320 ? Math.floor(h) : null);
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    const scroller = el.closest("main");
+    if (scroller) ro.observe(scroller);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [loading, loadError]);
 
   // Sửa quiz có sẵn (mở bản nháp / bản đã giao để xem & sửa khi còn DRAFT).
   useEffect(() => {
@@ -341,9 +400,19 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
   }, [showAssign]);
 
   return (
-    <div className="space-y-5">
+    <div
+      ref={pageRef}
+      className={clsx(
+        // Desktop: chiều cao cố định = khung nhìn → 3 khối flex (header /
+        // vùng nội dung cuộn nội bộ / thanh hành động). Nhờ vậy cột phải
+        // (chat AI) đứng yên, không bao giờ di chuyển theo con lăn.
+        // Mobile: luồng cuộn bình thường của trang.
+        pageHeight ? "flex flex-col gap-4" : "space-y-5"
+      )}
+      style={pageHeight ? { height: pageHeight } : undefined}
+    >
       {/* Header */}
-      <div>
+      <div className="shrink-0">
         <Link
           to={backTo}
           className="mb-3 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
@@ -383,7 +452,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
       {formError && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300"
+          className="flex shrink-0 items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300"
         >
           <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-500" />
           <div className="flex-1">
@@ -427,9 +496,24 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
           </Button>
         </Card>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-5">
-          {/* Cột trái (3/5): form */}
-          <div className="space-y-4 lg:col-span-3">
+        <div
+          className={clsx(
+            "grid gap-5 lg:grid-cols-5",
+            // Split-pane: vùng nội dung chiếm phần dư chiều cao, 2 cột cao
+            // bằng nhau; cột trái cuộn nội bộ, cột phải đứng yên.
+            // Split-pane: vùng nội dung chiếm phần dư chiều cao, 2 cột cao
+            // bằng nhau; cột trái cuộn nội bộ, cột phải đứng yên.
+            pageHeight && "min-h-0 flex-1 grid-rows-1"
+          )}
+        >
+          {/* Cột trái (3/5): form. Khi split-pane bật (desktop), cột này cuộn
+              nội bộ theo chiều cao đã đo; trang ngoài không cuộn ở desktop. */}
+          <div
+            className={clsx(
+              "space-y-4 lg:col-span-3",
+              pageHeight && "min-h-0 lg:overflow-y-auto lg:pr-2"
+            )}
+          >
             <Card className="space-y-3 p-5">
               <div>
                 <label
@@ -701,20 +785,31 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
             </div>
           </div>
 
-          {/* Cột phải (2/5): cố định khi cuộn trên desktop — chỉ cột trái scroll.
-              max-h + overflow nội bộ để cột luôn gọn trong viewport (không che
-              thanh hành động sticky đáy). */}
+          {/* Cột phải (2/5): "bảng điều khiển" cao bằng cột trái.
+              - Split-pane bật: cột cao đúng chiều cao vùng nội dung, KHÔNG
+                sticky → đứng yên hoàn toàn, không di chuyển khi cuộn.
+              - flex-col + flex-1 cho chat → chat chiếm phần dư, tự cuộn nội bộ.
+              - Ngoài split-pane (mobile): theo luồng trang, chat cao cố định. */}
           <div
             className={clsx(
-              "space-y-4 self-start lg:col-span-2",
-              "lg:sticky lg:top-4 lg:max-h-[calc(100dvh-10rem)] lg:overflow-y-auto lg:pb-2 lg:pr-1"
+              "flex flex-col gap-4 lg:col-span-2",
+              // Split-pane: cột cao đúng vùng nội dung, đứng yên.
+              pageHeight && "min-h-0 lg:h-full"
             )}
           >
-            {/* Ngăn kéo hồ sơ kỹ năng học sinh (SKP) — đóng mặc định, mở nhanh từ tiêu đề */}
-            <SkillProfileDrawer items={skillProfile} loading={skillProfileLoading} defaultOpen={false} />
+            {/* Hồ sơ kỹ năng học sinh (SKP) — thu gọn mặc định, mở nhanh từ tiêu đề.
+                Danh sách cuộn riêng, chiều cao giới hạn để không lấn chat. */}
+            <SkillProfileDrawer
+              items={skillProfile}
+              loading={skillProfileLoading}
+              defaultOpen={false}
+              listMaxHeight="max-h-56"
+            />
 
-            {/* Trợ lý AI soạn quiz — panel chat, độ cao cố định để cuộn nội bộ */}
-            <div className="h-[340px] overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:h-[420px]">
+            {/* Trợ lý AI soạn quiz — chiếm toàn bộ phần chiều cao còn lại của
+                bảng điều khiển; cuộn nội bộ nên vị trí của nó không đổi khi
+                người dùng cuộn danh sách câu hỏi bên trái. */}
+            <div className="flex h-[420px] min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:h-auto lg:min-h-0 lg:flex-1">
               <QuizAiAssistant
                 token={token}
                 lessonId={lessonId}
@@ -746,8 +841,15 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
         </div>
       )}
 
-      {/* Thanh hành động sticky đáy: lưu nháp + giao bài (nằm trong vùng cuộn của AppShell) */}
-      <div className="sticky bottom-0 z-40 -mx-4 mt-2 flex flex-col gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95 sm:-mx-6 sm:px-6 lg:-mx-6 lg:px-6">
+      {/* Thanh hành động: lưu nháp + giao bài.
+          - Split-pane (desktop): khối flex cố định ở đáy, không cần sticky.
+          - Mobile: sticky đáy trong luồng cuộn của trang. */}
+      <div
+        className={clsx(
+          "z-40 -mx-4 flex flex-col gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95 sm:-mx-6 sm:px-6 lg:-mx-6 lg:px-6",
+          pageHeight ? "shrink-0" : "sticky bottom-0 mt-2"
+        )}
+      >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 text-xs text-slate-500 dark:text-slate-400">
             <p>

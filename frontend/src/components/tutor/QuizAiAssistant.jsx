@@ -99,7 +99,7 @@ export default function QuizAiAssistant({ token, lessonId, quizId, onDrafts }) {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-slate-200 p-3 dark:border-slate-800">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
@@ -114,7 +114,7 @@ export default function QuizAiAssistant({ token, lessonId, quizId, onDrafts }) {
       </div>
 
       {/* Message list */}
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3">
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
         {messages.length === 0 && (
           <div className="space-y-3">
             <p className="rounded-lg border border-dashed border-slate-300 p-4 text-xs text-slate-400 dark:border-slate-700">

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Clock, Inbox, BarChart3, TrendingDown } from "lucide-react";
+import clsx from "clsx";
 import Card from "../ui/Card";
 import Badge from "../ui/Badge";
 
@@ -21,7 +22,7 @@ function daysSince(value) {
   return days;
 }
 
-export default function SkillProfileDrawer({ items, loading, defaultOpen = true }) {
+export default function SkillProfileDrawer({ items, loading, defaultOpen = true, listMaxHeight = "max-h-72" }) {
   const [open, setOpen] = useState(defaultOpen);
   const [sortKey, setSortKey] = useState("error");
 
@@ -117,7 +118,7 @@ export default function SkillProfileDrawer({ items, loading, defaultOpen = true 
                 </select>
               </div>
 
-              <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+              <div className={clsx("space-y-2 overflow-y-auto pr-1", listMaxHeight)}>
                 {sorted.map((it) => {
                   const days = daysSince(it.lastPracticedAt);
                   const rate = it.errorRate;
