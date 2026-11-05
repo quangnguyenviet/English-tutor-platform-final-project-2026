@@ -13,6 +13,13 @@ import { apiAiChatQuiz } from "../../lib/quizApi";
  */
 const MAX_RECENT = 10;
 
+/** Gợi ý bắt đầu nhanh khi chat trống — click là gửi luôn. */
+const QUICK_PROMPTS = [
+  "Tạo 5 câu B1 thì quá khứ",
+  "Đa dạng thêm kỹ năng",
+  "Giảm độ khó các câu đang có",
+];
+
 export default function QuizAiAssistant({ token, lessonId, quizId, onDrafts }) {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
@@ -49,13 +56,18 @@ export default function QuizAiAssistant({ token, lessonId, quizId, onDrafts }) {
         ...(quizId ? { quizId } : {}),
         ...(recentMessages.length ? { recentMessages } : {}),
       });
+      const hasDrafts = Array.isArray(res?.draftQuestions) && res.draftQuestions.length > 0;
       const aiMsg = {
         id: `a-${Date.now()}`,
         role: "assistant",
-        text: res?.reply || "Đã tạo bộ câu hỏi theo yêu cầu.",
+        text:
+          res?.reply ||
+          (hasDrafts
+            ? "Đã tạo bộ câu hỏi theo yêu cầu."
+            : "AI chưa đề xuất câu mới — hãy mô tả cụ thể hơn (chủ điểm, độ khó, số câu)."),
       };
       setMessages((prev) => [...prev, aiMsg]);
-      if (Array.isArray(res?.draftQuestions) && res.draftQuestions.length > 0) {
+      if (hasDrafts) {
         onDrafts?.(res.draftQuestions);
       }
     } catch (err) {
@@ -104,10 +116,23 @@ export default function QuizAiAssistant({ token, lessonId, quizId, onDrafts }) {
       {/* Message list */}
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3">
         {messages.length === 0 && (
-          <p className="rounded-lg border border-dashed border-slate-300 p-4 text-xs text-slate-400 dark:border-slate-700">
-            Mô tả yêu cầu để AI soạn câu hỏi, ví dụ "Tạo 5 câu tập trung thì quá khứ, độ khó
-            B1". AI bám theo hồ sơ kỹ năng của học sinh.
-          </p>
+          <div className="space-y-3">
+            <p className="rounded-lg border border-dashed border-slate-300 p-4 text-xs text-slate-400 dark:border-slate-700">
+              Mô tả yêu cầu để AI soạn câu hỏi. AI bám theo hồ sơ kỹ năng của học sinh.
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_PROMPTS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => send(p)}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 active:scale-[0.98] dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:border-blue-700 dark:hover:bg-blue-950 dark:hover:text-blue-300"
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
         {messages.map((m) =>
           m.error ? (
@@ -147,23 +172,29 @@ export default function QuizAiAssistant({ token, lessonId, quizId, onDrafts }) {
       </div>
 
       {/* Input */}
-      <div className="flex items-end gap-2 border-t border-slate-200 p-3 dark:border-slate-800">
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          placeholder="Ví dụ: Nâng câu 3 lên B2..."
-          rows={2}
-          className="flex-1 resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:focus:ring-blue-950"
-        />
-        <Button size="sm" onClick={handleSend} disabled={thinking || !draft.trim()} className="shrink-0">
-          <Send size={14} />
-        </Button>
+      <div className="space-y-1.5 border-t border-slate-200 p-3 dark:border-slate-800">
+        <div className="flex items-end gap-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder="Ví dụ: Nâng câu 3 lên B2..."
+            rows={2}
+            aria-label="Nhập yêu cầu cho trợ lý AI"
+            className="flex-1 resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:focus:border-cyan-400 dark:focus:ring-cyan-500/20"
+          />
+          <Button size="sm" onClick={handleSend} disabled={thinking || !draft.trim()} className="shrink-0">
+            <Send size={14} /> Gửi
+          </Button>
+        </div>
+        <p className="text-[10px] text-slate-400 dark:text-slate-500">
+          Enter để gửi · Shift + Enter để xuống dòng
+        </p>
       </div>
     </div>
   );

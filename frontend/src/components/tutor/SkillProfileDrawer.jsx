@@ -7,7 +7,9 @@ import Badge from "../ui/Badge";
  * Ngăn kéo "Bảng thống kê hồ sơ học sinh" (FR-13, UC-T06 bước 2). Hiển thị
  * kỹ năng của học sinh kèm tỷ lệ sai + thời gian chưa ôn, mặc định sắp theo
  * tỷ lệ sai giảm rồi lâu chưa ôn (trùng thứ tự backend). Rỗng thì hiện
- * trạng thái thân thiện (chưa có dữ liệu trả lời quiz).
+ * trạng thái thân thiện (chưa có dữ liệu trả lời quiz). Trạng thái mở do
+ * prop `defaultOpen` điều khiển (mặc định true); khi đóng, tiêu đề kèm
+ * chip tóm tắt số kỹ năng có thống kê để mở lại nhanh.
  */
 
 /** Cách đọc "đã ôn N ngày trước" cho cột thời gian. */
@@ -19,8 +21,8 @@ function daysSince(value) {
   return days;
 }
 
-export default function SkillProfileDrawer({ items, loading }) {
-  const [open, setOpen] = useState(true);
+export default function SkillProfileDrawer({ items, loading, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
   const [sortKey, setSortKey] = useState("error");
 
   const sorted = useMemo(() => {
@@ -65,9 +67,16 @@ export default function SkillProfileDrawer({ items, loading }) {
             <BarChart3 size={16} />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              Hồ sơ kỹ năng học sinh
-            </h4>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                Hồ sơ kỹ năng học sinh
+              </h4>
+              {!open && !loading && hasData && (
+                <Badge tone="slate" size="xs">
+                  {items.length} kỹ năng
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Tham khảo khi chọn trọng tâm câu hỏi
             </p>

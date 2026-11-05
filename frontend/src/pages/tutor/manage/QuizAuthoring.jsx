@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
   ArrowLeft,
   Check,
-  CheckCircle2,
-  Clock,
+  ChevronDown,
   Eye,
   ListChecks,
   Plus,
@@ -19,6 +18,7 @@ import Card from "../../../components/ui/Card";
 import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
 import clsx from "clsx";
+import { useToast } from "../../../hooks/useToast";
 import QuizAiAssistant from "../../../components/tutor/QuizAiAssistant";
 import SkillProfileDrawer from "../../../components/tutor/SkillProfileDrawer";
 import {
@@ -49,7 +49,7 @@ const CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 const ANSWER_LETTERS = ["A", "B", "C", "D"];
 
 const inputClass =
-  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-950";
+  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-cyan-400 dark:focus:ring-cyan-500/20";
 
 /** Chuyển "YYYY-MM-DDTHH:mm" (datetime-local) sang ISO UTC để gửi backend. */
 function toIso(value) {
@@ -58,10 +58,79 @@ function toIso(value) {
   return Number.isNaN(d.getTime()) ? "" : d.toISOString();
 }
 
+/** Câu đã "đủ": có nội dung câu hỏi + cả 4 lựa chọn A–D (vì validate bắt buộc). */
+function isQuestionComplete(q) {
+  return Boolean(q.questionText?.trim()) && q.options.every((o) => o?.trim());
+}
+
+/**
+ * Xem nhanh từng câu trong khung "Xem trước" (cột phải): các lựa chọn A–D
+ * hiển thị khi mở, đáp án đúng highlight emerald.
+ */
+function PreviewQuestionRow({ q, index }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="py-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-2 rounded-md px-1 py-1 text-left transition hover:bg-slate-50 active:scale-[0.99] dark:hover:bg-slate-800/60"
+      >
+        <p className="min-w-0 truncate text-xs font-medium text-slate-800 dark:text-slate-100">
+          {index + 1}. {q.questionText || "Câu chưa có nội dung"}
+        </p>
+        <ChevronDown
+          size={13}
+          className={clsx("shrink-0 text-slate-400 transition-transform", open && "rotate-180")}
+        />
+      </button>
+      {open && (
+        <div className="mt-1.5 space-y-1.5 pl-1">
+          <div className="grid grid-cols-2 gap-1.5">
+            {ANSWER_LETTERS.map((letter, oi) => {
+              const isCorrect = q.correctAnswer === letter;
+              return (
+                <div
+                  key={letter}
+                  className={clsx(
+                    "rounded-lg border px-2 py-1.5 text-[11px] leading-snug",
+                    isCorrect
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/40 dark:bg-emerald-950/40 dark:text-emerald-300"
+                      : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
+                  )}
+                >
+                  <span className={clsx("mr-1 font-semibold", isCorrect && "text-emerald-600 dark:text-emerald-400")}>
+                    {letter}.
+                  </span>
+                  {q.options[oi] || "…"}
+                  {isCorrect && (
+                    <span className="ml-1 inline-flex items-center gap-0.5 text-[10px] font-medium">
+                      <Check size={10} /> đáp án
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {q.cefrLevel && <Badge tone="blue">{q.cefrLevel}</Badge>}
+            {q.skillCode && <Badge tone="violet">{q.skillCode}</Badge>}
+            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+              Đáp án {q.correctAnswer}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function QuizAuthoring({ token, classId, basePath, detail }) {
   const { lessonId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const quizIdParam = searchParams.get("quizId");
   const isEditing = Boolean(quizIdParam);
 
@@ -74,12 +143,13 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
 
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  // Lỗi validate ở cấp câu (map index → thông điệp), hiện hint inline trong thẻ câu hỏi.
+  const [questionErrors, setQuestionErrors] = useState({});
 
   const [showAssign, setShowAssign] = useState(false);
   const [deadline, setDeadline] = useState(formatDeadlineInput(new Date(Date.now() + 7 * 86400000)));
   const [assigning, setAssigning] = useState(false);
-
-  const [toast, setToast] = useState(null);
+  const deadlineInputRef = useRef(null);
 
   // Trợ lý AI: câu đề xuất từ chat (chưa gộp vào form) + hồ sơ kỹ năng (SKP).
   const [aiDrafts, setAiDrafts] = useState([]);
@@ -87,11 +157,6 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
   const [skillProfileLoading, setSkillProfileLoading] = useState(true);
   // Cờ "quiz này có câu do AI sinh" → ghi quizzes.source = AI_DIRECT lúc tạo mới.
   const [hasAiContent, setHasAiContent] = useState(false);
-
-  const showToast = (text, type = "success") => {
-    setToast({ text, type });
-    setTimeout(() => setToast(null), 5000);
-  };
 
   // Danh sách kỹ năng chung (ô chọn cho từng câu).
   useEffect(() => {
@@ -161,7 +226,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
     setQuestions((prev) => [...prev, draftToFormQuestion(d)]);
     setAiDrafts((prev) => prev.filter((x) => x !== d));
     setHasAiContent(true);
-    showToast("Đã thêm câu AI vào bài.");
+    toast.success("Đã thêm câu AI vào bài.");
   }
 
   /** Gộp toàn bộ câu AI đề xuất vào bài. */
@@ -170,7 +235,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
     setQuestions((prev) => [...prev, ...aiDrafts.map(draftToFormQuestion)]);
     setAiDrafts([]);
     setHasAiContent(true);
-    showToast("Đã gộp toàn bộ câu AI vào bài.");
+    toast.success("Đã gộp toàn bộ câu AI vào bài.");
   }
 
   function updateQuestion(idx, patch) {
@@ -217,27 +282,52 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
     };
   }
 
-  /** Validation phía client (mềm) trước khi gọi API. */
+  /** Validation phía client (mềm) trước khi gọi API.
+   *  Trả về "" (đủ) hoặc { message, index, questionErrors } (thiếu):
+   *  index -1 = lỗi cấp tiêu đề; index >= 0 = câu lỗi, kèm map hint inline
+   *  cho mỗi câu chưa đủ để "Nhảy tới câu" + tô chip đỏ. */
   function clientValidate() {
-    if (!title.trim()) return "Vui lòng nhập tiêu đề quiz.";
-    if (questions.length === 0) return "Quiz cần ít nhất một câu hỏi.";
+    if (!title.trim()) return { message: "Vui lòng nhập tiêu đề quiz.", index: -1, questionErrors: {} };
+    if (questions.length === 0)
+      return { message: "Quiz cần ít nhất một câu hỏi.", index: -1, questionErrors: {} };
+    const perQuestion = {};
+    let firstBad = -1;
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
-      if (!q.questionText.trim()) return `Câu ${i + 1}: nội dung câu hỏi đang trống.`;
-      if (q.options.some((o) => !o.trim()))
-        return `Câu ${i + 1}: các lựa chọn A–D không được để trống.`;
+      if (!q.questionText.trim()) {
+        perQuestion[i] = "Nội dung câu hỏi đang trống.";
+        if (firstBad === -1) firstBad = i;
+      }
+      if (q.options.some((o) => !o.trim())) {
+        perQuestion[i] = perQuestion[i] || "Lựa chọn A–D chưa đủ.";
+        if (firstBad === -1) firstBad = i;
+      }
+    }
+    if (firstBad !== -1) {
+      return {
+        message: `Câu ${firstBad + 1}: ${perQuestion[firstBad]}`,
+        index: firstBad,
+        questionErrors: perQuestion,
+      };
     }
     return "";
+  }
+
+  function scrollToQuestion(index) {
+    document.getElementById(`q-${index}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   /** Lưu (tạo DRAFT mới hoặc sửa). Trả về id quiz (mới hoặc hiện tại). */
   async function persist(forAssign) {
     const payload = buildPayload();
-    const error = clientValidate();
-    if (error) {
-      setFormError(error);
+    const validation = clientValidate();
+    if (validation) {
+      setFormError(validation.message);
+      setQuestionErrors(validation.questionErrors);
+      if (validation.index >= 0) scrollToQuestion(validation.index);
       return null;
     }
+    setQuestionErrors({});
     setSaving(true);
     setFormError("");
     try {
@@ -251,18 +341,18 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
       }
       if (forAssign) return id;
 
-      showToast(isEditing ? "Đã lưu chỉnh sửa quiz." : "Đã lưu quiz nháp.");
+      toast.success(isEditing ? "Đã lưu chỉnh sửa quiz." : "Đã lưu quiz nháp.");
       navigate(`${basePath}/lessons`);
       return id;
     } catch (err) {
       setFormError(err.message || "Không thể lưu quiz. Vui lòng kiểm tra lại nội dung.");
-      return null;
-    } finally {
       setSaving(false);
+      return null;
     }
+    // finally không dùng: case forAssign trả id về cho handleConfirmAssign tự tắt `saving`.
   }
 
-  const handleSave = async () => persist(false);
+  const handleSave = () => persist(false);
 
   /** Lưu (nếu chưa) rồi giao bài theo thời hạn đã chọn. */
   const handleConfirmAssign = async () => {
@@ -276,6 +366,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
     try {
       let id = quizIdParam;
       if (!id) {
+        setSaving(true);
         id = await persist(true);
         if (!id) {
           setAssigning(false);
@@ -283,11 +374,13 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
         }
       }
       await apiAssignQuiz(token, id, iso);
-      showToast("Đã giao quiz cho học sinh.");
+      setShowAssign(false);
+      toast.success("Đã giao quiz cho học sinh.");
       navigate(`${basePath}/lessons`);
     } catch (err) {
       setFormError(err.message || "Không thể giao quiz. Vui lòng thử lại.");
       setAssigning(false);
+      setSaving(false);
     }
   };
 
@@ -298,25 +391,22 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
 
   const backTo = `${basePath}/lessons`;
 
+  // Modal giao bài: đóng bằng phím Escape + focus ô thời hạn khi mở.
+  useEffect(() => {
+    if (!showAssign) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setShowAssign(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showAssign]);
+
+  useEffect(() => {
+    if (showAssign) deadlineInputRef.current?.focus();
+  }, [showAssign]);
+
   return (
     <div className="space-y-5">
-      {/* Toast */}
-      {toast && (
-        <div
-          className={clsx(
-            "fixed bottom-6 right-6 z-50 flex max-w-md items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-xl",
-            toast.type === "error" ? "bg-rose-600" : "bg-emerald-600"
-          )}
-        >
-          {toast.type === "error" ? (
-            <AlertCircle size={16} className="shrink-0" />
-          ) : (
-            <CheckCircle2 size={16} className="shrink-0" />
-          )}
-          <span>{toast.text}</span>
-        </div>
-      )}
-
       {/* Header */}
       <div>
         <Link
@@ -327,28 +417,58 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
         </Link>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50">
                 {isEditing ? "Sửa quiz" : "Soạn quiz bài giảng"}
               </h2>
-              {previewMeta && <Badge tone={previewMeta.tone}>{previewMeta.label}</Badge>}
-              {!previewMeta && <Badge tone="amber">Nháp</Badge>}
+              {previewMeta ? (
+                <Badge tone={previewMeta.tone}>{previewMeta.label}</Badge>
+              ) : (
+                <Badge tone="amber">Nháp</Badge>
+              )}
+              {hasAiContent && (
+                <Badge tone="violet">
+                  <Wand2 size={11} /> Có câu do AI gộp
+                </Badge>
+              )}
             </div>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               {detail?.title ? `Bài giảng: ${detail.title}` : "Nhập câu hỏi trắc nghiệm A–D cho bài giảng."}
               {existing?.deadline ? ` · Hạn làm ${formatDeadlineLabel(existing.deadline)}` : ""}
             </p>
+            {!isDraft && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                Quiz đã {previewMeta?.label?.toLowerCase() || "được xử lý"} — chỉ xem được, không sửa/giao lại.
+              </p>
+            )}
           </div>
         </div>
       </div>
 
       {formError && (
-        <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300"
+        >
           <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-500" />
-          <div className="flex-1">{formError}</div>
+          <div className="flex-1">
+            {formError}
+            {Object.keys(questionErrors).length > 0 && (
+              <button
+                type="button"
+                onClick={() => scrollToQuestion(Math.min(...Object.keys(questionErrors).map(Number)))}
+                className="ml-2 font-semibold underline decoration-rose-300 underline-offset-2 hover:text-rose-800 dark:hover:text-rose-200"
+              >
+                Nhảy tới câu
+              </button>
+            )}
+          </div>
           <button
             type="button"
-            onClick={() => setFormError("")}
+            onClick={() => {
+              setFormError("");
+              setQuestionErrors({});
+            }}
             className="text-rose-400 hover:text-rose-600"
             aria-label="Đóng thông báo lỗi"
           >
@@ -362,6 +482,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
           <div className="h-6 w-1/2 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
           <div className="h-24 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
           <div className="h-24 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
+          <div className="h-9 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
         </Card>
       ) : loadError ? (
         <Card className="p-6 text-center">
@@ -376,10 +497,14 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
           <div className="space-y-4 lg:col-span-3">
             <Card className="space-y-3 p-5">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                <label
+                  htmlFor="quiz-title"
+                  className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200"
+                >
                   Tiêu đề quiz <span className="text-rose-500">*</span>
                 </label>
                 <input
+                  id="quiz-title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="VD: Quiz ôn tập Past Simple"
@@ -390,7 +515,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
             </Card>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                   {questions.length} câu hỏi
                 </p>
@@ -404,8 +529,40 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                 </button>
               </div>
 
+              {/* Dải chip số câu — nhảy nhanh, chỉ báo đủ/lỗi (câu 1 = rỗng khi mới tạo) */}
+              {questions.length > 1 && (
+                <nav
+                  aria-label="Đi tới câu hỏi"
+                  className="flex gap-1.5 overflow-x-auto pb-1"
+                >
+                  {questions.map((q, i) => {
+                    const hasErr = Boolean(questionErrors[i]);
+                    const complete = isQuestionComplete(q);
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => scrollToQuestion(i)}
+                        title={`Câu ${i + 1}`}
+                        aria-label={`Câu ${i + 1}${hasErr ? " (chưa đủ)" : complete ? " (đã đủ)" : ""}`}
+                        className={clsx(
+                          "flex h-7 min-w-7 shrink-0 items-center justify-center gap-1 rounded-full px-2 text-xs font-semibold transition active:scale-[0.96]",
+                          hasErr
+                            ? "bg-rose-100 text-rose-700 ring-1 ring-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:ring-rose-800"
+                            : complete
+                              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-950/70"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                        )}
+                      >
+                        {hasErr ? <AlertCircle size={12} /> : complete ? <Check size={12} /> : i + 1}
+                      </button>
+                    );
+                  })}
+                </nav>
+              )}
+
               {questions.map((q, i) => (
-                <Card key={i} className="space-y-3 p-4">
+                <Card key={i} id={`q-${i}`} className="space-y-3 scroll-mt-24 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-600 dark:bg-blue-950 dark:text-blue-400">
@@ -430,6 +587,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                     onChange={(e) => updateQuestion(i, { questionText: e.target.value })}
                     disabled={!isDraft}
                     placeholder="Nhập nội dung câu hỏi..."
+                    aria-label={`Nội dung câu hỏi ${i + 1}`}
                     className={inputClass}
                   />
 
@@ -443,7 +601,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                           checked={q.correctAnswer === letter}
                           onChange={() => updateQuestion(i, { correctAnswer: letter })}
                           disabled={!isDraft}
-                          className="shrink-0 accent-blue-600"
+                          className="shrink-0 accent-blue-600 dark:accent-cyan-400"
                           aria-label={`Đáp án đúng là ${letter}`}
                         />
                         <input
@@ -451,19 +609,31 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                           onChange={(e) => updateOption(i, optIdx, e.target.value)}
                           disabled={!isDraft}
                           placeholder={`Lựa chọn ${letter}`}
+                          aria-label={`Lựa chọn ${letter} — câu ${i + 1}`}
                           className={inputClass}
                         />
                       </div>
                     ))}
                   </div>
 
+                  {/* Lỗi validate của câu (hiện khi lưu thất bại) */}
+                  {questionErrors[i] && (
+                    <p role="alert" className="rounded-md bg-rose-50 px-2.5 py-1.5 text-xs text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+                      {questionErrors[i]}
+                    </p>
+                  )}
+
                   {/* Giải thích + CEFR + kỹ năng */}
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                      <label
+                        htmlFor={`q-${i}-explanation`}
+                        className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400"
+                      >
                         Giải thích (tuỳ chọn)
                       </label>
                       <input
+                        id={`q-${i}-explanation`}
                         value={q.explanation}
                         onChange={(e) => updateQuestion(i, { explanation: e.target.value })}
                         disabled={!isDraft}
@@ -472,10 +642,14 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                      <label
+                        htmlFor={`q-${i}-cefr`}
+                        className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400"
+                      >
                         Mức CEFR (tuỳ chọn)
                       </label>
                       <select
+                        id={`q-${i}-cefr`}
                         value={q.cefrLevel}
                         onChange={(e) => updateQuestion(i, { cefrLevel: e.target.value })}
                         disabled={!isDraft}
@@ -491,10 +665,14 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                     </div>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <label
+                      htmlFor={`q-${i}-skill`}
+                      className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400"
+                    >
                       Gắn kỹ năng (tuỳ chọn)
                     </label>
                     <select
+                      id={`q-${i}-skill`}
                       value={q.skillCode}
                       onChange={(e) => updateQuestion(i, { skillCode: e.target.value })}
                       disabled={!isDraft}
@@ -517,83 +695,91 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                   Chưa có câu hỏi nào.
                 </p>
               )}
-            </div>
 
-            {/* Câu hỏi do AI đề xuất (chưa gộp vào form) */}
-            {aiDrafts.length > 0 && (
-              <Card className="space-y-3 p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
-                      <Wand2 size={15} />
+              {/* Câu hỏi do AI đề xuất (chưa gộp vào form) */}
+              {aiDrafts.length > 0 && (
+                <Card className="space-y-3 p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+                        <Wand2 size={15} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                          Câu hỏi do AI đề xuất
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {aiDrafts.length} câu · chọn từng câu hoặc gộp tất cả
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-                        Câu hỏi do AI đề xuất
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {aiDrafts.length} câu · chọn từng câu hoặc gộp tất cả
-                      </p>
-                    </div>
+                    <Button variant="secondary" size="sm" onClick={addAllAiDrafts} disabled={!isDraft}>
+                      <Check size={14} /> Gộp tất cả
+                    </Button>
                   </div>
-                  <Button variant="secondary" size="sm" onClick={addAllAiDrafts} disabled={!isDraft}>
-                    <Check size={14} /> Gộp tất cả
-                  </Button>
-                </div>
 
-                <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                  {aiDrafts.map((d, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                          {d.questionText || "…"}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setAiDrafts((prev) => prev.filter((_, idx) => idx !== i))}
-                          disabled={!isDraft}
-                          title="Loại câu này"
-                          className="shrink-0 rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-950"
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                        <span>Đáp án {d.correctAnswer}</span>
-                        {d.cefrLevel && <Badge tone="blue">{d.cefrLevel}</Badge>}
-                        {d.skillCode && <Badge tone="violet">{d.skillCode}</Badge>}
-                      </div>
-                      {d.explanation && (
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          {d.explanation}
-                        </p>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => addAiDraft(d)}
-                        disabled={!isDraft}
+                  <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                    {aiDrafts.map((d, i) => (
+                      <div
+                        key={i}
+                        className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40"
                       >
-                        <Plus size={13} /> Thêm vào bài
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                            {d.questionText || "…"}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setAiDrafts((prev) => prev.filter((_, idx) => idx !== i))}
+                            disabled={!isDraft}
+                            title="Loại câu này"
+                            aria-label="Loại câu AI đề xuất"
+                            className="shrink-0 rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-950"
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                          <span>Đáp án {d.correctAnswer}</span>
+                          {d.cefrLevel && <Badge tone="blue">{d.cefrLevel}</Badge>}
+                          {d.skillCode && <Badge tone="violet">{d.skillCode}</Badge>}
+                        </div>
+                        {d.explanation && (
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            {d.explanation}
+                          </p>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                          onClick={() => addAiDraft(d)}
+                          disabled={!isDraft}
+                        >
+                          <Plus size={13} /> Thêm vào bài
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+            </div>
           </div>
 
-          {/* Cột phải (2/5): trợ lý AI + hồ sơ kỹ năng + preview + trạng thái */}
-          <div className="space-y-4 lg:col-span-2">
-            {/* Ngăn kéo hồ sơ kỹ năng học sinh (SKP) */}
-            <SkillProfileDrawer items={skillProfile} loading={skillProfileLoading} />
+          {/* Cột phải (2/5): cố định khi cuộn trên desktop — chỉ cột trái scroll.
+              max-h + overflow nội bộ để cột luôn gọn trong viewport (không che
+              thanh hành động sticky đáy). */}
+          <div
+            className={clsx(
+              "space-y-4 self-start lg:col-span-2",
+              "lg:sticky lg:top-4 lg:max-h-[calc(100dvh-10rem)] lg:overflow-y-auto lg:pb-2 lg:pr-1"
+            )}
+          >
+            {/* Ngăn kéo hồ sơ kỹ năng học sinh (SKP) — đóng mặc định, mở nhanh từ tiêu đề */}
+            <SkillProfileDrawer items={skillProfile} loading={skillProfileLoading} defaultOpen={false} />
 
             {/* Trợ lý AI soạn quiz — panel chat, độ cao cố định để cuộn nội bộ */}
-            <div className="h-[340px] overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+            <div className="h-[340px] overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:h-[420px]">
               <QuizAiAssistant
                 token={token}
                 lessonId={lessonId}
@@ -602,38 +788,31 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
               />
             </div>
 
+            {/* Xem trước: đầy đủ các câu, mở từng câu để xem đáp án A–D */}
             <Card className="space-y-3 p-5">
               <div className="flex items-center gap-2">
                 <Eye size={15} className="text-blue-500" />
                 <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">Xem trước</h4>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                 {title.trim() || "Quiz chưa đặt tên"}
               </p>
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {questions.slice(0, 3).map((q, i) => (
-                  <div key={i} className="py-2 text-xs text-slate-600 dark:text-slate-300">
-                    <p className="font-medium text-slate-800 dark:text-slate-100">
-                      {i + 1}. {q.questionText || "…"}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-slate-400">
-                      Đáp án {q.correctAnswer} · {q.options[0] || "…"}
-                    </p>
-                  </div>
+              <div className="max-h-64 divide-y divide-slate-100 overflow-y-auto pr-1 dark:divide-slate-800">
+                {questions.map((q, i) => (
+                  <PreviewQuestionRow key={i} q={q} index={i} />
                 ))}
-                {questions.length > 3 && (
-                  <p className="pt-2 text-[11px] text-slate-400">
-                    + {questions.length - 3} câu nữa
+                {questions.length === 0 && (
+                  <p className="py-2 text-xs text-slate-400 dark:text-slate-500">
+                    Chưa có câu hỏi nào.
                   </p>
                 )}
               </div>
             </Card>
 
             {/* Trạng thái khi sửa / xem quiz đã giao */}
-            {existing && (
+            {existing && isDraft && (
               <Card className="space-y-2 p-5">
                 <div className="flex items-center gap-2">
-                  <Clock size={15} className="text-slate-400" />
                   <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">Trạng thái</h4>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -647,39 +826,52 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                     Hạn làm: {formatDeadlineLabel(existing.deadline)}
                   </p>
                 )}
-                {!isDraft && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Quiz đã {previewMeta?.label?.toLowerCase() || "được xử lý"}, chỉ xem được —
-                    không thể sửa.
-                  </p>
-                )}
               </Card>
             )}
-
-            {/* Thao tác */}
-            <Card className="space-y-3 p-5">
-              {isDraft && (
-                <Button size="sm" onClick={handleSave} disabled={saving} className="w-full">
-                  {saving ? "Đang lưu..." : (
-                    <>
-                      <Save size={14} /> Lưu nháp
-                    </>
-                  )}
-                </Button>
-              )}
-              <Button
-                variant={isDraft ? "outline" : "secondary"}
-                size="sm"
-                onClick={() => setShowAssign(true)}
-                disabled={assigning}
-                className={clsx("w-full", !isDraft && "opacity-50")}
-              >
-                <Send size={14} /> Giao bài cho học sinh
-              </Button>
-            </Card>
           </div>
         </div>
       )}
+
+      {/* Thanh hành động sticky đáy: lưu nháp + giao bài (nằm trong vùng cuộn của AppShell) */}
+      <div className="sticky bottom-0 z-40 -mx-4 mt-2 flex flex-col gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95 sm:-mx-6 sm:px-6 lg:-mx-6 lg:px-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 text-xs text-slate-500 dark:text-slate-400">
+            <p>
+              {questions.length} câu hỏi
+              {hasAiContent ? " · có câu do AI gộp" : ""}
+            </p>
+            {formError ? (
+              <p className="mt-0.5 truncate font-medium text-rose-600 dark:text-rose-400">{formError}</p>
+            ) : (
+              !isDraft && (
+                <p className="mt-0.5 text-slate-400 dark:text-slate-500">
+                  Quiz không còn nháp — chỉ xem được.
+                </p>
+              )
+            )}
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {isDraft && (
+              <Button variant="secondary" size="sm" onClick={handleSave} disabled={saving || assigning} className="w-full sm:w-auto">
+                {saving ? "Đang lưu..." : (
+                  <>
+                    <Save size={14} /> Lưu nháp
+                  </>
+                )}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              onClick={() => setShowAssign(true)}
+              disabled={!isDraft || assigning || saving}
+              title={!isDraft ? "Chỉ bản nháp mới có thể giao bài" : "Giao quiz cho học sinh"}
+              className="w-full sm:w-auto"
+            >
+              <Send size={14} /> Giao bài cho học sinh
+            </Button>
+          </div>
+        </div>
+      </div>
 
       {/* Modal giao bài (deadline) */}
       {showAssign && (
@@ -694,17 +886,22 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                 type="button"
                 onClick={() => setShowAssign(false)}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                aria-label="Đóng"
+                aria-label="Đóng (Esc)"
               >
                 <X size={16} />
               </button>
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">
+              <label
+                htmlFor="assign-deadline"
+                className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200"
+              >
                 Thời hạn làm quiz
               </label>
               <input
+                ref={deadlineInputRef}
+                id="assign-deadline"
                 type="datetime-local"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
