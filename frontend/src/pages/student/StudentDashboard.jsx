@@ -76,7 +76,7 @@ export default function StudentDashboard() {
           label="Buổi học tiếp theo"
         />
         <StudentMetricCard
-          to="/student/schedule"
+          to="/student/schedule?tab=history"
           icon={NotebookPen}
           tone="blue"
           value={loading ? "–" : lastSession.value ? formatSessionDate(lastSession.value.sessionDate).slice(0, 5) : "–"}
@@ -158,7 +158,7 @@ export default function StudentDashboard() {
           </section>
 
           <section className={panel}>
-            <StudentSectionHeader icon={NotebookPen} title="Buổi học gần nhất" to="/student/schedule" linkLabel="Lịch sử" />
+            <StudentSectionHeader icon={NotebookPen} title="Buổi học gần nhất" to="/student/schedule?tab=history" linkLabel="Lịch sử" />
             <Area
               loading={loading}
               state={lastSession}

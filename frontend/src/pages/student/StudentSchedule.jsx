@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, History, MapPin, Video } from "lucide-react";
 import { apiGetMySchedule, apiGetMySessions } from "../../lib/studentApi";
 import {
@@ -215,9 +216,33 @@ function HistoryView({ onOpen }) {
 
 /** Lịch học: lưới tuần T2–CN và lịch sử buổi học (giảm dần), API_DESIGN 3.6. */
 export default function StudentSchedule() {
-  const [tab, setTab] = useState("week");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get("tab");
+  const [tab, setTab] = useState(() => (tabFromUrl === "history" ? "history" : "week"));
   const [open, setOpen] = useState(null); // item buổi đầy đủ
   const openSession = (item) => setOpen(item);
+
+  useEffect(() => {
+    if (tabFromUrl === "history" || tabFromUrl === "week") {
+      setTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
+
+  function handleTabChange(nextTab) {
+    setTab(nextTab);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (nextTab === "week") {
+          next.delete("tab");
+        } else {
+          next.set("tab", nextTab);
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  }
 
   return (
     <div className="mx-auto min-h-[100dvh] max-w-6xl space-y-6 px-4 py-6 pb-12 lg:px-8 lg:py-8">
@@ -234,7 +259,7 @@ export default function StudentSchedule() {
             type="button"
             role="tab"
             aria-selected={tab === id}
-            onClick={() => setTab(id)}
+            onClick={() => handleTabChange(id)}
             className={`inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all active:scale-[0.98] ${
               tab === id
                 ? "border-blue-600 bg-blue-600 text-white"
