@@ -385,6 +385,32 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
 
   const backTo = `${basePath}/lessons`;
 
+  /** Nút hành động chính — dùng ở header (desktop) và thanh sticky đáy (mobile). */
+  function renderActions() {
+    return (
+      <>
+        {isDraft && (
+          <Button variant="secondary" size="sm" onClick={handleSave} disabled={saving || assigning} className="w-full sm:w-auto">
+            {saving ? "Đang lưu..." : (
+              <>
+                <Save size={14} /> Lưu nháp
+              </>
+            )}
+          </Button>
+        )}
+        <Button
+          size="sm"
+          onClick={() => setShowAssign(true)}
+          disabled={!isDraft || assigning || saving}
+          title={!isDraft ? "Chỉ bản nháp mới có thể giao bài" : "Giao quiz cho học sinh"}
+          className="w-full sm:w-auto"
+        >
+          <Send size={14} /> Giao bài cho học sinh
+        </Button>
+      </>
+    );
+  }
+
   // Modal giao bài: đóng bằng phím Escape + focus ô thời hạn khi mở.
   useEffect(() => {
     if (!showAssign) return;
@@ -419,8 +445,8 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
         >
           <ArrowLeft size={16} /> Quay lại bài giảng
         </Link>
-        <div className="flex items-start justify-between gap-3">
-          <div>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50">
                 {isEditing ? "Sửa quiz" : "Soạn quiz bài giảng"}
@@ -446,6 +472,10 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
               </p>
             )}
           </div>
+
+          {/* Thao tác chính đặt ở góc phải header (desktop) để header không bị
+              trống; trên mobile chúng nằm ở thanh hành động sticky đáy. */}
+          <div className="hidden shrink-0 items-center gap-2 lg:flex">{renderActions()}</div>
         </div>
       </div>
 
@@ -847,7 +877,10 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
       <div
         className={clsx(
           "z-40 -mx-4 flex flex-col gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95 sm:-mx-6 sm:px-6 lg:-mx-6 lg:px-6",
-          pageHeight ? "shrink-0" : "sticky bottom-0 mt-2"
+          pageHeight ? "shrink-0" : "sticky bottom-0 mt-2",
+          // Desktop: nút hành động đã nằm ở góc phải header → ẩn thanh đáy
+          // (chỉ còn thông tin số câu / lỗi, phần lớn là dư).
+          "lg:hidden"
         )}
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -866,26 +899,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
               )
             )}
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            {isDraft && (
-              <Button variant="secondary" size="sm" onClick={handleSave} disabled={saving || assigning} className="w-full sm:w-auto">
-                {saving ? "Đang lưu..." : (
-                  <>
-                    <Save size={14} /> Lưu nháp
-                  </>
-                )}
-              </Button>
-            )}
-            <Button
-              size="sm"
-              onClick={() => setShowAssign(true)}
-              disabled={!isDraft || assigning || saving}
-              title={!isDraft ? "Chỉ bản nháp mới có thể giao bài" : "Giao quiz cho học sinh"}
-              className="w-full sm:w-auto"
-            >
-              <Send size={14} /> Giao bài cho học sinh
-            </Button>
-          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:hidden">{renderActions()}</div>
         </div>
       </div>
 
