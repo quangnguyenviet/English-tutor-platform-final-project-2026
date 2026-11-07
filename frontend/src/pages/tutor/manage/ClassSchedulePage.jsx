@@ -3,11 +3,10 @@ import { Pencil } from "lucide-react";
 import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
 import ClassScheduleLattice from "../../../components/tutor/ClassScheduleLattice";
-import { startOfWeek, toISO } from "../../../components/tutor/FixedScheduleGrid";
-import { todayISO } from "../../../lib/classroomApi";
+import { startOfWeek, toISO, todayISO } from "../../../lib/classroomApi";
 
 /**
- * Tab "Lịch dạy" của workspace lớp gia sư (V16: lattice ca cố định +
+ * Tab "Lịch dạy" của workspace lớp gia sư (V16: lattice ca dạy +
  * overlay ngoại lệ + nhật ký dạy học). 1 cột dọc — lưới tuần compact;
  * nhật ký dạy học (kiến thức + dặn dò) ghi trực tiếp trong lưới (modal
  * "ghi nhật ký" của ô ca), không còn tạo buổi học on-demand.
@@ -38,7 +37,7 @@ export default function ClassSchedulePage({
             )}
           </div>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Quản lý các ca cố định, ngoại lệ (hủy / dời) và nhật ký dạy học của lớp.
+            Quản lý các ca dạy, ngoại lệ (hủy / dời) và nhật ký dạy học của lớp.
           </p>
         </div>
         {onEditSchedules && (

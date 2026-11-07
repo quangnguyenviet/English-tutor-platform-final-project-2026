@@ -33,6 +33,12 @@ public class ClassDetailResponse {
     String learningGoal;
     TrialSessionResponse trialSession;
 
+    /** Thông tin phụ huynh của học sinh (students.parent_id → parents). */
+    String parentName;
+    String parentPhone;
+    String parentEmail;
+    String parentAddress;
+
     /** Ca dạy cố định trong tuần (rỗng nếu chưa chốt lịch). */
     List<ScheduleInfo> schedules;
 
