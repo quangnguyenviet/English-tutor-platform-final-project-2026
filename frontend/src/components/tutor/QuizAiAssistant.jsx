@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Loader2, Send, RotateCw, AlertCircle } from "lucide-react";
+import clsx from "clsx";
 import Button from "../ui/Button";
 import { apiAiChatQuiz } from "../../lib/quizApi";
 
@@ -10,6 +11,13 @@ import { apiAiChatQuiz } from "../../lib/quizApi";
  *
  * Chat stateless phía client: mỗi lượt gửi kèm tối đa 10 tin gần nhất.
  * Timeout/ lỗi mạng → hiện nút "Thử lại" (UC-T06 bước 4a).
+ *
+ * Khi nhúng trong khung tab (cột phải của trang soạn quiz), nhận thêm:
+ * - {@code render}: false → ẩn bằng display:none (VẪN mount, không unmount).
+ *   Chuyển tab chat ⇄ hồ sơ kỹ năng không reset tin nhắn/draft và không gọi
+ *   lại API; tab hiện là CSS toggle nên khung tab cao cố định, không xê dịch.
+ * - {@code keepHeader}: ẩn header "Trợ lý AI" riêng (bỏ border dưới) vì tab
+ *   bar của khung đã mang tiêu đề.
  */
 const MAX_RECENT = 10;
 
@@ -20,7 +28,7 @@ const QUICK_PROMPTS = [
   "Giảm độ khó các câu đang có",
 ];
 
-export default function QuizAiAssistant({ token, lessonId, quizId, onDrafts }) {
+export default function QuizAiAssistant({ token, lessonId, quizId, onDrafts, render = true, keepHeader = false }) {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -99,19 +107,21 @@ export default function QuizAiAssistant({ token, lessonId, quizId, onDrafts }) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className={clsx("flex h-full min-h-0 flex-col", !render && "hidden")}>
       {/* Header */}
-      <div className="flex items-center gap-2 border-b border-slate-200 p-3 dark:border-slate-800">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
-          <Bot size={16} />
+      {keepHeader ? null : (
+        <div className="flex items-center gap-2 border-b border-slate-200 p-3 dark:border-slate-800">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+            <Bot size={16} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Trợ lý AI</p>
+            <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+              Soạn &amp; sửa câu hỏi trắc nghiệm
+            </p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Trợ lý AI</p>
-          <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-            Soạn &amp; sửa câu hỏi trắc nghiệm
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* Message list */}
       <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">

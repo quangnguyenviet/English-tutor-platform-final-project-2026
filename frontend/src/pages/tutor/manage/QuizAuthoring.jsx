@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import {
   AlertCircle,
   ArrowLeft,
+  BarChart3,
+  Bot,
   Check,
   ListChecks,
   Plus,
@@ -18,7 +20,7 @@ import Button from "../../../components/ui/Button";
 import clsx from "clsx";
 import { useToast } from "../../../hooks/useToast";
 import QuizAiAssistant from "../../../components/tutor/QuizAiAssistant";
-import SkillProfileDrawer from "../../../components/tutor/SkillProfileDrawer";
+import SkillProfilePanel from "../../../components/tutor/SkillProfilePanel";
 import {
   apiAssignQuiz,
   apiCreateLessonQuiz,
@@ -90,6 +92,10 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
   const [aiDrafts, setAiDrafts] = useState([]);
   const [skillProfile, setSkillProfile] = useState([]);
   const [skillProfileLoading, setSkillProfileLoading] = useState(true);
+  // Tab hiện trong cột điều khiển phải: "assistant" (chat AI, mặc định) hoặc
+  // "skills" (hồ sơ kỹ năng). Hai panel VẪN mount (ẩn bằng CSS) nên chat giữ
+  // nguyên state khi chuyển tab, và khung không xê dịch.
+  const [skillTab, setSkillTab] = useState("assistant");
   // Cờ "quiz này có câu do AI sinh" → ghi quizzes.source = AI_DIRECT lúc tạo mới.
   const [hasAiContent, setHasAiContent] = useState(false);
 
@@ -827,25 +833,69 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
               pageHeight && "min-h-0 lg:h-full"
             )}
           >
-            {/* Hồ sơ kỹ năng học sinh (SKP) — thu gọn mặc định, mở nhanh từ tiêu đề.
-                Danh sách cuộn riêng, chiều cao giới hạn để không lấn chat. */}
-            <SkillProfileDrawer
-              items={skillProfile}
-              loading={skillProfileLoading}
-              defaultOpen={false}
-              listMaxHeight="max-h-56"
-            />
+            {/* Khung tab duy nhất của cột phải: "Trợ lý AI" | "Hồ sơ kỹ năng".
+                Cả hai panel cùng nằm trong MỘT khung cao cố định, chuyển tab
+                bằng CSS toggle → không có gì xê dịch, chat không bị reset. */}
+            <div className="flex h-[520px] min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:h-auto lg:min-h-0 lg:flex-1">
+              {/* Tab bar — cao cố định, không đổi theo tab đang chọn. */}
+              <div
+                role="tablist"
+                aria-label="Cột điều khiển phải"
+                className="flex shrink-0 items-center gap-1 border-b border-slate-200 px-2 pt-2 dark:border-slate-800"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={skillTab === "assistant"}
+                  onClick={() => setSkillTab("assistant")}
+                  className={clsx(
+                    "flex items-center gap-2 rounded-t-lg border-b-2 px-3 py-2 text-sm font-medium transition",
+                    "cursor-pointer active:scale-[0.98]",
+                    skillTab === "assistant"
+                      ? "border-blue-600 text-blue-700 dark:border-cyan-400 dark:text-cyan-300"
+                      : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                  )}
+                >
+                  <Bot size={15} />
+                  Trợ lý AI
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={skillTab === "skills"}
+                  onClick={() => setSkillTab("skills")}
+                  className={clsx(
+                    "flex items-center gap-2 rounded-t-lg border-b-2 px-3 py-2 text-sm font-medium transition",
+                    "cursor-pointer active:scale-[0.98]",
+                    skillTab === "skills"
+                      ? "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300"
+                      : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                  )}
+                >
+                  <BarChart3 size={15} />
+                  Hồ sơ kỹ năng
+                  {skillProfileLoading ? (
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-400" />
+                  ) : skillProfile.length > 0 ? (
+                    <Badge tone="violet" size="xs">{skillProfile.length}</Badge>
+                  ) : null}
+                </button>
+              </div>
 
-            {/* Trợ lý AI soạn quiz — chiếm toàn bộ phần chiều cao còn lại của
-                bảng điều khiển; cuộn nội bộ nên vị trí của nó không đổi khi
-                người dùng cuộn danh sách câu hỏi bên trái. */}
-            <div className="flex h-[420px] min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:h-auto lg:min-h-0 lg:flex-1">
-              <QuizAiAssistant
-                token={token}
-                lessonId={lessonId}
-                quizId={isEditing ? Number(quizIdParam) : undefined}
-                onDrafts={(qs) => setAiDrafts((prev) => [...prev, ...qs])}
-              />
+              {/* Thân tab: cả hai panel luôn mount, ẩn/hiện bằng CSS. */}
+              <div className="min-h-0 flex-1">
+                <QuizAiAssistant
+                  token={token}
+                  lessonId={lessonId}
+                  quizId={isEditing ? Number(quizIdParam) : undefined}
+                  onDrafts={(qs) => setAiDrafts((prev) => [...prev, ...qs])}
+                  render={skillTab === "assistant"}
+                  keepHeader
+                />
+                <div className={clsx("h-full", skillTab === "skills" ? "block" : "hidden")}>
+                  <SkillProfilePanel items={skillProfile} loading={skillProfileLoading} />
+                </div>
+              </div>
             </div>
 
           </div>
