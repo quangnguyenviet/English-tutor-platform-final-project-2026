@@ -848,25 +848,6 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
               />
             </div>
 
-            {/* Trạng thái khi sửa / xem quiz đã giao */}
-            {existing && isDraft && (
-              <Card className="space-y-2 p-5">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">Trạng thái</h4>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {previewMeta && <Badge tone={previewMeta.tone}>{previewMeta.label}</Badge>}
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {questions.length} câu
-                  </span>
-                </div>
-                {existing.deadline && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Hạn làm: {formatDeadlineLabel(existing.deadline)}
-                  </p>
-                )}
-              </Card>
-            )}
           </div>
         </div>
       )}
