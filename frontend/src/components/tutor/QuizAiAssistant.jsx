@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Loader2, Send, RotateCw, AlertCircle } from "lucide-react";
+import { Bot, Loader2, Send, RotateCw, AlertCircle, Check } from "lucide-react";
 import clsx from "clsx";
 import Button from "../ui/Button";
+import Badge from "../ui/Badge";
 import { apiAiChatQuiz } from "../../lib/quizApi";
 
 /**
  * Panel trò chuyện với trợ lý AI soạn quiz (FR-13, UC-T06) — gọi backend
  * thật (không mock như TutorAiAssistant cũ). Nhận xét + bộ câu đề xuất của
- * AI được đẩy lên cha qua {@code onDrafts} để gộp vào form.
+ * AI được hiển thị ngay trong chat (thẻ câu hỏi đầy đủ) và đẩy lên cha qua
+ * {@code onDrafts} để gộp vào form.
  *
  * Chat stateless phía client: mỗi lượt gửi kèm tối đa 10 tin gần nhất.
  * Timeout/ lỗi mạng → hiện nút "Thử lại" (UC-T06 bước 4a).
@@ -18,8 +20,13 @@ import { apiAiChatQuiz } from "../../lib/quizApi";
  *   lại API; tab hiện là CSS toggle nên khung tab cao cố định, không xê dịch.
  * - {@code keepHeader}: ẩn header "Trợ lý AI" riêng (bỏ border dưới) vì tab
  *   bar của khung đã mang tiêu đề.
+ * - {@code pendingQuestions}: trọn bộ câu hỏi đang có trên form gia sư — gửi
+ *   kèm để AI nhìn thấy bài đang soạn (kể cả câu vừa gộp chưa lưu) và hiểu
+ *   "câu số k" khi gia sư yêu cầu sửa. Không có trong DB nếu quiz chưa lưu.
  */
 const MAX_RECENT = 10;
+
+const ANSWER_LETTERS = ["A", "B", "C", "D"];
 
 /** Gợi ý bắt đầu nhanh khi chat trống — click là gửi luôn. */
 const QUICK_PROMPTS = [
@@ -28,12 +35,83 @@ const QUICK_PROMPTS = [
   "Giảm độ khó các câu đang có",
 ];
 
-export default function QuizAiAssistant({ token, lessonId, quizId, onDrafts, render = true, keepHeader = false }) {
+/**
+ * Thẻ một câu hỏi AI đề xuất — hiển thị đủ 4 lựa chọn và đánh dấu đáp án đúng
+ * để gia sư kiểm chứng được ngay (không cần mở form).
+ */
+function AiQuestionCard({ question }) {
+  const correct = question.correctAnswer || "A";
+  return (
+    <div className="mt-2 space-y-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+        {question.questionText || "…"}
+      </p>
+
+      <ul className="space-y-1">
+        {ANSWER_LETTERS.map((letter) => {
+          const text = question[`option${letter}`] || "";
+          const isCorrect = letter === correct;
+          return (
+            <li
+              key={letter}
+              className={clsx(
+                "flex items-start gap-2 rounded-lg border px-2 py-1 text-xs",
+                isCorrect
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  : "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-400"
+              )}
+            >
+              <span className="mt-px shrink-0 font-semibold">{letter}.</span>
+              <span className="min-w-0 flex-1 break-words">{text || "—"}</span>
+              {isCorrect && (
+                <span className="flex shrink-0 items-center gap-1 font-medium">
+                  <Check size={12} /> Đúng
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Badge tone="emerald">Đáp án {correct}</Badge>
+        {question.cefrLevel && <Badge tone="blue">{question.cefrLevel}</Badge>}
+        {question.skillCode && <Badge tone="violet">{question.skillCode}</Badge>}
+        {question.index != null && (
+          <Badge tone="amber">Thay câu {question.index}</Badge>
+        )}
+      </div>
+
+      {question.explanation && (
+        <p className="border-t border-slate-100 pt-2 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          {question.explanation}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function QuizAiAssistant({
+  token,
+  lessonId,
+  quizId,
+  pendingQuestions,
+  onDrafts,
+  render = true,
+  keepHeader = false,
+}) {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState("");
   const scrollRef = useRef(null);
+
+  // Ref giữ bản `pendingQuestions` mới nhất — tránh re-render mỗi lần gia sư
+  // gõ vào form, nhưng vẫn gửi được trạng thái form tại thời điểm bấm Gửi.
+  const pendingRef = useRef(pendingQuestions);
+  useEffect(() => {
+    pendingRef.current = pendingQuestions;
+  }, [pendingQuestions]);
 
   const recentMessages = useMemo(
     () =>
@@ -59,10 +137,13 @@ export default function QuizAiAssistant({ token, lessonId, quizId, onDrafts, ren
     setThinking(true);
 
     try {
+      const pending = pendingRef.current;
       const res = await apiAiChatQuiz(token, lessonId, {
         message: trimmed,
         ...(quizId ? { quizId } : {}),
         ...(recentMessages.length ? { recentMessages } : {}),
+        // Gửi kèm bài đang soạn để AI hiểu "câu số k" và không sinh câu trùng.
+        ...(pending?.length ? { pendingQuestions: pending } : {}),
       });
       const hasDrafts = Array.isArray(res?.draftQuestions) && res.draftQuestions.length > 0;
       const aiMsg = {
@@ -73,6 +154,8 @@ export default function QuizAiAssistant({ token, lessonId, quizId, onDrafts, ren
           (hasDrafts
             ? "Đã tạo bộ câu hỏi theo yêu cầu."
             : "AI chưa đề xuất câu mới — hãy mô tả cụ thể hơn (chủ điểm, độ khó, số câu)."),
+        // Lưu lại để render thẻ câu hỏi đầy đủ ngay trong chat.
+        questions: hasDrafts ? res.draftQuestions : [],
       };
       setMessages((prev) => [...prev, aiMsg]);
       if (hasDrafts) {
@@ -166,6 +249,16 @@ export default function QuizAiAssistant({ token, lessonId, quizId, onDrafts, ren
               >
                 {m.text}
               </div>
+              {/* Thẻ câu hỏi AI đề xuất — đủ 4 lựa chọn + đáp án đúng để
+                  gia sư kiểm chứng ngay. Câu đã được gộp vào form (nếu quiz
+                  còn nháp) nên không cần nút "Thêm vào bài" ở đây. */}
+              {m.role === "assistant" && m.questions?.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  {m.questions.map((question, qi) => (
+                    <AiQuestionCard key={qi} question={question} />
+                  ))}
+                </div>
+              )}
             </div>
           )
         )}

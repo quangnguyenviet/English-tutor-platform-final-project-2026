@@ -11,6 +11,7 @@ import {
   Save,
   Send,
   Trash2,
+  Undo2,
   Wand2,
   X,
 } from "lucide-react";
@@ -21,6 +22,7 @@ import clsx from "clsx";
 import { useToast } from "../../../hooks/useToast";
 import QuizAiAssistant from "../../../components/tutor/QuizAiAssistant";
 import SkillProfilePanel from "../../../components/tutor/SkillProfilePanel";
+import { applyDrafts, buildPendingQuestions } from "../../../lib/quizMergeModel";
 import {
   apiAssignQuiz,
   apiCreateLessonQuiz,
@@ -88,8 +90,8 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
   const [assigning, setAssigning] = useState(false);
   const deadlineInputRef = useRef(null);
 
-  // Trợ lý AI: câu đề xuất từ chat (chưa gộp vào form) + hồ sơ kỹ năng (SKP).
-  const [aiDrafts, setAiDrafts] = useState([]);
+  // Trợ lý AI: hồ sơ kỹ năng (SKP). Câu hỏi AI trả về được GỘP THẲNG vào
+  // form (không còn bước xem trước) — xem handleAiDrafts.
   const [skillProfile, setSkillProfile] = useState([]);
   const [skillProfileLoading, setSkillProfileLoading] = useState(true);
   // Tab hiện trong cột điều khiển phải: "assistant" (chat AI, mặc định) hoặc
@@ -98,6 +100,16 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
   const [skillTab, setSkillTab] = useState("assistant");
   // Cờ "quiz này có câu do AI sinh" → ghi quizzes.source = AI_DIRECT lúc tạo mới.
   const [hasAiContent, setHasAiContent] = useState(false);
+  // Nắp undo cho thao tác gộp câu AI (mỗi bước = snapshot câu hỏi trước khi gộp).
+  const [undoStack, setUndoStack] = useState([]);
+
+  // Đồng bộ `questions` để handler onDrafts đọc được giá trị mới nhất (tránh closure).
+  const questionsRef = useRef(questions);
+  useEffect(() => {
+    questionsRef.current = questions;
+  }, [questions]);
+
+  const pendingQuestions = useMemo(() => buildPendingQuestions(questions), [questions]);
 
   // Danh sách kỹ năng chung (ô chọn cho từng câu).
   useEffect(() => {
@@ -208,38 +220,61 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
 
   const isDraft = !existing || existing.status === "DRAFT";
 
-  /** Biến 1 câu AI (shape QuizDraftSchema response) thành câu form (A–D). */
-  function draftToFormQuestion(d) {
-    return {
-      questionText: d.questionText || "",
-      options: [d.optionA || "", d.optionB || "", d.optionC || "", d.optionD || ""],
-      correctAnswer: d.correctAnswer || "A",
-      explanation: d.explanation || "",
-      cefrLevel: d.cefrLevel || "",
-      skillCode: d.skillCode || "",
-    };
+  /**
+   * AI trả về câu hỏi → GỘP THẲNG vào form (không có bước xem trước).
+   *
+   * - `index` hợp lệ → thay in-place câu tương ứng (ngữ nghĩa "sửa câu số k").
+   * - `index` lệch / null → thêm vào cuối bài (kèm cảnh báo nếu lệch).
+   * - Mỗi lần gộp đều có thể Hoàn tác (nút ở footer hành động).
+   */
+  function handleAiDrafts(drafts) {
+    if (!Array.isArray(drafts) || drafts.length === 0) return;
+    if (!isDraft) {
+      toast.warning("Quiz này đã giao — không thể thêm câu từ AI.");
+      return;
+    }
+
+    const before = questionsRef.current;
+    const result = applyDrafts(before, drafts);
+    const merged = result.replaced + result.appended;
+    if (merged === 0) {
+      result.warnings.forEach((w) => toast.warning(w));
+      return;
+    }
+
+    // Lưu snapshot để Hoàn tác (cờ aiFromAi gắn trên từng câu nên restore đúng).
+    setUndoStack((prev) => [...prev.slice(-9), before]);
+    const marked = result.questions.map((question, qi) =>
+      result.touched.includes(qi) ? { ...question, aiFromAi: true } : question
+    );
+    // Đồng bộ ref NGAY (không chờ useEffect) để lượt AI kế tiếp đọc đúng
+    // trạng thái vừa cập nhật, kể cả khi hai lượt về liền nhau.
+    questionsRef.current = marked;
+    setQuestions(marked);
+    setHasAiContent(true);
+
+    const parts = [];
+    if (result.replaced) parts.push(`${result.replaced} câu được thay`);
+    if (result.appended) parts.push(`${result.appended} câu được thêm`);
+    toast.success(`AI đã cập nhật bài: ${parts.join(", ")}.`, { duration: 7000 });
+    result.warnings.forEach((w) => toast.warning(w));
   }
 
-  /** Gộp 1 câu AI đề xuất vào danh sách câu form (bỏ câu rỗng). */
-  function addAiDraft(d) {
-    if (!d) return;
-    setQuestions((prev) => [...prev, draftToFormQuestion(d)]);
-    setAiDrafts((prev) => prev.filter((x) => x !== d));
-    setHasAiContent(true);
-    toast.success("Đã thêm câu AI vào bài.");
-  }
-
-  /** Gộp toàn bộ câu AI đề xuất vào bài. */
-  function addAllAiDrafts() {
-    if (aiDrafts.length === 0) return;
-    setQuestions((prev) => [...prev, ...aiDrafts.map(draftToFormQuestion)]);
-    setAiDrafts([]);
-    setHasAiContent(true);
-    toast.success("Đã gộp toàn bộ câu AI vào bài.");
+  /** Hoàn tác thao tác gộp câu AI gần nhất. */
+  function handleUndo() {
+    if (undoStack.length === 0) return;
+    const last = undoStack[undoStack.length - 1];
+    questionsRef.current = last;
+    setQuestions(last);
+    setUndoStack((prev) => prev.slice(0, -1));
+    toast.info("Đã hoàn tác thay đổi của AI.");
   }
 
   function updateQuestion(idx, patch) {
-    setQuestions((prev) => prev.map((q, i) => (i === idx ? { ...q, ...patch } : q)));
+    // Gia sư tự sửa câu → bỏ dấu "do AI" (nội dung đã khác bản AI).
+    setQuestions((prev) =>
+      prev.map((q, i) => (i === idx ? { ...q, ...patch, aiFromAi: false } : q))
+    );
   }
 
   function updateOption(qIdx, optIdx, value) {
@@ -248,7 +283,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
         if (i !== qIdx) return q;
         const options = [...q.options];
         options[optIdx] = value;
-        return { ...q, options };
+        return { ...q, options, aiFromAi: false };
       })
     );
   }
@@ -395,6 +430,17 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
   function renderActions() {
     return (
       <>
+        {undoStack.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleUndo}
+            title="Hoàn tác thay đổi của AI vừa áp dụng"
+            className="w-full sm:w-auto"
+          >
+            <Undo2 size={14} /> Hoàn tác
+          </Button>
+        )}
         {isDraft && (
           <Button variant="secondary" size="sm" onClick={handleSave} disabled={saving || assigning} className="w-full sm:w-auto">
             {saving ? "Đang lưu..." : (
@@ -615,13 +661,28 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
               )}
 
               {questions.map((q, i) => (
-                <Card key={i} id={`q-${i}`} className="space-y-3 scroll-mt-24 p-4">
+                <Card
+                  key={i}
+                  id={`q-${i}`}
+                  className={clsx(
+                    "space-y-3 scroll-mt-24 p-4",
+                    // Viền violet nhạt cho câu do AI vừa gộp — gia sư nhận ra
+                    // câu nào mới đến từ AI để kiểm tra kỹ hơn.
+                    q.aiFromAi &&
+                      "border-violet-300 bg-violet-50/40 dark:border-violet-800 dark:bg-violet-950/20"
+                  )}
+                >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-600 dark:bg-blue-950 dark:text-blue-400">
                         {i + 1}
                       </span>
                       <ListChecks size={15} className="text-slate-400" />
+                      {q.aiFromAi && (
+                        <Badge tone="violet" size="xs">
+                          <Wand2 size={10} /> AI
+                        </Badge>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -748,74 +809,6 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                   Chưa có câu hỏi nào.
                 </p>
               )}
-
-              {/* Câu hỏi do AI đề xuất (chưa gộp vào form) */}
-              {aiDrafts.length > 0 && (
-                <Card className="space-y-3 p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
-                        <Wand2 size={15} />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-                          Câu hỏi do AI đề xuất
-                        </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {aiDrafts.length} câu · chọn từng câu hoặc gộp tất cả
-                        </p>
-                      </div>
-                    </div>
-                    <Button variant="secondary" size="sm" onClick={addAllAiDrafts} disabled={!isDraft}>
-                      <Check size={14} /> Gộp tất cả
-                    </Button>
-                  </div>
-
-                  <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                    {aiDrafts.map((d, i) => (
-                      <div
-                        key={i}
-                        className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                            {d.questionText || "…"}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setAiDrafts((prev) => prev.filter((_, idx) => idx !== i))}
-                            disabled={!isDraft}
-                            title="Loại câu này"
-                            aria-label="Loại câu AI đề xuất"
-                            className="shrink-0 rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-950"
-                          >
-                            <X size={13} />
-                          </button>
-                        </div>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                          <span>Đáp án {d.correctAnswer}</span>
-                          {d.cefrLevel && <Badge tone="blue">{d.cefrLevel}</Badge>}
-                          {d.skillCode && <Badge tone="violet">{d.skillCode}</Badge>}
-                        </div>
-                        {d.explanation && (
-                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            {d.explanation}
-                          </p>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => addAiDraft(d)}
-                          disabled={!isDraft}
-                        >
-                          <Plus size={13} /> Thêm vào bài
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              )}
             </div>
           </div>
 
@@ -886,7 +879,8 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                   token={token}
                   lessonId={lessonId}
                   quizId={isEditing ? Number(quizIdParam) : undefined}
-                  onDrafts={(qs) => setAiDrafts((prev) => [...prev, ...qs])}
+                  pendingQuestions={pendingQuestions}
+                  onDrafts={handleAiDrafts}
                   render={skillTab === "assistant"}
                   keepHeader
                 />
