@@ -1,7 +1,6 @@
 package com.mycompany.englishtutor.module.matching.api.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,9 +13,8 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class CancelMatchRequest {
+public class ChangeDesignatedTutorRequest {
 
-    @NotBlank(message = "Lý do hủy không được để trống")
-    @Schema(description = "Lý do hủy đơn ghép lớp", example = "Gia sư bận lịch học buổi tối, phụ huynh muốn đổi gia sư khác")
-    String reason;
+    @Schema(description = "ID gia sư chỉ định mới. Để null nghĩa là không chỉ định, lớp sẽ đăng tuyển", example = "6")
+    Long tutorId;
 }

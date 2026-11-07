@@ -13,13 +13,13 @@ const roleLabel = { admin: "Quản trị viên", tutor: "Gia sư", student: "H�
 const routeMeta = {
   admin: {
     "/admin": { label: "Tổng quan" },
-    "/admin/match-requests": { label: "Quản lý đơn ghép lớp" },
+    "/admin/class-requests": { label: "Quản lý lớp cần gia sư" },
     "/admin/tutors": { label: "Quản lý gia sư" },
     "/admin/settings": { label: "Cài đặt" },
   },
   receptionist: {
     "/receptionist": { label: "Tổng quan" },
-    "/receptionist/match-requests": { label: "Quản lý đơn ghép lớp" },
+    "/receptionist/class-requests": { label: "Quản lý lớp cần gia sư" },
   },
   tutor: {
     "/tutor": { label: "Tổng quan" },

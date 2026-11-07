@@ -1,5 +1,7 @@
 package com.mycompany.englishtutor.module.matching.service;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,14 +25,28 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class MatchingLifecycleSupport {
 
+    /** Phụ huynh, gia sư được hủy lớp trong 7 ngày kể từ khi ghép thành công (Quy định website I.3). */
+    public static final int CANCEL_WINDOW_DAYS = 7;
+
+    private static final ZoneId VN_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+
     JdbcTemplate jdbcTemplate;
     PaymentService paymentService;
+
+    /** Ngày cuối cùng còn được hủy, null khi lớp chưa có ngày bắt đầu chính thức. */
+    public static LocalDate cancelDeadline(LocalDate activeFrom) {
+        return activeFrom == null ? null : activeFrom.plusDays(CANCEL_WINDOW_DAYS);
+    }
+
+    public static LocalDate today() {
+        return LocalDate.now(VN_ZONE);
+    }
 
     /** Lớp mới nhất (bất kể trạng thái) của đơn, dùng để kiểm tra "đang dạy thử". */
     public Optional<ClassSnapshot> findLatestClass(Long classRequestId) {
         List<ClassSnapshot> rows = jdbcTemplate.query(
                 """
-                SELECT c.id, c.tutor_id, c.student_id, c.class_name, c.status
+                SELECT c.id, c.tutor_id, c.student_id, c.class_name, c.status, c.active_from
                 FROM classes c
                 WHERE c.class_request_id = ?
                 ORDER BY c.id DESC LIMIT 1
@@ -41,7 +57,8 @@ public class MatchingLifecycleSupport {
                         rs.getLong("tutor_id"),
                         rs.getLong("student_id"),
                         rs.getString("class_name"),
-                        rs.getString("status")),
+                        rs.getString("status"),
+                        rs.getObject("active_from", LocalDate.class)),
                 classRequestId);
         return rows.stream().findFirst();
     }
@@ -93,6 +110,22 @@ public class MatchingLifecycleSupport {
                 classRequestId);
     }
 
+    /**
+     * Khi ghép lại, gia sư trước đó bị {@code REJECTED} vì người khác được chọn quay về {@code APPLIED}.
+     * Gia sư bị loại sau dạy thử giữ {@code TERMINATED}.
+     *
+     * @return danh sách gia sư vừa được khôi phục
+     */
+    public List<Long> reopenRejectedApplications(Long classRequestId) {
+        return jdbcTemplate.queryForList(
+                """
+                UPDATE class_applications SET status = 'APPLIED'
+                WHERE class_request_id = ? AND status = 'REJECTED'
+                RETURNING tutor_id
+                """,
+                Long.class, classRequestId);
+    }
+
     public void notifyUser(Long userId, String title, String content, String entityType, Long entityId) {
         if (userId == null) {
             return;
@@ -106,7 +139,8 @@ public class MatchingLifecycleSupport {
     }
 
     /** Ảnh chụp lớp mới nhất của đơn. */
-    public record ClassSnapshot(Long id, Long tutorId, Long studentId, String className, String status) {
+    public record ClassSnapshot(
+            Long id, Long tutorId, Long studentId, String className, String status, LocalDate activeFrom) {
 
         public boolean isTrial() {
             return "TRIAL".equalsIgnoreCase(status);
@@ -114,6 +148,13 @@ public class MatchingLifecycleSupport {
 
         public boolean isOpen() {
             return "TRIAL".equalsIgnoreCase(status) || "ACTIVE".equalsIgnoreCase(status);
+        }
+
+        /** Lớp đã ghép thành công và đã quá hạn hủy tính đến ngày {@code today}. */
+        public boolean isCancelExpired(LocalDate today) {
+            boolean matched = "ACTIVE".equalsIgnoreCase(status) || "COMPLETED".equalsIgnoreCase(status);
+            LocalDate deadline = cancelDeadline(activeFrom);
+            return matched && deadline != null && today.isAfter(deadline);
         }
     }
 }

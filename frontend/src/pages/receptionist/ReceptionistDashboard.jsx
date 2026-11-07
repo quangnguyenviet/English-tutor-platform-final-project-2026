@@ -148,7 +148,7 @@ export default function ReceptionistDashboard() {
 
         <div className="grid gap-3.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
           <Link
-            to="/receptionist/match-requests"
+            to="/receptionist/class-requests?tab=new"
             className="group relative flex flex-col justify-between rounded-xl bg-white p-4 border border-slate-200 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-400 hover:shadow-md dark:bg-slate-900 dark:border-slate-800 dark:hover:border-blue-700"
           >
             <div className="flex items-start justify-between">

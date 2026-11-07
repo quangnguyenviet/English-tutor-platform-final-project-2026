@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -16,12 +17,17 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mycompany.englishtutor.module.matching.api.request.CancelClassRequest;
+import com.mycompany.englishtutor.module.matching.api.request.ChangeDesignatedTutorRequest;
+import com.mycompany.englishtutor.module.matching.api.request.CompleteMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.request.CreateClassRequest;
+import com.mycompany.englishtutor.module.matching.api.request.ParentCheckRequest;
+import com.mycompany.englishtutor.module.matching.api.request.RematchMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.request.SelectTutorRequest;
 import com.mycompany.englishtutor.module.matching.api.request.UpdateClassRequest;
 import com.mycompany.englishtutor.module.matching.api.response.ClassApplicationResponse;
 import com.mycompany.englishtutor.module.matching.api.response.ClassRequestDetailResponse;
 import com.mycompany.englishtutor.module.matching.api.response.ClassRequestSummaryResponse;
+import com.mycompany.englishtutor.module.matching.api.response.ParentCheckResponse;
 import com.mycompany.englishtutor.module.matching.service.StaffClassRequestService;
 import com.mycompany.englishtutor.shared.api.ApiResponse;
 import com.mycompany.englishtutor.shared.api.PageResponse;
@@ -33,7 +39,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-/** API Lễ tân/Admin quản lý Lớp cần gia sư (API_DESIGN mục 3.4, UC-REC-02/03/04, UC-ADM-01/02/03). */
+/** API Lễ tân/Admin quản lý Lớp cần gia sư, gồm cả lớp có gia sư chỉ định và lớp đăng tuyển. */
 @RestController
 @RequestMapping({"/api/v1/class-requests", "/api/v1/admin/class-requests"})
 @RequiredArgsConstructor
@@ -91,13 +97,31 @@ public class StaffClassRequestController {
                         .build());
     }
 
+    @PostMapping("/parent-check")
+    @Operation(summary = "Kiểm tra SĐT đã thuộc về phụ huynh nào và họ tên có khớp không", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<ParentCheckResponse>> checkParent(@Valid @RequestBody ParentCheckRequest request) {
+        return ResponseEntity.ok(ApiResponse.<ParentCheckResponse>builder()
+                .result(classRequestService.checkParent(request))
+                .build());
+    }
+
     @PutMapping("/{id}")
-    @Operation(summary = "Bổ sung/sửa thông tin lớp cần gia sư (chỉ khi còn chờ xử lý)", security = @SecurityRequirement(name = "bearerAuth"))
+    @Operation(summary = "Sửa thông tin lớp: đủ trường khi chờ xử lý, chỉ học phí, mục tiêu, yêu cầu gia sư khi đang ghép lại", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<ClassRequestDetailResponse>> update(
             @PathVariable Long id, @Valid @RequestBody UpdateClassRequest request, HttpServletRequest httpRequest) {
         return ResponseEntity.ok(ApiResponse.<ClassRequestDetailResponse>builder()
                 .message("Cập nhật lớp cần gia sư thành công")
                 .result(classRequestService.update(id, request, httpRequest))
+                .build());
+    }
+
+    @PatchMapping("/{id}/designated-tutor")
+    @Operation(summary = "Đổi gia sư chỉ định khi lớp chờ xử lý hoặc đang ghép lại, tutorId null là không chỉ định", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<ClassRequestDetailResponse>> changeDesignatedTutor(
+            @PathVariable Long id, @RequestBody ChangeDesignatedTutorRequest request, HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.<ClassRequestDetailResponse>builder()
+                .message("Đã cập nhật gia sư chỉ định")
+                .result(classRequestService.changeDesignatedTutor(id, request, httpRequest))
                 .build());
     }
 
@@ -111,6 +135,16 @@ public class StaffClassRequestController {
                 .build());
     }
 
+    @PostMapping("/{id}/confirm")
+    @Operation(summary = "Xác nhận lớp có gia sư chỉ định và chuyển sang dạy thử", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<ClassRequestDetailResponse>> confirm(
+            @PathVariable Long id, HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.<ClassRequestDetailResponse>builder()
+                .message("Đã xác nhận và chuyển lớp sang đang dạy thử")
+                .result(classRequestService.confirm(id, httpRequest))
+                .build());
+    }
+
     @PostMapping("/{id}/select-tutor")
     @Operation(summary = "Chọn gia sư từ danh sách ứng tuyển (UC-REC-03, UC-ADM-02)", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<ClassRequestDetailResponse>> selectTutor(
@@ -121,8 +155,30 @@ public class StaffClassRequestController {
                 .build());
     }
 
+    @PostMapping("/{id}/complete-match")
+    @Operation(summary = "Xác nhận ghép thành công sau dạy thử, body tùy chọn bổ sung dữ liệu tính phí", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<ClassRequestDetailResponse>> complete(
+            @PathVariable Long id,
+            @Valid @RequestBody(required = false) CompleteMatchRequest body,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.<ClassRequestDetailResponse>builder()
+                .message("Đã xác nhận ghép thành công, lớp học chuyển sang chính thức")
+                .result(classRequestService.complete(id, body, httpRequest))
+                .build());
+    }
+
+    @PostMapping("/{id}/rematch")
+    @Operation(summary = "Ghép lại khi dạy thử không thành công, gia sư cũ bị loại khỏi lớp", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<ClassRequestDetailResponse>> rematch(
+            @PathVariable Long id, @Valid @RequestBody RematchMatchRequest request, HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(ApiResponse.<ClassRequestDetailResponse>builder()
+                .message("Đã chuyển lớp sang đang ghép lại")
+                .result(classRequestService.rematch(id, request, httpRequest))
+                .build());
+    }
+
     @PostMapping("/{id}/cancel")
-    @Operation(summary = "Hủy lớp cần gia sư kèm lý do (UC-REC-04, UC-ADM-03)", security = @SecurityRequirement(name = "bearerAuth"))
+    @Operation(summary = "Hủy lớp kèm lý do, lớp đã ghép thành công chỉ hủy trong 7 ngày", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<Void>> cancel(
             @PathVariable Long id, @Valid @RequestBody CancelClassRequest request, HttpServletRequest httpRequest) {
         classRequestService.cancel(id, request, httpRequest);

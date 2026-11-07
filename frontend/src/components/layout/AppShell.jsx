@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import clsx from "clsx";
 import { useState, useEffect } from "react";
-import { apiGetMatchRequestCounts } from "../../lib/matchRequestApi";
+import { apiGetClassRequestCounts } from "../../lib/staffClassRequestApi";
 import {
   LayoutDashboard,
   Users,
@@ -94,9 +94,9 @@ function AppShellInner() {
 
     async function loadCounts() {
       try {
-        const counts = await apiGetMatchRequestCounts(currentToken);
-        if (isMounted && counts && counts.pending !== undefined) {
-          setRealPendingMatchCount(Number(counts.pending));
+        const counts = await apiGetClassRequestCounts(currentToken);
+        if (isMounted && counts && counts.new !== undefined) {
+          setRealPendingMatchCount(Number(counts.new));
         }
       } catch {
         // keep current count
@@ -107,18 +107,18 @@ function AppShellInner() {
     const interval = setInterval(loadCounts, 10000);
 
     const handleUpdate = (e) => {
-      if (e?.detail?.pending !== undefined) {
-        setRealPendingMatchCount(Number(e.detail.pending));
+      if (e?.detail?.new !== undefined) {
+        setRealPendingMatchCount(Number(e.detail.new));
       } else {
         loadCounts();
       }
     };
-    window.addEventListener("match-requests-updated", handleUpdate);
+    window.addEventListener("class-requests-updated", handleUpdate);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
-      window.removeEventListener("match-requests-updated", handleUpdate);
+      window.removeEventListener("class-requests-updated", handleUpdate);
     };
   }, [isAdmin, isReceptionist, currentToken, location.pathname]);
 
@@ -136,11 +136,6 @@ function AppShellInner() {
         to: "/admin/class-requests",
         label: "Quản lý lớp cần gia sư",
         icon: Megaphone,
-      },
-      {
-        to: "/admin/match-requests",
-        label: "Quản lý đơn ghép lớp",
-        icon: ClipboardList,
         badge: () => (pendingMatchCount > 0 ? pendingMatchCount : null),
       },
       {
@@ -176,11 +171,6 @@ function AppShellInner() {
         to: "/receptionist/class-requests",
         label: "Quản lý lớp cần gia sư",
         icon: Megaphone,
-      },
-      {
-        to: "/receptionist/match-requests",
-        label: "Quản lý đơn ghép lớp",
-        icon: ClipboardList,
         badge: () => (pendingMatchCount > 0 ? pendingMatchCount : null),
       },
       {

@@ -89,12 +89,12 @@ public class TutorClassRequestService {
             throw new AppException(ErrorCode.CLASS_REQUEST_NOT_FOUND);
         }
         String requestStatus = statuses.getFirst();
-        if (!isRecruiting(requestStatus)) {
+        if (!isRecruiting(requestStatus) || applicationRepository.hasDesignatedTutor(classRequestId)) {
             throw new AppException(ErrorCode.CLASS_REQUEST_NOT_OPEN);
         }
 
-        // Mỗi gia sư chỉ một lượt cho mỗi đơn: đã bị từ chối hoặc bị loại sau dạy thử thì
-        // không ứng tuyển lại, kể cả khi đơn mở lại vòng ghép lại (REMATCH).
+        // Mỗi gia sư chỉ một lượt cho mỗi lớp. Khi ghép lại, lượt REJECTED đã được khôi phục về APPLIED,
+        // chỉ gia sư bị loại sau dạy thử (TERMINATED) là không ứng tuyển lại được.
         applicationRepository.findByRequestAndTutor(classRequestId, user.getId()).ifPresent(existing -> {
             switch (existing.status()) {
                 case "TERMINATED" -> throw new AppException(ErrorCode.APPLICATION_TERMINATED);

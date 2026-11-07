@@ -2,7 +2,7 @@
 
 > **Tác giả:** Chuyên gia kiến trúc phần mềm  
 > **Ngày tạo:** 12/10/2026  
-> **Phiên bản:** 2.7 — refactor theo kế hoạch `plan-refactor-lessons-logs` (migration V16): đổi `sessions` thành `lessons` (bài giảng "driver" nhúng vào lớp, CHỈ quan hệ `class_id` + `title` + `status` PUBLISHED/HIDDEN — bỏ hết ngày/giờ, `is_trial`, `teaching_mode`/`meeting_url`/`location` và 2 cột log); tách nhật ký dạy học thành bảng mới `teaching_logs` (chỉ `class_id` + `log_date` + `start_time` + knowledge/homework, UNIQUE theo ô ca — C-15'); các cột ca thử chuyển lên `classes` (6 cột `trial_*`, R-TRIAL — chỉ khi `status = TRIAL`); đổi tên bảng con `session_materials` → `lesson_materials`, `quizzes.session_id` → `lesson_id`, `session_exceptions` → `schedule_exceptions`; bỏ luồng "vật chất hóa ô ảo" (không còn tạo session on-demand, chỉ tạo bài giảng ở tab riêng); `ai_chat_messages` (Mongo) soft-link `session_id` → `lesson_id`. (2.6: bổ sung bảng `session_exceptions` (V13: lớp overlay cho ô ảo của lịch cố định), `classes.sessions_per_week` (V11) và bảng hạ tầng `invalidated_token`; mô tả lại cơ chế "ô ảo". (2.5: `class_schedules` bổ sung `valid_from` (DATE, NOT NULL) + `valid_to` (DATE, NULL = không giới hạn): khoảng hiệu lực **từng ca** dùng để render lịch và kiểm tra session on-demand, thay thế vai trò render của `classes.active_from` (trường này chỉ còn ghi nhận ngày kích hoạt lớp). (2.4: bảng `class_requests` bổ sung `sessions_per_week` (số buổi/tuần) và `fee_percentage` (tỷ lệ phí nhận lớp, DEFAULT 40, 0–50, migration V10) + trạng thái `REMATCH` (ghép lại sau khi dạy thử thất bại); `class_applications` thêm trạng thái `TERMINATED` (dạy thử không thành công, loại khỏi danh sách ứng viên); `tutors` thêm `is_open_to_teaching` (migration V10). (2.3: bổ sung `tutors.submitted_at` (V4); làm rõ kế thừa `users` → `tutors`/`employees`/`students`; ghi luồng form công khai) (2.2: bỏ `current_address` khỏi `tutors` — V3; giữ `hometown` — V2)
+> **Phiên bản:** 2.9 — một SĐT là một phụ huynh: `parents.phone` có `UNIQUE`, lưu dạng `0xxxxxxxxx` (migration V20). Bản 2.8: gộp Đơn ghép lớp vào Lớp cần gia sư (migration V19): lớp `OPEN` được phép chưa có `student_id`, tài khoản học sinh tạo khi vào dạy thử. Bản 2.7: refactor theo kế hoạch `plan-refactor-lessons-logs` (migration V16): đổi `sessions` thành `lessons` (bài giảng "driver" nhúng vào lớp, CHỈ quan hệ `class_id` + `title` + `status` PUBLISHED/HIDDEN — bỏ hết ngày/giờ, `is_trial`, `teaching_mode`/`meeting_url`/`location` và 2 cột log); tách nhật ký dạy học thành bảng mới `teaching_logs` (chỉ `class_id` + `log_date` + `start_time` + knowledge/homework, UNIQUE theo ô ca — C-15'); các cột ca thử chuyển lên `classes` (6 cột `trial_*`, R-TRIAL — chỉ khi `status = TRIAL`); đổi tên bảng con `session_materials` → `lesson_materials`, `quizzes.session_id` → `lesson_id`, `session_exceptions` → `schedule_exceptions`; bỏ luồng "vật chất hóa ô ảo" (không còn tạo session on-demand, chỉ tạo bài giảng ở tab riêng); `ai_chat_messages` (Mongo) soft-link `session_id` → `lesson_id`. (2.6: bổ sung bảng `session_exceptions` (V13: lớp overlay cho ô ảo của lịch cố định), `classes.sessions_per_week` (V11) và bảng hạ tầng `invalidated_token`; mô tả lại cơ chế "ô ảo". (2.5: `class_schedules` bổ sung `valid_from` (DATE, NOT NULL) + `valid_to` (DATE, NULL = không giới hạn): khoảng hiệu lực **từng ca** dùng để render lịch và kiểm tra session on-demand, thay thế vai trò render của `classes.active_from` (trường này chỉ còn ghi nhận ngày kích hoạt lớp). (2.4: bảng `class_requests` bổ sung `sessions_per_week` (số buổi/tuần) và `fee_percentage` (tỷ lệ phí nhận lớp, DEFAULT 40, 0–50, migration V10) + trạng thái `REMATCH` (ghép lại sau khi dạy thử thất bại); `class_applications` thêm trạng thái `TERMINATED` (dạy thử không thành công, loại khỏi danh sách ứng viên); `tutors` thêm `is_open_to_teaching` (migration V10). (2.3: bổ sung `tutors.submitted_at` (V4); làm rõ kế thừa `users` → `tutors`/`employees`/`students`; ghi luồng form công khai) (2.2: bỏ `current_address` khỏi `tutors` — V3; giữ `hometown` — V2)
 > **Cơ sở dữ liệu:** PostgreSQL (27 bảng nghiệp vụ + 1 bảng hạ tầng `invalidated_token` = 28 bảng, cùng 1 view `v_student_skill_stats`) + MongoDB (1 collection `ai_chat_messages`)
 
 ---
@@ -67,7 +67,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `password_hash` | `VARCHAR(255)` | NN | Mật khẩu đã băm (bcrypt/argon2), bảo mật thông tin đăng nhập |
 | `full_name` | `VARCHAR(100)` | NN | Họ và tên đầy đủ, hiển thị trên giao diện và trong báo cáo |
 | `email` | `VARCHAR(100)` | UQ | Email liên hệ, dùng để gửi thông báo và khôi phục mật khẩu |
-| `phone` | `VARCHAR(15)` | UQ | Số điện thoại liên hệ, dùng trong tư vấn và xác thực |
+| `phone` | `VARCHAR(15)` | UQ | Số điện thoại liên hệ, dùng trong tư vấn và xác thực. Tài khoản học sinh để NULL, SĐT liên hệ nằm ở `parents.phone` vì anh chị em dùng chung một số |
 | `date_of_birth` | `DATE` | | Ngày sinh, hiển thị trong hồ sơ học sinh (UC-REC-10, UC-ST-02) và hồ sơ gia sư (UC-T01 bước 1) |
 | `gender` | `VARCHAR(10)` | | Giới tính: `MALE`, `FEMALE`, `OTHER`. Phụ huynh có thể lọc gia sư theo giới tính (UC-PA-01) |
 | `avatar_url` | `VARCHAR(500)` | | Đường dẫn ảnh đại diện (lưu trên S3), học sinh có thể tự cập nhật (UC-ST-02) |
@@ -100,7 +100,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 |---|---|---|---|
 | `id` | `BIGSERIAL` | PK | Khóa chính tự tăng |
 | `full_name` | `VARCHAR(100)` | NN | Họ tên phụ huynh, nhập khi gửi yêu cầu tìm gia sư (UC-PA-03, UC-PA-04) |
-| `phone` | `VARCHAR(15)` | NN | SĐT phụ huynh — kênh liên lạc chính giữa trung tâm và phụ huynh. Cũng dùng để gia sư liên hệ sau khi nhận lớp (Quy định nền tảng mục I.3) |
+| `phone` | `VARCHAR(15)` | NN, UQ | SĐT phụ huynh, luôn lưu dạng `0xxxxxxxxx`; mỗi SĐT là một phụ huynh, một phụ huynh có nhiều lớp (V20) — kênh liên lạc chính giữa trung tâm và phụ huynh. Cũng dùng để gia sư liên hệ sau khi nhận lớp (Quy định nền tảng mục I.3) |
 | `email` | `VARCHAR(100)` | | Email phụ huynh (tùy chọn), dùng để gửi thông tin bổ sung |
 | `address` | `VARCHAR(500)` | | Địa chỉ phụ huynh, dùng cho lớp dạy tại nhà |
 | `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm tạo bản ghi phụ huynh |
@@ -138,10 +138,10 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `experience_years` | `SMALLINT` | | Số năm kinh nghiệm gia sư, dùng hiển thị và lọc tìm kiếm (UC-PA-01) |
 | `bio` | `TEXT` | | Bài giới thiệu bản thân, hiển thị trên hồ sơ công khai (UC-PA-02) |
 | `video_url` | `VARCHAR(500)` | | Đường dẫn video giới thiệu (Youtube). Hồ sơ có video được ưu tiên khi ghép lớp (Quy định nền tảng I.2) |
-| `is_open_to_teaching` | `BOOLEAN` | NN, DEFAULT TRUE | Cờ "đang mở sẵn sàng nhận lớp" (migration V10): gia sư tự bật/tắt trên hồ sơ. Chỉ gia sư `is_open_to_teaching = TRUE` mới thấy đơn ghép lớp đăng tuyển (`class_requests` `OPEN`) và được ứng tuyển; gia sư tắt vẫn giữ được các lớp đang dạy, chỉ không nhận đơn mới |
+| `is_open_to_teaching` | `BOOLEAN` | NN, DEFAULT TRUE | Cờ "đang mở sẵn sàng nhận lớp" (migration V10): gia sư tự bật/tắt trên hồ sơ. Chỉ gia sư `is_open_to_teaching = TRUE` mới thấy lớp cần gia sư đang đăng (`class_requests` `OPEN`) và được ứng tuyển; gia sư tắt vẫn giữ được các lớp đang dạy, chỉ không nhận đơn mới |
 | `profile_status` | `VARCHAR(20)` | NN | Trạng thái hồ sơ: `INCOMPLETE` (Chưa hoàn thiện), `PENDING` (Chờ duyệt), `ACTIVE` (Đang hoạt động), `INACTIVE` (Ngưng hoạt động), `REJECTED` (Bị từ chối). Chuyển đổi bởi Lễ tân (UC-REC-07, UC-REC-08) |
 | `rejection_reason` | `TEXT` | | Lý do từ chối hồ sơ, chỉ có giá trị khi `profile_status = REJECTED` |
-| `reviewed_by` | `BIGINT` | FK → users.id | ID của Lễ tân/Admin đã duyệt hồ sơ, ghi nhận trách nhiệm duyệt (UC-REC-07) |
+| `reviewed_by` | `BIGINT` | FK → users.id | ID của Lễ tân/Admin đã duyệt hồ sơ, ghi nhận trách nhiệm duyệt (UC-REC-08) |
 | `reviewed_at` | `TIMESTAMPTZ` | | Thời điểm duyệt hồ sơ |
 | `submitted_at` | `TIMESTAMPTZ` | | Thời điểm gia sư gửi hồ sơ để duyệt lần gần nhất (migration V4). Set mỗi lần chuyển sang `PENDING`; dùng sắp xếp hàng chờ duyệt (hồ sơ chờ lâu nhất lên đầu) |
 | `updated_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm cập nhật gần nhất |
@@ -163,7 +163,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `score` | `VARCHAR(20)` | | Điểm số/Overall (ví dụ: "7.5", "850"). Chỉ dùng cho `CERTIFICATE`, NULL với thành tích |
 | `description` | `TEXT` | | Mô tả chi tiết, chủ yếu cho thành tích |
 | `issued_at` | `DATE` | | Ngày cấp/đạt. Thành tích chỉ biết năm thì ghi ngày 01/01 của năm đó |
-| `file_url` | `VARCHAR(500)` | NN | Đường dẫn file scan minh chứng (PDF/JPG/PNG trên S3). Lễ tân dùng để xác thực khi duyệt (UC-REC-07) |
+| `file_url` | `VARCHAR(500)` | NN | Đường dẫn file scan minh chứng (PDF/JPG/PNG trên S3). Lễ tân dùng để xác thực khi duyệt (UC-REC-08) |
 | `is_verified` | `BOOLEAN` | NN, DEFAULT FALSE | Cờ xác thực: chỉ mục đã xác thực mới hiển thị công khai (UC-PA-02) |
 | `verified_by` | `BIGINT` | FK → users.id | Lễ tân/Admin xác thực |
 | `verified_at` | `TIMESTAMPTZ` | | Thời điểm xác thực |
@@ -230,15 +230,15 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `class_requests`
 
-> **Đơn yêu cầu lớp** — lưu nhu cầu học của phụ huynh và trạng thái ghép với gia sư. Phục vụ 2 luồng: (1) phụ huynh **chỉ đích danh** gia sư (`requested_tutor_id` có giá trị); (2) phụ huynh chưa chọn gia sư, Lễ tân đăng đơn cho gia sư ứng tuyển (`requested_tutor_id` = NULL). Đơn được tạo ngay khi phụ huynh để lại tên + SĐT, thông tin học sinh được bổ sung dần sau khi Lễ tân gọi lại (UC-REC-01/02/03/04, UC-PA-03, UC-PA-04).
+> **Lớp cần gia sư** — đối tượng duy nhất lưu nhu cầu học của phụ huynh và trạng thái ghép với gia sư, tên gọi thống nhất ở mọi vai trò. Có 2 trường hợp: (1) phụ huynh **chỉ đích danh** gia sư (`requested_tutor_id` có giá trị); (2) phụ huynh chưa chọn gia sư, Lễ tân đăng lớp cho gia sư ứng tuyển (`requested_tutor_id` = NULL). Lễ tân đổi được giữa hai trường hợp khi lớp ở `NEW` hoặc `REMATCH`. Đơn được tạo ngay khi phụ huynh để lại tên + SĐT, thông tin học sinh được bổ sung dần sau khi Lễ tân gọi lại.
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
 | `id` | `BIGSERIAL` | PK | Khóa chính tự tăng |
 | `parent_id` | `BIGINT` | FK → parents.id, NN | FK tới phụ huynh gửi yêu cầu. Tên + SĐT lấy từ `parents`, không snapshot lại |
-| `requested_tutor_id` | `BIGINT` | FK → tutors.id | Gia sư phụ huynh chỉ định. NULL = luồng đăng tuyển. Thay cho cột `source_type` cũ |
-| `student_id` | `BIGINT` | FK → students.id | Học sinh của đơn. **NULL** cho đến khi Lễ tân gọi lại, tạo tài khoản + hồ sơ học sinh rồi gán vào |
-| `class_requirement` | `TEXT` | | Yêu cầu lớp học: mục tiêu, trình độ hiện tại... Lễ tân điền sau cuộc gọi (UC-REC-01 form tạo lớp). Bắt buộc trước khi đăng (`OPEN`) hoặc tạo lớp |
+| `requested_tutor_id` | `BIGINT` | FK → tutors.id | Gia sư chỉ định. NULL = không chỉ định, lớp đăng tuyển. Lễ tân đổi được khi lớp ở `NEW`/`REMATCH`. Khi vào dạy thử, cột này là gia sư đang dạy. Khi chuyển `REMATCH` đặt về NULL |
+| `student_id` | `BIGINT` | FK → students.id | Học sinh của lớp. **NULL** cho đến khi lớp vào dạy thử; trước đó thông tin học sinh nằm ở `student_name`, `student_grade`, `student_school`, `student_learning_goal` (V15). Bắt buộc từ `MATCHED` trở đi (V19) |
+| `class_requirement` | `TEXT` | | Yêu cầu lớp học: mục tiêu, trình độ hiện tại... Lễ tân điền sau cuộc gọi. Bắt buộc trước khi đăng (`OPEN`). Sửa được khi lớp `NEW`/`REMATCH` |
 | `teaching_mode` | `VARCHAR(20)` | | Hình thức học: `ONLINE`, `AT_HOME` |
 | `price_per_session` | `DECIMAL(12,0)` | | Mức phí mong muốn mỗi buổi (VNĐ) |
 | `sessions_per_week` | `SMALLINT` | | Số buổi học/tuần **đề xuất** ở đơn (migration V10). Khi kích hoạt lớp, giá trị do Lễ tân chốt được ghi vào `classes.sessions_per_week` — **nguồn duy nhất tính phí nhận lớp** (`fee_percentage × sessions_per_week × 4 × price_per_session`, Quy định nền tảng I.6); giá trị ở đơn chỉ là gợi ý, chưa nhất thiết bằng giá trị lớp |
@@ -246,23 +246,24 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `preferred_schedule` | `TEXT` | | Số buổi/tuần và thời gian mong muốn, ghi tự do (ví dụ: "2 buổi/tuần, tối T3-T5 19h-21h"). Chỉ là nguyện vọng ban đầu; số buổi/tuần thực tế suy ra từ số dòng `class_schedules` của lớp |
 | `tutor_requirement` | `TEXT` | | Yêu cầu về gia sư (giới tính, kinh nghiệm, chuyên môn...) |
 | `status` | `VARCHAR(20)` | NN | `NEW` (Mới tiếp nhận, chờ gọi lại), `OPEN` (Đã đăng cho gia sư ứng tuyển), `MATCHED` (Đã ghép, đã có lớp), `REMATCH` (Đang ghép lại — lớp đang dạy thử thất bại và phụ huynh muốn trung tâm tìm gia sư khác; ở trạng thái này đơn chờ ghép lại với gia sư mới, khi ghép xong chuyển `MATCHED`; migration V10), `CANCELLED` (Đã hủy — hủy đơn, hoặc khi dạy thử thất bại phụ huynh không muốn nhờ trung tâm tìm gia sư nữa; trạng thái cuối) |
-| `cancel_reason` | `TEXT` | | Lý do hủy, nhập khi Lễ tân hủy (UC-REC-03, UC-REC-06) |
+| `cancel_reason` | `TEXT` | | Lý do hủy, nhập khi Lễ tân hủy (UC-REC-04) |
 | `created_by` | `BIGINT` | FK → users.id | Lễ tân tạo đơn. NULL nếu đơn do phụ huynh tự gửi qua form |
-| `handled_by` | `BIGINT` | FK → users.id | Lễ tân phụ trách xử lý đơn (UC-REC-04, UC-REC-05) |
+| `handled_by` | `BIGINT` | FK → users.id | Lễ tân phụ trách xử lý lớp |
 | `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm tạo đơn |
 | `updated_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm cập nhật gần nhất |
 
-> **Form công khai (khách chưa đăng nhập):** "Nhận tư vấn tìm gia sư" và "Liên hệ gia sư" chỉ thu **họ tên + SĐT phụ huynh** (và id gia sư với form liên hệ). Backend `POST /api/v1/public/class-requests` tìm `parents` theo SĐT (chưa có thì tạo), rồi tạo `class_requests` `status = NEW`, `requested_tutor_id` = id gia sư hoặc NULL, `created_by` = NULL. Gửi lặp cùng một yêu cầu đang `NEW` không tạo thêm đơn. Không có bảng riêng cho yêu cầu tư vấn.
+> **Form công khai (khách chưa đăng nhập):** "Nhận tư vấn tìm gia sư" và "Liên hệ gia sư" chỉ thu **họ tên + SĐT phụ huynh** (và id gia sư với form liên hệ). Backend `POST /api/v1/public/class-requests` tìm `parents` theo SĐT (chưa có thì tạo), SĐT đã có mà họ tên khác thì từ chối, rồi tạo `class_requests` `status = NEW`, `requested_tutor_id` = id gia sư hoặc NULL, `created_by` = NULL. Gửi lặp cùng một yêu cầu đang `NEW` không tạo thêm đơn. Không có bảng riêng cho yêu cầu tư vấn.
 >
-> **Luồng 1 (chỉ đích danh):** `NEW` (có `requested_tutor_id`) → Lễ tân gọi, bổ sung `student_id` → tạo `classes` (`TRIAL`) → `MATCHED`.
-> **Luồng 2 (đăng tuyển):** `NEW` → Lễ tân gọi, bổ sung `student_id` + yêu cầu → `OPEN` → gia sư ứng tuyển (`class_applications`) → Lễ tân chọn → tạo `classes` (`TRIAL`) → `MATCHED`.
-> **Ghép lại (dạy thử thất bại):** khi lớp đang `TRIAL` thất bại, đơn (đang `MATCHED`) đi theo một trong hai hướng: (1) phụ huynh không muốn nhờ trung tâm tìm gia sư nữa → đơn về `CANCELLED`; (2) phụ huynh muốn tìm gia sư khác → đơn về `REMATCH`, gia sư cũ bị loại khỏi danh sách ứng viên (lượt `SELECTED` của đơn chuyển `TERMINATED`), Lễ tân ghép lại gia sư mới → `MATCHED`.
+> **Luồng 1 (chỉ đích danh):** `NEW` (có `requested_tutor_id`) → Lễ tân gọi, bổ sung thông tin, hai bên đồng ý → tạo tài khoản học sinh nếu chưa có, tạo `classes` (`TRIAL`) → `MATCHED`. Gia sư từ chối thì Lễ tân đổi gia sư khác, hoặc đổi về không chỉ định để đăng tuyển.
+> **Luồng 2 (đăng tuyển):** `NEW` → Lễ tân gọi, bổ sung thông tin → `OPEN` → gia sư ứng tuyển (`class_applications`) → Lễ tân chọn → tạo tài khoản học sinh nếu chưa có, tạo `classes` (`TRIAL`) → `MATCHED`.
+> **Ghép lại (dạy thử thất bại):** khi lớp đang `TRIAL` thất bại, đơn (đang `MATCHED`) đi theo một trong hai hướng: (1) phụ huynh không muốn tìm gia sư nữa → `CANCELLED`; (2) phụ huynh muốn tìm gia sư khác → `REMATCH`: gia sư cũ bị loại (`TERMINATED`), `requested_tutor_id` về NULL, các lượt `REJECTED` quay về `APPLIED`. Sau đó Lễ tân chọn gia sư ứng tuyển hoặc đặt gia sư chỉ định rồi xác nhận → `MATCHED`. Gia sư và khách thấy lớp `REMATCH` như lớp đăng tuyển bình thường; lớp đang có gia sư chỉ định thì tạm ẩn.
+> **Hủy lớp:** hủy được ở mọi trạng thái. Lớp đã ghép thành công chỉ hủy trong 7 ngày kể từ `classes.active_from` (Quy định website I.3), quá hạn hệ thống từ chối.
 
 ---
 
 #### Bảng `class_applications`
 
-> Bảng nối N-N giữa đơn yêu cầu lớp và gia sư. Mỗi gia sư ứng tuyển vào một đơn `OPEN` là 1 dòng (UC-REC-02). Chỉ dùng cho luồng đăng tuyển.
+> Bảng nối N-N giữa đơn yêu cầu lớp và gia sư. Mỗi gia sư ứng tuyển vào một lớp `OPEN` hoặc `REMATCH` là 1 dòng (UC-REC-02). Chỉ dùng cho luồng đăng tuyển.
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -270,7 +271,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `class_request_id` | `BIGINT` | FK → class_requests.id, NN | FK tới đơn yêu cầu lớp mà gia sư ứng tuyển |
 | `tutor_id` | `BIGINT` | FK → tutors.id, NN | FK tới hồ sơ gia sư ứng tuyển |
 | `message` | `TEXT` | | Lời nhắn của gia sư gửi kèm khi đăng ký (UC-REC-02: "Lời nhắn của GS") |
-| `status` | `VARCHAR(20)` | NN, DEFAULT 'APPLIED' | `APPLIED` (Đã ứng tuyển), `SELECTED` (Được chọn), `REJECTED` (Không được chọn), `TERMINATED` (Đã loại — gia sư đã được chọn nhưng dạy thử không thành công, bị loại khỏi đơn khi đơn chuyển `REMATCH`; do UNIQUE (`class_request_id`, `tutor_id`) (C-01) nên không thể ứng tuyển lại đơn đó) |
+| `status` | `VARCHAR(20)` | NN, DEFAULT 'APPLIED' | `APPLIED` (Đã ứng tuyển), `SELECTED` (Được chọn), `REJECTED` (Không được chọn; tự quay về `APPLIED` khi lớp chuyển `REMATCH`), `TERMINATED` (Đã loại — gia sư đã được chọn nhưng dạy thử không thành công, bị loại khỏi đơn khi đơn chuyển `REMATCH`; do UNIQUE (`class_request_id`, `tutor_id`) (C-01) nên không thể ứng tuyển lại đơn đó) |
 | `applied_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời gian ứng tuyển, hiển thị cho Lễ tân sắp xếp (UC-REC-02) |
 
 > **Ràng buộc:** UNIQUE (`class_request_id`, `tutor_id`) — mỗi gia sư chỉ ứng tuyển 1 lần cho mỗi đơn.

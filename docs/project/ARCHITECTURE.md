@@ -90,7 +90,7 @@ Một ứng dụng Spring Boot, chia thành các gói theo nghiệp vụ dưới
 | --- | --- | --- |
 | `auth` | User, đăng nhập JWT, đổi mật khẩu lần đầu, sinh tài khoản theo quy tắc chung | FR-05, FR-06, FR-39 |
 | `tutor` | Hồ sơ gia sư và các bảng con (chứng chỉ, chuyên môn, giá, lịch rảnh, khu vực), duyệt hồ sơ, tìm kiếm công khai | FR-01, FR-02, FR-07, FR-31, FR-32 |
-| `matching` | Lớp cần gia sư, ứng tuyển, đơn ghép lớp, form của phụ huynh | FR-03, FR-04, FR-08, FR-25 đến FR-30 |
+| `matching` | Lớp cần gia sư, ứng tuyển, form của phụ huynh | FR-03, FR-04, FR-08, FR-25 đến FR-30 |
 | `classroom` | Lớp học (TRIAL/ACTIVE), lịch dạy thử, lịch cố định, kiểm tra trùng ca, buổi học, tài liệu, nhật ký | FR-09 đến FR-12, FR-19 đến FR-21 |
 | `quiz` | Quiz, câu hỏi, câu trả lời, chuyển trạng thái draft/assigned, gọi AI Service, import | FR-13, FR-14, FR-22 |
 | `personalization` | Elo, hồ sơ kỹ năng, danh sách ôn tập | FR-22 |
@@ -210,42 +210,33 @@ Không cho phép vòng phụ thuộc. `common` không phụ thuộc gói nào kh
 - Hoàn thành quiz (trả lời hết câu) chuyển trạng thái `completed` và tạo thông báo cho gia sư trong cùng giao dịch của câu cuối.
 
 ### AD-9. Máy trạng thái là một nơi duy nhất cho mỗi đối tượng
-- **Quy tắc:** với mỗi đối tượng có trạng thái (hồ sơ gia sư, lớp cần gia sư, đơn ghép lớp, lớp học, phí, yêu cầu hoàn tiền, khiếu nại, quiz), chỉ cho phép đổi trạng thái qua một phương thức trong service, kiểm tra chuyển đổi hợp lệ theo `prd.md` mục 5 và ghi audit log nếu use case yêu cầu. Cấm `setStatus` rải rác trong controller.
-- **Chọn gia sư từ lớp cần gia sư** (UC-REC-03) là một giao dịch: lớp cần gia sư → `Đã xử lý`, tạo đơn ghép lớp `Đang dạy thử`, tạo lớp học `TRIAL`, thông báo gia sư.
+- **Quy tắc:** với mỗi đối tượng có trạng thái (hồ sơ gia sư, lớp cần gia sư, lớp học, phí, yêu cầu hoàn tiền, khiếu nại, quiz), chỉ cho phép đổi trạng thái qua một phương thức trong service, kiểm tra chuyển đổi hợp lệ theo `prd.md` mục 5 và ghi audit log nếu use case yêu cầu. Cấm `setStatus` rải rác trong controller.
+- **Vào dạy thử** là một giao dịch duy nhất cho cả xác nhận gia sư chỉ định (UC-REC-06) và chọn gia sư ứng tuyển (UC-REC-03): tạo tài khoản học sinh nếu chưa có, lớp chuyển `Đang dạy thử`, tạo lớp học `TRIAL`, tạo phí nháp, thông báo gia sư.
 
 ```mermaid
 stateDiagram-v2
     direction LR
     state "Chờ xử lý" as ChoXuLy
     state "Đã đăng" as DaDang
-    state "Đã xử lý" as DaXuLy
-    state "Đã hủy" as DaHuy
-    [*] --> ChoXuLy: phụ huynh gửi yêu cầu
-    ChoXuLy --> DaDang: lễ tân tạo lớp
-    DaDang --> DaXuLy: chọn gia sư
-    ChoXuLy --> DaHuy: hủy kèm lý do
-    DaDang --> DaHuy: hủy kèm lý do
-```
-
-Sơ đồ trên là **lớp cần gia sư**. Sơ đồ dưới là **đơn ghép lớp**.
-
-```mermaid
-stateDiagram-v2
-    direction LR
-    state "Chờ xử lý" as ChoXuLy
     state "Đang dạy thử" as DangDayThu
     state "Ghép thành công" as GhepThanhCong
+    state "Đang ghép lại" as DangGhepLai
     state "Đã hủy" as DaHuy
-    [*] --> ChoXuLy: phụ huynh chỉ định gia sư
-    ChoXuLy --> DangDayThu: lễ tân xác nhận
-    [*] --> DangDayThu: chọn gia sư từ lớp cần gia sư
-    DangDayThu --> GhepThanhCong: chốt lịch cố định
+    [*] --> ChoXuLy: phụ huynh gửi yêu cầu
+    ChoXuLy --> DaDang: không chỉ định, lễ tân đăng lớp
+    ChoXuLy --> DangDayThu: có gia sư chỉ định, lễ tân xác nhận
+    DaDang --> DangDayThu: chọn gia sư ứng tuyển
+    DangDayThu --> GhepThanhCong: xác nhận ghép thành công
+    DangDayThu --> DangGhepLai: dạy thử không thành công
+    DangGhepLai --> DangDayThu: chọn gia sư mới
     ChoXuLy --> DaHuy: hủy kèm lý do
+    DaDang --> DaHuy: hủy kèm lý do
     DangDayThu --> DaHuy: hủy kèm lý do
-    GhepThanhCong --> DaHuy: hủy kèm lý do
+    DangGhepLai --> DaHuy: hủy kèm lý do
+    GhepThanhCong --> DaHuy: hủy trong 7 ngày
 ```
 
-*Ghi chú:* đơn "Ghép thành công" tương ứng lớp học `ACTIVE`. Lớp học bắt đầu `TRIAL` khi đơn sang "Đang dạy thử".
+*Ghi chú:* đây là một đối tượng duy nhất, lớp cần gia sư (`class_requests`). "Đang dạy thử" tương ứng lớp học `TRIAL`, "Ghép thành công" tương ứng lớp học `ACTIVE`. Gia sư và khách thấy lớp "Đang ghép lại" như lớp "Đã đăng".
 
 ### AD-10. Kiểm tra trùng ca của gia sư chạy trong giao dịch có khóa
 - **Quy tắc:** đặt lịch dạy thử (UC-T05) và chốt lịch cố định (UC-T06) đều kiểm tra trùng ca của gia sư trong cùng giao dịch, khóa theo gia sư (khóa mức hàng hoặc `SELECT ... FOR UPDATE` trên hàng gia sư) để hai yêu cầu đồng thời không cùng qua.
@@ -399,8 +390,7 @@ Chỉ mục cần có: `quiz_answers (student_id, question_id)` duy nhất; `cla
 | Thông báo (FR-23) | `common` | `components/layout` | |
 | Hồ sơ cá nhân, xem gia sư của học sinh (FR-16, FR-18) | `auth`, `classroom` | `pages/student` | AD-3 |
 | Dashboard lễ tân (FR-24) | `staff` | `pages/receptionist` | AD-7 |
-| Lớp cần gia sư, chọn gia sư, hủy (FR-25 đến FR-27) | `matching` | `pages/receptionist` | AD-9 |
-| Đơn ghép lớp (FR-28 đến FR-30) | `matching` | `pages/receptionist` | AD-9 |
+| Lớp cần gia sư (FR-25 đến FR-30) | `matching` | `pages/admin/ClassRequests.jsx` | AD-9 |
 | Hồ sơ gia sư (FR-31, FR-32) | `tutor` | `pages/receptionist` | AD-9 |
 | Quản lý học sinh (FR-34) | `staff` | `pages/receptionist` | AD-3 |
 | Khiếu nại (FR-35 đến FR-37) | `complaint` | `pages/receptionist` | AD-9 |

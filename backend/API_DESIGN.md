@@ -2,7 +2,7 @@
 
 Tài liệu thiết kế API cho backend (Spring Boot 3.2, Java 17). Bám sát `docs/project/ERD.md`, `docs/project/prd.md` (FR-01 → FR-44) và code hiện có tại `backend/src/main/java/com/mycompany/englishtutor`.
 
-Phiên bản: 1.1 — 22/10/2026.
+Phiên bản: 1.3 — 07/11/2026.
 
 ---
 
@@ -136,28 +136,41 @@ Mỗi bảng dưới đây cho biết một đối tượng có những trạng 
 | `INACTIVE` | Ngưng hoạt động | `ACTIVE` |
 | `REJECTED` | Bị từ chối | `INCOMPLETE` (gia sư sửa lại) |
 
-**Đơn yêu cầu lớp** (`class_requests.status`)
+**Lớp cần gia sư** (`class_requests.status`)
 
 | Trạng thái | Ý nghĩa | Chuyển được sang |
 | --- | --- | --- |
-| `NEW` | Mới tiếp nhận, chờ lễ tân gọi lại | `OPEN` (đăng cho gia sư ứng tuyển), `MATCHED` (phụ huynh đã chọn sẵn gia sư), `CANCELLED` |
-| `OPEN` | Đã đăng, gia sư đang ứng tuyển | `MATCHED`, `CANCELLED` |
-| `MATCHED` | Đã ghép, đã có lớp | `REMATCH` (lớp `TRIAL` dạy thử thất bại, phụ huynh muốn tìm gia sư khác), `CANCELLED` |
-| `REMATCH` | Đang ghép lại: mở lại vòng ứng tuyển, gia sư cũ bị loại | `MATCHED` (chọn được gia sư mới), `CANCELLED` |
+| `NEW` | Chờ xử lý, chờ lễ tân gọi lại | `OPEN` (không có gia sư chỉ định, đăng lớp), `MATCHED` (có gia sư chỉ định, lễ tân xác nhận), `CANCELLED` |
+| `OPEN` | Đã đăng, gia sư đang ứng tuyển | `MATCHED` (chọn gia sư ứng tuyển), `CANCELLED` |
+| `MATCHED` | Đã ghép, đã có lớp | `REMATCH` (lớp `TRIAL` dạy thử thất bại, phụ huynh muốn tìm gia sư khác), `CANCELLED` (lớp `ACTIVE`/`COMPLETED` chỉ hủy được trong 7 ngày kể từ `active_from`, quá hạn trả 409 `CLASS_REQUEST_CANCEL_EXPIRED` 1169) |
+| `REMATCH` | Đang ghép lại: gia sư cũ bị loại, lớp mở lại để ứng tuyển | `MATCHED` (chọn gia sư ứng tuyển, hoặc xác nhận gia sư chỉ định), `CANCELLED` |
 | `CANCELLED` | Đã hủy | không |
 
-Theo ERD C-14 (migration V10). Khi chuyển `REMATCH`: lớp `TRIAL` + buổi chưa học + payment `NEW` bị hủy, `requested_tutor_id = NULL`, lượt ứng tuyển của gia sư cũ → `TERMINATED` (đơn chỉ định không có lượt ứng tuyển thì chèn một dòng `TERMINATED`).
+Khi chuyển `REMATCH`: lớp `TRIAL` + payment `NEW` bị hủy, bài giảng chuyển `HIDDEN`, `requested_tutor_id = NULL`, lượt ứng tuyển của gia sư cũ → `TERMINATED` (lớp chỉ định không có lượt ứng tuyển thì chèn một dòng `TERMINATED`), các lượt `REJECTED` quay về `APPLIED`.
+
+Trạng thái trả về ở API quản lý suy ra từ `class_requests.status` và lớp học mới nhất:
+
+| `status` trả về | Tab | Hiển thị | Dữ liệu |
+| --- | --- | --- | --- |
+| `NEW` | `new` | Chờ xử lý | `NEW` |
+| `OPEN` | `open` | Đã đăng | `OPEN` |
+| `TRIAL` | `trial` | Đang dạy thử | `MATCHED` + lớp `TRIAL` |
+| `MATCHED` | `matched` | Ghép thành công | `MATCHED` + lớp `ACTIVE`/`COMPLETED` |
+| `REMATCH` | `rematch` | Đang ghép lại | `REMATCH` |
+| `CANCELLED` | `cancelled` | Đã hủy | `CANCELLED` |
+
+Gia sư và khách không thấy `REMATCH`: API gia sư trả lớp này về `OPEN`, lớp hiển thị như lớp đăng tuyển bình thường. Lớp `REMATCH` đang có `requested_tutor_id` thì tạm ẩn và không nhận ứng tuyển.
 
 **Đơn ứng tuyển** (`class_applications.status`)
 
 | Trạng thái | Ý nghĩa | Chuyển được sang |
 | --- | --- | --- |
-| `APPLIED` | Gia sư đã ứng tuyển | `SELECTED` (được chọn), `REJECTED` (không được chọn) |
+| `APPLIED` | Gia sư đã ứng tuyển | `SELECTED` (được chọn), `REJECTED` (không được chọn hoặc lớp bị hủy) |
 | `SELECTED` | Được chọn | `TERMINATED` (dạy thử thất bại → ghép lại, hoặc hủy đơn khi đang dạy thử) |
-| `REJECTED` | Không được chọn | không — không ứng tuyển lại đơn này, kể cả khi đơn `REMATCH` (409 `APPLICATION_REJECTED` 1162) |
+| `REJECTED` | Không được chọn | `APPLIED` (tự động khi lớp chuyển `REMATCH`). Ngoài trường hợp này không ứng tuyển lại được (409 `APPLICATION_REJECTED` 1162) |
 | `TERMINATED` | Đã loại sau dạy thử không thành công, không ứng tuyển lại được (UNIQUE C-01, 409 `APPLICATION_TERMINATED` 1159) | không |
 
-Gia sư muốn rút ứng tuyển thì xóa dòng này, chỉ được khi đơn còn `OPEN`/`REMATCH` và chưa chọn ai.
+Gia sư muốn rút ứng tuyển thì xóa dòng này, chỉ được khi lớp còn `OPEN`/`REMATCH` và chưa chọn ai.
 
 **Lớp học** (`classes.status`)
 
@@ -241,7 +254,7 @@ Gia sư muốn rút ứng tuyển thì xóa dòng này, chỉ được khi đơn
 | --- | --- | --- | --- | --- |
 | GET | `/api/v1/public/tutors` | PUBLIC | Tìm gia sư `ACTIVE`. Query: `province`, `district`, `specialty` (lặp được nhiều lần), `gradeGroup` (`tieuhoc`/`thcs`/`thpt`/`nguoidilam`), `teachingMode` (`ONLINE`/`AT_HOME`), `gender` (`MALE`/`FEMALE`), `keyword`, `page`, `size`. Tìm không phân biệt dấu. Item: ảnh, họ tên, trường/chuyên ngành, khu vực, chuyên môn, thành tích, hình thức dạy. **Không công khai học phí.** Mục rỗng không trả. `size` mặc định 20, tối đa 100 | FR-01 |
 | GET | `/api/v1/public/tutors/{id}` | PUBLIC | Hồ sơ công khai: giới thiệu, chứng chỉ đã xác thực, kinh nghiệm, khu vực, hình thức dạy, video, lịch rảnh. Mục rỗng không trả. Gia sư không `ACTIVE` → 404 `TUTOR_PROFILE_UNAVAILABLE` (1101). Không công khai học phí | FR-02 |
-| POST | `/api/v1/public/class-requests` | PUBLIC | Phụ huynh để lại **họ tên + SĐT** để trung tâm gọi lại. Body `{ parentName, phone, tutorId? }`: có `tutorId` là đăng ký gia sư chỉ định (gia sư phải `ACTIVE`, nếu không 404 `TUTOR_PROFILE_UNAVAILABLE`), bỏ trống là nhận tư vấn tìm gia sư. Tìm `parents` theo SĐT (chưa có thì tạo), tạo `class_requests` (`NEW`, `requested_tutor_id` = `tutorId` hoặc NULL). Gửi lặp cùng yêu cầu đang `NEW` trả lại mã cũ. Trả 201 `{ requestCode, message }`, `requestCode` dạng `REQ-yyyyMMdd-id`, thông điệp "liên hệ trong 12 giờ". Ghi `notifications` cho Lễ tân | FR-03, FR-04 |
+| POST | `/api/v1/public/class-requests` | PUBLIC | Phụ huynh để lại **họ tên + SĐT** để trung tâm gọi lại. Body `{ parentName, phone, tutorId? }`: có `tutorId` là đăng ký gia sư chỉ định (gia sư phải `ACTIVE`, nếu không 404 `TUTOR_PROFILE_UNAVAILABLE`), bỏ trống là nhận tư vấn tìm gia sư. SĐT được quy về dạng `0xxxxxxxxx`, tìm `parents` theo SĐT (chưa có thì tạo). SĐT đã có mà họ tên khác → 409 `PARENT_PHONE_NAME_MISMATCH` 1170, thông báo không chứa tên phụ huynh đang giữ số. Họ tên so sánh bỏ qua chữ hoa/thường, khoảng trắng thừa và dấu tiếng Việt. Hợp lệ thì tạo `class_requests` (`NEW`, `requested_tutor_id` = `tutorId` hoặc NULL). Gửi lặp cùng yêu cầu đang `NEW` trả lại mã cũ. Trả 201 `{ requestCode, message }`, `requestCode` dạng `REQ-yyyyMMdd-id`, thông điệp "liên hệ trong 12 giờ". Ghi `notifications` cho Lễ tân | FR-03, FR-04 |
 
 Validate SĐT: regex `^(0|\+84|84)(3|5|7|8|9)\d{8}$`, sai trả 400 "Số điện thoại không hợp lệ". Chống spam: tối đa 5 request/giờ/SĐT (bộ đếm trong bộ nhớ), vượt quá trả 429 `TOO_MANY_REQUESTS` (1102).
 
@@ -263,21 +276,25 @@ Validate SĐT: regex `^(0|\+84|84)(3|5|7|8|9)\d{8}$`, sai trả 400 "Số điệ
 
 | Method | Path | Quyền | Mô tả | FR |
 | --- | --- | --- | --- | --- |
-| GET | `/api/v1/class-requests` | RECEPTIONIST, ADMIN | Danh sách. Query: `tab` (`NEW`/`OPEN`/`MATCHED`/`CANCELLED`), `keyword`, `sort` (thời gian đăng, số ứng tuyển) | FR-25 |
-| GET | `/api/v1/class-requests/{id}` | RECEPTIONIST, ADMIN | Chi tiết kèm phụ huynh, học sinh, danh sách ứng tuyển | FR-25, FR-26 |
-| POST | `/api/v1/class-requests` | RECEPTIONIST, ADMIN | Lễ tân tạo đơn tại quầy (thông tin phụ huynh + học sinh + yêu cầu) | FR-25 |
-| PUT | `/api/v1/class-requests/{id}` | RECEPTIONIST, ADMIN | Bổ sung sau cuộc gọi lại: `class_requirement`, `teaching_mode`, `price_per_session`, `preferred_schedule`, `tutor_requirement`, thông tin học sinh. Nếu chưa có `student_id` → tạo tài khoản học sinh (mật khẩu mặc định, `mustChangePassword = true`) | FR-25 |
-| POST | `/api/v1/class-requests/{id}/publish` | RECEPTIONIST, ADMIN | `NEW → OPEN`; yêu cầu đủ `class_requirement`, `teaching_mode`, `price_per_session`. Hiện trên trang gia sư | FR-25 |
-| POST | `/api/v1/class-requests/{id}/cancel` | RECEPTIONIST, ADMIN | Body `{ reason }` bắt buộc. → `CANCELLED`; thông báo gia sư đã ứng tuyển | FR-27 |
+| GET | `/api/v1/class-requests` | RECEPTIONIST, ADMIN | Danh sách. Query: `tab` (`all`/`new`/`open`/`trial`/`matched`/`rematch`/`cancelled`), `keyword` (phụ huynh, SĐT, học sinh, gia sư, yêu cầu lớp, mã `REQ-…`, mã `LOP-ENG-…`), `sort` (`newest`, `oldest`, `applications`), `page`, `size`. Mỗi dòng có `tutorId`, `lastTutorName`, `cancelDeadline`, `cancelDaysLeft`, `cancellable` | FR-25 |
+| GET | `/api/v1/class-requests/counts` | RECEPTIONIST, ADMIN | Số lượng theo tab và `total` | FR-25 |
+| GET | `/api/v1/class-requests/{id}` | RECEPTIONIST, ADMIN | Chi tiết kèm phụ huynh, học sinh, gia sư, danh sách ứng tuyển. `initialPassword` chỉ có khi học sinh chưa đổi mật khẩu mặc định | FR-25, FR-26 |
+| POST | `/api/v1/class-requests/parent-check` | RECEPTIONIST, ADMIN | Body `{ phone, parentName }`. Kiểm tra trong lúc nhập form, trả `{ exists, nameMatches, parentName }` | FR-25 |
+| POST | `/api/v1/class-requests` | RECEPTIONIST, ADMIN | Tạo lớp tại quầy, luôn ở `NEW`. `tutorId` tùy chọn (`null` là không chỉ định). Thông tin học sinh lưu ở `class_requests.student_*`, chưa tạo tài khoản. SĐT đã có mà họ tên khác → 409 `PARENT_PHONE_BELONGS_TO_OTHER` 1171 | FR-25 |
+| PUT | `/api/v1/class-requests/{id}` | RECEPTIONIST, ADMIN | Sửa một phần, trường nào gửi thì cập nhật. `NEW`: mọi trường. `REMATCH`: chỉ `pricePerSession`, `classRequirement`, `learningGoal`, `tutorRequirement` (trường khác → 409 `CLASS_REQUEST_FIELD_LOCKED` 1165) và báo cho gia sư đang ứng tuyển. Trạng thái khác → 409 `CLASS_REQUEST_NOT_EDITABLE` 1164 | FR-28 |
+| PATCH | `/api/v1/class-requests/{id}/designated-tutor` | RECEPTIONIST, ADMIN | Body `{ tutorId }`, `null` là không chỉ định. Chỉ `NEW`/`REMATCH` (khác → 409 `CLASS_REQUEST_TUTOR_NOT_CHANGEABLE` 1163). Gia sư phải `ACTIVE`; gia sư đã bị loại khỏi lớp → 409 `CLASS_REQUEST_TUTOR_TERMINATED` 1168 | FR-28 |
+| POST | `/api/v1/class-requests/{id}/publish` | RECEPTIONIST, ADMIN | `NEW → OPEN`, hiện trên trang gia sư và trang công khai. Lớp đang có gia sư chỉ định → 409 `CLASS_REQUEST_HAS_TUTOR` 1167. Yêu cầu đủ họ tên học sinh, `class_requirement`, `teaching_mode`, `price_per_session` (thiếu → 409 `CLASS_REQUEST_NOT_READY` 1113) | FR-25 |
+| POST | `/api/v1/class-requests/{id}/confirm` | RECEPTIONIST, ADMIN | Lớp có gia sư chỉ định, trạng thái `NEW`/`REMATCH`. Chuyển `MATCHED` + tạo `classes` (`TRIAL`) + payment `NEW`. Tạo tài khoản học sinh nếu chưa có, trả `initialPassword` đúng lần tạo. Không có gia sư → 409 `CLASS_REQUEST_NO_TUTOR` 1166. Chưa có học phí → 409 `CLASS_REQUEST_PRICE_REQUIRED` 1172. Một transaction | FR-29 |
 | GET | `/api/v1/class-requests/{id}/applications` | RECEPTIONIST, ADMIN | Danh sách gia sư ứng tuyển (tên, thời gian, lời nhắn) | FR-26 |
-| POST | `/api/v1/class-requests/{id}/select-tutor` | RECEPTIONIST, ADMIN | Body `{ applicationId }`. Đơn `OPEN` hoặc `REMATCH` (khác → 409 `CLASS_REQUEST_NOT_SELECTABLE` 1161). Application `SELECTED`, các application `APPLIED` khác `REJECTED`; tạo `classes` (`TRIAL`) + payment `NEW`; request → `MATCHED`. Một transaction | FR-26 |
-| POST | `/api/v1/match-requests/{id}/rematch` | RECEPTIONIST, ADMIN | Body `{ reason }` bắt buộc. Dạy thử không thành công, phụ huynh muốn tìm gia sư khác (UC-REC-06.1 nhánh 5.2, UC-PA-05): đơn `MATCHED` + lớp mới nhất `TRIAL` (khác → 409 `MATCH_REQUEST_NOT_TRIAL` 1111) → `REMATCH`; hủy lớp `TRIAL`, bài giảng chuyển `HIDDEN` (V16, thay "buổi SCHEDULED"), payment `NEW`; gia sư cũ `TERMINATED`; thông báo gia sư cũ + học sinh; audit `REMATCH_MATCH_REQUEST`. Danh sách/đếm `GET /match-requests` và `GET /class-requests` có thêm tab `rematch` | FR-30 |
-| POST | `/api/v1/class-requests/{id}/assign-tutor` | RECEPTIONIST, ADMIN | Luồng chỉ định: Body `{ className, sessionsPerWeek, durationMinutes, teachingMode, pricePerSession }`. Tạo `classes` (`TRIAL`); request → `MATCHED` | FR-28, FR-29 |
+| POST | `/api/v1/class-requests/{id}/select-tutor` | RECEPTIONIST, ADMIN | Body `{ applicationId }`. Lớp `OPEN`/`REMATCH` chưa có gia sư chỉ định (khác → 409 `CLASS_REQUEST_NOT_SELECTABLE` 1161 hoặc `CLASS_REQUEST_HAS_TUTOR` 1167). Lượt được chọn `SELECTED`, lượt `APPLIED` khác `REJECTED`; các bước còn lại như `confirm`. Một transaction | FR-26 |
+| POST | `/api/v1/class-requests/{id}/complete-match` | RECEPTIONIST, ADMIN | Body tùy chọn `{ sessionsPerWeek, pricePerSession, feePercentage }`. Lớp `TRIAL → ACTIVE`, ghi `active_from`, kích hoạt khoản phí. Khác `TRIAL` → 409 `MATCH_REQUEST_NOT_TRIAL` 1111 | FR-29 |
+| POST | `/api/v1/class-requests/{id}/rematch` | RECEPTIONIST, ADMIN | Body `{ reason }` bắt buộc. Dạy thử không thành công, phụ huynh muốn tìm gia sư khác: lớp `MATCHED` + lớp học mới nhất `TRIAL` (khác → 409 `MATCH_REQUEST_NOT_TRIAL` 1111) → `REMATCH`. Hủy lớp `TRIAL` và payment `NEW`, gia sư cũ `TERMINATED`, lượt `REJECTED` về `APPLIED`, thông báo các bên. Một transaction | FR-30 |
+| POST | `/api/v1/class-requests/{id}/cancel` | RECEPTIONIST, ADMIN | Body `{ reason }` bắt buộc. → `CANCELLED` ở mọi trạng thái; đóng lớp học nếu có, loại gia sư đang dạy, từ chối lượt `APPLIED`, thông báo gia sư, học sinh. Lớp đã ghép thành công quá 7 ngày → 409 `CLASS_REQUEST_CANCEL_EXPIRED` 1169. Đã hủy → 409 `CLASS_REQUEST_ALREADY_CANCELLED` 1110 | FR-27 |
 | POST | `/api/v1/classes/{id}/cancel` | RECEPTIONIST, ADMIN | Body `{ reason }`. Hủy lớp ở `TRIAL`/`ACTIVE`, thông báo các bên. Nếu đơn gốc còn hiệu lực → cho phép về `OPEN` (ghép lại) | FR-30 |
-| GET | `/api/v1/tutors/me/open-requests` | TUTOR | Lớp `OPEN` đang tuyển, kèm cờ `applied` | FR-08 |
+| GET | `/api/v1/tutors/me/open-requests` | TUTOR | Lớp đang tuyển, kèm cờ `applied`. Gồm `OPEN` và `REMATCH` chưa có gia sư chỉ định, cả hai đều trả `requestStatus = OPEN` | FR-08 |
 | GET | `/api/v1/tutors/me/open-requests/{id}` | TUTOR | Chi tiết lớp tuyển (ẩn SĐT phụ huynh) | FR-08 |
-| POST | `/api/v1/tutors/me/open-requests/{id}/apply` | TUTOR | Body `{ message }` (tùy chọn). 409 nếu đã ứng tuyển hoặc đơn không còn `OPEN` | FR-08 |
-| DELETE | `/api/v1/tutors/me/applications/{id}` | TUTOR | Rút ứng tuyển khi đơn còn `OPEN`/`REMATCH` và chưa chọn gia sư | FR-08 |
+| POST | `/api/v1/tutors/me/open-requests/{id}/apply` | TUTOR | Body `{ message }` (tùy chọn). 409 nếu đã ứng tuyển, lớp không còn tuyển, hoặc lớp đang có gia sư chỉ định | FR-08 |
+| DELETE | `/api/v1/tutors/me/applications/{id}` | TUTOR | Rút ứng tuyển khi lớp còn tuyển và chưa chọn gia sư | FR-08 |
 | PATCH | `/api/v1/tutors/me/open-to-teaching` | TUTOR | Body `{ open }`. Bật/tắt `tutors.is_open_to_teaching`. Tắt: `open-requests` trả rỗng, apply → 409 `TUTOR_NOT_OPEN_TO_TEACHING` (1160); lớp đang dạy giữ nguyên. Trả hồ sơ (có `openToTeaching`) | FR-08 |
 | GET | `/api/v1/tutors/me/applications` | TUTOR | Lịch sử ứng tuyển và kết quả | FR-08 |
 
@@ -412,7 +429,7 @@ Khi ghép lớp thành công (`class_requests` chuyển `MATCHED`) → gia sư x
 | GET | `/api/v1/students` | RECEPTIONIST, ADMIN | Tab `ACTIVE`/`INACTIVE`, tìm kiếm và lọc, phân trang | FR-34 |
 | GET | `/api/v1/students/{id}` | RECEPTIONIST, ADMIN | Cá nhân, phụ huynh, lớp đã và đang học | FR-34 |
 | PATCH | `/api/v1/students/{id}/status` | RECEPTIONIST, ADMIN | Đổi trạng thái; khóa/mở tài khoản | FR-34 |
-| GET | `/api/v1/reception/dashboard` | RECEPTIONIST, ADMIN | Lời chào + mã nhân viên, KPI: đơn ghép lớp chờ xử lý, khiếu nại chờ xử lý, khiếu nại chờ hoàn tiền, gia sư đang hoạt động | FR-24 |
+| GET | `/api/v1/reception/dashboard` | RECEPTIONIST, ADMIN | Lời chào + mã nhân viên, KPI: lớp cần gia sư chờ xử lý, khiếu nại chờ xử lý, khiếu nại chờ hoàn tiền, gia sư đang hoạt động | FR-24 |
 | GET | `/api/v1/employees` | ADMIN | Lọc theo vai trò, trạng thái, tìm kiếm | FR-38 (S) |
 | GET | `/api/v1/employees/counts` | ADMIN | Số nhân sự theo trạng thái cho badge tab, lọc được theo vai trò | FR-38 (S) |
 | GET | `/api/v1/employees/{id}` | ADMIN | Chi tiết nhân sự, kèm `workStats` theo vai trò (lễ tân: `handledClassRequests`, `receivedComplaints`, `reviewedPayments`; kế toán: `reviewedPayments`, `processedRefunds`) | FR-38 (S) |
@@ -452,8 +469,10 @@ Khi ghép lớp thành công (`class_requests` chuyển `MATCHED`) → gia sư x
 | V14 | Seed catalog kỹ năng (≥ 20, idempotent theo `skill_code`) |
 | V15 | `class_requests` lưu thông tin HS khi đơn `NEW` (chưa có tài khoản) |
 | V16 | **Refactor lessons/logs:** `sessions` → `lessons` (bỏ ngày/giờ, `is_trial`, 2 cột log; `status` PUBLISHED/HIDDEN); bảng mới `teaching_logs` (UNIQUE `class_id`+`log_date`+`start_time`); 6 cột `classes.trial_*`; đổi tên `lesson_materials`, `quizzes.lesson_id`, `schedule_exceptions`; copy seed V6 |
+| V19 | Nới `chk_class_requests_ready`: lớp `OPEN` được phép chưa có `student_id`, tài khoản học sinh tạo khi vào dạy thử |
+| V20 | `parents`: quy SĐT về dạng `0xxxxxxxxx`, gộp phụ huynh trùng số, thêm `UNIQUE (phone)` |
 
-> Thực tế `payments`, `complaints`, `refunds` đã được tạo trong V5; V7–V8 là seed và `unaccent`. `db/migration/` hiện có **V1–V16**, mọi file mới phải tăng version, không sửa file đã merge (Flyway immutable — V16 đổi tên bảng cũ thay vì sửa lại migration).
+> Thực tế `payments`, `complaints`, `refunds` đã được tạo trong V5; V7–V8 là seed và `unaccent`. `db/migration/` hiện có **V1–V20**, mọi file mới phải tăng version, không sửa file đã merge (Flyway immutable — V16 đổi tên bảng cũ thay vì sửa lại migration).
 
 ## 6. Ma trận phân quyền tổng hợp
 
@@ -462,7 +481,7 @@ Khi ghép lớp thành công (`class_requests` chuyển `MATCHED`) → gia sư x
 | Tìm gia sư, gửi yêu cầu (3.2) | x | | | | | |
 | Hồ sơ cá nhân gia sư (3.3 `/me`) | | | x | | | |
 | Duyệt/quản lý gia sư (3.3) | | | | x | | x |
-| Lớp cần gia sư, ghép lớp (3.4) | | | | x | | x |
+| Lớp cần gia sư (3.4) | | | | x | | x |
 | Ứng tuyển, lịch dạy, buổi học (3.4–3.6 TUTOR) | | | x | | | |
 | Lịch học, làm quiz (3.6–3.7 STUDENT) | | x | | | | |
 | Nộp minh chứng phí (3.8) | | | x | thu hộ / nộp thay | | x |

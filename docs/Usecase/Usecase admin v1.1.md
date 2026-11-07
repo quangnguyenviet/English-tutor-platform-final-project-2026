@@ -11,8 +11,7 @@ Admin (Quản trị viên) là người vận hành trung tâm gia sư, chịu t
 
 | Trách nhiệm | Mô tả  |
 | :---- | :---- |
-| Quản lý Lớp cần gia sư | Tiếp nhận yêu cầu đăng ký học từ Phụ huynh, trường hợp Phụ huynh chưa xác định được gia sư nào phù hợp, cần trung tâm hỗ trợ tìm giúp. Tạo các lớp cần gia sư để các gia sư tham gia đăng ký. |
-| Quản lý Đơn ghép lớp | Tiếp nhận yêu cầu đăng ký học từ Phụ huynh, trường hợp Phụ huynh xác định được gia sư phù hợp. Đơn ghép lớp là các lớp đã xác định được gia sư. |
+| Quản lý Lớp cần gia sư | Tiếp nhận yêu cầu đăng ký học từ Phụ huynh trên một trang duy nhất. Phụ huynh đã chọn gia sư thì trao đổi và xác nhận chuyển dạy thử; chưa chọn thì đăng lớp cho gia sư ứng tuyển. Theo dõi dạy thử, xác nhận ghép thành công, ghép lại, hủy lớp. |
 | Quản lý hồ sơ Gia sư | Duyệt hồ sơ gia sư đăng ký mới, quản lý trạng thái hoạt động, chỉnh sửa thông tin |
 | Quản lý hồ sơ Học sinh | Duyệt hồ sơ học sinh, tạo tài khoản học sinh sau khi thanh toán được xác nhận |
 | Phê duyệt phí nhận lớp (QR Proof) | Kiểm tra minh chứng chuyển khoản (ảnh biên lai), duyệt/yêu cầu gửi lại minh chứng |
@@ -30,7 +29,7 @@ Tóm tắt 7 luồng nghiệp vụ chính:
 
 | Luồng | Tên | Mô tả ngắn |
 | :---- | :---- | :---- |
-| LN-1 | Tạo lớp cần gia sư, đơn ghép lớp | Từ yêu cầu PH → Tư vấn (\<12h) → Tạo Offer → GS chấp nhận → Lớp ACTIVE (nếu dạy thử thất bại: Phụ huynh chọn ghép lại → Đơn REMATCH → chọn gia sư mới) |
+| LN-1 | Quản lý lớp cần gia sư | Từ yêu cầu PH → Tư vấn (\<12h) → Có gia sư chỉ định thì xác nhận, chưa có thì đăng lớp và chọn gia sư ứng tuyển → Đang dạy thử → Ghép thành công (nếu dạy thử thất bại: Phụ huynh chọn ghép lại → Đang ghép lại → chọn gia sư mới) |
 | LN-2 | Duyệt phí nhận lớp (QR Proof) | Sau 1 tháng dạy → GS nộp MC → Duyệt / Yêu cầu gửi lại |
 | LN-3 | Quản lý Gia sư | Duyệt hồ sơ mới → Quản lý trạng thái → Sửa/Xóa thông tin |
 | LN-4 | Quản lý Học sinh | Duyệt hồ sơ → Tạo tài khoản sau khi thanh toán OK |
@@ -48,21 +47,21 @@ Tóm tắt 7 luồng nghiệp vụ chính:
 | :---- | :---- |
 | **Tên UC** | Tạo lớp cần gia sư |
 | **Actor** | Admin |
-| **Tiền điều kiện** | 1\. Admin đã đăng nhập 2\. Tồn tại yêu cầu tìm gia sư từ phụ huynh (Điền form, liên hệ) tới trung tâm, phụ huynh chưa biết cần chọn gia sư nào. |
-| **Hậu điều kiện** | Tạo ra lớp cần gia sư, đăng lên trên trang gia sư để họ vào đăng ký lớp. |
-| **Kịch bản chính** | 1\. Admin chọn mục “Lớp cần gia sư” từ trang chủ Admin. 2\. Hệ thống hiển thị danh sách lớp cần gia sư (Sắp xếp theo thời gian đăng sớm nhất, số lượng gia sư ứng tuyển nhiều nhất), phân thành 5 mục: Chờ xử lý, Đã đăng, Đang ghép lại (REMATCH), Đã xử lý, Đã hủy và nút Tạo mới lớp. 3\. Admin nhấn vào nút Tạo mới lớp. 4\. Hệ thống hiển thị ra form tạo lớp gồm các ô input: Họ tên PH (Chưa public), SDT (Chưa public), Họ tên HS (Chưa public), yêu cầu lớp học, hình thức học, mức phí theo buổi, số buổi/ tuần, thời gian học, yêu cầu gia sư. Và 2 nút Tạo lớp, Hủy. 5\. Admin điền thông tin và bấm nút  “Tạo lớp”. 6\. Hệ thống hiển thị popup xác nhận: "Bạn xác nhận tạo lớp học này chứ?" kèm 2 nút Đồng ý/Hủy 7\. Admin bấm "Đồng ý". 8\. Hệ thống hiển thị thông báo thao tác thành công, đồng thời chuyển trạng thái đơn thành "Chưa đủ thời gian”. |
-| **Ngoại lệ** | 4.1. Admin bấm nút “Hủy lớp” 4.1.1. Hệ thống hiển thị thông báo xác nhận: “Bạn muốn hủy tạo lớp này?” và 2 nút “Đồng ý”, “Hủy”. 4.1.1.1. Admin bấm nút “Đồng ý”. 4.1.1.1.1. Hệ thống thông báo đã hủy yêu cầu ghép lớp và quay lại trang Lớp cần gia sư. 4.1.1.2. Admin bấm nút “Hủy” 4.1.1.2.1. Hệ thống quay lại với form tạo lớp. 7.1. Admin bấm "Hủy" tại popup xác nhận. 7.1.1. Hệ thống quay trở lại form tạo lớp. |
+| **Tiền điều kiện** | 1\. Admin đã đăng nhập. 2\. Phụ huynh liên hệ trung tâm để tìm gia sư, có thể đã chọn sẵn gia sư hoặc chưa. Yêu cầu phụ huynh gửi trên website tự tạo lớp ở "Chờ xử lý", không cần Admin tạo lại. |
+| **Hậu điều kiện** | Xuất hiện lớp cần gia sư mới ở trạng thái "Chờ xử lý". |
+| **Kịch bản chính** | 1\. Admin chọn mục "Quản lý lớp cần gia sư". 2\. Hệ thống hiển thị danh sách lớp với các tab: Tất cả, Chờ xử lý, Đã đăng, Đang dạy thử, Ghép thành công, Đang ghép lại, Đã hủy; có tìm kiếm, sắp xếp theo thời gian và số gia sư ứng tuyển, và nút "Tạo mới lớp". 3\. Admin bấm "Tạo mới lớp". 4\. Hệ thống hiển thị form gồm: Họ tên phụ huynh, SĐT, Họ tên học sinh, Khối lớp, Trường học, Gia sư chỉ định (tùy chọn, mặc định không chỉ định), Yêu cầu lớp học, Mục tiêu học tập, Hình thức học, Học phí/buổi, Số buổi/tuần, Tỷ lệ phí nhận lớp, Lịch học mong muốn, Yêu cầu đối với gia sư; và 2 nút "Tạo lớp", "Hủy". Thông tin phụ huynh và học sinh không công khai với gia sư. 5\. Admin nhập thông tin và bấm "Tạo lớp". 6\. Hệ thống hiển thị popup xác nhận kèm 2 nút Đồng ý/Hủy. 7\. Admin bấm "Đồng ý". 8\. Hệ thống thông báo thành công, lớp xuất hiện ở tab "Chờ xử lý". Chưa tạo tài khoản học sinh ở bước này. |
+| **Ngoại lệ** | 4.1. Admin bấm "Hủy": hệ thống đóng form, không tạo lớp. 5.1. Thiếu thông tin bắt buộc hoặc SĐT sai định dạng: hệ thống báo lỗi, giữ nguyên dữ liệu đã nhập. 7.1. Admin bấm "Hủy" tại popup: hệ thống quay lại form. 5.2. Số điện thoại thuộc về phụ huynh khác tên: hệ thống hiện cảnh báo kèm tên phụ huynh đó và khóa nút "Tạo lớp". Admin xác nhận lại với phụ huynh: nhầm số thì đổi số điện thoại, cùng gia đình thì bấm "Dùng phụ huynh [tên]". Đúng họ tên và số điện thoại đã có thì không cảnh báo, lớp mới gắn với phụ huynh đó. |
 
-## **UC-ADM-02: Chọn gia sư từ danh sách đăng ký** 
+## **UC-ADM-02: Chọn gia sư từ danh sách ứng tuyển**
 
 | Mã UC | UC-ADM-02 |
 | :---- | :---- |
-| **Tên UC** | Chọn gia sư từ danh sách đăng ký trên hệ thống |
+| **Tên UC** | Chọn gia sư từ danh sách ứng tuyển |
 | **Actor** | Admin |
-| **Tiền điều kiện** | Admin đã đăng nhập, đang ở trang Lớp cần gia sư. Lớp cần gia sư đã đủ thời gian và có gia sư đăng ký lớp này. Admin đã trao đổi với phụ huynh và chọn ra được 1 bạn gia sư phù hợp. Bạn gia sư đã được trung tâm liên hệ, cung cấp thông tin phụ huynh để liên hệ. Bạn gia sư liên hệ với phụ huynh xong, chốt được lịch dạy thử thì liên hệ lại với trung tâm để thông báo. |
-| **Hậu điều kiện** | Tự động tạo mới 1 đơn ghép lớp, ở trạng thái “Đang dạy thử”. |
-| **Kịch bản chính** | Admin bấm nút "Danh sách gia sư” để xem list gia sư đã đăng ký lớp ở trong 1 lớp cần gia sư. Hệ thống mở modal hiển thị danh sách gia sư đã đăng ký apply, gồm: Tên GS, Thời gian đăng ký, Lời nhắn của GS và 2 nút “Chọn gia sư”, “Hủy”. Admin chọn gia sư mà phụ huynh đã chọn từ trong danh sách và bấm nút "Chọn gia sư". Hệ thống hiển thị popup xác nhận: "Bạn xác nhận chọn gia sư chứ?" kèm 2 nút Đồng ý/Hủy Admin bấm "Đồng ý". Hệ thống thông báo thao tác thành công, tự động tạo mới 1 đơn ghép lớp, ở trạng thái “Đang dạy thử”. |
-| **Ngoại lệ** | 1.1. Không có gia sư nào đăng ký, hệ thống không cho bấm nút “Danh sách gia sư”  5.1. Admin chọn gia sư nhưng ấn nút Hủy. 5.1.1. Hệ thống quay lại trang “Danh sách gia sư”.  |
+| **Tiền điều kiện** | Admin đã đăng nhập. Lớp ở "Đã đăng", hoặc "Đang ghép lại" và không có gia sư chỉ định. Có gia sư ứng tuyển. Admin đã trao đổi với phụ huynh và gia sư, hai bên đồng ý. |
+| **Hậu điều kiện** | Lớp chuyển "Đang dạy thử". Lớp học `TRIAL` và khoản phí nháp được tạo. Tài khoản học sinh được tạo nếu chưa có. Các gia sư còn lại được thông báo không được chọn. |
+| **Kịch bản chính** | 1\. Admin bấm "Danh sách ứng tuyển" tại lớp tương ứng. 2\. Hệ thống mở modal gồm: Tên gia sư, Thời gian ứng tuyển, Lời nhắn, nút "Chọn gia sư", "Xem chi tiết". 3\. Admin bấm "Chọn gia sư". 4\. Hệ thống hiển thị popup xác nhận kèm 2 nút Đồng ý/Hủy. 5\. Admin bấm "Đồng ý". 6\. Hệ thống thông báo thành công và hiển thị tài khoản học sinh, mật khẩu mặc định nếu vừa tạo để bàn giao cho gia đình. |
+| **Ngoại lệ** | 1.1. Chưa có gia sư ứng tuyển: nút "Danh sách ứng tuyển" bị khóa. 5.1. Admin bấm "Hủy" tại popup: hệ thống quay lại danh sách ứng tuyển. 6.1. Chưa có họ tên học sinh hoặc gia sư không còn hoạt động: hệ thống báo lỗi, không đổi dữ liệu. |
 
 ## **UC-ADM-03: Hủy lớp cần gia sư**
 
@@ -70,54 +69,54 @@ Tóm tắt 7 luồng nghiệp vụ chính:
 | :---- | :---- |
 | **Tên UC** | Hủy lớp cần gia sư |
 | **Actor** | Admin |
-| **Tiền điều kiện** | Admin đã đăng nhập, đang ở trang Lớp cần gia sư. Phụ huynh gọi điện thông báo là không còn nhu cầu tìm gia sư nữa. |
-| **Hậu điều kiện** | Lớp cần gia sư chuyển sang trạng thái "Đã hủy". Lớp cần gia sư hiển thị ở trên trang gia sư cũng bị gỡ xuống, thông báo cho các gia sư đã apply lớp về sự việc.  |
-| **Kịch bản chính** | 1\. Hệ thống đang hiển thị danh sách các lớp cần gia sư.  2\. Admin bấm nút "Hủy lớp”. 3\. Hệ thống hiển thị input để nhập lí do hủy và xác nhận: "Bạn chắc chắn muốn hủy lớp này?" kèm 2 nút Hủy/Đồng ý 4\. Admin nhập lí do và bấm "Đồng ý". 5\. Hệ thống cập nhật trạng thái → "Đã hủy", gửi lí do hủy tới các gia sư (nếu đã đăng ký lớp). |
-| **Ngoại lệ** | 4.1. Admin bấm "Hủy" tại popup 4.1.1. Hệ thống quay lại trang cũ, không thay đổi |
+| **Tiền điều kiện** | 1\. Admin đã đăng nhập. 2\. Lớp ở bất kỳ trạng thái nào trừ "Đã hủy". 3\. Lớp "Ghép thành công" phải còn trong 7 ngày kể từ ngày lớp chính thức (Quy định website I.3). |
+| **Hậu điều kiện** | Lớp chuyển "Đã hủy" và gỡ khỏi trang gia sư. Lớp học đang `TRIAL`/`ACTIVE` bị hủy, gia sư đang dạy bị loại khỏi lớp. Gia sư đã ứng tuyển, gia sư đang dạy và học sinh nhận được thông báo kèm lý do. Tiền dạy do phụ huynh và gia sư tự thanh toán, khoản phí nhận lớp đã kích hoạt không tự hủy. |
+| **Kịch bản chính** | 1\. Hệ thống hiển thị danh sách lớp kèm nút "Hủy lớp". Lớp "Ghép thành công" hiển thị đếm ngược "Còn N ngày để hủy lớp, đến hết ngày dd/mm/yyyy". 2\. Admin bấm "Hủy lớp". 3\. Hệ thống hiển thị ô nhập lý do. 4\. Admin nhập lý do và bấm "Đồng ý hủy". 5\. Hệ thống hiển thị popup xác nhận kèm 2 nút. 6\. Admin bấm "Đồng ý hủy". 7\. Hệ thống cập nhật trạng thái, gửi thông báo và báo thành công. |
+| **Ngoại lệ** | 1.1. Lớp "Ghép thành công" đã quá 7 ngày: nút "Hủy lớp" bị làm mờ, hệ thống hiển thị "Đã hết hạn hủy lớp", nếu vẫn gửi yêu cầu thì từ chối. 4.1. Để trống lý do: nút xác nhận bị khóa. 6.1. Admin bấm "Hủy" tại popup: hệ thống quay lại, không thay đổi. |
 
-## **UC-ADM-04: Tạo Đơn ghép lớp** 
+## **UC-ADM-04: Bổ sung thông tin, đổi gia sư chỉ định và đăng lớp**
 
 | Mã UC | UC-ADM-04 |
 | :---- | :---- |
-| **Tên UC** | Tạo đơn ghép lớp |
+| **Tên UC** | Bổ sung thông tin, đổi gia sư chỉ định và đăng lớp |
 | **Actor** | Admin |
-| **Tiền điều kiện** | 1\. Admin đã đăng nhập 2\. Tồn tại yêu cầu ghép lớp chỉ đích danh gia sư từ phụ huynh.  |
-| **Hậu điều kiện** | Xuất hiện đơn ghép lớp mới |
-| **Kịch bản chính** | Admin chọn mục Đơn ghép lớp từ trang chủ Admin. Hệ thống hiển thị danh sách yêu cầu với 6 tab trạng thái: Chờ xử lý, Đã gửi lên hệ thống, Đang dạy thử, Đã ghép thành công, Đang ghép lại, Đã hủy. Và nút Tạo mới đơn ghép lớp. Admin click nút Tạo mới đơn ghép lớp. Hệ thống hiển thị form đăng ký lớp: Họ tên phụ huynh, SDT, họ tên học sinh, mã gia sư, họ tên gia sư, Tên lớp, số buổi/ tuần, thời gian mỗi buổi, hình thức học, học phí. Và 2 nút Tạo đơn, Hủy. Admin nhập thông tin vào form, sau đó ấn nút Tạo đơn. Hệ thống hiển thị popup xác nhận: "Bạn xác nhận thao tác của mình chứ?" kèm 2 nút Đồng ý/Hủy. Admin bấm "Đồng ý". Hệ thống hiển thị thông báo thao tác thành công, đồng thời tạo mới đơn ghép lớp. |
-| **Ngoại lệ** | 5.1. Admin bấm nút “Hủy” 5.1.1. Hệ thống hiển thị thông báo xác nhận: “Bạn muốn hủy tạo đơn ghép lớp này?” và 2 nút “Đồng ý”, “Hủy”. 5.1.1.1. Admin bấm nút “Đồng ý”. 5.1.1.1.1. Hệ thống quay trở lại trang Đơn ghép lớp. 5.1.1.2. Admin bấm nút “Hủy” 5.1.1.2.1. Hệ thống quay lại form tạo đơn ghép lớp 7.1. Admin bấm "Hủy" tại popup xác nhận 7.1.1. Hệ thống quay lại form tạo đơn ghép lớp. |
+| **Tiền điều kiện** | 1\. Admin đã đăng nhập. 2\. Lớp ở "Chờ xử lý". Đổi gia sư chỉ định còn áp dụng cho lớp "Đang ghép lại" (xem UC-ADM-06). 3\. Admin đã gọi tư vấn phụ huynh. |
+| **Hậu điều kiện** | Thông tin lớp được cập nhật. Lớp có gia sư chỉ định chờ xác nhận (UC-ADM-05), lớp không có gia sư chỉ định có thể đăng lên, chuyển "Đã đăng". |
+| **Kịch bản chính** | 1\. Admin mở tab "Chờ xử lý" và bấm "Bổ sung thông tin". 2\. Hệ thống hiển thị form thông tin phụ huynh, học sinh, yêu cầu lớp, hình thức, học phí, tỷ lệ phí, lịch học, yêu cầu gia sư. SĐT không sửa được. 3\. Admin nhập và lưu. 4\. Để đổi gia sư, Admin bấm "Gia sư chỉ định". 5\. Hệ thống hiển thị danh sách gia sư đang hoạt động và lựa chọn "Không". 6\. Admin chọn gia sư B thay gia sư A khi gia sư A không dạy được, hoặc chọn "Không" khi phụ huynh muốn trung tâm tìm hộ, rồi bấm "Lưu". 7\. Với lớp không có gia sư chỉ định, Admin bấm "Đăng lớp". 8\. Hệ thống hiển thị popup xác nhận. 9\. Admin bấm "Đăng lớp". 10\. Lớp chuyển "Đã đăng", hiển thị trên trang gia sư và trang công khai. |
+| **Ngoại lệ** | 3.1. Thiếu họ tên phụ huynh, họ tên học sinh hoặc email sai định dạng: hệ thống báo lỗi. 6.1. Gia sư đã ngưng hoạt động hoặc đã bị loại khỏi lớp: hệ thống báo lỗi, không đổi. 9.1. Lớp thiếu họ tên học sinh, yêu cầu lớp, hình thức hoặc học phí: hệ thống báo chưa đủ thông tin để đăng. |
 
-## **UC-ADM-05: Duyệt Đơn ghép lớp** 
+## **UC-ADM-05: Xác nhận lớp có gia sư chỉ định**
 
 | Mã UC | UC-ADM-05 |
 | :---- | :---- |
-| **Tên UC** | Duyệt đơn ghép lớp |
+| **Tên UC** | Xác nhận lớp có gia sư chỉ định |
 | **Actor** | Admin |
-| **Tiền điều kiện** | 1\. Admin đã đăng nhập 2\. Tồn tại đơn ghép lớp ở trạng thái “Chờ xử lý”. 3\. Gia sư đã nhận được offer khi phụ huynh đăng ký. 4\. Trung tâm đã trao đổi với gia sư và nhận được sự đồng ý nhận lớp. |
-| **Hậu điều kiện** | Yêu cầu chuyển "Chờ xử lý" → "Đang dạy thử" |
-| **Kịch bản chính** | 1\. Admin chọn mục Đơn ghép lớp từ trang chủ Admin. 2\. Hệ thống hiển thị danh sách yêu cầu với 5 tab trạng thái: Chờ xử lý, Đang dạy thử, Ghép thành công, Đang ghép lại, Đã hủy. 3\. Admin chọn vào mục Chờ xử lý. 4\. Hệ thống hiển thị ra list danh sách đơn ghép lớp và nút "Xác nhận đơn",  “Hủy đơn”. 5\. Admin đọc thông tin đơn và bấm nút  "Xác nhận đơn". 6\. Hệ thống hiển thị popup xác nhận: "Bạn xác nhận thao tác của mình chứ?" kèm 2 nút Đồng ý/Hủy. 7\. Admin bấm "Đồng ý". 8\. Hệ thống hiển thị thông báo thao tác thành công, đồng thời chuyển trạng thái đơn thành "Đang dạy thử”. |
-| **Ngoại lệ** | 5.1. Admin bấm nút “Hủy đơn” 5.1.1. Hệ thống hiển thị thông báo xác nhận: “Bạn muốn hủy đơn ghép lớp này?” và 2 nút “Đồng ý”, “Hủy”. 5.1.1.1. Admin bấm nút “Đồng ý”. 5.1.1.1.1. Hệ thống thông báo đã hủy yêu cầu ghép lớp và chuyển đơn sang mục “Đã hủy”. 5.1.1.2. Admin bấm nút “Hủy” 5.1.1.2.1. Hệ thống quay lại trang “Chờ xử lý”. 7.1. Admin bấm "Hủy" tại popup xác nhận 7.1.1. Hệ thống quay lại trang yêu cầu, không có thay đổi. |
+| **Tiền điều kiện** | 1\. Admin đã đăng nhập. 2\. Lớp ở "Chờ xử lý" hoặc "Đang ghép lại" và có gia sư chỉ định. 3\. Admin đã trao đổi, phụ huynh và gia sư đồng ý. |
+| **Hậu điều kiện** | Lớp chuyển "Đang dạy thử". Lớp học `TRIAL` và khoản phí nháp được tạo. Tài khoản học sinh được tạo nếu chưa có. Các gia sư đang ứng tuyển (nếu có) được thông báo không được chọn. |
+| **Kịch bản chính** | 1\. Admin bấm "Xác nhận đơn" tại lớp tương ứng. 2\. Hệ thống hiển thị popup xác nhận kèm 2 nút Đồng ý/Hủy. 3\. Admin bấm "Đồng ý". 4\. Hệ thống thông báo thành công, gửi thông báo tới gia sư, hiển thị tài khoản học sinh và mật khẩu mặc định nếu vừa tạo. |
+| **Ngoại lệ** | 1.1. Chưa có họ tên học sinh hoặc học phí: hệ thống yêu cầu bổ sung và mở form thông tin. 3.1. Admin bấm "Hủy" tại popup: hệ thống quay lại, không thay đổi. 4.1. Gia sư không còn hoạt động: hệ thống báo lỗi, Admin đổi gia sư theo UC-ADM-04. |
 
-## **UC-ADM-05.1: Duyệt đơn ghép lớp từ dạy thử sang ghép thành công** 
+## **UC-ADM-05.1: Xác nhận ghép thành công**
 
 | Mã UC | UC-ADM-05.1 |
 | :---- | :---- |
-| **Tên UC** | Duyệt đơn ghép lớp từ dạy thử sang ghép thành công |
+| **Tên UC** | Xác nhận ghép thành công |
 | **Actor** | Admin |
-| **Tiền điều kiện** | 1\. Admin đã đăng nhập. 2\. Tồn tại đơn ghép lớp ở trạng thái “Đang dạy thử”. 3\. Gia sư đã hoàn thành buổi dạy thử và hai bên (phụ huynh, gia sư) thống nhất tiếp tục học chính thức. |
-| **Hậu điều kiện** | 1\. Đơn ghép lớp chuyển từ "Đang dạy thử" → "Ghép thành công". 2\. Lớp học tương ứng chuyển từ `TRIAL` sang `ACTIVE`. |
-| **Kịch bản chính** | 1\. Admin chọn mục Quản lý đơn ghép lớp từ menu điều hướng. 2\. Hệ thống hiển thị danh sách yêu cầu với các tab: Tất cả, Chờ xử lý, Đang dạy thử, Ghép thành công, Đang ghép lại, Đã hủy. 3\. Admin chọn tab “Đang dạy thử”. 4\. Hệ thống hiển thị danh sách đơn đang dạy thử kèm nút "Xác nhận ghép thành công", "Ghép lại", "Hủy đơn", "Xem chi tiết". 5\. Admin bấm nút "Xác nhận ghép thành công". 6\. Hệ thống hiển thị popup xác nhận: "Bạn xác nhận thao tác của mình chứ? Xác nhận hoàn tất dạy thử và chuyển đơn sang trạng thái Ghép thành công?" kèm 2 nút Đồng ý/Hủy. 7\. Admin bấm "Đồng ý". 8\. Hệ thống hiển thị thông báo thao tác thành công, chuyển đơn sang tab "Ghép thành công" và cập nhật lớp học sang trạng thái chính thức (ACTIVE). |
-| **Ngoại lệ** | 5.1. Admin bấm nút “Hủy đơn”. 5.1.1. Hệ thống chuyển sang luồng UC-ADM-06 (Hủy đơn ghép lớp). 5.2. Dạy thử thất bại, Admin bấm nút “Ghép lại”. 5.2.1. Hệ thống hỏi ý phụ huynh: nếu phụ huynh chọn tìm gia sư khác thì đơn chuyển trạng thái “Đang ghép lại” (REMATCH), mở lại vòng ứng tuyển với gia sư mới; khi ghép được gia sư mới thì đơn chuyển “Đã ghép” (MATCHED). Nếu phụ huynh không muốn tìm gia sư nữa thì chuyển sang luồng UC-ADM-06 (Hủy đơn ghép lớp). 7.1. Admin bấm "Hủy" tại popup xác nhận. 7.1.1. Hệ thống quay lại trang danh sách, không có thay đổi. |
+| **Tiền điều kiện** | 1\. Admin đã đăng nhập. 2\. Lớp ở "Đang dạy thử". 3\. Gia sư đã hoàn thành buổi dạy thử và hai bên thống nhất học chính thức. |
+| **Hậu điều kiện** | 1\. Lớp chuyển "Ghép thành công". 2\. Lớp học chuyển từ `TRIAL` sang `ACTIVE`, ghi ngày chính thức. 3\. Khoản phí nhận lớp được kích hoạt. 4\. Bắt đầu đếm ngược 7 ngày được hủy lớp. |
+| **Kịch bản chính** | 1\. Admin mở tab "Đang dạy thử". 2\. Hệ thống hiển thị danh sách lớp kèm nút "Xác nhận ghép thành công", "Ghép lại", "Hủy lớp", "Xem chi tiết". 3\. Admin bấm "Xác nhận ghép thành công". 4\. Hệ thống hiển thị modal gồm số buổi/tuần, học phí/buổi, tỷ lệ phí và số phí tính được. 5\. Admin bổ sung thông tin còn thiếu và xác nhận. 6\. Hệ thống thông báo thành công và chuyển lớp sang tab "Ghép thành công". |
+| **Ngoại lệ** | 2.1. Admin bấm "Ghép lại": chuyển sang UC-ADM-06. 2.2. Admin bấm "Hủy lớp": chuyển sang UC-ADM-03. 5.1. Thiếu số buổi/tuần hoặc học phí: hệ thống báo lỗi, không kích hoạt. |
 
-## **UC-ADM-06: Hủy đơn ghép lớp**
+## **UC-ADM-06: Ghép lại lớp**
 
 | Mã UC | UC-ADM-06 |
 | :---- | :---- |
-| **Tên UC** | Hủy đơn ghép lớp |
+| **Tên UC** | Ghép lại lớp khi dạy thử không thành công |
 | **Actor** | Admin |
-| **Tiền điều kiện** | 1\. Admin đã đăng nhập. 2\. Tồn tại yêu cầu ghép lớp ở trạng thái "Chờ xử lý" hoặc “Đang dạy thử” hoặc “Ghép thành công”. 3\. Gia sư hoặc Phụ huynh yêu cầu ghép lại lớp. |
-| **Hậu điều kiện** | 1\. Đơn ghép lớp bị đổi trạng thái sang “Đã hủy”. 2\. Thông báo hủy lớp được thông báo đến các bên liên quan. (Ngoài ra, khi dạy thử thất bại mà phụ huynh chọn tìm gia sư khác thì đơn không hủy mà chuyển “Đang ghép lại” (REMATCH) — xem nhánh 5.2 của UC-ADM-05.1 và kịch bản 5a dưới đây.) |
-| **Kịch bản chính** | 1\. Admin chọn mục Đơn ghép lớp từ trang chủ Admin. 2\. Hệ thống hiển thị danh sách yêu cầu với 5 tab trạng thái: Chờ xử lý, Đang dạy thử, Ghép thành công, Đang ghép lại, Đã hủy. 3\. Admin mở yêu cầu ghép lớp ở mục “Chờ xử lý” hoặc "Đang dạy thử" hoặc “Ghép thành công”. 4\. Hệ thống hiển thị ra danh sách các đơn và nút “Xác nhận đơn”, “Hủy đơn”. 5\. Admin bấm nút "Hủy đơn". 6\. Hệ thống hiển thị ô input nhập lí do hủy và popup xác nhận: "Bạn chắc chắn hủy đơn ghép lớp này chứ?" kèm 2 nút Hủy/Đồng ý 7\. Admin nhập lí do hủy và bấm "Đồng ý". 8\. Hệ thống hiển thị kết quả thao tác thành công, gửi thông báo tới gia sư. 5a. Khi lớp đang dạy thử thất bại và phụ huynh không muốn tìm gia sư khác nữa: Admin xử lý hủy đơn tại đây — đơn chuyển “Đã hủy” (CANCELLED), lượt ứng tuyển SELECTED của gia sư cũ chuyển TERMINATED. Nếu phụ huynh chọn tìm gia sư khác thì không hủy đơn mà chuyển nhánh “Ghép lại” tại UC-ADM-05.1 (đơn REMATCH, gia sư cũ bị loại khỏi đơn do ràng buộc UNIQUE nên không thể ứng tuyển lại đơn đó). |
-| **Ngoại lệ** | 7.1. Admin bấm nút Hủy. 7.1.1. Hệ thống quay lại giao diện trang Đơn ghép lớp. |
+| **Tiền điều kiện** | 1\. Admin đã đăng nhập. 2\. Lớp ở "Đang dạy thử". 3\. Dạy thử không thành công, Admin đã hỏi ý kiến phụ huynh. |
+| **Hậu điều kiện** | Lớp chuyển "Đang ghép lại", gia sư cũ bị loại và không ứng tuyển lại được. Các gia sư trước đó không được chọn tự quay lại danh sách ứng tuyển và nhận thông báo. Gia sư và khách thấy lớp như lớp đăng tuyển bình thường. |
+| **Kịch bản chính** | 1\. Admin bấm "Ghép lại". 2\. Hệ thống hiển thị 2 lựa chọn "Tìm gia sư khác", "Không tìm nữa" và ô nhập lý do. 3\. Admin chọn "Tìm gia sư khác", nhập lý do và bấm "Chuyển sang ghép lại". 4\. Hệ thống hiển thị popup xác nhận. 5\. Admin bấm "Đồng ý". 6\. Hệ thống hủy lớp dạy thử, thông báo gia sư cũ và học sinh, chuyển lớp sang tab "Đang ghép lại". 7\. Admin chọn gia sư từ danh sách ứng tuyển (UC-ADM-02), hoặc khi phụ huynh tự chọn được gia sư thì bấm "Gia sư chỉ định" rồi "Xác nhận đơn" (UC-ADM-05). |
+| **Ngoại lệ** | 3.1. Phụ huynh chọn "Không tìm nữa": chuyển sang UC-ADM-03, điền sẵn lý do. 7.1. Lớp đang có gia sư chỉ định thì tạm ẩn khỏi trang gia sư, không nhận ứng tuyển; đổi về "Không" thì lớp hiển thị lại. 7.2. Admin bấm "Sửa thông tin": chỉ sửa được học phí, yêu cầu lớp, mục tiêu học tập, yêu cầu gia sư; gia sư đang ứng tuyển nhận thông báo thay đổi. Lớp chuyển "Đang dạy thử" với học phí đã sửa. |
 
 ## **UC-ADM-07: Duyệt hồ sơ Gia sư đăng ký mới**
 

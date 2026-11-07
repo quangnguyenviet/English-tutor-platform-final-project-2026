@@ -54,7 +54,7 @@ Gia sư hoàn tất đăng ký tài khoản / đăng nhập lần đầu tiên v
    - **Bước 4: Thiết lập Bảng giá học phí & Hình thức dạy:** 
      * Mức học phí mong muốn (đơn vị: VNĐ/giờ) thiết lập riêng cho từng hình thức dạy (*Online* và *Tại nhà / Offline*) hoặc theo nhóm chương trình (luyện thi IELTS/TOEIC, Tiếng Anh Giao tiếp, Tiếng Anh Phổ thông...).
      * Hình thức dạy nhận lớp (*Online*, *Tại nhà*, hoặc *Cả hai*), Khu vực nhận dạy (danh sách Quận/Huyện chọn nếu dạy Tại nhà).
-     * Cờ **"Đang mở nhận lớp"** (mặc định bật): Gia sư có thể tự bật/tắt trên hồ sơ. Khi tắt, Gia sư không thấy các đơn ghép lớp đang mở (đăng tuyển) và không ứng tuyển được, nhưng các lớp đang dạy vẫn được giữ nguyên không bị ảnh hưởng. Cờ có thể bật lại bất kỳ lúc nào.
+     * Cờ **"Đang mở nhận lớp"** (mặc định bật): Gia sư có thể tự bật/tắt trên hồ sơ. Khi tắt, Gia sư không thấy các lớp cần gia sư đang đăng và không ứng tuyển được, nhưng các lớp đang dạy vẫn được giữ nguyên không bị ảnh hưởng. Cờ có thể bật lại bất kỳ lúc nào.
    - **Bước 5: Thiết lập Khung thời gian rảnh:** Đăng ký các ca dạy rảnh cố định trong tuần (Sáng/Chiều/Tối các Thứ) để hệ thống/Admin sử dụng làm căn cứ gợi ý ghép lớp.
 3. Gia sư điền đầy đủ thông tin, tải tệp minh chứng chứng chỉ, nhập/tải video giới thiệu và cấu hình Bảng giá học phí đề xuất tại từng bước.
 4. Gia sư nhấp nút **"Gửi duyệt hồ sơ"**.
@@ -526,7 +526,7 @@ Use Case kết thúc.
 Use Case quay lại bước 4.
 
 5b. Buổi dạy thử không thành công:  
-5b1. Sau buổi dạy thử, hệ thống chuyển lớp học sang nhánh xử lý kết quả không thành công theo Luồng thay thế 4b của UC-T09: đơn ghép lớp chuyển `REMATCH` ("Đang ghép lại") hoặc `CANCELLED` ("Đã hủy"), lượt ứng tuyển của Gia sư chuyển `TERMINATED` (Gia sư không thể ứng tuyển lại đơn này nếu chọn tìm gia sư khác). Các lớp đang dạy khác của Gia sư không bị ảnh hưởng.  
+5b1. Sau buổi dạy thử, hệ thống chuyển lớp học sang nhánh xử lý kết quả không thành công theo Luồng thay thế 4b của UC-T09: lớp cần gia sư chuyển `REMATCH` hoặc `CANCELLED` ("Đã hủy"), lượt ứng tuyển của Gia sư chuyển `TERMINATED` (Gia sư không thể ứng tuyển lại lớp này nếu chọn tìm gia sư khác). Các lớp đang dạy khác của Gia sư không bị ảnh hưởng.  
 Use Case kết thúc.
 
 ---
@@ -583,9 +583,9 @@ Gia sư nhấp nút "Chốt lịch học cố định" tại trang Chi tiết L�
 Use Case kết thúc.
 
 4b. Buổi dạy thử kết quả không thành công (thay vì chốt lịch cố định):  
-4b1. Thay vì Gia sư chốt lịch, phụ huynh được trung tâm (Lễ tân/Admin) hỏi ý kiến về hướng xử lý tiếp theo của đơn ghép lớp.  
-4b2. **Nếu Phụ huynh chọn "Tìm gia sư khác":** Hệ thống chuyển đơn ghép lớp sang trạng thái `REMATCH` ("Đang ghép lại"), lượt ứng tuyển của Gia sư hiện tại chuyển sang `TERMINATED` (Gia sư bị loại khỏi đơn và không thể ứng tuyển lại đơn này), lớp dạy thử bị hủy. Gia sư mới (đang bật cờ "Đang mở nhận lớp") có thể ứng tuyển lại vào đơn này; khi Lễ tân ghép được gia sư mới, đơn quay lại trạng thái `MATCHED` và lặp lại luồng dạy thử.  
-4b3. **Nếu Phụ huynh chọn "Không tìm nữa":** Hệ thống chuyển đơn ghép lớp sang trạng thái `CANCELLED` ("Đã hủy" — trạng thái cuối), các lớp đang dạy khác của Gia sư không bị ảnh hưởng.  
+4b1. Thay vì Gia sư chốt lịch, phụ huynh được trung tâm (Lễ tân/Admin) hỏi ý kiến về hướng xử lý tiếp theo của lớp.  
+4b2. **Nếu Phụ huynh chọn "Tìm gia sư khác":** Hệ thống chuyển lớp sang `REMATCH`, lượt ứng tuyển của Gia sư hiện tại chuyển `TERMINATED` (Gia sư bị loại khỏi lớp và không thể ứng tuyển lại), lớp dạy thử bị hủy. Các Gia sư trước đó không được chọn tự quay lại danh sách ứng tuyển. Gia sư mới (đang bật cờ "Đang mở nhận lớp") thấy lớp như lớp đăng tuyển bình thường và có thể ứng tuyển; khi Lễ tân ghép được gia sư mới, lớp chuyển "Đang dạy thử" và lặp lại luồng dạy thử.  
+4b3. **Nếu Phụ huynh chọn "Không tìm nữa":** Hệ thống chuyển lớp sang `CANCELLED` ("Đã hủy" — trạng thái cuối), các lớp đang dạy khác của Gia sư không bị ảnh hưởng.  
 Use Case kết thúc.
 
 **Luồng ngoại lệ**  

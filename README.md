@@ -14,7 +14,7 @@
 | Công khai | Phụ huynh (không cần đăng nhập) | Tìm gia sư, xem hồ sơ, gửi yêu cầu tìm gia sư, đăng ký gia sư chỉ định |
 | Gia sư | Gia sư | Hồ sơ 5 bước, ứng tuyển lớp, lịch dạy thử và lịch cố định, buổi học và nhật ký, soạn và giao quiz, nộp phí nhận lớp |
 | Học sinh | Học sinh (tài khoản do trung tâm cấp, phụ huynh đăng nhập bằng tài khoản của con để xem) | Dashboard, lịch học, chi tiết buổi học, tài liệu, làm quiz, thông báo |
-| Lễ tân / Admin | Nhân sự trung tâm | Lớp cần gia sư, đơn ghép lớp, duyệt hồ sơ gia sư, thu hộ minh chứng phí, quản lý học sinh, khiếu nại tại quầy. Admin có thêm toàn bộ chức năng Kế toán và quản lý nhân sự |
+| Lễ tân / Admin | Nhân sự trung tâm | Lớp cần gia sư, duyệt hồ sơ gia sư, thu hộ minh chứng phí, quản lý học sinh, khiếu nại tại quầy. Admin có thêm toàn bộ chức năng Kế toán và quản lý nhân sự |
 | Kế toán | Nhân sự trung tâm | Quản lý khoản phí nhận lớp, đối chiếu và xác nhận số tiền thực nhận, xử lý hoàn tiền, thống kê tài chính và xuất Excel |
 
 ## Tài liệu dự án

@@ -34,16 +34,16 @@ public class PublicClassRequestService {
                    cr.preferred_schedule,
                    cr.tutor_requirement,
                    cr.created_at,
-                   s.grade,
-                   s.school,
-                   s.learning_goal,
+                   COALESCE(s.grade, cr.student_grade) AS grade,
+                   COALESCE(s.school, cr.student_school) AS school,
+                   COALESCE(s.learning_goal, cr.student_learning_goal) AS learning_goal,
                    u.gender,
                    p.address
             FROM class_requests cr
-            JOIN students s ON s.id = cr.student_id
-            JOIN users u ON u.id = cr.student_id
+            LEFT JOIN students s ON s.id = cr.student_id
+            LEFT JOIN users u ON u.id = cr.student_id
             JOIN parents p ON p.id = cr.parent_id
-            WHERE cr.status = 'OPEN'
+            WHERE cr.status IN ('OPEN', 'REMATCH') AND cr.requested_tutor_id IS NULL
             """;
 
     JdbcTemplate jdbcTemplate;
@@ -51,8 +51,8 @@ public class PublicClassRequestService {
     private static final String COUNT_QUERY = """
             SELECT COUNT(*)
             FROM class_requests cr
-            JOIN students s ON s.id = cr.student_id
-            WHERE cr.status = 'OPEN'
+            LEFT JOIN students s ON s.id = cr.student_id
+            WHERE cr.status IN ('OPEN', 'REMATCH') AND cr.requested_tutor_id IS NULL
             """;
 
     /** Chỉ cho phép sắp xếp theo danh sách trắng để tránh SQL injection qua tham số sort. */
@@ -84,7 +84,7 @@ public class PublicClassRequestService {
         if (!gradePatterns.isEmpty()) {
             where.append(" AND (")
                     .append(gradePatterns.stream()
-                            .map(pattern -> "unaccent(lower(s.grade)) LIKE ? ESCAPE '\\'")
+                            .map(pattern -> "unaccent(lower(COALESCE(s.grade, cr.student_grade))) LIKE ? ESCAPE '\\'")
                             .collect(Collectors.joining(" OR ")))
                     .append(")");
             gradePatterns.forEach(pattern -> params.add(PublicSearchSupport.likeContains(pattern)));
