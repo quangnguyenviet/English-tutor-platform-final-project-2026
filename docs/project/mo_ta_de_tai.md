@@ -29,7 +29,7 @@ Dạy kèm tiếng Anh 1-1 đang phổ biến, nhưng một trung tâm gia sư n
 | **Phụ huynh (khách)** | Trang công khai, không cần đăng nhập | Tìm gia sư, xem hồ sơ, gửi yêu cầu tìm gia sư hoặc đăng ký gia sư chỉ định |
 | **Gia sư** | Cổng Gia sư | Hoàn thiện hồ sơ, ứng tuyển lớp, thiết lập lịch dạy, ghi nhật ký buổi học, soạn và giao quiz, nộp phí nhận lớp |
 | **Học sinh** (và phụ huynh dùng tài khoản của con) | Cổng Học sinh (tài khoản do trung tâm cấp) | Xem lịch và buổi học, tải tài liệu, làm quiz, xem thông báo. Phụ huynh muốn theo dõi việc học của con thì đăng nhập bằng tài khoản này |
-| **Lễ tân** | Cổng Lễ tân | Vận hành hằng ngày: lớp cần gia sư, đơn ghép lớp, duyệt hồ sơ gia sư, thu hộ minh chứng phí tại quầy, quản lý học sinh, tiếp nhận khiếu nại và chuyển yêu cầu hoàn tiền cho Kế toán |
+| **Lễ tân** | Cổng Lễ tân | Vận hành hằng ngày: lớp cần gia sư, duyệt hồ sơ gia sư, thu hộ minh chứng phí tại quầy, quản lý học sinh, tiếp nhận khiếu nại và chuyển yêu cầu hoàn tiền cho Kế toán |
 | **Kế toán** | Cổng Kế toán | Quản lý khoản phí nhận lớp, đối chiếu và xác nhận số tiền thực nhận, xử lý hoàn tiền, thống kê tài chính và xuất báo cáo |
 | **Quản trị viên (Admin)** | Cổng Lễ tân và Cổng Kế toán, thêm quyền quản lý nhân sự | Có toàn bộ use case của lễ tân và kế toán, thêm quản lý nhân sự lễ tân và kế toán (xem, chỉnh trạng thái, thêm tài khoản) |
 
@@ -39,7 +39,7 @@ Dạy kèm tiếng Anh 1-1 đang phổ biến, nhưng một trung tâm gia sư n
 
 - **Tìm gia sư** theo tỉnh/thành, quận/huyện, chuyên môn, cấp lớp, hình thức học (online/tại nhà), giới tính, thành tích.
 - **Xem hồ sơ gia sư** đã duyệt: học vấn, chứng chỉ đã xác thực, kinh nghiệm, video giới thiệu, lịch rảnh tham khảo.
-- **Đăng ký gia sư chỉ định**: chỉ cần họ tên và số điện thoại, hệ thống tạo đơn ghép lớp "Chờ xử lý".
+- **Đăng ký gia sư chỉ định**: chỉ cần họ tên và số điện thoại, hệ thống tạo lớp cần gia sư "Chờ xử lý" có gia sư chỉ định.
 - **Gửi yêu cầu tìm gia sư** khi chưa chọn được ai: hệ thống tạo "lớp cần gia sư", trung tâm liên hệ trong vòng 12 giờ.
 
 ### 3.2. Cổng Gia sư
@@ -65,13 +65,12 @@ Dạy kèm tiếng Anh 1-1 đang phổ biến, nhưng một trung tâm gia sư n
 
 ### 3.4. Cổng Lễ tân / Quản trị
 
-- **Lớp cần gia sư**: tạo lớp từ yêu cầu của phụ huynh, đăng cho gia sư ứng tuyển, chọn gia sư từ danh sách ứng tuyển, hủy lớp kèm lý do.
-- **Đơn ghép lớp**: tạo đơn cho trường hợp chỉ định gia sư, xác nhận (chuyển sang dạy thử), hủy kèm lý do.
+- **Lớp cần gia sư**: tiếp nhận yêu cầu của phụ huynh trên một trang duy nhất. Có gia sư chỉ định thì xác nhận chuyển dạy thử, chưa có thì đăng cho gia sư ứng tuyển rồi chọn gia sư. Xác nhận ghép thành công, ghép lại khi dạy thử không thành công, hủy lớp kèm lý do (lớp đã ghép thành công chỉ hủy trong 7 ngày).
 - **Hồ sơ gia sư**: duyệt hoặc từ chối hồ sơ mới, xem và chỉnh trạng thái hoạt động.
 - **Hồ sơ học sinh**: xem chi tiết (thông tin cá nhân, phụ huynh, lớp đã và đang học), chỉnh trạng thái.
 - **Thu hộ minh chứng phí nhận lớp**: khi gia sư hoặc phụ huynh nộp tiền mặt hay mang biên lai đến quầy, lễ tân tải phiếu thu hoặc biên lai lên và chuyển cho kế toán xác nhận. Lễ tân không tự xác nhận tiền.
 - **Khiếu nại tại quầy**: tạo đơn, xem và sửa, giải quyết. Khiếu nại ghép lại lớp do lễ tân đóng đơn; khiếu nại hoàn tiền thì lễ tân chốt số tiền và tài khoản nhận với người khiếu nại rồi gửi yêu cầu cho kế toán, đơn tự đóng khi kế toán hoàn tiền xong.
-- **Dashboard**: số đơn ghép lớp chờ xử lý, khiếu nại chờ xử lý, khiếu nại chờ hoàn tiền, số gia sư đang hoạt động.
+- **Dashboard**: số lớp cần gia sư chờ xử lý, khiếu nại chờ xử lý, khiếu nại chờ hoàn tiền, số gia sư đang hoạt động.
 
 **Riêng Quản trị viên** (ngoài toàn bộ các mục trên và mục 3.5):
 
@@ -93,7 +92,7 @@ Phụ huynh                      Trung tâm (Lễ tân)                        G
 Gửi yêu cầu tìm gia sư ─────►  Tạo "Lớp cần gia sư" ──đăng──────────►  Ứng tuyển
                                Chọn gia sư (theo ý phụ huynh) ◄───────
                                      │
-Chọn gia sư chỉ định ───────►  Tạo "Đơn ghép lớp" (Chờ xử lý)
+Chọn gia sư chỉ định ───────►  Tạo "Lớp cần gia sư" có gia sư chỉ định
                                      │  xác nhận đơn
                                      ▼
                                Lớp TRIAL (Đang dạy thử) ───────────►  Đặt lịch dạy thử
