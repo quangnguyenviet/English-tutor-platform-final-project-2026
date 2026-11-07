@@ -120,9 +120,16 @@ export function apiGetSkills(token) {
  * @param {number} [payload.quizId] - ID quiz DRAFT đang sửa (nếu có)
  * @param {Array<{role: string, content: string}>} [payload.recentMessages]
  *        - Lịch hội thoại gần nhất (chat stateless, tối đa 10 tin)
+ * @param {Array<{questionText: string, optionA: string, optionB: string,
+ *   optionC: string, optionD: string, correctAnswer: string, explanation: string|null,
+ *   cefrLevel: string|null, skillCode: string|null}>} [payload.pendingQuestions]
+ *        - Trọn bộ câu hỏi đang có trên form gia sư (đã loại câu rỗng) để AI
+ *          nhìn thấy bài đang soạn và hiểu "câu số k" khi sửa câu.
  * @returns {Promise<{reply: string, draftQuestions: Array<{
  *   questionText, optionA, optionB, optionC, optionD, correctAnswer,
- *   explanation, cefrLevel, skillCode }>}>}
+ *   explanation, cefrLevel, skillCode, index }>}>}
+ *   `index` = số thứ tự (1-based) câu trong bản nháp hiện tại mà câu này THAY
+ *   thế (gia sư nói "sửa câu số k"); null = câu mới → thêm vào cuối.
  */
 export function apiAiChatQuiz(token, lessonId, payload) {
   return request(

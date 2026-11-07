@@ -2,6 +2,7 @@ package com.mycompany.englishtutor.module.quiz.ai;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
@@ -106,6 +107,74 @@ class AiPayloadSerializationTest {
         assertEquals("Yesterday I ____ my grandma.", q.content());
         assertEquals("helped", q.options().get("B"));
         assertEquals("narrative_tense", q.skill());
+    }
+
+    @Test
+    void response_deserializesIndexForQuestionReplace() throws Exception {
+        // `index` (1-based) định vị câu cần THAY — phải truyền nguyên vẹn từ
+        // AI service về để giao diện thay in-place (gộp "sửa câu số k").
+        String json =
+                """
+                {
+                  "reply": "Đã sửa câu 2.",
+                  "questions": [
+                    {
+                      "content": "She ___ to school.",
+                      "options": {"A": "go", "B": "goes", "C": "going", "D": "gone"},
+                      "correct": "B",
+                      "explanation": "Hiện tại đơn.",
+                      "cefr": "A1",
+                      "skill": "present_simple",
+                      "index": 2
+                    },
+                    {
+                      "content": "New question.",
+                      "options": {"A": "x", "B": "y", "C": "z", "D": "w"},
+                      "correct": "A",
+                      "explanation": "Câu mới.",
+                      "cefr": "A1",
+                      "skill": null,
+                      "index": null
+                    }
+                  ]
+                }
+                """;
+        AiChatResult result = mapper.readValue(json, AiChatResult.class);
+        assertEquals(2, result.safeQuestions().size());
+        // Câu sửa → index = 2 (thay câu thứ 2).
+        assertEquals(Integer.valueOf(2), result.safeQuestions().get(0).index());
+        // Câu mới → index = null (thêm vào cuối).
+        assertNull(result.safeQuestions().get(1).index());
+    }
+
+    @Test
+    void request_serializesCurrentDraftIndexNull() throws Exception {
+        // Bản nháp gửi LÊN AI (current_draft) luôn index = null — vị trí do
+        // thứ tự mảng đảm nhận, không phải trường index.
+        AiChatPayload payload =
+                AiChatPayload.of(
+                        "HS-20",
+                        "Lớp 9",
+                        null,
+                        List.of(),
+                        List.of(),
+                        List.of(
+                                new AiDraftQuestion(
+                                        "She ___ to school.",
+                                        Map.of("A", "go", "B", "goes", "C", "going", "D", "gone"),
+                                        "B",
+                                        "Hiện tại đơn.",
+                                        "A1",
+                                        "present_simple",
+                                        null)),
+                        List.of(),
+                        "Tạo 5 câu B1",
+                        null);
+
+        JsonNode node = mapper.valueToTree(payload);
+        JsonNode draft = node.get("current_draft").get(0);
+        // NON_NULL → index null bị bỏ trong wire JSON (khớp Pydantic Optional).
+        assertTrue(!draft.has("index") || draft.get("index").isNull());
     }
 
     @Test

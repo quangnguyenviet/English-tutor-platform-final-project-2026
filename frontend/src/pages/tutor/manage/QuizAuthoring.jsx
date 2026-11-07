@@ -1,17 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
   ArrowLeft,
+  BarChart3,
+  Bot,
   Check,
-  CheckCircle2,
-  Clock,
-  Eye,
   ListChecks,
   Plus,
   Save,
   Send,
   Trash2,
+  Undo2,
   Wand2,
   X,
 } from "lucide-react";
@@ -19,8 +20,10 @@ import Card from "../../../components/ui/Card";
 import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
 import clsx from "clsx";
+import { useToast } from "../../../hooks/useToast";
 import QuizAiAssistant from "../../../components/tutor/QuizAiAssistant";
-import SkillProfileDrawer from "../../../components/tutor/SkillProfileDrawer";
+import SkillProfilePanel from "../../../components/tutor/SkillProfilePanel";
+import { applyDrafts, buildPendingQuestions } from "../../../lib/quizMergeModel";
 import {
   apiAssignQuiz,
   apiCreateLessonQuiz,
@@ -49,7 +52,7 @@ const CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 const ANSWER_LETTERS = ["A", "B", "C", "D"];
 
 const inputClass =
-  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-950";
+  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-cyan-400 dark:focus:ring-cyan-500/20";
 
 /** Chuyển "YYYY-MM-DDTHH:mm" (datetime-local) sang ISO UTC để gửi backend. */
 function toIso(value) {
@@ -58,10 +61,16 @@ function toIso(value) {
   return Number.isNaN(d.getTime()) ? "" : d.toISOString();
 }
 
+/** Câu đã "đủ": có nội dung câu hỏi + cả 4 lựa chọn A–D (vì validate bắt buộc). */
+function isQuestionComplete(q) {
+  return Boolean(q.questionText?.trim()) && q.options.every((o) => o?.trim());
+}
+
 export default function QuizAuthoring({ token, classId, basePath, detail }) {
   const { lessonId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const quizIdParam = searchParams.get("quizId");
   const isEditing = Boolean(quizIdParam);
 
@@ -74,24 +83,43 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
 
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  // Lỗi validate ở cấp câu (map index → thông điệp), hiện hint inline trong thẻ câu hỏi.
+  const [questionErrors, setQuestionErrors] = useState({});
 
   const [showAssign, setShowAssign] = useState(false);
   const [deadline, setDeadline] = useState(formatDeadlineInput(new Date(Date.now() + 7 * 86400000)));
   const [assigning, setAssigning] = useState(false);
+  const deadlineInputRef = useRef(null);
+  // Nút "Nhảy tới câu": popover danh sách chip — đặt ở footer cột phải
+  // (desktop) và trong thanh hành động dưới (mobile) → luôn thấy khi cuộn.
+  const [navOpen, setNavOpen] = useState(false);
+  const [navPos, setNavPos] = useState(null);
+  const navFabRef = useRef(null);
+  const navBarRef = useRef(null);
+  const navPopRef = useRef(null);
+  const navFabBtnRef = useRef(null);
+  const navBarBtnRef = useRef(null);
 
-  const [toast, setToast] = useState(null);
-
-  // Trợ lý AI: câu đề xuất từ chat (chưa gộp vào form) + hồ sơ kỹ năng (SKP).
-  const [aiDrafts, setAiDrafts] = useState([]);
+  // Trợ lý AI: hồ sơ kỹ năng (SKP). Câu hỏi AI trả về được GỘP THẲNG vào
+  // form (không còn bước xem trước) — xem handleAiDrafts.
   const [skillProfile, setSkillProfile] = useState([]);
   const [skillProfileLoading, setSkillProfileLoading] = useState(true);
+  // Tab hiện trong cột điều khiển phải: "assistant" (chat AI, mặc định) hoặc
+  // "skills" (hồ sơ kỹ năng). Hai panel VẪN mount (ẩn bằng CSS) nên chat giữ
+  // nguyên state khi chuyển tab, và khung không xê dịch.
+  const [skillTab, setSkillTab] = useState("assistant");
   // Cờ "quiz này có câu do AI sinh" → ghi quizzes.source = AI_DIRECT lúc tạo mới.
   const [hasAiContent, setHasAiContent] = useState(false);
+  // Nắp undo cho thao tác gộp câu AI (mỗi bước = snapshot câu hỏi trước khi gộp).
+  const [undoStack, setUndoStack] = useState([]);
 
-  const showToast = (text, type = "success") => {
-    setToast({ text, type });
-    setTimeout(() => setToast(null), 5000);
-  };
+  // Đồng bộ `questions` để handler onDrafts đọc được giá trị mới nhất (tránh closure).
+  const questionsRef = useRef(questions);
+  useEffect(() => {
+    questionsRef.current = questions;
+  }, [questions]);
+
+  const pendingQuestions = useMemo(() => buildPendingQuestions(questions), [questions]);
 
   // Danh sách kỹ năng chung (ô chọn cho từng câu).
   useEffect(() => {
@@ -100,6 +128,65 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
       .then((items) => setSkills(items || []))
       .catch(() => setSkills([]));
   }, [token]);
+
+  // --- Split-pane: chiều cao khả dụng cho vùng nội dung ---
+  // Trên desktop, trang soạn quiz dùng mô hình 2 cột độc lập: cột trái tự
+  // cuộn, cột phải (panel chat AI) đứng yên. Để trang KHÔNG còn cuộn được
+  // (kể cả ở đầu/cuối), chiều cao trang phải khớp chính xác chiều cao vùng
+  // cuộn. Tính bằng: clientHeight(vùng cuộn) - vị trí đầu trang - padding
+  // đáy của lớp bọc. Nếu dư/chênh, vùng cuộn sẽ cuộn được và mọi khối bên
+  // trong trôi theo ở hai đầu — đây là lý do phải đo chứ không hardcode theo vh.
+  const pageRef = useRef(null);
+  const [pageHeight, setPageHeight] = useState(null);
+
+  useLayoutEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      // Chỉ áp dụng split-pane ở desktop; mobile dùng luồng cuộn của trang.
+      if (window.innerWidth < 1024) {
+        setPageHeight(null);
+        return;
+      }
+      // Vùng cuộn thật là <main> của AppShell (không phải window).
+      const scroller = el.closest("main");
+      if (!scroller) {
+        setPageHeight(null);
+        return;
+      }
+      const scrollerRect = scroller.getBoundingClientRect();
+
+      // Lớp bọc có padding của AppShell (px-4 py-6 lg:py-8) — cần trừ
+      // padding đáy vì nó nằm SAU trang trong luồng, nếu quên thì vùng cuộn
+      // dư đúng bằng padding và trang cuộn được.
+      let padBottom = 0;
+      for (let n = el.parentElement; n && n !== scroller; n = n.parentElement) {
+        const pb = parseFloat(getComputedStyle(n).paddingBottom) || 0;
+        if (pb > 0) {
+          padBottom = pb;
+          break;
+        }
+      }
+
+      // Vị trí đầu trang tính từ mép trên nội dung của vùng cuộn (cộng lại
+      // scrollTop để không phụ thuộc vị trí cuộn hiện tại).
+      const offsetTop = el.getBoundingClientRect().top - scrollerRect.top + scroller.scrollTop;
+      const h = scroller.clientHeight - offsetTop - padBottom;
+      setPageHeight(h > 320 ? Math.floor(h) : null);
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    const scroller = el.closest("main");
+    if (scroller) ro.observe(scroller);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [loading, loadError]);
 
   // Sửa quiz có sẵn (mở bản nháp / bản đã giao để xem & sửa khi còn DRAFT).
   useEffect(() => {
@@ -143,38 +230,61 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
 
   const isDraft = !existing || existing.status === "DRAFT";
 
-  /** Biến 1 câu AI (shape QuizDraftSchema response) thành câu form (A–D). */
-  function draftToFormQuestion(d) {
-    return {
-      questionText: d.questionText || "",
-      options: [d.optionA || "", d.optionB || "", d.optionC || "", d.optionD || ""],
-      correctAnswer: d.correctAnswer || "A",
-      explanation: d.explanation || "",
-      cefrLevel: d.cefrLevel || "",
-      skillCode: d.skillCode || "",
-    };
+  /**
+   * AI trả về câu hỏi → GỘP THẲNG vào form (không có bước xem trước).
+   *
+   * - `index` hợp lệ → thay in-place câu tương ứng (ngữ nghĩa "sửa câu số k").
+   * - `index` lệch / null → thêm vào cuối bài (kèm cảnh báo nếu lệch).
+   * - Mỗi lần gộp đều có thể Hoàn tác (nút ở footer hành động).
+   */
+  function handleAiDrafts(drafts) {
+    if (!Array.isArray(drafts) || drafts.length === 0) return;
+    if (!isDraft) {
+      toast.warning("Quiz này đã giao — không thể thêm câu từ AI.");
+      return;
+    }
+
+    const before = questionsRef.current;
+    const result = applyDrafts(before, drafts);
+    const merged = result.replaced + result.appended;
+    if (merged === 0) {
+      result.warnings.forEach((w) => toast.warning(w));
+      return;
+    }
+
+    // Lưu snapshot để Hoàn tác (cờ aiFromAi gắn trên từng câu nên restore đúng).
+    setUndoStack((prev) => [...prev.slice(-9), before]);
+    const marked = result.questions.map((question, qi) =>
+      result.touched.includes(qi) ? { ...question, aiFromAi: true } : question
+    );
+    // Đồng bộ ref NGAY (không chờ useEffect) để lượt AI kế tiếp đọc đúng
+    // trạng thái vừa cập nhật, kể cả khi hai lượt về liền nhau.
+    questionsRef.current = marked;
+    setQuestions(marked);
+    setHasAiContent(true);
+
+    const parts = [];
+    if (result.replaced) parts.push(`${result.replaced} câu được thay`);
+    if (result.appended) parts.push(`${result.appended} câu được thêm`);
+    toast.success(`AI đã cập nhật bài: ${parts.join(", ")}.`, { duration: 7000 });
+    result.warnings.forEach((w) => toast.warning(w));
   }
 
-  /** Gộp 1 câu AI đề xuất vào danh sách câu form (bỏ câu rỗng). */
-  function addAiDraft(d) {
-    if (!d) return;
-    setQuestions((prev) => [...prev, draftToFormQuestion(d)]);
-    setAiDrafts((prev) => prev.filter((x) => x !== d));
-    setHasAiContent(true);
-    showToast("Đã thêm câu AI vào bài.");
-  }
-
-  /** Gộp toàn bộ câu AI đề xuất vào bài. */
-  function addAllAiDrafts() {
-    if (aiDrafts.length === 0) return;
-    setQuestions((prev) => [...prev, ...aiDrafts.map(draftToFormQuestion)]);
-    setAiDrafts([]);
-    setHasAiContent(true);
-    showToast("Đã gộp toàn bộ câu AI vào bài.");
+  /** Hoàn tác thao tác gộp câu AI gần nhất. */
+  function handleUndo() {
+    if (undoStack.length === 0) return;
+    const last = undoStack[undoStack.length - 1];
+    questionsRef.current = last;
+    setQuestions(last);
+    setUndoStack((prev) => prev.slice(0, -1));
+    toast.info("Đã hoàn tác thay đổi của AI.");
   }
 
   function updateQuestion(idx, patch) {
-    setQuestions((prev) => prev.map((q, i) => (i === idx ? { ...q, ...patch } : q)));
+    // Gia sư tự sửa câu → bỏ dấu "do AI" (nội dung đã khác bản AI).
+    setQuestions((prev) =>
+      prev.map((q, i) => (i === idx ? { ...q, ...patch, aiFromAi: false } : q))
+    );
   }
 
   function updateOption(qIdx, optIdx, value) {
@@ -183,7 +293,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
         if (i !== qIdx) return q;
         const options = [...q.options];
         options[optIdx] = value;
-        return { ...q, options };
+        return { ...q, options, aiFromAi: false };
       })
     );
   }
@@ -217,27 +327,52 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
     };
   }
 
-  /** Validation phía client (mềm) trước khi gọi API. */
+  /** Validation phía client (mềm) trước khi gọi API.
+   *  Trả về "" (đủ) hoặc { message, index, questionErrors } (thiếu):
+   *  index -1 = lỗi cấp tiêu đề; index >= 0 = câu lỗi, kèm map hint inline
+   *  cho mỗi câu chưa đủ để "Nhảy tới câu" + tô chip đỏ. */
   function clientValidate() {
-    if (!title.trim()) return "Vui lòng nhập tiêu đề quiz.";
-    if (questions.length === 0) return "Quiz cần ít nhất một câu hỏi.";
+    if (!title.trim()) return { message: "Vui lòng nhập tiêu đề quiz.", index: -1, questionErrors: {} };
+    if (questions.length === 0)
+      return { message: "Quiz cần ít nhất một câu hỏi.", index: -1, questionErrors: {} };
+    const perQuestion = {};
+    let firstBad = -1;
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
-      if (!q.questionText.trim()) return `Câu ${i + 1}: nội dung câu hỏi đang trống.`;
-      if (q.options.some((o) => !o.trim()))
-        return `Câu ${i + 1}: các lựa chọn A–D không được để trống.`;
+      if (!q.questionText.trim()) {
+        perQuestion[i] = "Nội dung câu hỏi đang trống.";
+        if (firstBad === -1) firstBad = i;
+      }
+      if (q.options.some((o) => !o.trim())) {
+        perQuestion[i] = perQuestion[i] || "Lựa chọn A–D chưa đủ.";
+        if (firstBad === -1) firstBad = i;
+      }
+    }
+    if (firstBad !== -1) {
+      return {
+        message: `Câu ${firstBad + 1}: ${perQuestion[firstBad]}`,
+        index: firstBad,
+        questionErrors: perQuestion,
+      };
     }
     return "";
+  }
+
+  function scrollToQuestion(index) {
+    document.getElementById(`q-${index}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   /** Lưu (tạo DRAFT mới hoặc sửa). Trả về id quiz (mới hoặc hiện tại). */
   async function persist(forAssign) {
     const payload = buildPayload();
-    const error = clientValidate();
-    if (error) {
-      setFormError(error);
+    const validation = clientValidate();
+    if (validation) {
+      setFormError(validation.message);
+      setQuestionErrors(validation.questionErrors);
+      if (validation.index >= 0) scrollToQuestion(validation.index);
       return null;
     }
+    setQuestionErrors({});
     setSaving(true);
     setFormError("");
     try {
@@ -251,18 +386,18 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
       }
       if (forAssign) return id;
 
-      showToast(isEditing ? "Đã lưu chỉnh sửa quiz." : "Đã lưu quiz nháp.");
+      toast.success(isEditing ? "Đã lưu chỉnh sửa quiz." : "Đã lưu quiz nháp.");
       navigate(`${basePath}/lessons`);
       return id;
     } catch (err) {
       setFormError(err.message || "Không thể lưu quiz. Vui lòng kiểm tra lại nội dung.");
-      return null;
-    } finally {
       setSaving(false);
+      return null;
     }
+    // finally không dùng: case forAssign trả id về cho handleConfirmAssign tự tắt `saving`.
   }
 
-  const handleSave = async () => persist(false);
+  const handleSave = () => persist(false);
 
   /** Lưu (nếu chưa) rồi giao bài theo thời hạn đã chọn. */
   const handleConfirmAssign = async () => {
@@ -276,6 +411,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
     try {
       let id = quizIdParam;
       if (!id) {
+        setSaving(true);
         id = await persist(true);
         if (!id) {
           setAssigning(false);
@@ -283,11 +419,13 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
         }
       }
       await apiAssignQuiz(token, id, iso);
-      showToast("Đã giao quiz cho học sinh.");
+      setShowAssign(false);
+      toast.success("Đã giao quiz cho học sinh.");
       navigate(`${basePath}/lessons`);
     } catch (err) {
       setFormError(err.message || "Không thể giao quiz. Vui lòng thử lại.");
       setAssigning(false);
+      setSaving(false);
     }
   };
 
@@ -298,57 +436,264 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
 
   const backTo = `${basePath}/lessons`;
 
-  return (
-    <div className="space-y-5">
-      {/* Toast */}
-      {toast && (
-        <div
+  // Popover "Nhảy tới câu": đo vị trí nút để đặt popover ngay phía trên,
+  // luôn nằm trong khung nhìn (đẩy sát mép khi sát cạnh).
+  useLayoutEffect(() => {
+    if (!navOpen) {
+      setNavPos(null);
+      return;
+    }
+    const place = () => {
+      // Cả hai bản nút (desktop footer cột phải / mobile thanh đáy) đều
+      // được mount, nhưng một bản bị ẩn theo breakpoint → chọn bản đang
+      // hiện (rect có kích thước khác 0).
+      const candidates = [navFabBtnRef.current, navBarBtnRef.current].filter(Boolean);
+      const btn = candidates.find((el) => el.getBoundingClientRect().width > 0);
+      if (!btn) return;
+      const r = btn.getBoundingClientRect();
+      const width = 256; // w-64 của popover
+      const margin = 8;
+      let left = r.left;
+      if (left + width > window.innerWidth - margin) {
+        left = window.innerWidth - width - margin;
+      }
+      if (left < margin) left = margin;
+      setNavPos({
+        left: `${Math.round(left)}px`,
+        bottom: `${Math.round(window.innerHeight - r.top + margin)}px`,
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [navOpen]);
+
+  // Popover "Nhảy tới câu": đóng bằng Esc + click ra ngoài (đúng pattern
+  // modal giao bài ở trên).
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setNavOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navOpen]);
+
+  useEffect(() => {
+    if (!navOpen) return;
+    const onDown = (e) => {
+      if (navPopRef.current?.contains(e.target)) return;
+      if (navFabRef.current?.contains(e.target)) return;
+      if (navBarRef.current?.contains(e.target)) return;
+      setNavOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [navOpen]);
+
+  // Nhiều hơn 1 câu mới có ý nghĩa điều hướng → tự đóng khi về ≤ 1.
+  useEffect(() => {
+    if (questions.length <= 1) setNavOpen(false);
+  }, [questions.length]);
+
+  /** Nút "Nhảy tới câu" (icon-only, kèm badge đếm câu lỗi) — mở popover
+      lưới chip. Bản desktop ở footer cột phải (chật → chỉ để icon, không
+      cạnh tranh chỗ với Lưu/Giao); bản mobile nằm trong thanh hành động đáy. */
+  function renderNavWidget(innerRef, btnRef, { withLabel = false } = {}) {
+    const count = questions.length;
+    if (count <= 1) return null;
+    const errCount = Object.keys(questionErrors).length;
+    return (
+      <div ref={innerRef} className="relative">
+        <button
+          ref={btnRef}
+          type="button"
+          onClick={() => setNavOpen((v) => !v)}
+          aria-expanded={navOpen}
+          aria-haspopup="true"
+          title={`Nhảy tới câu hỏi (${count} câu${errCount ? `, ${errCount} câu lỗi` : ""})`}
+          aria-label={`Nhảy tới câu hỏi (${count} câu${errCount ? `, ${errCount} câu lỗi` : ""})`}
           className={clsx(
-            "fixed bottom-6 right-6 z-50 flex max-w-md items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-xl",
-            toast.type === "error" ? "bg-rose-600" : "bg-emerald-600"
+            "relative inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border transition active:scale-[0.98]",
+            withLabel
+              ? "h-9 px-2.5 text-xs font-medium"
+              : "h-9 w-9",
+            navOpen
+              ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300"
+              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           )}
         >
-          {toast.type === "error" ? (
-            <AlertCircle size={16} className="shrink-0" />
-          ) : (
-            <CheckCircle2 size={16} className="shrink-0" />
+          <ListChecks size={16} />
+          {withLabel && "Nhảy tới câu"}
+          {errCount > 0 && (
+            <span
+              className={clsx(
+                "flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white",
+                withLabel ? "" : "absolute -right-1.5 -top-1.5"
+              )}
+            >
+              {errCount}
+            </span>
           )}
-          <span>{toast.text}</span>
-        </div>
-      )}
-
-      {/* Header */}
-      <div>
-        <Link
-          to={backTo}
-          className="mb-3 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-        >
-          <ArrowLeft size={16} /> Quay lại bài giảng
-        </Link>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50">
-                {isEditing ? "Sửa quiz" : "Soạn quiz bài giảng"}
-              </h2>
-              {previewMeta && <Badge tone={previewMeta.tone}>{previewMeta.label}</Badge>}
-              {!previewMeta && <Badge tone="amber">Nháp</Badge>}
-            </div>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {detail?.title ? `Bài giảng: ${detail.title}` : "Nhập câu hỏi trắc nghiệm A–D cho bài giảng."}
-              {existing?.deadline ? ` · Hạn làm ${formatDeadlineLabel(existing.deadline)}` : ""}
-            </p>
-          </div>
-        </div>
+        </button>
       </div>
+    );
+  }
 
-      {formError && (
-        <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
-          <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-500" />
-          <div className="flex-1">{formError}</div>
+  /** Popover lưới chip số câu (render 1 lần ở cấp trang, qua portal). */
+  function renderNavPopover() {
+    const count = questions.length;
+    if (!navOpen || !navPos || count <= 1) return null;
+    const errCount = Object.keys(questionErrors).length;
+    return createPortal(
+      <div
+        ref={navPopRef}
+        role="dialog"
+        aria-label="Đi tới câu hỏi"
+        style={{ bottom: navPos.bottom, left: navPos.left }}
+        className="fixed z-[60] w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-800 dark:bg-slate-900"
+      >
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+            Câu hỏi ({count})
+          </p>
           <button
             type="button"
-            onClick={() => setFormError("")}
+            onClick={() => setNavOpen(false)}
+            aria-label="Đóng (Esc)"
+            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          >
+            <X size={12} />
+          </button>
+        </div>
+        <div className="grid max-h-56 grid-cols-6 gap-1.5 overflow-y-auto">
+          {questions.map((q, i) => {
+            const hasErr = Boolean(questionErrors[i]);
+            const complete = isQuestionComplete(q);
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => {
+                  scrollToQuestion(i);
+                  setNavOpen(false);
+                }}
+                title={`Câu ${i + 1}`}
+                aria-label={`Câu ${i + 1}${hasErr ? " (chưa đủ)" : complete ? " (đã đủ)" : ""}`}
+                className={clsx(
+                  "flex h-7 items-center justify-center gap-1 rounded-full text-xs font-semibold transition active:scale-[0.96]",
+                  hasErr
+                    ? "bg-rose-100 text-rose-700 ring-1 ring-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:ring-rose-800"
+                    : complete
+                      ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-950/70"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                )}
+              >
+                {hasErr ? <AlertCircle size={12} /> : complete ? <Check size={12} /> : i + 1}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
+          {errCount > 0
+            ? "Xanh lá = đã đủ · đỏ = chưa đủ (lỗi validate)"
+            : "Xanh lá = đã đủ · xám = chưa đủ"}
+        </p>
+      </div>,
+      document.body
+    );
+  }
+
+  function renderActions() {
+    return (
+      <>
+        {undoStack.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleUndo}
+            title="Hoàn tác thay đổi của AI vừa áp dụng"
+            aria-label="Hoàn tác thay đổi của AI vừa áp dụng"
+            className="w-full sm:w-auto"
+          >
+            <Undo2 size={14} />
+          </Button>
+        )}
+        {isDraft && (
+          <Button variant="secondary" size="sm" onClick={handleSave} disabled={saving || assigning} className="w-full sm:w-auto">
+            {saving ? "Đang lưu..." : (
+              <>
+                <Save size={14} /> Lưu nháp
+              </>
+            )}
+          </Button>
+        )}
+        <Button
+          size="sm"
+          onClick={() => setShowAssign(true)}
+          disabled={!isDraft || assigning || saving}
+          title={!isDraft ? "Chỉ bản nháp mới có thể giao bài" : "Giao quiz cho học sinh"}
+          className="w-full sm:w-auto"
+        >
+          <Send size={14} /> Giao bài
+        </Button>
+      </>
+    );
+  }
+
+  // Modal giao bài: đóng bằng phím Escape + focus ô thời hạn khi mở.
+  useEffect(() => {
+    if (!showAssign) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setShowAssign(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showAssign]);
+
+  useEffect(() => {
+    if (showAssign) deadlineInputRef.current?.focus();
+  }, [showAssign]);
+
+  return (
+    <div
+      ref={pageRef}
+      className={clsx(
+        // Desktop: chiều cao cố định = khung nhìn → 2 khối flex (dải meta
+        // slim / vùng nội dung cuộn nội bộ). Nút hành động nằm trong footer
+        // khung tab phải (cột đứng yên). Mobile: luồng cuộn bình thường.
+        pageHeight ? "flex flex-col gap-4" : "space-y-5"
+      )}
+      style={pageHeight ? { height: pageHeight } : undefined}
+    >
+      {formError && (
+        <div
+          role="alert"
+          className="flex shrink-0 items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300"
+        >
+          <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-500" />
+          <div className="flex-1">
+            {formError}
+            {Object.keys(questionErrors).length > 0 && (
+              <button
+                type="button"
+                onClick={() => scrollToQuestion(Math.min(...Object.keys(questionErrors).map(Number)))}
+                className="ml-2 font-semibold underline decoration-rose-300 underline-offset-2 hover:text-rose-800 dark:hover:text-rose-200"
+              >
+                Nhảy tới câu
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setFormError("");
+              setQuestionErrors({});
+            }}
             className="text-rose-400 hover:text-rose-600"
             aria-label="Đóng thông báo lỗi"
           >
@@ -362,6 +707,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
           <div className="h-6 w-1/2 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
           <div className="h-24 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
           <div className="h-24 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
+          <div className="h-9 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
         </Card>
       ) : loadError ? (
         <Card className="p-6 text-center">
@@ -371,15 +717,75 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
           </Button>
         </Card>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-5">
-          {/* Cột trái (3/5): form */}
-          <div className="space-y-4 lg:col-span-3">
+        <div
+          className={clsx(
+            "grid gap-5 lg:grid-cols-5",
+            // Split-pane: vùng nội dung chiếm phần dư chiều cao, 2 cột cao
+            // bằng nhau; cột trái cuộn nội bộ, cột phải đứng yên.
+            // Split-pane: vùng nội dung chiếm phần dư chiều cao, 2 cột cao
+            // bằng nhau; cột trái cuộn nội bộ, cột phải đứng yên.
+            pageHeight && "min-h-0 flex-1 grid-rows-1"
+          )}
+        >
+          {/* Cột trái (3/5): form. Khi split-pane bật (desktop), cột này cuộn
+              nội bộ theo chiều cao đã đo; trang ngoài không cuộn ở desktop. */}
+          <div
+            className={clsx(
+              "space-y-4 lg:col-span-3",
+              pageHeight && "min-h-0 lg:overflow-y-auto lg:pr-2"
+            )}
+          >
+            {/* Dải meta slim (thay cho header cũ): link quay lại + tiêu đề +
+                badge trạng thái ở dòng 1; ngữ cảnh (tên bài giảng / hạn làm)
+                ở dòng 2 chỉ khi có; cảnh báo "chỉ xem" ở dòng 3 khi quiz
+                không còn nháp. Tất cả giữ nguyên nội dung header cũ, chỉ nén
+                chiều cao. */}
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <Link
+                  to={backTo}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                >
+                  <ArrowLeft size={14} /> Quay lại
+                </Link>
+                <span className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                  {isEditing ? "Sửa quiz" : "Soạn quiz"}
+                </span>
+                {previewMeta ? (
+                  <Badge tone={previewMeta.tone}>{previewMeta.label}</Badge>
+                ) : (
+                  <Badge tone="amber">Nháp</Badge>
+                )}
+                {hasAiContent && (
+                  <Badge tone="violet">
+                    <Wand2 size={11} /> AI gộp
+                  </Badge>
+                )}
+              </div>
+              {(detail?.title || existing?.deadline) && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {detail?.title ? `Bài giảng: ${detail.title}` : ""}
+                  {detail?.title && existing?.deadline ? " · " : ""}
+                  {existing?.deadline ? `Hạn làm ${formatDeadlineLabel(existing.deadline)}` : ""}
+                </p>
+              )}
+              {!isDraft && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Quiz đã {previewMeta?.label?.toLowerCase() || "được xử lý"} — chỉ xem được, không sửa/giao lại.
+                </p>
+              )}
+            </div>
+
             <Card className="space-y-3 p-5">
               <div>
-                <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                <label
+                  htmlFor="quiz-title"
+                  className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200"
+                >
                   Tiêu đề quiz <span className="text-rose-500">*</span>
                 </label>
                 <input
+                  id="quiz-title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="VD: Quiz ôn tập Past Simple"
@@ -390,7 +796,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
             </Card>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                   {questions.length} câu hỏi
                 </p>
@@ -404,14 +810,33 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                 </button>
               </div>
 
+              {/* Điều hướng nhanh tới câu hỏi: chuyển sang nút "Nhảy tới câu"
+                  (popover) ở footer cột phải / thanh hành động dưới → không
+                  phải lướt lên đầu form mỗi lần muốn nhảy câu. */}
+
               {questions.map((q, i) => (
-                <Card key={i} className="space-y-3 p-4">
+                <Card
+                  key={i}
+                  id={`q-${i}`}
+                  className={clsx(
+                    "space-y-3 scroll-mt-24 p-4",
+                    // Viền violet nhạt cho câu do AI vừa gộp — gia sư nhận ra
+                    // câu nào mới đến từ AI để kiểm tra kỹ hơn.
+                    q.aiFromAi &&
+                      "border-violet-300 bg-violet-50/40 dark:border-violet-800 dark:bg-violet-950/20"
+                  )}
+                >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 text-xs font-semibold text-blue-600 dark:bg-blue-950 dark:text-blue-400">
                         {i + 1}
                       </span>
                       <ListChecks size={15} className="text-slate-400" />
+                      {q.aiFromAi && (
+                        <Badge tone="violet" size="xs">
+                          <Wand2 size={10} /> AI
+                        </Badge>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -430,6 +855,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                     onChange={(e) => updateQuestion(i, { questionText: e.target.value })}
                     disabled={!isDraft}
                     placeholder="Nhập nội dung câu hỏi..."
+                    aria-label={`Nội dung câu hỏi ${i + 1}`}
                     className={inputClass}
                   />
 
@@ -443,7 +869,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                           checked={q.correctAnswer === letter}
                           onChange={() => updateQuestion(i, { correctAnswer: letter })}
                           disabled={!isDraft}
-                          className="shrink-0 accent-blue-600"
+                          className="shrink-0 accent-blue-600 dark:accent-cyan-400"
                           aria-label={`Đáp án đúng là ${letter}`}
                         />
                         <input
@@ -451,19 +877,31 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                           onChange={(e) => updateOption(i, optIdx, e.target.value)}
                           disabled={!isDraft}
                           placeholder={`Lựa chọn ${letter}`}
+                          aria-label={`Lựa chọn ${letter} — câu ${i + 1}`}
                           className={inputClass}
                         />
                       </div>
                     ))}
                   </div>
 
+                  {/* Lỗi validate của câu (hiện khi lưu thất bại) */}
+                  {questionErrors[i] && (
+                    <p role="alert" className="rounded-md bg-rose-50 px-2.5 py-1.5 text-xs text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
+                      {questionErrors[i]}
+                    </p>
+                  )}
+
                   {/* Giải thích + CEFR + kỹ năng */}
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                      <label
+                        htmlFor={`q-${i}-explanation`}
+                        className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400"
+                      >
                         Giải thích (tuỳ chọn)
                       </label>
                       <input
+                        id={`q-${i}-explanation`}
                         value={q.explanation}
                         onChange={(e) => updateQuestion(i, { explanation: e.target.value })}
                         disabled={!isDraft}
@@ -472,10 +910,14 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                      <label
+                        htmlFor={`q-${i}-cefr`}
+                        className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400"
+                      >
                         Mức CEFR (tuỳ chọn)
                       </label>
                       <select
+                        id={`q-${i}-cefr`}
                         value={q.cefrLevel}
                         onChange={(e) => updateQuestion(i, { cefrLevel: e.target.value })}
                         disabled={!isDraft}
@@ -491,10 +933,14 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                     </div>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <label
+                      htmlFor={`q-${i}-skill`}
+                      className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400"
+                    >
                       Gắn kỹ năng (tuỳ chọn)
                     </label>
                     <select
+                      id={`q-${i}-skill`}
                       value={q.skillCode}
                       onChange={(e) => updateQuestion(i, { skillCode: e.target.value })}
                       disabled={!isDraft}
@@ -518,172 +964,142 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                 </p>
               )}
             </div>
-
-            {/* Câu hỏi do AI đề xuất (chưa gộp vào form) */}
-            {aiDrafts.length > 0 && (
-              <Card className="space-y-3 p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
-                      <Wand2 size={15} />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-                        Câu hỏi do AI đề xuất
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {aiDrafts.length} câu · chọn từng câu hoặc gộp tất cả
-                      </p>
-                    </div>
-                  </div>
-                  <Button variant="secondary" size="sm" onClick={addAllAiDrafts} disabled={!isDraft}>
-                    <Check size={14} /> Gộp tất cả
-                  </Button>
-                </div>
-
-                <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                  {aiDrafts.map((d, i) => (
-                    <div
-                      key={i}
-                      className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/40"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                          {d.questionText || "…"}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setAiDrafts((prev) => prev.filter((_, idx) => idx !== i))}
-                          disabled={!isDraft}
-                          title="Loại câu này"
-                          className="shrink-0 rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-950"
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                        <span>Đáp án {d.correctAnswer}</span>
-                        {d.cefrLevel && <Badge tone="blue">{d.cefrLevel}</Badge>}
-                        {d.skillCode && <Badge tone="violet">{d.skillCode}</Badge>}
-                      </div>
-                      {d.explanation && (
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          {d.explanation}
-                        </p>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => addAiDraft(d)}
-                        disabled={!isDraft}
-                      >
-                        <Plus size={13} /> Thêm vào bài
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
           </div>
 
-          {/* Cột phải (2/5): trợ lý AI + hồ sơ kỹ năng + preview + trạng thái */}
-          <div className="space-y-4 lg:col-span-2">
-            {/* Ngăn kéo hồ sơ kỹ năng học sinh (SKP) */}
-            <SkillProfileDrawer items={skillProfile} loading={skillProfileLoading} />
+          {/* Cột phải (2/5): "bảng điều khiển" cao bằng cột trái.
+              - Split-pane bật: cột cao đúng chiều cao vùng nội dung, KHÔNG
+                sticky → đứng yên hoàn toàn, không di chuyển khi cuộn.
+              - flex-col + flex-1 cho chat → chat chiếm phần dư, tự cuộn nội bộ.
+              - Ngoài split-pane (mobile): theo luồng trang, chat cao cố định. */}
+          <div
+            className={clsx(
+              "flex flex-col gap-4 lg:col-span-2",
+              // Split-pane: cột cao đúng vùng nội dung, đứng yên.
+              pageHeight && "min-h-0 lg:h-full"
+            )}
+          >
+            {/* Khung tab duy nhất của cột phải: "Trợ lý AI" | "Hồ sơ kỹ năng".
+                Cả hai panel cùng nằm trong MỘT khung cao cố định, chuyển tab
+                bằng CSS toggle → không có gì xê dịch, chat không bị reset. */}
+            <div className="flex h-[520px] min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:h-auto lg:min-h-0 lg:flex-1">
+              {/* Tab bar — cao cố định, không đổi theo tab đang chọn. */}
+              <div
+                role="tablist"
+                aria-label="Cột điều khiển phải"
+                className="flex shrink-0 items-center gap-1 border-b border-slate-200 px-2 pt-2 dark:border-slate-800"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={skillTab === "assistant"}
+                  onClick={() => setSkillTab("assistant")}
+                  className={clsx(
+                    "flex items-center gap-2 rounded-t-lg border-b-2 px-3 py-2 text-sm font-medium transition",
+                    "cursor-pointer active:scale-[0.98]",
+                    skillTab === "assistant"
+                      ? "border-blue-600 text-blue-700 dark:border-cyan-400 dark:text-cyan-300"
+                      : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                  )}
+                >
+                  <Bot size={15} />
+                  Trợ lý AI
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={skillTab === "skills"}
+                  onClick={() => setSkillTab("skills")}
+                  className={clsx(
+                    "flex items-center gap-2 rounded-t-lg border-b-2 px-3 py-2 text-sm font-medium transition",
+                    "cursor-pointer active:scale-[0.98]",
+                    skillTab === "skills"
+                      ? "border-violet-600 text-violet-700 dark:border-violet-400 dark:text-violet-300"
+                      : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                  )}
+                >
+                  <BarChart3 size={15} />
+                  Hồ sơ kỹ năng
+                  {skillProfileLoading ? (
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-slate-400" />
+                  ) : skillProfile.length > 0 ? (
+                    <Badge tone="violet" size="xs">{skillProfile.length}</Badge>
+                  ) : null}
+                </button>
+              </div>
 
-            {/* Trợ lý AI soạn quiz — panel chat, độ cao cố định để cuộn nội bộ */}
-            <div className="h-[340px] overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-              <QuizAiAssistant
-                token={token}
-                lessonId={lessonId}
-                quizId={isEditing ? Number(quizIdParam) : undefined}
-                onDrafts={(qs) => setAiDrafts((prev) => [...prev, ...qs])}
-              />
+              {/* Thân tab: cả hai panel luôn mount, ẩn/hiện bằng CSS. */}
+              <div className="min-h-0 flex-1">
+                <QuizAiAssistant
+                  token={token}
+                  lessonId={lessonId}
+                  quizId={isEditing ? Number(quizIdParam) : undefined}
+                  pendingQuestions={pendingQuestions}
+                  onDrafts={handleAiDrafts}
+                  render={skillTab === "assistant"}
+                  keepHeader
+                />
+                <div className={clsx("h-full", skillTab === "skills" ? "block" : "hidden")}>
+                  <SkillProfilePanel items={skillProfile} loading={skillProfileLoading} />
+                </div>
+              </div>
+
+              {/* Footer hành động (desktop): lưu nháp + giao bài — cột phải
+                  đứng yên (split-pane) nên nút luôn ở khung nhìn, không cần
+                  sticky. Mobile: dùng thanh sticky đáy ngoài trang.
+                  Bên trái footer là nút "Nhảy tới câu" (popover lưới chip) —
+                  luôn trong khung nhìn, không phải lướt lên đầu form. */}
+              <div className="hidden shrink-0 items-center justify-between gap-2 border-t border-slate-200 px-3 py-2.5 dark:border-slate-800 lg:flex">
+                {renderNavWidget(navFabRef, navFabBtnRef)}
+                {renderActions()}
+              </div>
             </div>
 
-            <Card className="space-y-3 p-5">
-              <div className="flex items-center gap-2">
-                <Eye size={15} className="text-blue-500" />
-                <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">Xem trước</h4>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {title.trim() || "Quiz chưa đặt tên"}
-              </p>
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {questions.slice(0, 3).map((q, i) => (
-                  <div key={i} className="py-2 text-xs text-slate-600 dark:text-slate-300">
-                    <p className="font-medium text-slate-800 dark:text-slate-100">
-                      {i + 1}. {q.questionText || "…"}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-slate-400">
-                      Đáp án {q.correctAnswer} · {q.options[0] || "…"}
-                    </p>
-                  </div>
-                ))}
-                {questions.length > 3 && (
-                  <p className="pt-2 text-[11px] text-slate-400">
-                    + {questions.length - 3} câu nữa
-                  </p>
-                )}
-              </div>
-            </Card>
-
-            {/* Trạng thái khi sửa / xem quiz đã giao */}
-            {existing && (
-              <Card className="space-y-2 p-5">
-                <div className="flex items-center gap-2">
-                  <Clock size={15} className="text-slate-400" />
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">Trạng thái</h4>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {previewMeta && <Badge tone={previewMeta.tone}>{previewMeta.label}</Badge>}
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {questions.length} câu
-                  </span>
-                </div>
-                {existing.deadline && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Hạn làm: {formatDeadlineLabel(existing.deadline)}
-                  </p>
-                )}
-                {!isDraft && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Quiz đã {previewMeta?.label?.toLowerCase() || "được xử lý"}, chỉ xem được —
-                    không thể sửa.
-                  </p>
-                )}
-              </Card>
-            )}
-
-            {/* Thao tác */}
-            <Card className="space-y-3 p-5">
-              {isDraft && (
-                <Button size="sm" onClick={handleSave} disabled={saving} className="w-full">
-                  {saving ? "Đang lưu..." : (
-                    <>
-                      <Save size={14} /> Lưu nháp
-                    </>
-                  )}
-                </Button>
-              )}
-              <Button
-                variant={isDraft ? "outline" : "secondary"}
-                size="sm"
-                onClick={() => setShowAssign(true)}
-                disabled={assigning}
-                className={clsx("w-full", !isDraft && "opacity-50")}
-              >
-                <Send size={14} /> Giao bài cho học sinh
-              </Button>
-            </Card>
           </div>
         </div>
       )}
 
+      {/* Thanh hành động: lưu nháp + giao bài.
+          - Split-pane (desktop): khối flex cố định ở đáy, không cần sticky.
+          - Mobile: sticky đáy trong luồng cuộn của trang. */}
+      <div
+        className={clsx(
+          "z-40 -mx-4 flex flex-col gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95 sm:-mx-6 sm:px-6 lg:-mx-6 lg:px-6",
+          pageHeight ? "shrink-0" : "sticky bottom-0 mt-2",
+          // Desktop: nút hành động đã nằm trong footer khung tab phải
+          // (cột phải đứng yên) → ẩn thanh đáy, chỉ hiện trên mobile.
+          "lg:hidden"
+        )}
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 text-xs text-slate-500 dark:text-slate-400">
+            <p>
+              {questions.length} câu hỏi
+              {hasAiContent ? " · có câu do AI gộp" : ""}
+            </p>
+            {formError ? (
+              <p className="mt-0.5 truncate font-medium text-rose-600 dark:text-rose-400">{formError}</p>
+            ) : (
+              !isDraft && (
+                <p className="mt-0.5 text-slate-400 dark:text-slate-500">
+                  Quiz không còn nháp — chỉ xem được.
+                </p>
+              )
+            )}
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:hidden">
+            <div className="flex items-center gap-2">
+              {renderNavWidget(navBarRef, navBarBtnRef, { withLabel: true })}
+            </div>
+            {renderActions()}
+          </div>
+        </div>
+      </div>
+
+      {/* Popover "Nhảy tới câu" — render 1 lần ở cấp trang (portal). */}
+      {renderNavPopover()}
+
       {/* Modal giao bài (deadline) */}
-      {showAssign && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+      {showAssign && (        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
           <div className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
               <div>
@@ -694,17 +1110,22 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                 type="button"
                 onClick={() => setShowAssign(false)}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                aria-label="Đóng"
+                aria-label="Đóng (Esc)"
               >
                 <X size={16} />
               </button>
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">
+              <label
+                htmlFor="assign-deadline"
+                className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200"
+              >
                 Thời hạn làm quiz
               </label>
               <input
+                ref={deadlineInputRef}
+                id="assign-deadline"
                 type="datetime-local"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}

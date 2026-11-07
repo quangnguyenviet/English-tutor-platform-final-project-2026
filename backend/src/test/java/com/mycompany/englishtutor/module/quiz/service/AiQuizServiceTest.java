@@ -1,6 +1,7 @@
 package com.mycompany.englishtutor.module.quiz.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -218,6 +219,86 @@ class AiQuizServiceTest {
         verify(aiClient).quizChat(cap.capture());
         assertEquals(1, cap.getValue().currentDraft().size());
         assertEquals("She ___ to school.", cap.getValue().currentDraft().get(0).content());
+    }
+
+    @Test
+    void aiChat_pendingQuestionsTakePriorityOverDatabase() {
+        // FE gửi pendingQuestions (bài đang soạn, chưa lưu) → dùng làm currentDraft,
+        // KHÔNG đọc quizzes/quiz_questions trong DB.
+        when(quizRepository.findLessonOwnership(LESSON_ID)).thenReturn(Optional.of(OWNED_LESSON));
+        when(skillProfileRepository.findStudentContext(CLASS_ID)).thenReturn(Optional.of(STUDENT_CTX));
+        when(skillProfileRepository.findStudentSkillStats(STUDENT_ID)).thenReturn(List.of());
+        when(quizRepository.findSkills()).thenReturn(List.of());
+        when(aiClient.quizChat(any())).thenReturn(new AiChatResult("ok", List.of()));
+
+        AiChatQuizRequest req =
+                AiChatQuizRequest.builder()
+                        .message("Sửa câu 1")
+                        .quizId(QUIZ_ID)
+                        .pendingQuestions(
+                                List.of(
+                                        AiChatQuizRequest.PendingQuestion.builder()
+                                                .questionText("Câu form đang nhập dở")
+                                                .optionA("go")
+                                                .optionB("goes")
+                                                .optionC("going")
+                                                .optionD("gone")
+                                                .correctAnswer("B")
+                                                .cefrLevel("A1")
+                                                .build(),
+                                        AiChatQuizRequest.PendingQuestion.builder()
+                                                .questionText("   ") // câu rỗng → bị loại
+                                                .build()))
+                        .build();
+
+        aiQuizService.aiChatQuiz(LESSON_ID, req);
+
+        org.mockito.ArgumentCaptor<AiChatPayload> cap =
+                org.mockito.ArgumentCaptor.forClass(AiChatPayload.class);
+        verify(aiClient).quizChat(cap.capture());
+        // Chỉ giữ câu không rỗng, giữ nguyên thứ tự (LLM đánh số 1..N theo mảng này).
+        assertEquals(1, cap.getValue().currentDraft().size());
+        assertEquals("Câu form đang nhập dở", cap.getValue().currentDraft().get(0).content());
+        // Không đọc DB quiz/quiz_questions.
+        verify(quizRepository, never()).findQuiz(anyLong());
+        verify(quizRepository, never()).findQuizQuestions(anyLong());
+    }
+
+    @Test
+    void aiChat_mapsAiDraftIndexToResponse() {
+        // index do AI trả về (thay câu k) phải truyền nguyên vẹn qua
+        // AiDraftQuestionResponse để giao diện thay in-place.
+        when(quizRepository.findLessonOwnership(LESSON_ID)).thenReturn(Optional.of(OWNED_LESSON));
+        when(skillProfileRepository.findStudentContext(CLASS_ID)).thenReturn(Optional.of(STUDENT_CTX));
+        when(skillProfileRepository.findStudentSkillStats(STUDENT_ID)).thenReturn(List.of());
+        when(quizRepository.findSkills()).thenReturn(List.of());
+        when(aiClient.quizChat(any()))
+                .thenReturn(
+                        new AiChatResult(
+                                "Đã sửa câu 2.",
+                                List.of(
+                                        new AiDraftQuestion(
+                                                "Câu sửa.",
+                                                Map.of("A", "a", "B", "b", "C", "c", "D", "d"),
+                                                "B",
+                                                "gt",
+                                                "B1",
+                                                null,
+                                                2),
+                                        new AiDraftQuestion(
+                                                "Câu mới.",
+                                                Map.of("A", "a", "B", "b", "C", "c", "D", "d"),
+                                                "A",
+                                                "gt",
+                                                "B1",
+                                                null,
+                                                null))));
+
+        AiChatQuizResponse result = aiQuizService.aiChatQuiz(LESSON_ID, chatRequest("Sửa câu 2"));
+
+        assertEquals(2, result.getDraftQuestions().size());
+        assertEquals(Integer.valueOf(2), result.getDraftQuestions().get(0).getIndex());
+        assertNull(result.getDraftQuestions().get(1).getIndex());
     }
 
     // --------------------------------------------------------------- SKILL PROFILE
