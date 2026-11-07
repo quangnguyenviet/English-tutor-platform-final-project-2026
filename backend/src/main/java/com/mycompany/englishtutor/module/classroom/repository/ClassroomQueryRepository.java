@@ -173,6 +173,10 @@ public class ClassroomQueryRepository {
                    st.school,
                    st.grade,
                    st.learning_goal,
+                   p.full_name AS parent_name,
+                   p.phone     AS parent_phone,
+                   p.email     AS parent_email,
+                   p.address   AS parent_address,
                    c.trial_date AS trial_date,
                    c.trial_start_time AS trial_start,
                    c.trial_end_time AS trial_end,
@@ -182,6 +186,7 @@ public class ClassroomQueryRepository {
             FROM classes c
             JOIN users u ON u.id = c.student_id
             JOIN students st ON st.id = c.student_id
+            JOIN parents p ON p.id = st.parent_id
             WHERE c.id = ? AND c.tutor_id = ?
             """;
 
@@ -1098,6 +1103,10 @@ public class ClassroomQueryRepository {
                     .school(rs.getString("school"))
                     .grade(rs.getString("grade"))
                     .learningGoal(rs.getString("learning_goal"))
+                    .parentName(rs.getString("parent_name"))
+                    .parentPhone(rs.getString("parent_phone"))
+                    .parentEmail(rs.getString("parent_email"))
+                    .parentAddress(rs.getString("parent_address"))
                     .trialSession(mapTrialSession(rs))
                     .build();
         }

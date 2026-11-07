@@ -5,9 +5,12 @@ import {
   Clock,
   ExternalLink,
   GraduationCap,
+  Mail,
   MapPin,
   Pencil,
+  Phone,
   Target,
+  User,
   Video,
   Wallet,
 } from "lucide-react";
@@ -76,6 +79,9 @@ export default function ClassOverview() {
 
   const canEditTrial = detail.status === "TRIAL" && detail.trialSession?.status === "SCHEDULED";
   const showFixedSchedule = detail.status === "ACTIVE";
+  const hasParentInfo = Boolean(
+    detail.parentName || detail.parentPhone || detail.parentEmail || detail.parentAddress,
+  );
 
   const initialFromTrial = () =>
     detail.trialSession
@@ -114,6 +120,54 @@ export default function ClassOverview() {
           <InfoItem icon={Target} label="Cấp lớp" value={detail.grade} />
         </div>
       </Card>
+
+      {/* Thông tin phụ huynh — lấy từ students.parent_id → parents */}
+      {hasParentInfo && (
+        <Card className="border-slate-200/80 dark:border-slate-800">
+          <div className="mb-3 flex items-center gap-2">
+            <User size={16} className="text-blue-600 dark:text-blue-400" />
+            <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+              Thông tin phụ huynh
+            </h2>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <InfoItem icon={User} label="Họ tên phụ huynh" value={detail.parentName} />
+            <InfoItem
+              icon={Phone}
+              label="Số điện thoại"
+              value={
+                detail.parentPhone ? (
+                  <a
+                    href={`tel:${detail.parentPhone.replace(/\s/g, "")}`}
+                    className="text-blue-600 hover:underline dark:text-blue-400"
+                  >
+                    {detail.parentPhone}
+                  </a>
+                ) : (
+                  ""
+                )
+              }
+            />
+            <InfoItem
+              icon={Mail}
+              label="Email"
+              value={
+                detail.parentEmail ? (
+                  <a
+                    href={`mailto:${detail.parentEmail}`}
+                    className="text-blue-600 hover:underline dark:text-blue-400"
+                  >
+                    {detail.parentEmail}
+                  </a>
+                ) : (
+                  ""
+                )
+              }
+            />
+            <InfoItem icon={MapPin} label="Địa chỉ" value={detail.parentAddress} />
+          </div>
+        </Card>
+      )}
 
       {/* Lịch dạy thử — ẩn hoàn toàn khi buổi dạy thử đã diễn ra */}
       {(!detail.trialSession || isTrialUpcoming(detail.trialSession)) && (
