@@ -327,8 +327,8 @@ export function ClassRequestManagement() {
   };
 
   const validateForm = (mode) => {
-    const price = Number(formData.pricePerSession);
-    if (formData.pricePerSession !== "" && price < 10000) return "Học phí mỗi buổi phải lớn hơn 10.000₫.";
+    if (!formData.pricePerSession) return "Vui lòng nhập học phí mỗi buổi.";
+    if (Number(formData.pricePerSession) < 10000) return "Học phí mỗi buổi phải lớn hơn 10.000₫.";
     if (mode === "rematch") return "";
     if (!formData.parentName.trim()) return "Vui lòng nhập họ tên phụ huynh.";
     if (!formData.studentName.trim()) return "Vui lòng nhập họ tên học sinh.";
@@ -338,7 +338,6 @@ export function ClassRequestManagement() {
       if (!PHONE_PATTERN.test(cleanPhone(formData.phone)))
         return "Vui lòng nhập đúng số điện thoại (10 chữ số nhà mạng Việt Nam).";
       if (!formData.classRequirement.trim()) return "Vui lòng nhập yêu cầu lớp học.";
-      if (!formData.pricePerSession) return "Vui lòng nhập học phí mỗi buổi.";
     }
     return "";
   };
@@ -486,8 +485,8 @@ export function ClassRequestManagement() {
 
   // ── Xác nhận lớp có gia sư chỉ định → Đang dạy thử ────────────────────────
   const handleConfirmRequest = (req) => {
-    if (!req.studentName) {
-      showToast("Vui lòng bổ sung thông tin học sinh trước khi chuyển sang dạy thử.", true);
+    if (!req.studentName || !req.pricePerSession) {
+      showToast("Vui lòng bổ sung họ tên học sinh và học phí trước khi chuyển sang dạy thử.", true);
       handleOpenEdit(req);
       return;
     }
@@ -1388,7 +1387,7 @@ export function ClassRequestManagement() {
                 )}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-foreground">
-                    Học phí / buổi (VNĐ) {formModal.mode === "create" && <span className="text-rose-500">*</span>}
+                    Học phí / buổi (VNĐ) <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="number"

@@ -160,6 +160,8 @@ public enum ErrorCode {
             HttpStatus.CONFLICT),
     PARENT_PHONE_BELONGS_TO_OTHER(
             1171, "Số điện thoại này thuộc về một phụ huynh khác. Vui lòng xác nhận lại với phụ huynh.", HttpStatus.CONFLICT),
+    CLASS_REQUEST_PRICE_REQUIRED(
+            1172, "Vui lòng bổ sung học phí mỗi buổi trước khi chuyển lớp sang dạy thử.", HttpStatus.CONFLICT),
     PAYMENT_NOT_FOUND(1200, "Khoản phí nhận lớp không tồn tại", HttpStatus.NOT_FOUND),
     PAYMENT_INVALID_STATE(1201, "Khoản phí không ở trạng thái cho phép thao tác này", HttpStatus.CONFLICT),
     PAYMENT_SAME_ACTOR(1202, "Người duyệt không được trùng với người nộp hoặc thu hộ minh chứng", HttpStatus.FORBIDDEN),

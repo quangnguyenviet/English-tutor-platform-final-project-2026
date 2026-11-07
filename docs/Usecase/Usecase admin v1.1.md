@@ -94,7 +94,7 @@ Tóm tắt 7 luồng nghiệp vụ chính:
 | **Tiền điều kiện** | 1\. Admin đã đăng nhập. 2\. Lớp ở "Chờ xử lý" hoặc "Đang ghép lại" và có gia sư chỉ định. 3\. Admin đã trao đổi, phụ huynh và gia sư đồng ý. |
 | **Hậu điều kiện** | Lớp chuyển "Đang dạy thử". Lớp học `TRIAL` và khoản phí nháp được tạo. Tài khoản học sinh được tạo nếu chưa có. Các gia sư đang ứng tuyển (nếu có) được thông báo không được chọn. |
 | **Kịch bản chính** | 1\. Admin bấm "Xác nhận đơn" tại lớp tương ứng. 2\. Hệ thống hiển thị popup xác nhận kèm 2 nút Đồng ý/Hủy. 3\. Admin bấm "Đồng ý". 4\. Hệ thống thông báo thành công, gửi thông báo tới gia sư, hiển thị tài khoản học sinh và mật khẩu mặc định nếu vừa tạo. |
-| **Ngoại lệ** | 1.1. Chưa có họ tên học sinh: hệ thống yêu cầu bổ sung và mở form thông tin. 3.1. Admin bấm "Hủy" tại popup: hệ thống quay lại, không thay đổi. 4.1. Gia sư không còn hoạt động: hệ thống báo lỗi, Admin đổi gia sư theo UC-ADM-04. |
+| **Ngoại lệ** | 1.1. Chưa có họ tên học sinh hoặc học phí: hệ thống yêu cầu bổ sung và mở form thông tin. 3.1. Admin bấm "Hủy" tại popup: hệ thống quay lại, không thay đổi. 4.1. Gia sư không còn hoạt động: hệ thống báo lỗi, Admin đổi gia sư theo UC-ADM-04. |
 
 ## **UC-ADM-05.1: Xác nhận ghép thành công**
 

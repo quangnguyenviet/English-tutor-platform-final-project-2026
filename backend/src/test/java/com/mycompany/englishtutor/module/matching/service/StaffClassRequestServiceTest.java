@@ -223,6 +223,19 @@ class StaffClassRequestServiceTest {
     }
 
     @Test
+    void confirm_withoutPrice_throwsPriceRequiredAndCreatesNothing() {
+        Map<String, Object> row = givenRequest("NEW", TUTOR_ID, null, "Lê Hoàng Nam");
+        row.remove("price_per_session");
+        givenActiveTutor(TUTOR_ID);
+
+        AppException ex = assertThrows(AppException.class, () -> service.confirm(REQUEST_ID, null));
+
+        assertEquals(ErrorCode.CLASS_REQUEST_PRICE_REQUIRED, ex.getErrorCode());
+        verify(userRepository, never()).save(any());
+        verify(paymentService, never()).createDraftForClass(any(), any(), any());
+    }
+
+    @Test
     void confirm_withoutDesignatedTutor_throwsNoTutor() {
         givenRequest("NEW", null, null, "Lê Hoàng Nam");
 
@@ -528,6 +541,7 @@ class StaffClassRequestServiceTest {
         row.put("student_id", studentId);
         row.put("status", status);
         row.put("student_name", studentName);
+        row.put("price_per_session", BigDecimal.valueOf(300000));
         when(jdbcTemplate.queryForList(contains("FOR UPDATE"), eq((Object) REQUEST_ID))).thenReturn(List.of(row));
         return row;
     }

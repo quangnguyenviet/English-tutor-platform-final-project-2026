@@ -326,6 +326,9 @@ public class StaffClassRequestService {
     private ClassRequestDetailResponse startTrial(
             Long id, Map<String, Object> row, Long tutorId, String auditAction, HttpServletRequest httpRequest) {
         requireActiveTutor(tutorId);
+        if (row.get("price_per_session") == null) {
+            throw new AppException(ErrorCode.CLASS_REQUEST_PRICE_REQUIRED);
+        }
 
         Long parentId = ((Number) row.get("parent_id")).longValue();
         Long studentId = row.get("student_id") != null ? ((Number) row.get("student_id")).longValue() : null;
