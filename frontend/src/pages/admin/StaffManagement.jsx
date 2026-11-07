@@ -56,7 +56,7 @@ const roleOptions = [
 ];
 
 const workStatLabels = {
-  handledClassRequests: "Đơn ghép lớp đã xử lý",
+  handledClassRequests: "Lớp cần gia sư đã xử lý",
   receivedComplaints: "Khiếu nại đã tiếp nhận",
   reviewedPayments: "Khoản phí đã duyệt",
   processedRefunds: "Hoàn tiền đã xử lý",

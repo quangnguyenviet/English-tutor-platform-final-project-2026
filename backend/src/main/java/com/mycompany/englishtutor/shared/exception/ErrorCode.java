@@ -44,8 +44,8 @@ public enum ErrorCode {
             HttpStatus.CONFLICT),
     CLASS_REQUEST_NOT_OPEN(1107, "Lớp này không còn nhận đơn ứng tuyển.", HttpStatus.CONFLICT),
     MISSING_CANCEL_REASON(1108, "Lý do hủy không được để trống", HttpStatus.BAD_REQUEST),
-    MATCH_REQUEST_NOT_PENDING(1109, "Đơn ghép lớp không ở trạng thái chờ xử lý", HttpStatus.CONFLICT),
-    CLASS_REQUEST_ALREADY_CANCELLED(1110, "Đơn ghép lớp này đã bị hủy trước đó", HttpStatus.CONFLICT),
+    MATCH_REQUEST_NOT_PENDING(1109, "Chỉ xác nhận được lớp đang chờ xử lý hoặc đang ghép lại", HttpStatus.CONFLICT),
+    CLASS_REQUEST_ALREADY_CANCELLED(1110, "Lớp này đã bị hủy trước đó", HttpStatus.CONFLICT),
     MATCH_REQUEST_NOT_TRIAL(1111, "Chỉ có thể duyệt hoàn tất đối với lớp đang ở trạng thái dạy thử", HttpStatus.CONFLICT),
     CLASS_REQUEST_NOT_NEW(1112, "Chỉ có thể đăng tuyển lớp đang ở trạng thái chờ xử lý", HttpStatus.CONFLICT),
     CLASS_REQUEST_NOT_READY(
@@ -139,6 +139,27 @@ public enum ErrorCode {
             1162,
             "Bạn đã không được chọn cho lớp này trước đó, không thể ứng tuyển lại.",
             HttpStatus.CONFLICT),
+    // --- Gộp Đơn ghép lớp vào Lớp cần gia sư ---
+    CLASS_REQUEST_TUTOR_NOT_CHANGEABLE(
+            1163, "Chỉ đổi gia sư chỉ định khi lớp đang chờ xử lý hoặc đang ghép lại.", HttpStatus.CONFLICT),
+    CLASS_REQUEST_NOT_EDITABLE(
+            1164, "Chỉ sửa thông tin khi lớp đang chờ xử lý hoặc đang ghép lại.", HttpStatus.CONFLICT),
+    CLASS_REQUEST_FIELD_LOCKED(
+            1165, "Khi đang ghép lại chỉ được sửa học phí, mục tiêu và yêu cầu gia sư.", HttpStatus.CONFLICT),
+    CLASS_REQUEST_NO_TUTOR(1166, "Lớp chưa có gia sư chỉ định.", HttpStatus.CONFLICT),
+    CLASS_REQUEST_HAS_TUTOR(
+            1167, "Lớp đang có gia sư chỉ định, không thể đăng tuyển hoặc chọn ứng viên.", HttpStatus.CONFLICT),
+    CLASS_REQUEST_TUTOR_TERMINATED(
+            1168, "Gia sư này đã bị loại khỏi lớp sau buổi dạy thử không thành công.", HttpStatus.CONFLICT),
+    CLASS_REQUEST_CANCEL_EXPIRED(
+            1169, "Đã quá 7 ngày kể từ khi ghép thành công, không thể hủy lớp.", HttpStatus.CONFLICT),
+    // --- Một SĐT là một phụ huynh ---
+    PARENT_PHONE_NAME_MISMATCH(
+            1170,
+            "Số điện thoại này đã được đăng ký với họ tên khác. Vui lòng kiểm tra lại hoặc gọi Hotline 1900 6868.",
+            HttpStatus.CONFLICT),
+    PARENT_PHONE_BELONGS_TO_OTHER(
+            1171, "Số điện thoại này thuộc về một phụ huynh khác. Vui lòng xác nhận lại với phụ huynh.", HttpStatus.CONFLICT),
     PAYMENT_NOT_FOUND(1200, "Khoản phí nhận lớp không tồn tại", HttpStatus.NOT_FOUND),
     PAYMENT_INVALID_STATE(1201, "Khoản phí không ở trạng thái cho phép thao tác này", HttpStatus.CONFLICT),
     PAYMENT_SAME_ACTOR(1202, "Người duyệt không được trùng với người nộp hoặc thu hộ minh chứng", HttpStatus.FORBIDDEN),
@@ -174,7 +195,7 @@ public enum ErrorCode {
     NEW_PASSWORD_WEAK(1413, "Mật khẩu mới phải có tối thiểu 8 ký tự, gồm chữ hoa, chữ thường và số", HttpStatus.BAD_REQUEST),
     STUDENT_INFO_REQUIRED(
             1414,
-            "Vui lòng bổ sung họ tên học sinh trước khi chuyển đơn sang dạy thử",
+            "Vui lòng bổ sung họ tên học sinh trước khi chuyển lớp sang dạy thử",
             HttpStatus.BAD_REQUEST),
     AI_SERVICE_UNAVAILABLE(
             1416, "Dịch vụ AI đang không khả dụng. Vui lòng thử lại sau ít phút.",

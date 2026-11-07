@@ -219,6 +219,19 @@ class TutorClassRequestServiceTest {
     }
 
     @Test
+    void apply_rematchRequestWithDesignatedTutor_throwsNotOpen() {
+        givenActiveTutor();
+        when(applicationRepository.lockRequestStatus(REQUEST_ID)).thenReturn(List.of("REMATCH"));
+        when(applicationRepository.hasDesignatedTutor(REQUEST_ID)).thenReturn(true);
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.apply(REQUEST_ID, new ApplyClassRequest("Em nhận lớp")));
+
+        assertEquals(ErrorCode.CLASS_REQUEST_NOT_OPEN, ex.getErrorCode());
+        verify(applicationRepository, never()).insert(anyLong(), anyLong(), any());
+    }
+
+    @Test
     void apply_terminatedTutor_throwsApplicationTerminated() {
         givenActiveTutor();
         when(applicationRepository.lockRequestStatus(REQUEST_ID)).thenReturn(List.of("REMATCH"));

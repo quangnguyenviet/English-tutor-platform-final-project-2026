@@ -19,7 +19,6 @@ import {
   DollarSign,
   UserCheck,
   Loader2,
-  RefreshCcw,
   PauseCircle,
 } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
@@ -311,12 +310,6 @@ export default function AvailableClasses() {
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge tone="blue">{cls.gradeLevel || "Đang cập nhật"}</Badge>
             <Badge tone="slate">{cls.teachingMode}</Badge>
-            {cls.requestStatus === "REMATCH" && (
-              <Badge tone="violet">
-                <RefreshCcw size={11} className="mr-1 inline" />
-                Tuyển lại
-              </Badge>
-            )}
             {cls.blocked ? (
               <Badge tone="slate">{cls.blockLabel}</Badge>
             ) : (

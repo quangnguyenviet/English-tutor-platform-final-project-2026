@@ -10,7 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
-/** Ghép lại đơn khi dạy thử không thành công (UC-REC-06.1 nhánh 5.2, UC-PA-05). */
+/** Ghép lại lớp khi dạy thử không thành công (UC-REC-07, UC-PA-05). */
 @Data
 @Builder
 @NoArgsConstructor

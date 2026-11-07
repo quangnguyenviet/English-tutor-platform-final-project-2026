@@ -153,20 +153,18 @@ const BLOCKED_HINTS = {
 
 export const REQUEST_STATUS_LABELS = {
   OPEN: "Đang tuyển",
-  REMATCH: "Đang tuyển lại",
   MATCHED: "Đã ghép lớp",
   CANCELLED: "Đã hủy",
 };
 
 const REQUEST_STATUS_TONES = {
   OPEN: "slate",
-  REMATCH: "violet",
   MATCHED: "violet",
   CANCELLED: "rose",
 };
 
-/** Lớp đang nhận ứng tuyển: đăng tuyển lần đầu hoặc đang ghép lại sau dạy thử thất bại. */
-export const isRecruitingStatus = (status) => status === "OPEN" || status === "REMATCH";
+/** Lớp đang nhận ứng tuyển. Backend trả lớp đang ghép lại về OPEN nên gia sư không phân biệt. */
+export const isRecruitingStatus = (status) => status === "OPEN";
 
 /** Map một đơn ứng tuyển (kèm tóm tắt lớp) sang model hiển thị. */
 export function mapMyApplication(application) {

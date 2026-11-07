@@ -5,7 +5,9 @@ import java.math.BigDecimal;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,9 +16,9 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 /**
- * Bổ sung/sửa thông tin lớp cần gia sư sau cuộc gọi lại (UC-REC-02) — chỉ áp dụng khi lớp còn {@code NEW}.
- *
- * <p>Mọi trường đều tùy chọn (partial update); trường nào gửi lên thì cập nhật trường đó.
+ * Cập nhật một phần lớp cần gia sư: trường nào gửi lên thì cập nhật trường đó.
+ * Lớp {@code NEW} sửa được toàn bộ; lớp {@code REMATCH} chỉ sửa
+ * {@code pricePerSession}, {@code classRequirement}, {@code learningGoal}, {@code tutorRequirement}.
  */
 @Data
 @Builder
@@ -25,14 +27,33 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UpdateClassRequest {
 
-    @Schema(description = "Họ tên học sinh (tạo tài khoản học sinh nếu chưa có)", example = "Lê Hoàng Nam")
+    @Size(max = 100, message = "Họ tên phụ huynh tối đa 100 ký tự")
+    @Schema(description = "Họ tên phụ huynh", example = "Trần Thị Lan")
+    String parentName;
+
+    @Email(message = "Email phụ huynh không hợp lệ")
+    @Size(max = 100, message = "Email phụ huynh tối đa 100 ký tự")
+    @Schema(description = "Email phụ huynh", example = "lan.tran@gmail.com")
+    String parentEmail;
+
+    @Size(max = 500, message = "Địa chỉ phụ huynh tối đa 500 ký tự")
+    @Schema(description = "Địa chỉ liên hệ phụ huynh", example = "12 Nguyễn Trãi, Thanh Xuân, Hà Nội")
+    String parentAddress;
+
+    @Size(max = 100, message = "Họ tên học sinh tối đa 100 ký tự")
+    @Schema(description = "Họ tên học sinh (bắt buộc trước khi đăng lớp hoặc chuyển dạy thử)", example = "Lê Hoàng Nam")
     String studentName;
 
+    @Size(max = 20, message = "Khối lớp tối đa 20 ký tự")
     @Schema(description = "Khối lớp của học sinh", example = "Lớp 10")
     String grade;
 
+    @Size(max = 200, message = "Tên trường tối đa 200 ký tự")
     @Schema(description = "Trường học hiện tại", example = "THPT Chuyên Chu Văn An")
     String school;
+
+    @Schema(description = "Mục tiêu học tập", example = "Đạt IELTS 6.5 trong 6 tháng")
+    String learningGoal;
 
     @Schema(description = "Yêu cầu lớp học / môn học", example = "Luyện IELTS từ 5.0 lên 6.5")
     String classRequirement;
@@ -53,6 +74,6 @@ public class UpdateClassRequest {
 
     @DecimalMin(value = "0", message = "Tỷ lệ phí nhận lớp không được âm")
     @DecimalMax(value = "50", message = "Tỷ lệ phí nhận lớp tối đa 50%")
-    @Schema(description = "Tỷ lệ phí nhận lớp (%) — khoảng 0–50, cập nhật khi còn NEW", example = "40")
+    @Schema(description = "Tỷ lệ phí nhận lớp (%) — khoảng 0–50", example = "40")
     BigDecimal feePercentage;
 }

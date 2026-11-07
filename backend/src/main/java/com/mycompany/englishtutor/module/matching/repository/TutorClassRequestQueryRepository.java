@@ -27,7 +27,8 @@ import lombok.experimental.FieldDefaults;
  * <p>Tách khỏi service để service chỉ còn nghiệp vụ; SQL và row mapper nằm cùng một chỗ.
  * Mọi response đều đã loại bỏ thông tin liên hệ phụ huynh, chỉ trả khu vực chung.
  *
- * <p>Lớp đang tuyển gồm {@code OPEN} và {@code REMATCH} (đang ghép lại sau dạy thử thất bại — ERD C-14).
+ * <p>Lớp đang tuyển gồm {@code OPEN} và {@code REMATCH} chưa có gia sư chỉ định;
+ * gia sư chỉ thấy trạng thái {@code OPEN}, không thấy lớp đang được ghép lại.
  */
 @Repository
 @RequiredArgsConstructor
@@ -43,9 +44,9 @@ public class TutorClassRequestQueryRepository {
                    cr.tutor_requirement,
                    cr.created_at,
                    cr.status AS request_status,
-                   s.grade,
-                   s.school,
-                   s.learning_goal,
+                   COALESCE(s.grade, cr.student_grade) AS grade,
+                   COALESCE(s.school, cr.student_school) AS school,
+                   COALESCE(s.learning_goal, cr.student_learning_goal) AS learning_goal,
                    u.gender,
                    p.address,
                    ca.id AS application_id,
@@ -53,19 +54,19 @@ public class TutorClassRequestQueryRepository {
                    ca.applied_at AS my_applied_at,
                    ca.status AS my_status
             FROM class_requests cr
-            JOIN students s ON s.id = cr.student_id
-            JOIN users u ON u.id = cr.student_id
+            LEFT JOIN students s ON s.id = cr.student_id
+            LEFT JOIN users u ON u.id = cr.student_id
             JOIN parents p ON p.id = cr.parent_id
             LEFT JOIN class_applications ca ON ca.class_request_id = cr.id AND ca.tutor_id = ?
-            WHERE cr.status IN ('OPEN', 'REMATCH')
+            WHERE cr.status IN ('OPEN', 'REMATCH') AND cr.requested_tutor_id IS NULL
             """;
 
     private static final String COUNT_QUERY = """
             SELECT COUNT(*)
             FROM class_requests cr
-            JOIN students s ON s.id = cr.student_id
+            LEFT JOIN students s ON s.id = cr.student_id
             JOIN parents p ON p.id = cr.parent_id
-            WHERE cr.status IN ('OPEN', 'REMATCH')
+            WHERE cr.status IN ('OPEN', 'REMATCH') AND cr.requested_tutor_id IS NULL
             """;
 
     private static final String APPLICATIONS_QUERY = """
@@ -80,15 +81,15 @@ public class TutorClassRequestQueryRepository {
                    cr.price_per_session,
                    cr.preferred_schedule,
                    cr.created_at AS request_created_at,
-                   s.grade,
-                   s.school,
-                   s.learning_goal,
+                   COALESCE(s.grade, cr.student_grade) AS grade,
+                   COALESCE(s.school, cr.student_school) AS school,
+                   COALESCE(s.learning_goal, cr.student_learning_goal) AS learning_goal,
                    u.gender,
                    p.address
             FROM class_applications ca
             JOIN class_requests cr ON cr.id = ca.class_request_id
-            JOIN students s ON s.id = cr.student_id
-            JOIN users u ON u.id = cr.student_id
+            LEFT JOIN students s ON s.id = cr.student_id
+            LEFT JOIN users u ON u.id = cr.student_id
             JOIN parents p ON p.id = cr.parent_id
             WHERE ca.tutor_id = ?
             ORDER BY ca.applied_at DESC, ca.id DESC
@@ -156,7 +157,7 @@ public class TutorClassRequestQueryRepository {
         if (!gradePatterns.isEmpty()) {
             where.append(" AND (")
                     .append(gradePatterns.stream()
-                            .map(pattern -> "unaccent(lower(s.grade)) LIKE ? ESCAPE '\\'")
+                            .map(pattern -> "unaccent(lower(COALESCE(s.grade, cr.student_grade))) LIKE ? ESCAPE '\\'")
                             .collect(Collectors.joining(" OR ")))
                     .append(")");
             gradePatterns.forEach(pattern -> params.add(PublicSearchSupport.likeContains(pattern)));
@@ -168,8 +169,8 @@ public class TutorClassRequestQueryRepository {
             where.append(" AND (")
                     .append("unaccent(lower(cr.class_requirement)) LIKE ? ESCAPE '\\'")
                     .append(" OR unaccent(lower(cr.tutor_requirement)) LIKE ? ESCAPE '\\'")
-                    .append(" OR unaccent(lower(s.grade)) LIKE ? ESCAPE '\\'")
-                    .append(" OR unaccent(lower(s.school)) LIKE ? ESCAPE '\\'")
+                    .append(" OR unaccent(lower(COALESCE(s.grade, cr.student_grade))) LIKE ? ESCAPE '\\'")
+                    .append(" OR unaccent(lower(COALESCE(s.school, cr.student_school))) LIKE ? ESCAPE '\\'")
                     .append(" OR unaccent(lower(p.address)) LIKE ? ESCAPE '\\'")
                     .append(" OR unaccent(lower('LOP-ENG-' || LPAD(cr.id::text, 4, '0'))) LIKE ? ESCAPE '\\'")
                     .append(")");
@@ -177,6 +178,11 @@ public class TutorClassRequestQueryRepository {
                 params.add(pattern);
             }
         }
+    }
+
+    /** Lớp đang ghép lại hiển thị với gia sư như lớp đăng tuyển bình thường. */
+    private static String publicStatus(String status) {
+        return "REMATCH".equals(status) ? "OPEN" : status;
     }
 
     private static String requestCode(long id) {
@@ -203,7 +209,7 @@ public class TutorClassRequestQueryRepository {
                     .learningGoal(resultSet.getString("learning_goal"))
                     .school(resultSet.getString("school"))
                     .createdAt(resultSet.getObject("created_at", OffsetDateTime.class))
-                    .requestStatus(resultSet.getString("request_status"))
+                    .requestStatus(publicStatus(resultSet.getString("request_status")))
                     .applied(applied)
                     .applicationStatus(resultSet.getString("my_status"))
                     .applicationId(applied ? ((Number) applicationId).longValue() : null)
@@ -233,7 +239,7 @@ public class TutorClassRequestQueryRepository {
                             .pricePerSession(resultSet.getBigDecimal("price_per_session"))
                             .preferredSchedule(resultSet.getString("preferred_schedule"))
                             .createdAt(resultSet.getObject("request_created_at", OffsetDateTime.class))
-                            .status(resultSet.getString("request_status"))
+                            .status(publicStatus(resultSet.getString("request_status")))
                             .build())
                     .build();
         }

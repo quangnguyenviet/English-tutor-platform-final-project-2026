@@ -13,7 +13,6 @@ import LoginPage from "./pages/LoginPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import TutorManagement from "./pages/admin/TutorManagement";
 import StudentManagement from "./pages/admin/StudentManagement";
-import MatchRequests from "./pages/admin/MatchRequests";
 import ClassRequestManagement from "./pages/admin/ClassRequests";
 import AccountantPayments from "./pages/accountant/AccountantPayments";
 import TutorPayments from "./pages/tutor/TutorPayments";
@@ -70,7 +69,6 @@ import GuestHowItWorksPage from "./pages/guest/GuestHowItWorksPage";
 import GuestContactPage from "./pages/guest/GuestContactPage";
 
 import ReceptionistDashboard from "./pages/receptionist/ReceptionistDashboard";
-import ReceptionistMatchRequests from "./pages/receptionist/ReceptionistMatchRequests";
 import ReceptionistClassRequests from "./pages/receptionist/ReceptionistClassRequests";
 import ReceptionistPaymentApproval from "./pages/receptionist/ReceptionistPaymentApproval";
 import ReceptionistTutorList from "./pages/receptionist/ReceptionistTutorList";
@@ -167,7 +165,7 @@ export default function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="tutors" element={<TutorManagement />} />
             <Route path="students" element={<StudentManagement />} />
-            <Route path="match-requests" element={<MatchRequests />} />
+            <Route path="match-requests" element={<Navigate to="../class-requests" replace />} />
             <Route path="class-requests" element={<ClassRequestManagement />} />
             <Route path="payments" element={<AccountantPayments />} />
             <Route path="staff" element={<StaffManagement />} />
@@ -280,7 +278,7 @@ export default function App() {
             }
           >
             <Route index element={<ReceptionistDashboard />} />
-            <Route path="match-requests" element={<ReceptionistMatchRequests />} />
+            <Route path="match-requests" element={<Navigate to="../class-requests" replace />} />
             <Route path="class-requests" element={<ReceptionistClassRequests />} />
             <Route path="payments" element={<ReceptionistPaymentApproval />} />
             <Route path="tutors" element={<ReceptionistTutorList />} />

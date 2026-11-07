@@ -16,6 +16,7 @@ import com.mycompany.englishtutor.module.tutor.domain.enums.ProfileStatus;
 import com.mycompany.englishtutor.module.tutor.repository.TutorRepository;
 import com.mycompany.englishtutor.shared.exception.AppException;
 import com.mycompany.englishtutor.shared.exception.ErrorCode;
+import com.mycompany.englishtutor.shared.util.PhoneNumbers;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class ClassRequestSubmitService {
     JdbcTemplate jdbcTemplate;
     TutorRepository tutorRepository;
     PhoneRateLimiter phoneRateLimiter;
+    ParentResolver parentResolver;
 
     @Transactional
     public ClassRequestSubmitResponse submit(ClassRequestSubmitRequest request) {
@@ -46,12 +48,18 @@ public class ClassRequestSubmitService {
                     .orElseThrow(() -> new AppException(ErrorCode.TUTOR_PROFILE_UNAVAILABLE));
         }
 
-        String phone = request.getPhone().replaceAll("[\\s.\\-()]", "");
+        String phone = PhoneNumbers.normalize(request.getPhone());
         if (!phoneRateLimiter.tryAcquire(phone)) {
             throw new AppException(ErrorCode.TOO_MANY_REQUESTS);
         }
 
-        long parentId = findOrCreateParent(request.getParentName().trim(), phone);
+        String parentName = request.getParentName().trim();
+        ParentResolver.Parent parent = parentResolver.resolve(parentName, phone);
+        // Khách chưa đăng nhập: chỉ báo chung, không để lộ tên phụ huynh đang giữ SĐT này.
+        if (!ParentResolver.sameName(parent.fullName(), parentName)) {
+            throw new AppException(ErrorCode.PARENT_PHONE_NAME_MISMATCH);
+        }
+        long parentId = parent.id();
 
         // Gửi lặp (bấm nhiều lần) cùng một yêu cầu đang chờ gọi lại thì trả lại mã cũ, không tạo thêm đơn.
         List<Map<String, Object>> pending = jdbcTemplate.queryForList(
@@ -73,19 +81,8 @@ public class ClassRequestSubmitService {
                 """,
                 parentId,
                 tutorId);
-        notifyReceptionists(((Number) created.get("id")).longValue(), request.getParentName().trim(), tutorId);
+        notifyReceptionists(((Number) created.get("id")).longValue(), parentName, tutorId);
         return toResponse(created);
-    }
-
-    private long findOrCreateParent(String fullName, String phone) {
-        List<Long> existing = jdbcTemplate.queryForList(
-                "SELECT id FROM parents WHERE phone = ? ORDER BY id LIMIT 1", Long.class, phone);
-        if (!existing.isEmpty()) {
-            return existing.get(0);
-        }
-        Long id = jdbcTemplate.queryForObject(
-                "INSERT INTO parents (full_name, phone) VALUES (?, ?) RETURNING id", Long.class, fullName, phone);
-        return id == null ? 0 : id;
     }
 
     /** Bản tạm: ghi thẳng bảng notifications cho từng Lễ tân đang hoạt động, sẽ thay bằng NotificationService (T8-A1). */

@@ -28,6 +28,14 @@ public class ClassApplicationRepository {
                 "SELECT status FROM class_requests WHERE id = ? FOR UPDATE", String.class, classRequestId);
     }
 
+    /** Lớp đang có gia sư chỉ định thì tạm dừng nhận ứng tuyển. */
+    public boolean hasDesignatedTutor(Long classRequestId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM class_requests WHERE id = ? AND requested_tutor_id IS NOT NULL",
+                Integer.class, classRequestId);
+        return count != null && count > 0;
+    }
+
     /** @return id của đơn ứng tuyển vừa tạo */
     public Long insert(Long classRequestId, Long tutorId, String message) {
         return jdbcTemplate.queryForObject(

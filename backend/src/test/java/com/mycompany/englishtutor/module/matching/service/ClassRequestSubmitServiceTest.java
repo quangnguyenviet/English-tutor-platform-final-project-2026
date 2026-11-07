@@ -1,6 +1,7 @@
 package com.mycompany.englishtutor.module.matching.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -49,6 +50,9 @@ class ClassRequestSubmitServiceTest {
     @Mock
     PhoneRateLimiter phoneRateLimiter;
 
+    @Mock
+    ParentResolver parentResolver;
+
     @InjectMocks
     ClassRequestSubmitService service;
 
@@ -64,8 +68,8 @@ class ClassRequestSubmitServiceTest {
     }
 
     private void givenExistingParent() {
-        when(jdbcTemplate.queryForList(contains("FROM parents"), eq(Long.class), anyString()))
-                .thenReturn(List.of(7L));
+        when(parentResolver.resolve("Nguyễn Lan Anh", PHONE))
+                .thenReturn(new ParentResolver.Parent(7L, "Nguyễn Lan Anh"));
     }
 
     @Test
@@ -141,13 +145,13 @@ class ClassRequestSubmitServiceTest {
     }
 
     @Test
-    void submit_unknownPhone_createsParent() {
+    void submit_sameParentWithoutMarksAndInternationalPhone_createsRequest() {
         request.setTutorId(null);
+        request.setParentName("nguyen  lan anh");
+        request.setPhone("+84912345678");
         when(phoneRateLimiter.tryAcquire(PHONE)).thenReturn(true);
-        when(jdbcTemplate.queryForList(contains("FROM parents"), eq(Long.class), anyString()))
-                .thenReturn(List.of());
-        when(jdbcTemplate.queryForObject(contains("INSERT INTO parents"), eq(Long.class), anyString(), anyString()))
-                .thenReturn(21L);
+        when(parentResolver.resolve("nguyen  lan anh", PHONE))
+                .thenReturn(new ParentResolver.Parent(7L, "Nguyễn Lan Anh"));
         when(jdbcTemplate.queryForList(contains("FROM class_requests"), any(Object[].class)))
                 .thenReturn(List.of());
         when(jdbcTemplate.queryForMap(contains("INSERT INTO class_requests"), any(Object[].class)))
@@ -155,7 +159,20 @@ class ClassRequestSubmitServiceTest {
 
         service.submit(request);
 
-        verify(jdbcTemplate)
-                .queryForObject(contains("INSERT INTO parents"), eq(Long.class), eq("Nguyễn Lan Anh"), eq(PHONE));
+        verify(jdbcTemplate).queryForMap(contains("INSERT INTO class_requests"), eq(7L), any());
+    }
+
+    @Test
+    void submit_phoneOfAnotherParent_rejectsWithoutCreatingRequest() {
+        request.setTutorId(null);
+        when(phoneRateLimiter.tryAcquire(PHONE)).thenReturn(true);
+        when(parentResolver.resolve("Nguyễn Lan Anh", PHONE))
+                .thenReturn(new ParentResolver.Parent(7L, "Phạm Công Minh"));
+
+        AppException ex = assertThrows(AppException.class, () -> service.submit(request));
+
+        assertEquals(ErrorCode.PARENT_PHONE_NAME_MISMATCH, ex.getErrorCode());
+        assertFalse(ex.getMessage() != null && ex.getMessage().contains("Phạm Công Minh"));
+        verify(jdbcTemplate, never()).queryForMap(anyString(), any(Object[].class));
     }
 }

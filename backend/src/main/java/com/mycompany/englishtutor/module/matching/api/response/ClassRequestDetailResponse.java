@@ -1,6 +1,7 @@
 package com.mycompany.englishtutor.module.matching.api.response;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -25,13 +26,13 @@ public class ClassRequestDetailResponse {
     @Schema(description = "ID lớp cần gia sư")
     Long id;
 
-    @Schema(description = "Mã lớp chuẩn (LOP-ENG-0001)")
+    @Schema(description = "Mã yêu cầu (REQ-yyyyMMdd-id)", example = "REQ-20261106-17")
     String requestCode;
 
-    @Schema(description = "Trạng thái: NEW, OPEN, MATCHED, CANCELLED")
+    @Schema(description = "Trạng thái: NEW, OPEN, TRIAL, MATCHED, REMATCH, CANCELLED")
     String status;
 
-    @Schema(description = "Tab giao diện: new, open, matched, cancelled")
+    @Schema(description = "Tab giao diện: new, open, trial, matched, rematch, cancelled")
     String tab;
 
     @Schema(description = "Họ tên phụ huynh")
@@ -105,4 +106,52 @@ public class ClassRequestDetailResponse {
 
     @Schema(description = "Thời điểm cập nhật gần nhất")
     OffsetDateTime updatedAt;
+
+    @Schema(description = "ID gia sư chỉ định. Null khi lớp đăng tuyển")
+    Long tutorId;
+
+    @Schema(description = "Họ tên gia sư chỉ định")
+    String tutorName;
+
+    @Schema(description = "Ảnh đại diện gia sư chỉ định")
+    String tutorAvatarUrl;
+
+    @Schema(description = "ID gia sư của lớp học gần nhất. Khi đang ghép lại là gia sư đã bị loại")
+    Long lastTutorId;
+
+    @Schema(description = "Tên gia sư của lớp học gần nhất")
+    String lastTutorName;
+
+    @Schema(description = "Ngày lớp chuyển sang ghép thành công")
+    LocalDate activeFrom;
+
+    @Schema(description = "Ngày cuối cùng còn được hủy lớp đã ghép thành công (activeFrom + 7 ngày)")
+    LocalDate cancelDeadline;
+
+    @Schema(description = "Số ngày còn được hủy lớp đã ghép thành công, 0 là ngày cuối, âm là đã hết hạn")
+    Long cancelDaysLeft;
+
+    @Schema(description = "Lớp còn được hủy hay không")
+    Boolean cancellable;
+
+    @Schema(description = "Email gia sư chỉ định")
+    String tutorEmail;
+
+    @Schema(description = "Số điện thoại gia sư chỉ định")
+    String tutorPhone;
+
+    @Schema(description = "Tên đăng nhập học sinh. Null khi chưa vào dạy thử nên chưa có tài khoản")
+    String studentUsername;
+
+    @Schema(description = "Học sinh đã có tài khoản hay chưa")
+    Boolean studentAccountCreated;
+
+    @Schema(description = "Mật khẩu mặc định của học sinh, chỉ có khi học sinh chưa đổi mật khẩu")
+    String initialPassword;
+
+    @Schema(description = "Số buổi mỗi tuần hiện có trên lớp học (nguồn tính phí, V11)")
+    Integer classSessionsPerWeek;
+
+    @Schema(description = "Học phí mỗi buổi trên lớp học (nguồn tính phí, V11)")
+    BigDecimal classPricePerSession;
 }

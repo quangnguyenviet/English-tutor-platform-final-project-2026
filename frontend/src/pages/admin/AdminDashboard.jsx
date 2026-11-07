@@ -425,7 +425,7 @@ export function AdminDashboard() {
                         PH: {r.parentName} &bull; Lịch học: {r.preferredSchedule} &bull; Ngân sách: {fmtVND(r.budgetPerSession)}/b
                       </p>
                     </div>
-                    <Link to="/admin/match-requests">
+                    <Link to="/admin/class-requests?tab=new">
                       <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white shrink-0">
                         <Zap size={14} /> Tạo Match Offer &rarr;
                       </Button>
@@ -489,7 +489,7 @@ export function AdminDashboard() {
         <div className="grid gap-3.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-9">
           {/* Action 1: Yêu cầu Ghép lớp (FR-16) */}
           <Link
-            to="/admin/match-requests"
+            to="/admin/class-requests?tab=new"
             className="group relative flex flex-col justify-between rounded-xl bg-white p-4 border border-slate-200 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-400 hover:shadow-md dark:bg-slate-900 dark:border-slate-800 dark:hover:border-blue-700"
           >
             <div className="flex items-start justify-between">

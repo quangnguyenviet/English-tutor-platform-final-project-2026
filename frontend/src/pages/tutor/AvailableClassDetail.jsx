@@ -17,7 +17,6 @@ import {
   BookOpen,
   Loader2,
   PauseCircle,
-  RefreshCcw,
 } from "lucide-react";
 import PageHeader from "../../components/ui/PageHeader";
 import Card from "../../components/ui/Card";
@@ -478,16 +477,6 @@ export default function AvailableClassDetail() {
               <FileText size={14} /> Xem hồ sơ gia sư
             </Link>
           </div>
-        </div>
-      )}
-
-      {clsData.requestStatus === "REMATCH" && !isBlocked && (
-        <div className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-xs text-violet-900 shadow-xs dark:border-violet-800/40 dark:bg-violet-950/40 dark:text-violet-200">
-          <RefreshCcw size={18} className="mt-0.5 shrink-0" />
-          <p>
-            Lớp đang <strong>tuyển lại</strong>: buổi dạy thử trước chưa thành công và phụ huynh muốn trung tâm
-            tìm gia sư khác.
-          </p>
         </div>
       )}
 

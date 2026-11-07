@@ -2,7 +2,11 @@ package com.mycompany.englishtutor.module.matching.repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -16,6 +20,7 @@ import org.springframework.stereotype.Repository;
 import com.mycompany.englishtutor.module.matching.api.response.ClassApplicationResponse;
 import com.mycompany.englishtutor.module.matching.api.response.ClassRequestDetailResponse;
 import com.mycompany.englishtutor.module.matching.api.response.ClassRequestSummaryResponse;
+import com.mycompany.englishtutor.module.matching.service.MatchingLifecycleSupport;
 import com.mycompany.englishtutor.shared.api.PageResponse;
 import com.mycompany.englishtutor.shared.util.PublicSearchSupport;
 
@@ -24,18 +29,34 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 /**
- * Truy vấn đọc cho luồng Lễ tân/Admin quản lý lớp cần gia sư (API_DESIGN mục 3.4, UC-REC-02/03/04).
+ * Truy vấn đọc cho trang Lớp cần gia sư của Lễ tân/Admin.
  *
- * <p>Chỉ phục vụ các lớp {@code requested_tutor_id IS NULL} (lớp đăng tuyển), tách biệt với
- * "Đơn ghép lớp chỉ định" ở {@link StaffMatchRequestQueryRepository}.
+ * <p>Mỗi bản ghi {@code class_requests} là một dòng. Trạng thái hiển thị suy ra từ
+ * {@code class_requests.status} và lớp học mới nhất: {@code MATCHED} + lớp {@code TRIAL} là Đang dạy thử,
+ * {@code MATCHED} + lớp {@code ACTIVE}/{@code COMPLETED} là Ghép thành công.
  */
 @Repository
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class StaffClassRequestQueryRepository {
 
+    private static final ZoneId VN_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final DateTimeFormatter CODE_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
+
+    /** Một đơn có thể có nhiều lớp sau khi ghép lại, chỉ lấy lớp mới nhất để mỗi đơn là một dòng. */
+    private static final String LATEST_CLASS_JOIN = """
+            LEFT JOIN LATERAL (
+                SELECT lc.id, lc.status, lc.tutor_id, lc.sessions_per_week, lc.price_per_session, lc.active_from
+                FROM classes lc
+                WHERE lc.class_request_id = cr.id
+                ORDER BY lc.id DESC LIMIT 1
+            ) c ON TRUE
+            """;
+
     private static final String SELECT_BASE = """
             SELECT cr.id,
+                   cr.requested_tutor_id,
+                   cr.student_id,
                    cr.class_requirement,
                    cr.teaching_mode,
                    cr.price_per_session,
@@ -43,7 +64,7 @@ public class StaffClassRequestQueryRepository {
                    cr.sessions_per_week,
                    cr.preferred_schedule,
                    cr.tutor_requirement,
-                   cr.status,
+                   cr.status AS request_status,
                    cr.cancel_reason,
                    cr.created_at,
                    cr.updated_at,
@@ -51,27 +72,35 @@ public class StaffClassRequestQueryRepository {
                    p.phone       AS parent_phone,
                    p.email       AS parent_email,
                    p.address     AS parent_address,
-                   su.full_name  AS student_name,
-                   s.grade,
-                   s.school,
-                   s.learning_goal,
+                   COALESCE(su.full_name, cr.student_name) AS student_name,
+                   su.username   AS student_username,
+                   COALESCE(s.grade, cr.student_grade) AS grade,
+                   COALESCE(s.school, cr.student_school) AS school,
+                   COALESCE(s.learning_goal, cr.student_learning_goal) AS learning_goal,
+                   tu.full_name  AS tutor_name,
+                   tu.email      AS tutor_email,
+                   tu.phone      AS tutor_phone,
+                   tu.avatar_url AS tutor_avatar_url,
                    hu.full_name  AS handled_by_name,
                    (SELECT COUNT(*) FROM class_applications ca
                      WHERE ca.class_request_id = cr.id AND ca.status <> 'TERMINATED') AS application_count,
                    (SELECT COUNT(*) FROM class_applications ca
                      WHERE ca.class_request_id = cr.id AND ca.status = 'APPLIED') AS pending_application_count,
-                   cls.id        AS class_id,
-                   cls.status    AS class_status
+                   c.id          AS class_id,
+                   c.status      AS class_status,
+                   c.sessions_per_week AS class_sessions_per_week,
+                   c.price_per_session AS class_price_per_session,
+                   c.active_from AS active_from,
+                   c.tutor_id    AS last_tutor_id,
+                   lu.full_name  AS last_tutor_name
             FROM class_requests cr
             JOIN parents p ON p.id = cr.parent_id
             LEFT JOIN students s ON s.id = cr.student_id
             LEFT JOIN users su ON su.id = s.id
+            LEFT JOIN users tu ON tu.id = cr.requested_tutor_id
             LEFT JOIN users hu ON hu.id = cr.handled_by
-            LEFT JOIN LATERAL (
-                SELECT c.id, c.status FROM classes c
-                WHERE c.class_request_id = cr.id
-                ORDER BY c.id DESC LIMIT 1
-            ) cls ON TRUE
+            """ + LATEST_CLASS_JOIN + """
+            LEFT JOIN users lu ON lu.id = c.tutor_id
             """;
 
     private static final String APPLICATIONS_QUERY = """
@@ -92,22 +121,12 @@ public class StaffClassRequestQueryRepository {
 
     JdbcTemplate jdbcTemplate;
 
-    /**
-     * Phạm vi "Lớp cần gia sư": lớp chưa chỉ định gia sư (đang tuyển/chờ xử lý), HOẶC lớp đã từng
-     * nhận đơn ứng tuyển (tức là lớp đăng tuyển đã được chọn gia sư — vẫn hiển thị ở tab "Đã xử lý").
-     * Nhờ đó khi chọn gia sư (gán {@code requested_tutor_id}), lớp vừa vào trang Đơn ghép lớp vừa
-     * ở lại trang này; còn Đơn ghép lớp chỉ định (không có đơn ứng tuyển) thì bị loại trừ.
-     */
-    private static final String SCOPE =
-            "(cr.requested_tutor_id IS NULL "
-                    + "OR EXISTS (SELECT 1 FROM class_applications cax WHERE cax.class_request_id = cr.id))";
-
     public PageResponse<ClassRequestSummaryResponse> findClassRequests(
             String tab, String keyword, String sort, Integer page, Integer size) {
         int pageIndex = PublicSearchSupport.clampPage(page);
         int pageSize = PublicSearchSupport.clampSize(size);
 
-        StringBuilder where = new StringBuilder(" WHERE " + SCOPE + " ");
+        StringBuilder where = new StringBuilder(" WHERE TRUE ");
         List<Object> params = new ArrayList<>();
         applyTabFilter(where, tab);
         applyKeywordFilter(where, keyword, params);
@@ -116,6 +135,8 @@ public class StaffClassRequestQueryRepository {
                 + " JOIN parents p ON p.id = cr.parent_id "
                 + " LEFT JOIN students s ON s.id = cr.student_id "
                 + " LEFT JOIN users su ON su.id = s.id "
+                + " LEFT JOIN users tu ON tu.id = cr.requested_tutor_id "
+                + LATEST_CLASS_JOIN
                 + where;
         Long total = jdbcTemplate.queryForObject(countSql, Long.class, params.toArray());
         long totalItems = total == null ? 0 : total;
@@ -132,8 +153,8 @@ public class StaffClassRequestQueryRepository {
     }
 
     public Optional<ClassRequestDetailResponse> findDetailById(Long id) {
-        String sql = SELECT_BASE + " WHERE " + SCOPE + " AND cr.id = ?";
-        List<ClassRequestDetailResponse> list = jdbcTemplate.query(sql, new DetailRowMapper(), id);
+        List<ClassRequestDetailResponse> list =
+                jdbcTemplate.query(SELECT_BASE + " WHERE cr.id = ?", new DetailRowMapper(), id);
         if (list.isEmpty()) {
             return Optional.empty();
         }
@@ -147,13 +168,13 @@ public class StaffClassRequestQueryRepository {
     }
 
     public Map<String, Long> getTabCounts() {
+        String base = "SELECT COUNT(*) FROM class_requests cr " + LATEST_CLASS_JOIN + " WHERE TRUE ";
         Map<String, Long> counts = new HashMap<>();
-        String base = "SELECT COUNT(*) FROM class_requests cr WHERE " + SCOPE;
-        counts.put("new", count(base + " AND cr.status = 'NEW'"));
-        counts.put("open", count(base + " AND cr.status = 'OPEN'"));
-        counts.put("matched", count(base + " AND cr.status = 'MATCHED'"));
-        counts.put("rematch", count(base + " AND cr.status = 'REMATCH'"));
-        counts.put("cancelled", count(base + " AND cr.status = 'CANCELLED'"));
+        for (String tab : List.of("new", "open", "trial", "matched", "rematch", "cancelled")) {
+            StringBuilder where = new StringBuilder();
+            applyTabFilter(where, tab);
+            counts.put(tab, count(base + where));
+        }
         counts.put("total", count(base));
         return counts;
     }
@@ -170,9 +191,11 @@ public class StaffClassRequestQueryRepository {
         switch (tab.toLowerCase()) {
             case "new" -> where.append(" AND cr.status = 'NEW' ");
             case "open" -> where.append(" AND cr.status = 'OPEN' ");
-            case "matched" -> where.append(" AND cr.status = 'MATCHED' ");
+            case "trial" -> where.append(" AND cr.status = 'MATCHED' AND c.status = 'TRIAL' ");
+            case "matched" -> where.append(" AND cr.status = 'MATCHED' AND c.status IN ('ACTIVE', 'COMPLETED') ");
             case "rematch" -> where.append(" AND cr.status = 'REMATCH' ");
-            case "cancelled" -> where.append(" AND cr.status = 'CANCELLED' ");
+            case "cancelled" -> where.append(
+                    " AND (cr.status = 'CANCELLED' OR (cr.status = 'MATCHED' AND c.status = 'CANCELLED')) ");
             default -> { /* không lọc với tab lạ */ }
         }
     }
@@ -185,11 +208,13 @@ public class StaffClassRequestQueryRepository {
         where.append("""
                  AND (LOWER(p.full_name) LIKE ?
                       OR p.phone LIKE ?
-                      OR LOWER(COALESCE(su.full_name, '')) LIKE ?
+                      OR LOWER(COALESCE(su.full_name, cr.student_name, '')) LIKE ?
+                      OR LOWER(COALESCE(tu.full_name, '')) LIKE ?
                       OR LOWER(COALESCE(cr.class_requirement, '')) LIKE ?
-                      OR LOWER('LOP-ENG-' || LPAD(cr.id::text, 4, '0')) LIKE ?)
+                      OR LOWER('LOP-ENG-' || LPAD(cr.id::text, 4, '0')) LIKE ?
+                      OR LOWER('REQ-' || TO_CHAR(cr.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYYMMDD') || '-' || cr.id) LIKE ?)
                 """);
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 7; i++) {
             params.add(pattern);
         }
     }
@@ -204,12 +229,27 @@ public class StaffClassRequestQueryRepository {
         return " ORDER BY cr.created_at DESC, cr.id DESC ";
     }
 
-    private static String requestCode(long id) {
-        return "LOP-ENG-" + String.format("%04d", id);
+    /** Trạng thái hiển thị của lớp cần gia sư. */
+    private static String resolveStatus(String requestStatus, String classStatus) {
+        if (!"MATCHED".equalsIgnoreCase(requestStatus)) {
+            return requestStatus;
+        }
+        if ("CANCELLED".equalsIgnoreCase(classStatus)) {
+            return "CANCELLED";
+        }
+        return "TRIAL".equalsIgnoreCase(classStatus) ? "TRIAL" : "MATCHED";
     }
 
-    private static String resolveTab(String status) {
-        return status == null ? "new" : status.toLowerCase();
+    private static boolean isCancellable(String status, LocalDate deadline, LocalDate today) {
+        if ("CANCELLED".equals(status)) {
+            return false;
+        }
+        return !"MATCHED".equals(status) || deadline == null || !today.isAfter(deadline);
+    }
+
+    private static String requestCode(long id, OffsetDateTime createdAt) {
+        OffsetDateTime time = createdAt == null ? OffsetDateTime.now(VN_ZONE) : createdAt;
+        return "REQ-" + time.atZoneSameInstant(VN_ZONE).format(CODE_DATE) + "-" + id;
     }
 
     private static Long nullableLong(ResultSet rs, String column) throws SQLException {
@@ -217,20 +257,33 @@ public class StaffClassRequestQueryRepository {
         return value == null ? null : ((Number) value).longValue();
     }
 
+    private static Integer nullableInt(ResultSet rs, String column) throws SQLException {
+        Object value = rs.getObject(column);
+        return value == null ? null : ((Number) value).intValue();
+    }
+
     private static class SummaryRowMapper implements RowMapper<ClassRequestSummaryResponse> {
         @Override
         public ClassRequestSummaryResponse mapRow(ResultSet rs, int rowNum) throws SQLException {
             long id = rs.getLong("id");
-            String status = rs.getString("status");
+            OffsetDateTime createdAt = rs.getObject("created_at", OffsetDateTime.class);
+            String classStatus = rs.getString("class_status");
+            String status = resolveStatus(rs.getString("request_status"), classStatus);
+            LocalDate activeFrom = rs.getObject("active_from", LocalDate.class);
+            LocalDate deadline = "MATCHED".equals(status) ? MatchingLifecycleSupport.cancelDeadline(activeFrom) : null;
+            LocalDate today = MatchingLifecycleSupport.today();
             return ClassRequestSummaryResponse.builder()
                     .id(id)
-                    .requestCode(requestCode(id))
+                    .requestCode(requestCode(id, createdAt))
                     .status(status)
-                    .tab(resolveTab(status))
+                    .tab(status.toLowerCase())
                     .parentName(rs.getString("parent_name"))
                     .parentPhone(rs.getString("parent_phone"))
                     .studentName(rs.getString("student_name"))
                     .grade(rs.getString("grade"))
+                    .tutorId(nullableLong(rs, "requested_tutor_id"))
+                    .tutorName(rs.getString("tutor_name"))
+                    .tutorAvatarUrl(rs.getString("tutor_avatar_url"))
                     .classRequirement(rs.getString("class_requirement"))
                     .teachingMode(rs.getString("teaching_mode"))
                     .pricePerSession(rs.getBigDecimal("price_per_session"))
@@ -239,8 +292,14 @@ public class StaffClassRequestQueryRepository {
                     .pendingApplicationCount(nullableLong(rs, "pending_application_count"))
                     .cancelReason(rs.getString("cancel_reason"))
                     .classId(nullableLong(rs, "class_id"))
-                    .classStatus(rs.getString("class_status"))
-                    .createdAt(rs.getObject("created_at", OffsetDateTime.class))
+                    .classStatus(classStatus)
+                    .lastTutorId(nullableLong(rs, "last_tutor_id"))
+                    .lastTutorName(rs.getString("last_tutor_name"))
+                    .activeFrom(activeFrom)
+                    .cancelDeadline(deadline)
+                    .cancelDaysLeft(deadline == null ? null : ChronoUnit.DAYS.between(today, deadline))
+                    .cancellable(isCancellable(status, deadline, today))
+                    .createdAt(createdAt)
                     .updatedAt(rs.getObject("updated_at", OffsetDateTime.class))
                     .build();
         }
@@ -250,12 +309,17 @@ public class StaffClassRequestQueryRepository {
         @Override
         public ClassRequestDetailResponse mapRow(ResultSet rs, int rowNum) throws SQLException {
             long id = rs.getLong("id");
-            String status = rs.getString("status");
+            OffsetDateTime createdAt = rs.getObject("created_at", OffsetDateTime.class);
+            String classStatus = rs.getString("class_status");
+            String status = resolveStatus(rs.getString("request_status"), classStatus);
+            LocalDate activeFrom = rs.getObject("active_from", LocalDate.class);
+            LocalDate deadline = "MATCHED".equals(status) ? MatchingLifecycleSupport.cancelDeadline(activeFrom) : null;
+            LocalDate today = MatchingLifecycleSupport.today();
             return ClassRequestDetailResponse.builder()
                     .id(id)
-                    .requestCode(requestCode(id))
+                    .requestCode(requestCode(id, createdAt))
                     .status(status)
-                    .tab(resolveTab(status))
+                    .tab(status.toLowerCase())
                     .parentName(rs.getString("parent_name"))
                     .parentPhone(rs.getString("parent_phone"))
                     .parentEmail(rs.getString("parent_email"))
@@ -264,13 +328,20 @@ public class StaffClassRequestQueryRepository {
                     .grade(rs.getString("grade"))
                     .school(rs.getString("school"))
                     .learningGoal(rs.getString("learning_goal"))
+                    .studentUsername(rs.getString("student_username"))
+                    .studentAccountCreated(rs.getObject("student_id") != null)
+                    .tutorId(nullableLong(rs, "requested_tutor_id"))
+                    .tutorName(rs.getString("tutor_name"))
+                    .tutorEmail(rs.getString("tutor_email"))
+                    .tutorPhone(rs.getString("tutor_phone"))
+                    .tutorAvatarUrl(rs.getString("tutor_avatar_url"))
                     .classRequirement(rs.getString("class_requirement"))
                     .teachingMode(rs.getString("teaching_mode"))
                     .pricePerSession(rs.getBigDecimal("price_per_session"))
                     .feePercentage(rs.getBigDecimal("fee_percentage"))
-                    .sessionsPerWeek(rs.getObject("sessions_per_week") != null
-                            ? ((Number) rs.getObject("sessions_per_week")).intValue()
-                            : null)
+                    .sessionsPerWeek(nullableInt(rs, "sessions_per_week"))
+                    .classSessionsPerWeek(nullableInt(rs, "class_sessions_per_week"))
+                    .classPricePerSession(rs.getBigDecimal("class_price_per_session"))
                     .preferredSchedule(rs.getString("preferred_schedule"))
                     .tutorRequirement(rs.getString("tutor_requirement"))
                     .cancelReason(rs.getString("cancel_reason"))
@@ -278,8 +349,14 @@ public class StaffClassRequestQueryRepository {
                     .applicationCount(nullableLong(rs, "application_count"))
                     .pendingApplicationCount(nullableLong(rs, "pending_application_count"))
                     .classId(nullableLong(rs, "class_id"))
-                    .classStatus(rs.getString("class_status"))
-                    .createdAt(rs.getObject("created_at", OffsetDateTime.class))
+                    .classStatus(classStatus)
+                    .lastTutorId(nullableLong(rs, "last_tutor_id"))
+                    .lastTutorName(rs.getString("last_tutor_name"))
+                    .activeFrom(activeFrom)
+                    .cancelDeadline(deadline)
+                    .cancelDaysLeft(deadline == null ? null : ChronoUnit.DAYS.between(today, deadline))
+                    .cancellable(isCancellable(status, deadline, today))
+                    .createdAt(createdAt)
                     .updatedAt(rs.getObject("updated_at", OffsetDateTime.class))
                     .build();
         }

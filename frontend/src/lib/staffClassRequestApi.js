@@ -64,6 +64,15 @@ export async function apiGetClassApplications(id, token) {
   return request(`/api/v1/class-requests/${id}/applications`, { token }, "Không thể tải danh sách gia sư ứng tuyển");
 }
 
+/** Kiểm tra SĐT phụ huynh — POST /api/v1/class-requests/parent-check */
+export async function apiCheckParent(phone, parentName, token) {
+  return request(
+    `/api/v1/class-requests/parent-check`,
+    { method: "POST", body: { phone, parentName }, token },
+    "Không thể kiểm tra số điện thoại"
+  );
+}
+
 /** Tạo mới lớp cần gia sư — POST /api/v1/class-requests */
 export async function apiCreateClassRequest(payload, token) {
   return request(`/api/v1/class-requests`, { method: "POST", body: payload, token }, "Không thể tạo lớp cần gia sư");
@@ -74,9 +83,41 @@ export async function apiUpdateClassRequest(id, payload, token) {
   return request(`/api/v1/class-requests/${id}`, { method: "PUT", body: payload, token }, "Không thể cập nhật lớp cần gia sư");
 }
 
-/** Đăng tuyển lớp (NEW → OPEN) — POST /api/v1/class-requests/{id}/publish */
+/** Đăng lớp (NEW → OPEN) — POST /api/v1/class-requests/{id}/publish */
 export async function apiPublishClassRequest(id, token) {
   return request(`/api/v1/class-requests/${id}/publish`, { method: "POST", token }, "Không thể đăng tuyển lớp");
+}
+
+/** Đổi gia sư chỉ định, tutorId null là không chỉ định — PATCH /api/v1/class-requests/{id}/designated-tutor */
+export async function apiChangeDesignatedTutor(id, tutorId, token) {
+  return request(
+    `/api/v1/class-requests/${id}/designated-tutor`,
+    { method: "PATCH", body: { tutorId }, token },
+    "Không thể đổi gia sư chỉ định"
+  );
+}
+
+/** Xác nhận lớp có gia sư chỉ định, chuyển dạy thử — POST /api/v1/class-requests/{id}/confirm */
+export async function apiConfirmClassRequest(id, token) {
+  return request(`/api/v1/class-requests/${id}/confirm`, { method: "POST", token }, "Không thể xác nhận lớp");
+}
+
+/** Xác nhận ghép thành công — POST /api/v1/class-requests/{id}/complete-match */
+export async function apiCompleteClassRequest(id, token, body) {
+  return request(
+    `/api/v1/class-requests/${id}/complete-match`,
+    { method: "POST", body, token },
+    "Không thể xác nhận ghép thành công"
+  );
+}
+
+/** Ghép lại khi dạy thử không thành công — POST /api/v1/class-requests/{id}/rematch */
+export async function apiRematchClassRequest(id, reason, token) {
+  return request(
+    `/api/v1/class-requests/${id}/rematch`,
+    { method: "POST", body: { reason }, token },
+    "Không thể ghép lại"
+  );
 }
 
 /** Chọn gia sư — POST /api/v1/class-requests/{id}/select-tutor */
