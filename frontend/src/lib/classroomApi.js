@@ -324,6 +324,22 @@ export function dayOfWeekLabel(dayOfWeek) {
   return DAY_OF_WEEK_LABELS[dayOfWeek] || `Thứ ${dayOfWeek}`;
 }
 
+/** Thứ 2 làm mốc đầu tuần (ISO dayOfWeek 1). */
+export function startOfWeek(dateISO) {
+  const [year, month, day] = dateISO.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  const isoDay = date.getDay() || 7; // 0 (Chủ nhật) → 7
+  date.setDate(date.getDate() - isoDay + 1);
+  return date;
+}
+
+/** Date → "YYYY-MM-DD" (theo múi giờ máy client). */
+export function toISO(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
+}
+
 /** Ngày hiện tại dạng "YYYY-MM-DD" (theo máy client, không qua Date.now ISO để tránh lệch múi giờ). */
 export function todayISO() {
   const now = new Date();

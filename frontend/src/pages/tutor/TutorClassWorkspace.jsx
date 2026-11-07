@@ -38,7 +38,7 @@ export default function TutorClassWorkspace() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
-  // Lịch dạy cố định (UC-T09): modal form chốt/sửa ca cố định.
+  // Lịch dạy (UC-T09): modal form chốt/sửa ca dạy.
   const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [scheduleInitial, setScheduleInitial] = useState([]);
   const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
@@ -132,15 +132,15 @@ export default function TutorClassWorkspace() {
     try {
       if (detail.hasSchedules) {
         await apiUpdateClassSchedules(token, classId, payload);
-        setToast({ type: "success", message: "Đã cập nhật lịch dạy cố định." });
+        setToast({ type: "success", message: "Đã cập nhật lịch dạy." });
       } else {
         await apiFinalizeSchedule(token, classId, payload);
-        setToast({ type: "success", message: "Đã chốt lịch dạy cố định." });
+        setToast({ type: "success", message: "Đã chốt lịch dạy." });
       }
       closeScheduleForm();
       loadDetail();
     } catch (err) {
-      setScheduleError(err.message || "Không thể lưu lịch dạy cố định.");
+      setScheduleError(err.message || "Không thể lưu lịch dạy.");
     } finally {
       setScheduleSubmitting(false);
     }
@@ -190,7 +190,7 @@ export default function TutorClassWorkspace() {
   }
 
   const needsTrialSetup = detail.status === "TRIAL" && !detail.trialSession;
-  // Banner "Thiết lập lịch dạy cố định": lớp ACTIVE chưa có class_schedules (kế hoạch Phase 3).
+  // Banner "Thiết lập lịch dạy": lớp ACTIVE chưa có class_schedules (kế hoạch Phase 3).
   const needsScheduleSetup = detail.status === "ACTIVE" && !detail.hasSchedules;
   const basePath = `/tutor/classes/${classId}`;
 
@@ -275,7 +275,7 @@ export default function TutorClassWorkspace() {
         </div>
       )}
 
-      {/* Banner nhắc thiết lập lịch dạy cố định (lớp ACTIVE chưa có ca) */}
+      {/* Banner nhắc thiết lập lịch dạy (lớp ACTIVE chưa có ca) */}
       {needsScheduleSetup && (
         <div className="flex flex-col gap-3 rounded-xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-900/60 dark:bg-blue-950/30 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
@@ -284,7 +284,7 @@ export default function TutorClassWorkspace() {
             </span>
             <div>
               <p className="text-xs font-bold text-blue-900 dark:text-blue-200">
-                Thiết lập lịch dạy cố định
+                Thiết lập lịch dạy
               </p>
               <p className="mt-0.5 text-xs text-blue-700 dark:text-blue-300">
                 Lớp đã được kích hoạt. Chọn các ca dạy trong tuần và khoảng hiệu lực của từng ca.
@@ -297,12 +297,12 @@ export default function TutorClassWorkspace() {
             onClick={() => openScheduleForm(null)}
             className="shrink-0 cursor-pointer bg-blue-600 px-4 text-xs font-bold text-white hover:bg-blue-700"
           >
-            <CalendarPlus size={14} /> Thiết lập lịch dạy cố định
+            <CalendarPlus size={14} /> Thiết lập lịch dạy
           </Button>
         </div>
       )}
 
-      {/* Modal form lịch dạy cố định (chốt lần đầu hoặc sửa) */}
+      {/* Modal form lịch dạy (chốt lần đầu hoặc sửa) */}
       {showScheduleForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
           <div className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
@@ -313,7 +313,7 @@ export default function TutorClassWorkspace() {
                 </span>
                 <div>
                   <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                    {detail.hasSchedules ? "Cập nhật lịch dạy cố định" : "Thiết lập lịch dạy cố định"}
+                    {detail.hasSchedules ? "Cập nhật lịch dạy" : "Thiết lập lịch dạy"}
                   </h4>
                   <p className="text-[11px] text-slate-400">{detail.className}</p>
                 </div>

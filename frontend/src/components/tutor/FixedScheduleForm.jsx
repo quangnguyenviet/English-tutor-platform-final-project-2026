@@ -25,7 +25,7 @@ function validityLabel(slot) {
 }
 
 /**
- * Biểu mẫu chốt / cập nhật lịch dạy cố định (UC-T09).
+ * Biểu mẫu chốt / cập nhật lịch dạy (UC-T09).
  * Mỗi ca gồm: thứ trong tuần, giờ bắt đầu/kết thúc, ngày hiệu lực bắt đầu (bắt buộc)
  * và ngày kết thúc (tùy chọn, trống = không giới hạn). Validate phía client theo kế hoạch
  * mục Phase 3; lỗi nghiệp vụ (trùng ca với lớp khác, ...) do backend trả về qua serverError.
@@ -117,7 +117,7 @@ export default function FixedScheduleForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <p className="text-xs text-slate-500 dark:text-slate-400">
-        Chọn các ca dạy cố định trong tuần. Mỗi ca có khoảng hiệu lực riêng — hệ thống tự động
+        Chọn các ca dạy trong tuần. Mỗi ca có khoảng hiệu lực riêng — hệ thống tự động
         kiểm tra trùng ca với các lớp khác của bạn.
       </p>
 
@@ -260,7 +260,7 @@ export default function FixedScheduleForm({
           className="cursor-pointer bg-blue-600 px-5 text-xs font-bold text-white hover:bg-blue-700"
         >
           {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
-          {submitting ? "Đang lưu..." : isUpdate ? "Lưu lịch mới" : "Chốt lịch dạy cố định"}
+          {submitting ? "Đang lưu..." : isUpdate ? "Lưu lịch mới" : "Chốt lịch dạy"}
         </Button>
       </div>
     </form>

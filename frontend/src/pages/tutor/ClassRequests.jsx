@@ -513,7 +513,7 @@ export default function ClassRequests() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
-                        Lịch học cố định hàng tuần
+                        Lịch học hàng tuần
                       </label>
                       <input
                         type="text"

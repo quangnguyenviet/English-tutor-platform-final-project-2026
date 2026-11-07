@@ -1,4 +1,4 @@
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, Link } from "react-router-dom";
 import {
   CalendarDays,
   CalendarPlus,
@@ -14,7 +14,6 @@ import {
 import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
-import FixedScheduleGrid from "../../components/tutor/FixedScheduleGrid";
 import {
   dayOfWeekLabel,
   formatSessionDate,
@@ -25,7 +24,7 @@ function formatFee(value) {
   return value ? `${Number(value).toLocaleString("vi-VN")} ₫/buổi` : "Thỏa thuận";
 }
 
-/** Nhãn khoảng hiệu lực của một ca dạy cố định (hiển thị chế độ xem read-only). */
+/** Nhãn khoảng hiệu lực của một ca dạy (hiển thị chế độ xem read-only). */
 function scheduleValidityLabel(slot) {
   if (!slot.validFrom) return "";
   const text = `từ ${formatSessionDate(slot.validFrom)}`;
@@ -229,7 +228,7 @@ export default function ClassOverview() {
       </Card>
       )}
 
-      {/* Lịch dạy cố định (UC-T09) — chỉ lớp ACTIVE */}
+      {/* Lịch dạy (UC-T09) — chỉ lớp ACTIVE */}
       {showFixedSchedule && !detail.hasSchedules && (
         <Card className="border-slate-200/80 dark:border-slate-800">
           <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 py-10 text-center dark:border-slate-700 dark:bg-slate-900/40">
@@ -238,7 +237,7 @@ export default function ClassOverview() {
             </span>
             <div className="space-y-1">
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                Lớp học đã được kích hoạt nhưng chưa có lịch dạy cố định
+                Lớp học đã được kích hoạt nhưng chưa có lịch dạy
               </p>
               <p className="max-w-md text-xs text-slate-500 dark:text-slate-400">
                 Chọn các ca dạy trong tuần và khoảng hiệu lực của từng ca. Sau đó bạn có thể tạo
@@ -251,22 +250,28 @@ export default function ClassOverview() {
               onClick={() => openScheduleForm(null)}
               className="cursor-pointer bg-blue-600 px-5 text-xs font-bold text-white hover:bg-blue-700"
             >
-              <CalendarPlus size={14} /> Thiết lập lịch dạy cố định
+              <CalendarPlus size={14} /> Thiết lập lịch dạy
             </Button>
           </div>
         </Card>
       )}
 
       {showFixedSchedule && detail.hasSchedules && (
-        <>
-          <Card className="border-slate-200/80 dark:border-slate-800">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <CalendarDays size={16} className="text-blue-600 dark:text-blue-400" />
-                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                  Lịch dạy cố định
-                </h2>
-              </div>
+        <Card className="border-slate-200/80 dark:border-slate-800">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <CalendarDays size={16} className="text-blue-600 dark:text-blue-400" />
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                Các ca dạy trong tuần
+              </h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link
+                to={`/tutor/classes/${classId}/schedule`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 active:scale-[0.98] dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                <ExternalLink size={13} /> Xem lịch đầy đủ
+              </Link>
               <Button
                 variant="outline"
                 size="sm"
@@ -276,34 +281,26 @@ export default function ClassOverview() {
                 <Pencil size={13} /> Chỉnh sửa lịch
               </Button>
             </div>
-            <div className="grid gap-2.5 sm:grid-cols-2">
-              {detail.schedules.map((slot, index) => (
-                <div
-                  key={`${slot.dayOfWeek}-${slot.startTime}-${index}`}
-                  className="rounded-xl border border-blue-200 bg-blue-50/70 p-3.5 dark:border-blue-900/60 dark:bg-blue-950/30"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-bold text-blue-800 dark:text-blue-300">
-                      {dayOfWeekLabel(slot.dayOfWeek)}
-                    </p>
-                    <Badge tone="blue">{slot.startTime} - {slot.endTime}</Badge>
-                  </div>
-                  <p className="mt-1 text-[11px] text-blue-600/80 dark:text-blue-400/80">
-                    {scheduleValidityLabel(slot) || "Không có khoảng hiệu lực"}
+          </div>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {detail.schedules.map((slot, index) => (
+              <div
+                key={`${slot.dayOfWeek}-${slot.startTime}-${index}`}
+                className="rounded-xl border border-blue-200 bg-blue-50/70 p-3.5 dark:border-blue-900/60 dark:bg-blue-950/30"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-blue-800 dark:text-blue-300">
+                    {dayOfWeekLabel(slot.dayOfWeek)}
                   </p>
+                  <Badge tone="blue">{slot.startTime} - {slot.endTime}</Badge>
                 </div>
-              ))}
-            </div>
-          </Card>
-
-          <FixedScheduleGrid
-            classId={classId}
-            schedules={detail.schedules}
-            sessionDates={detail.sessionDates}
-            todaySlots={detail.todaySlots}
-            onEditSchedules={() => openScheduleForm(detail.schedules)}
-          />
-        </>
+                <p className="mt-1 text-[11px] text-blue-600/80 dark:text-blue-400/80">
+                  {scheduleValidityLabel(slot) || "Không có khoảng hiệu lực"}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
     </div>
   );

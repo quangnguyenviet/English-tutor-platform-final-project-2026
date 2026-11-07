@@ -75,7 +75,7 @@ export default function ExceptionForm({
           {slot?.dateLabel} — ca {slot?.timeLabel}
         </p>
         <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-          Điều chỉnh áp dụng cho lần diễn này, không thay đổi ca cố định chung.
+          Điều chỉnh áp dụng cho lần diễn này, không thay đổi ca dạy chung.
         </p>
       </div>
 

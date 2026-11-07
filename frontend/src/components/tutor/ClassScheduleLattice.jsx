@@ -31,9 +31,10 @@ import {
   dayOfWeekLabel,
   formatSessionDate,
   formatSessionTime,
+  startOfWeek,
+  toISO,
   todayISO,
 } from "../../lib/classroomApi";
-import { startOfWeek, toISO } from "./FixedScheduleGrid";
 
 const MODAL_TITLES = {
   CANCELLED: "Hủy buổi học này",
@@ -361,7 +362,7 @@ export default function ClassScheduleLattice({
       if (exc.type === "RESCHEDULED") return "amber";
       return "slate";
     }
-    // OCCURRENCE — ca cố định; chấm xanh lục nếu đã có nhật ký.
+    // OCCURRENCE — ca dạy; chấm xanh lục nếu đã có nhật ký.
     return occ.log ? "emerald" : "slate";
   };
 
@@ -412,9 +413,9 @@ export default function ClassScheduleLattice({
     if (occ.source === "TRIAL") return "Ca dạy thử";
     if (occ.source === "EXCEPTION") {
       const meta = EXCEPTION_TYPE_META[occ.exception?.type] || {};
-      return meta.label || "Ca cố định";
+      return meta.label || "Ca dạy";
     }
-    return "Ca cố định";
+    return "Ca dạy";
   };
 
   const hasLogContent = Boolean(logForm.knowledge.trim() || logForm.homework.trim());
@@ -724,7 +725,7 @@ export default function ClassScheduleLattice({
               <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-300">
                 {detail.trial
                   ? "Ca dạy thử của lớp. Sau khi kết thúc, ghi nhật ký dạy học để học sinh và phụ huynh xem được."
-                  : "Ca dạy cố định. Sau buổi học, ghi nhật ký (kiến thức + dặn dò) để học sinh và phụ huynh xem được."}
+                  : "Ca dạy. Sau buổi học, ghi nhật ký (kiến thức + dặn dò) để học sinh và phụ huynh xem được."}
               </div>
             )}
 
@@ -916,15 +917,15 @@ export default function ClassScheduleLattice({
         </div>
       )}
 
-      {/* Xác nhận đặt lại ca về lịch cố định */}
+      {/* Xác nhận đặt lại ca về lịch dạy */}
       <ConfirmModal
         open={Boolean(deleteTarget)}
-        title="Đặt lại ca về lịch cố định?"
+        title="Đặt lại ca về lịch dạy?"
         message={
           deleteTarget
             ? `Ca ${formatSessionTime(deleteTarget.startTime)} - ${formatSessionTime(
                 deleteTarget.endTime,
-              )} ngày ${formatSessionDate(deleteTarget.date)} sẽ quay về lịch cố định như ban đầu. Bạn có chắc không?`
+              )} ngày ${formatSessionDate(deleteTarget.date)} sẽ quay về lịch dạy như ban đầu. Bạn có chắc không?`
             : ""
         }
         confirmLabel="Đặt lại ca"
