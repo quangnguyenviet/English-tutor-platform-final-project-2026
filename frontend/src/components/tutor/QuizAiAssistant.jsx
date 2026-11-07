@@ -295,9 +295,6 @@ export default function QuizAiAssistant({
             <Send size={14} /> Gửi
           </Button>
         </div>
-        <p className="text-[10px] text-slate-400 dark:text-slate-500">
-          Enter để gửi · Shift + Enter để xuống dòng
-        </p>
       </div>
     </div>
   );
