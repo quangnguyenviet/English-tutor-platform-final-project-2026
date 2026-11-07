@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   AlertCircle,
@@ -89,6 +90,15 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
   const [deadline, setDeadline] = useState(formatDeadlineInput(new Date(Date.now() + 7 * 86400000)));
   const [assigning, setAssigning] = useState(false);
   const deadlineInputRef = useRef(null);
+  // Nút "Nhảy tới câu": popover danh sách chip — đặt ở footer cột phải
+  // (desktop) và trong thanh hành động dưới (mobile) → luôn thấy khi cuộn.
+  const [navOpen, setNavOpen] = useState(false);
+  const [navPos, setNavPos] = useState(null);
+  const navFabRef = useRef(null);
+  const navBarRef = useRef(null);
+  const navPopRef = useRef(null);
+  const navFabBtnRef = useRef(null);
+  const navBarBtnRef = useRef(null);
 
   // Trợ lý AI: hồ sơ kỹ năng (SKP). Câu hỏi AI trả về được GỘP THẲNG vào
   // form (không còn bước xem trước) — xem handleAiDrafts.
@@ -426,7 +436,172 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
 
   const backTo = `${basePath}/lessons`;
 
-  /** Nút hành động chính — footer khung tab (desktop) và thanh sticky đáy (mobile). */
+  // Popover "Nhảy tới câu": đo vị trí nút để đặt popover ngay phía trên,
+  // luôn nằm trong khung nhìn (đẩy sát mép khi sát cạnh).
+  useLayoutEffect(() => {
+    if (!navOpen) {
+      setNavPos(null);
+      return;
+    }
+    const place = () => {
+      // Cả hai bản nút (desktop footer cột phải / mobile thanh đáy) đều
+      // được mount, nhưng một bản bị ẩn theo breakpoint → chọn bản đang
+      // hiện (rect có kích thước khác 0).
+      const candidates = [navFabBtnRef.current, navBarBtnRef.current].filter(Boolean);
+      const btn = candidates.find((el) => el.getBoundingClientRect().width > 0);
+      if (!btn) return;
+      const r = btn.getBoundingClientRect();
+      const width = 256; // w-64 của popover
+      const margin = 8;
+      let left = r.left;
+      if (left + width > window.innerWidth - margin) {
+        left = window.innerWidth - width - margin;
+      }
+      if (left < margin) left = margin;
+      setNavPos({
+        left: `${Math.round(left)}px`,
+        bottom: `${Math.round(window.innerHeight - r.top + margin)}px`,
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [navOpen]);
+
+  // Popover "Nhảy tới câu": đóng bằng Esc + click ra ngoài (đúng pattern
+  // modal giao bài ở trên).
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setNavOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navOpen]);
+
+  useEffect(() => {
+    if (!navOpen) return;
+    const onDown = (e) => {
+      if (navPopRef.current?.contains(e.target)) return;
+      if (navFabRef.current?.contains(e.target)) return;
+      if (navBarRef.current?.contains(e.target)) return;
+      setNavOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [navOpen]);
+
+  // Nhiều hơn 1 câu mới có ý nghĩa điều hướng → tự đóng khi về ≤ 1.
+  useEffect(() => {
+    if (questions.length <= 1) setNavOpen(false);
+  }, [questions.length]);
+
+  /** Nút "Nhảy tới câu" — mở popover lưới chip.
+      - Desktop: đặt ở footer cột phải (cột đứng yên → nút luôn trong khung nhìn).
+      - Mobile: đặt trong thanh hành động dính đáy → cũng luôn thấy khi cuộn.
+      Hai bản dùng chung state `navOpen`; popover render 1 lần ở cấp trang
+      (renderNavPopover) qua portal vì khung tab phải có overflow-hidden. */
+  function renderNavWidget(innerRef, btnRef) {
+    const count = questions.length;
+    if (count <= 1) return null;
+    const errCount = Object.keys(questionErrors).length;
+    return (
+      <div ref={innerRef} className="relative">
+        <button
+          ref={btnRef}
+          type="button"
+          onClick={() => setNavOpen((v) => !v)}
+          aria-expanded={navOpen}
+          aria-haspopup="true"
+          title="Nhảy tới câu hỏi"
+          aria-label={`Nhảy tới câu hỏi (${count} câu${errCount ? `, ${errCount} câu lỗi` : ""})`}
+          className={clsx(
+            "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium shadow-sm transition active:scale-[0.98]",
+            navOpen
+              ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300"
+              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+          )}
+        >
+          <ListChecks size={14} />
+          Nhảy tới câu
+          {errCount > 0 && (
+            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+              {errCount}
+            </span>
+          )}
+        </button>
+      </div>
+    );
+  }
+
+  /** Popover lưới chip số câu (render 1 lần ở cấp trang, qua portal). */
+  function renderNavPopover() {
+    const count = questions.length;
+    if (!navOpen || !navPos || count <= 1) return null;
+    const errCount = Object.keys(questionErrors).length;
+    return createPortal(
+      <div
+        ref={navPopRef}
+        role="dialog"
+        aria-label="Đi tới câu hỏi"
+        style={{ bottom: navPos.bottom, left: navPos.left }}
+        className="fixed z-[60] w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-800 dark:bg-slate-900"
+      >
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+            Câu hỏi ({count})
+          </p>
+          <button
+            type="button"
+            onClick={() => setNavOpen(false)}
+            aria-label="Đóng (Esc)"
+            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          >
+            <X size={12} />
+          </button>
+        </div>
+        <div className="grid max-h-56 grid-cols-6 gap-1.5 overflow-y-auto">
+          {questions.map((q, i) => {
+            const hasErr = Boolean(questionErrors[i]);
+            const complete = isQuestionComplete(q);
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => {
+                  scrollToQuestion(i);
+                  setNavOpen(false);
+                }}
+                title={`Câu ${i + 1}`}
+                aria-label={`Câu ${i + 1}${hasErr ? " (chưa đủ)" : complete ? " (đã đủ)" : ""}`}
+                className={clsx(
+                  "flex h-7 items-center justify-center gap-1 rounded-full text-xs font-semibold transition active:scale-[0.96]",
+                  hasErr
+                    ? "bg-rose-100 text-rose-700 ring-1 ring-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:ring-rose-800"
+                    : complete
+                      ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-950/70"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                )}
+              >
+                {hasErr ? <AlertCircle size={12} /> : complete ? <Check size={12} /> : i + 1}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
+          {errCount > 0
+            ? "Xanh lá = đã đủ · đỏ = chưa đủ (lỗi validate)"
+            : "Xanh lá = đã đủ · xám = chưa đủ"}
+        </p>
+      </div>,
+      document.body
+    );
+  }
+
   function renderActions() {
     return (
       <>
@@ -628,37 +803,9 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                 </button>
               </div>
 
-              {/* Dải chip số câu — nhảy nhanh, chỉ báo đủ/lỗi (câu 1 = rỗng khi mới tạo) */}
-              {questions.length > 1 && (
-                <nav
-                  aria-label="Đi tới câu hỏi"
-                  className="flex gap-1.5 overflow-x-auto pb-1"
-                >
-                  {questions.map((q, i) => {
-                    const hasErr = Boolean(questionErrors[i]);
-                    const complete = isQuestionComplete(q);
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => scrollToQuestion(i)}
-                        title={`Câu ${i + 1}`}
-                        aria-label={`Câu ${i + 1}${hasErr ? " (chưa đủ)" : complete ? " (đã đủ)" : ""}`}
-                        className={clsx(
-                          "flex h-7 min-w-7 shrink-0 items-center justify-center gap-1 rounded-full px-2 text-xs font-semibold transition active:scale-[0.96]",
-                          hasErr
-                            ? "bg-rose-100 text-rose-700 ring-1 ring-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:ring-rose-800"
-                            : complete
-                              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-950/70"
-                              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                        )}
-                      >
-                        {hasErr ? <AlertCircle size={12} /> : complete ? <Check size={12} /> : i + 1}
-                      </button>
-                    );
-                  })}
-                </nav>
-              )}
+              {/* Điều hướng nhanh tới câu hỏi: chuyển sang nút "Nhảy tới câu"
+                  (popover) ở footer cột phải / thanh hành động dưới → không
+                  phải lướt lên đầu form mỗi lần muốn nhảy câu. */}
 
               {questions.map((q, i) => (
                 <Card
@@ -891,8 +1038,11 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
 
               {/* Footer hành động (desktop): lưu nháp + giao bài — cột phải
                   đứng yên (split-pane) nên nút luôn ở khung nhìn, không cần
-                  sticky. Mobile: dùng thanh sticky đáy ngoài trang. */}
-              <div className="hidden shrink-0 items-center justify-end gap-2 border-t border-slate-200 px-3 py-2.5 dark:border-slate-800 lg:flex">
+                  sticky. Mobile: dùng thanh sticky đáy ngoài trang.
+                  Bên trái footer là nút "Nhảy tới câu" (popover lưới chip) —
+                  luôn trong khung nhìn, không phải lướt lên đầu form. */}
+              <div className="hidden shrink-0 items-center justify-between gap-2 border-t border-slate-200 px-3 py-2.5 dark:border-slate-800 lg:flex">
+                {renderNavWidget(navFabRef, navFabBtnRef)}
                 {renderActions()}
               </div>
             </div>
@@ -929,13 +1079,20 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
               )
             )}
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:hidden">{renderActions()}</div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:hidden">
+            <div className="flex items-center gap-2">
+              {renderNavWidget(navBarRef, navBarBtnRef)}
+            </div>
+            {renderActions()}
+          </div>
         </div>
       </div>
 
+      {/* Popover "Nhảy tới câu" — render 1 lần ở cấp trang (portal). */}
+      {renderNavPopover()}
+
       {/* Modal giao bài (deadline) */}
-      {showAssign && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+      {showAssign && (        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
           <div className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
               <div>
