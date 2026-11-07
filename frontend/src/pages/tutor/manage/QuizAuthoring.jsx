@@ -500,12 +500,10 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
     if (questions.length <= 1) setNavOpen(false);
   }, [questions.length]);
 
-  /** Nút "Nhảy tới câu" — mở popover lưới chip.
-      - Desktop: đặt ở footer cột phải (cột đứng yên → nút luôn trong khung nhìn).
-      - Mobile: đặt trong thanh hành động dính đáy → cũng luôn thấy khi cuộn.
-      Hai bản dùng chung state `navOpen`; popover render 1 lần ở cấp trang
-      (renderNavPopover) qua portal vì khung tab phải có overflow-hidden. */
-  function renderNavWidget(innerRef, btnRef) {
+  /** Nút "Nhảy tới câu" (icon-only, kèm badge đếm câu lỗi) — mở popover
+      lưới chip. Bản desktop ở footer cột phải (chật → chỉ để icon, không
+      cạnh tranh chỗ với Lưu/Giao); bản mobile nằm trong thanh hành động đáy. */
+  function renderNavWidget(innerRef, btnRef, { withLabel = false } = {}) {
     const count = questions.length;
     if (count <= 1) return null;
     const errCount = Object.keys(questionErrors).length;
@@ -517,19 +515,27 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
           onClick={() => setNavOpen((v) => !v)}
           aria-expanded={navOpen}
           aria-haspopup="true"
-          title="Nhảy tới câu hỏi"
+          title={`Nhảy tới câu hỏi (${count} câu${errCount ? `, ${errCount} câu lỗi` : ""})`}
           aria-label={`Nhảy tới câu hỏi (${count} câu${errCount ? `, ${errCount} câu lỗi` : ""})`}
           className={clsx(
-            "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium shadow-sm transition active:scale-[0.98]",
+            "relative inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border transition active:scale-[0.98]",
+            withLabel
+              ? "h-9 px-2.5 text-xs font-medium"
+              : "h-9 w-9",
             navOpen
               ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300"
               : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
           )}
         >
-          <ListChecks size={14} />
-          Nhảy tới câu
+          <ListChecks size={16} />
+          {withLabel && "Nhảy tới câu"}
           {errCount > 0 && (
-            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+            <span
+              className={clsx(
+                "flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white",
+                withLabel ? "" : "absolute -right-1.5 -top-1.5"
+              )}
+            >
               {errCount}
             </span>
           )}
@@ -611,9 +617,10 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
             size="sm"
             onClick={handleUndo}
             title="Hoàn tác thay đổi của AI vừa áp dụng"
+            aria-label="Hoàn tác thay đổi của AI vừa áp dụng"
             className="w-full sm:w-auto"
           >
-            <Undo2 size={14} /> Hoàn tác
+            <Undo2 size={14} />
           </Button>
         )}
         {isDraft && (
@@ -632,7 +639,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
           title={!isDraft ? "Chỉ bản nháp mới có thể giao bài" : "Giao quiz cho học sinh"}
           className="w-full sm:w-auto"
         >
-          <Send size={14} /> Giao bài cho học sinh
+          <Send size={14} /> Giao bài
         </Button>
       </>
     );
@@ -1081,7 +1088,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:hidden">
             <div className="flex items-center gap-2">
-              {renderNavWidget(navBarRef, navBarBtnRef)}
+              {renderNavWidget(navBarRef, navBarBtnRef, { withLabel: true })}
             </div>
             {renderActions()}
           </div>
