@@ -150,8 +150,8 @@ Hai yêu cầu FR-08 (gia sư ứng tuyển lớp) và FR-15 (gia sư nộp minh
 | --- | --- | --- | --- |
 | FR-01 | Tìm gia sư đang hoạt động theo tỉnh/quận, chuyên môn tiếng Anh, cấp lớp, hình thức học, giới tính, thành tích; có phân trang. Kết quả hiện ảnh, họ tên, trường và chuyên ngành, khu vực, chuyên môn, thành tích. Không công khai học phí | UC-PA-01 | M |
 | FR-02 | Xem hồ sơ công khai của gia sư (giới thiệu, bằng cấp và chứng chỉ đã xác thực, kinh nghiệm, khu vực, hình thức dạy, video, lịch rảnh). Mục chưa có thì ẩn, không hiện trường rỗng. Gia sư ngừng hoạt động thì báo hồ sơ không khả dụng | UC-PA-02 | M |
-| FR-03 | Đăng ký gia sư chỉ định bằng họ tên và SĐT. Kiểm tra SĐT 10 số đầu 03/05/07/08/09 hoặc +84/84. Tạo lớp cần gia sư "Chờ xử lý" có gia sư chỉ định, kèm mã yêu cầu, thông báo trung tâm | UC-PA-03 | M |
-| FR-04 | Gửi yêu cầu tìm gia sư (chỉ họ tên và SĐT phụ huynh; thông tin của con do Lễ tân hỏi khi gọi lại). Tạo lớp cần gia sư "Chờ xử lý", báo "liên hệ trong 12 giờ", thông báo lễ tân | UC-PA-04 | M |
+| FR-03 | Đăng ký gia sư chỉ định bằng họ tên và SĐT. Kiểm tra SĐT 10 số đầu 03/05/07/08/09 hoặc +84/84. Tạo lớp cần gia sư "Chờ xử lý" có gia sư chỉ định, kèm mã yêu cầu, thông báo trung tâm. SĐT đã thuộc về phụ huynh khác tên thì không cho gửi, không hiện tên phụ huynh đó | UC-PA-03 | M |
+| FR-04 | Gửi yêu cầu tìm gia sư (chỉ họ tên và SĐT phụ huynh; thông tin của con do Lễ tân hỏi khi gọi lại). Tạo lớp cần gia sư "Chờ xử lý", báo "liên hệ trong 12 giờ", thông báo lễ tân. SĐT đã thuộc về phụ huynh khác tên thì không cho gửi, không hiện tên phụ huynh đó | UC-PA-04 | M |
 
 ### 4.2. Đăng nhập
 
@@ -192,7 +192,7 @@ Hai yêu cầu FR-08 (gia sư ứng tuyển lớp) và FR-15 (gia sư nộp minh
 | FR | Yêu cầu | UC nguồn | Ưu tiên |
 | --- | --- | --- | --- |
 | FR-24 | Dashboard: lời chào kèm mã nhân viên, thẻ KPI (lớp cần gia sư chờ xử lý, khiếu nại chờ xử lý, khiếu nại chờ hoàn tiền, gia sư đang hoạt động), lối tắt đến các tác vụ chính | UC-REC-01 | M |
-| FR-25 | Quản lý lớp cần gia sư trên một trang: 6 trạng thái (Chờ xử lý, Đã đăng, Đang dạy thử, Ghép thành công, Đang ghép lại, Đã hủy), sắp theo thời gian đăng và số gia sư ứng tuyển. Tạo lớp có hoặc không có gia sư chỉ định (thông tin phụ huynh và học sinh chưa công khai; yêu cầu lớp, hình thức, phí/buổi, số buổi/tuần, thời gian, yêu cầu gia sư) kèm xác nhận; tạo xong lớp ở "Chờ xử lý". Lớp không có gia sư chỉ định thì đăng lên, chuyển "Đã đăng" | UC-REC-02, UC-REC-05 | M |
+| FR-25 | Quản lý lớp cần gia sư trên một trang: 6 trạng thái (Chờ xử lý, Đã đăng, Đang dạy thử, Ghép thành công, Đang ghép lại, Đã hủy), sắp theo thời gian đăng và số gia sư ứng tuyển. Tạo lớp có hoặc không có gia sư chỉ định (thông tin phụ huynh và học sinh chưa công khai; yêu cầu lớp, hình thức, phí/buổi, số buổi/tuần, thời gian, yêu cầu gia sư) kèm xác nhận; tạo xong lớp ở "Chờ xử lý". Lớp không có gia sư chỉ định thì đăng lên, chuyển "Đã đăng". Mỗi SĐT là một phụ huynh, lưu dạng 0xxxxxxxxx; SĐT thuộc phụ huynh khác tên thì cảnh báo kèm tên, chưa xử lý thì không tạo được lớp | UC-REC-02, UC-REC-05 | M |
 | FR-26 | Xem danh sách gia sư ứng tuyển (tên, thời gian, lời nhắn) và chọn gia sư. Không có ai ứng tuyển thì khóa nút. Chọn xong lớp chuyển "Đang dạy thử" | UC-REC-03 | M |
 | FR-27 | Hủy lớp ở mọi trạng thái: bắt buộc nhập lý do, gỡ lớp khỏi trang gia sư, thông báo các bên liên quan. Lớp "Ghép thành công" chỉ hủy trong 7 ngày kể từ ngày chính thức, hiển thị đếm ngược, hết hạn thì khóa nút hủy | UC-REC-04 | M |
 | FR-28 | Bổ sung thông tin lớp khi "Chờ xử lý". Đổi gia sư chỉ định khi "Chờ xử lý" hoặc "Đang ghép lại": đổi gia sư khác, hoặc đổi về "Không" để đăng tuyển | UC-REC-05 | M |

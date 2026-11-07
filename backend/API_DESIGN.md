@@ -2,7 +2,7 @@
 
 Tài liệu thiết kế API cho backend (Spring Boot 3.2, Java 17). Bám sát `docs/project/ERD.md`, `docs/project/prd.md` (FR-01 → FR-44) và code hiện có tại `backend/src/main/java/com/mycompany/englishtutor`.
 
-Phiên bản: 1.2 — 06/11/2026.
+Phiên bản: 1.3 — 07/11/2026.
 
 ---
 
@@ -254,7 +254,7 @@ Gia sư muốn rút ứng tuyển thì xóa dòng này, chỉ được khi lớp
 | --- | --- | --- | --- | --- |
 | GET | `/api/v1/public/tutors` | PUBLIC | Tìm gia sư `ACTIVE`. Query: `province`, `district`, `specialty` (lặp được nhiều lần), `gradeGroup` (`tieuhoc`/`thcs`/`thpt`/`nguoidilam`), `teachingMode` (`ONLINE`/`AT_HOME`), `gender` (`MALE`/`FEMALE`), `keyword`, `page`, `size`. Tìm không phân biệt dấu. Item: ảnh, họ tên, trường/chuyên ngành, khu vực, chuyên môn, thành tích, hình thức dạy. **Không công khai học phí.** Mục rỗng không trả. `size` mặc định 20, tối đa 100 | FR-01 |
 | GET | `/api/v1/public/tutors/{id}` | PUBLIC | Hồ sơ công khai: giới thiệu, chứng chỉ đã xác thực, kinh nghiệm, khu vực, hình thức dạy, video, lịch rảnh. Mục rỗng không trả. Gia sư không `ACTIVE` → 404 `TUTOR_PROFILE_UNAVAILABLE` (1101). Không công khai học phí | FR-02 |
-| POST | `/api/v1/public/class-requests` | PUBLIC | Phụ huynh để lại **họ tên + SĐT** để trung tâm gọi lại. Body `{ parentName, phone, tutorId? }`: có `tutorId` là đăng ký gia sư chỉ định (gia sư phải `ACTIVE`, nếu không 404 `TUTOR_PROFILE_UNAVAILABLE`), bỏ trống là nhận tư vấn tìm gia sư. Tìm `parents` theo SĐT (chưa có thì tạo), tạo `class_requests` (`NEW`, `requested_tutor_id` = `tutorId` hoặc NULL). Gửi lặp cùng yêu cầu đang `NEW` trả lại mã cũ. Trả 201 `{ requestCode, message }`, `requestCode` dạng `REQ-yyyyMMdd-id`, thông điệp "liên hệ trong 12 giờ". Ghi `notifications` cho Lễ tân | FR-03, FR-04 |
+| POST | `/api/v1/public/class-requests` | PUBLIC | Phụ huynh để lại **họ tên + SĐT** để trung tâm gọi lại. Body `{ parentName, phone, tutorId? }`: có `tutorId` là đăng ký gia sư chỉ định (gia sư phải `ACTIVE`, nếu không 404 `TUTOR_PROFILE_UNAVAILABLE`), bỏ trống là nhận tư vấn tìm gia sư. SĐT được quy về dạng `0xxxxxxxxx`, tìm `parents` theo SĐT (chưa có thì tạo). SĐT đã có mà họ tên khác → 409 `PARENT_PHONE_NAME_MISMATCH` 1170, thông báo không chứa tên phụ huynh đang giữ số. Họ tên so sánh bỏ qua chữ hoa/thường, khoảng trắng thừa và dấu tiếng Việt. Hợp lệ thì tạo `class_requests` (`NEW`, `requested_tutor_id` = `tutorId` hoặc NULL). Gửi lặp cùng yêu cầu đang `NEW` trả lại mã cũ. Trả 201 `{ requestCode, message }`, `requestCode` dạng `REQ-yyyyMMdd-id`, thông điệp "liên hệ trong 12 giờ". Ghi `notifications` cho Lễ tân | FR-03, FR-04 |
 
 Validate SĐT: regex `^(0|\+84|84)(3|5|7|8|9)\d{8}$`, sai trả 400 "Số điện thoại không hợp lệ". Chống spam: tối đa 5 request/giờ/SĐT (bộ đếm trong bộ nhớ), vượt quá trả 429 `TOO_MANY_REQUESTS` (1102).
 
@@ -279,7 +279,8 @@ Validate SĐT: regex `^(0|\+84|84)(3|5|7|8|9)\d{8}$`, sai trả 400 "Số điệ
 | GET | `/api/v1/class-requests` | RECEPTIONIST, ADMIN | Danh sách. Query: `tab` (`all`/`new`/`open`/`trial`/`matched`/`rematch`/`cancelled`), `keyword` (phụ huynh, SĐT, học sinh, gia sư, yêu cầu lớp, mã `REQ-…`, mã `LOP-ENG-…`), `sort` (`newest`, `oldest`, `applications`), `page`, `size`. Mỗi dòng có `tutorId`, `lastTutorName`, `cancelDeadline`, `cancelDaysLeft`, `cancellable` | FR-25 |
 | GET | `/api/v1/class-requests/counts` | RECEPTIONIST, ADMIN | Số lượng theo tab và `total` | FR-25 |
 | GET | `/api/v1/class-requests/{id}` | RECEPTIONIST, ADMIN | Chi tiết kèm phụ huynh, học sinh, gia sư, danh sách ứng tuyển. `initialPassword` chỉ có khi học sinh chưa đổi mật khẩu mặc định | FR-25, FR-26 |
-| POST | `/api/v1/class-requests` | RECEPTIONIST, ADMIN | Tạo lớp tại quầy, luôn ở `NEW`. `tutorId` tùy chọn (`null` là không chỉ định). Thông tin học sinh lưu ở `class_requests.student_*`, chưa tạo tài khoản | FR-25 |
+| POST | `/api/v1/class-requests/parent-check` | RECEPTIONIST, ADMIN | Body `{ phone, parentName }`. Kiểm tra trong lúc nhập form, trả `{ exists, nameMatches, parentName }` | FR-25 |
+| POST | `/api/v1/class-requests` | RECEPTIONIST, ADMIN | Tạo lớp tại quầy, luôn ở `NEW`. `tutorId` tùy chọn (`null` là không chỉ định). Thông tin học sinh lưu ở `class_requests.student_*`, chưa tạo tài khoản. SĐT đã có mà họ tên khác → 409 `PARENT_PHONE_BELONGS_TO_OTHER` 1171 | FR-25 |
 | PUT | `/api/v1/class-requests/{id}` | RECEPTIONIST, ADMIN | Sửa một phần, trường nào gửi thì cập nhật. `NEW`: mọi trường. `REMATCH`: chỉ `pricePerSession`, `classRequirement`, `learningGoal`, `tutorRequirement` (trường khác → 409 `CLASS_REQUEST_FIELD_LOCKED` 1165) và báo cho gia sư đang ứng tuyển. Trạng thái khác → 409 `CLASS_REQUEST_NOT_EDITABLE` 1164 | FR-28 |
 | PATCH | `/api/v1/class-requests/{id}/designated-tutor` | RECEPTIONIST, ADMIN | Body `{ tutorId }`, `null` là không chỉ định. Chỉ `NEW`/`REMATCH` (khác → 409 `CLASS_REQUEST_TUTOR_NOT_CHANGEABLE` 1163). Gia sư phải `ACTIVE`; gia sư đã bị loại khỏi lớp → 409 `CLASS_REQUEST_TUTOR_TERMINATED` 1168 | FR-28 |
 | POST | `/api/v1/class-requests/{id}/publish` | RECEPTIONIST, ADMIN | `NEW → OPEN`, hiện trên trang gia sư và trang công khai. Lớp đang có gia sư chỉ định → 409 `CLASS_REQUEST_HAS_TUTOR` 1167. Yêu cầu đủ họ tên học sinh, `class_requirement`, `teaching_mode`, `price_per_session` (thiếu → 409 `CLASS_REQUEST_NOT_READY` 1113) | FR-25 |
@@ -469,8 +470,9 @@ Khi ghép lớp thành công (`class_requests` chuyển `MATCHED`) → gia sư x
 | V15 | `class_requests` lưu thông tin HS khi đơn `NEW` (chưa có tài khoản) |
 | V16 | **Refactor lessons/logs:** `sessions` → `lessons` (bỏ ngày/giờ, `is_trial`, 2 cột log; `status` PUBLISHED/HIDDEN); bảng mới `teaching_logs` (UNIQUE `class_id`+`log_date`+`start_time`); 6 cột `classes.trial_*`; đổi tên `lesson_materials`, `quizzes.lesson_id`, `schedule_exceptions`; copy seed V6 |
 | V19 | Nới `chk_class_requests_ready`: lớp `OPEN` được phép chưa có `student_id`, tài khoản học sinh tạo khi vào dạy thử |
+| V20 | `parents`: quy SĐT về dạng `0xxxxxxxxx`, gộp phụ huynh trùng số, thêm `UNIQUE (phone)` |
 
-> Thực tế `payments`, `complaints`, `refunds` đã được tạo trong V5; V7–V8 là seed và `unaccent`. `db/migration/` hiện có **V1–V19**, mọi file mới phải tăng version, không sửa file đã merge (Flyway immutable — V16 đổi tên bảng cũ thay vì sửa lại migration).
+> Thực tế `payments`, `complaints`, `refunds` đã được tạo trong V5; V7–V8 là seed và `unaccent`. `db/migration/` hiện có **V1–V20**, mọi file mới phải tăng version, không sửa file đã merge (Flyway immutable — V16 đổi tên bảng cũ thay vì sửa lại migration).
 
 ## 6. Ma trận phân quyền tổng hợp
 
