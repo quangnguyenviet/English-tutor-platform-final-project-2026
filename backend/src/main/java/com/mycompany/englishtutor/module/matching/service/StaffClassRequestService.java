@@ -186,6 +186,7 @@ public class StaffClassRequestService {
                     class_requirement  = COALESCE(?, class_requirement),
                     teaching_mode      = COALESCE(?, teaching_mode),
                     price_per_session  = COALESCE(?, price_per_session),
+                    sessions_per_week  = COALESCE(?, sessions_per_week),
                     preferred_schedule = COALESCE(?, preferred_schedule),
                     tutor_requirement  = COALESCE(?, tutor_requirement),
                     fee_percentage     = COALESCE(?, fee_percentage),
@@ -195,6 +196,7 @@ public class StaffClassRequestService {
                 trimToNull(request.getClassRequirement()),
                 request.getTeachingMode(),
                 request.getPricePerSession(),
+                request.getSessionsPerWeek(),
                 trimToNull(request.getPreferredSchedule()),
                 trimToNull(request.getTutorRequirement()),
                 request.getFeePercentage(),
@@ -626,6 +628,7 @@ public class StaffClassRequestService {
                 || notBlank(request.getSchool())
                 || notBlank(request.getTeachingMode())
                 || notBlank(request.getPreferredSchedule())
+                || request.getSessionsPerWeek() != null
                 || request.getFeePercentage() != null;
     }
 
@@ -708,10 +711,11 @@ public class StaffClassRequestService {
             username = baseUsername + "_" + suffix++;
         }
 
+        // Không lưu SĐT vào users.phone: cột này UNIQUE, trong khi anh chị em dùng chung SĐT phụ huynh
+        // và số đó có thể trùng tài khoản khác. SĐT liên hệ của học sinh nằm ở parents.phone.
         User user = User.builder()
                 .username(username)
                 .fullName(studentName)
-                .phone(phone)
                 .passwordHash(passwordEncoder.encode(DEFAULT_STUDENT_PASSWORD))
                 .role(UserRole.STUDENT.name())
                 .status("ACTIVE")

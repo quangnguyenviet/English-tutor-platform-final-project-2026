@@ -314,7 +314,9 @@ export function ClassRequestManagement() {
       grade: item.grade || "",
       school: item.school || "",
       learningGoal: item.learningGoal || "",
+      tutorId: item.tutorId ? String(item.tutorId) : "",
       classRequirement: item.classRequirement || "",
+      sessionsPerWeek: item.sessionsPerWeek || "",
       teachingMode: item.teachingMode || "",
       pricePerSession: item.pricePerSession || "",
       feePercentage: item.feePercentage ?? 40,
@@ -402,8 +404,16 @@ export function ClassRequestManagement() {
               "classRequirement", "teachingMode", "preferredSchedule", "tutorRequirement",
             ]);
             if (formData.pricePerSession) payload.pricePerSession = Number(formData.pricePerSession);
+            if (formData.sessionsPerWeek) payload.sessionsPerWeek = Number(formData.sessionsPerWeek);
             if (formData.feePercentage !== "") payload.feePercentage = Number(formData.feePercentage);
             await apiUpdateClassRequest(formModal.item.id, payload, currentToken);
+            if (formData.tutorId !== String(formModal.item.tutorId ?? "")) {
+              await apiChangeDesignatedTutor(
+                formModal.item.id,
+                formData.tutorId ? Number(formData.tutorId) : null,
+                currentToken
+              );
+            }
             showToast("Đã lưu thông tin lớp.");
           }
           setFormModal(null);
@@ -1313,23 +1323,27 @@ export function ClassRequestManagement() {
                     />
                   </div>
 
-                  {formModal.mode === "create" && (
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-foreground">Gia sư chỉ định</label>
-                      <select
-                        value={formData.tutorId}
-                        onChange={(e) => setFormData({ ...formData, tutorId: e.target.value })}
-                        className={inputClass}
-                      >
-                        <option value="">Không chỉ định, trung tâm đăng tuyển</option>
-                        {activeTutors.map((t) => (
-                          <option key={tutorKey(t)} value={tutorKey(t)}>
-                            {tutorLabel(t)} (ID: #{tutorKey(t)})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Gia sư chỉ định</label>
+                    <select
+                      value={formData.tutorId}
+                      onChange={(e) => setFormData({ ...formData, tutorId: e.target.value })}
+                      className={inputClass}
+                    >
+                      <option value="">Không chỉ định, trung tâm đăng tuyển</option>
+                      {/* Gia sư đã chọn nhưng không còn trong danh sách đang hoạt động vẫn phải hiện đúng */}
+                      {formData.tutorId && !activeTutors.some((t) => String(tutorKey(t)) === formData.tutorId) && (
+                        <option value={formData.tutorId}>
+                          {formModal.item?.tutorName || "Gia sư"} (ID: #{formData.tutorId})
+                        </option>
+                      )}
+                      {activeTutors.map((t) => (
+                        <option key={tutorKey(t)} value={tutorKey(t)}>
+                          {tutorLabel(t)} (ID: #{tutorKey(t)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </>
               )}
 
@@ -1385,7 +1399,7 @@ export function ClassRequestManagement() {
                     className={inputClass}
                   />
                 </div>
-                {formModal.mode === "create" && (
+                {formModal.mode !== "rematch" && (
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-foreground">Số buổi / tuần</label>
                     <input

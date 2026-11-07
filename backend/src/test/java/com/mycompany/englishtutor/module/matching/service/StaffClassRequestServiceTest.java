@@ -2,6 +2,7 @@ package com.mycompany.englishtutor.module.matching.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -25,6 +26,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -47,6 +49,7 @@ import com.mycompany.englishtutor.module.matching.service.MatchingLifecycleSuppo
 import com.mycompany.englishtutor.module.payment.service.PaymentService;
 import com.mycompany.englishtutor.module.tutor.domain.Tutor;
 import com.mycompany.englishtutor.module.tutor.repository.TutorRepository;
+import com.mycompany.englishtutor.module.user.domain.User;
 import com.mycompany.englishtutor.module.user.repository.UserRepository;
 import com.mycompany.englishtutor.shared.exception.AppException;
 import com.mycompany.englishtutor.shared.exception.ErrorCode;
@@ -256,6 +259,29 @@ class StaffClassRequestServiceTest {
         verify(userRepository, never()).save(any());
     }
 
+    @Test
+    void confirm_newStudent_savesAccountWithoutParentPhone() {
+        givenRequest("NEW", TUTOR_ID, null, "Lê Hoàng Nam");
+        givenActiveTutor(TUTOR_ID);
+        givenDetail();
+        when(jdbcTemplate.queryForObject(contains("SELECT phone FROM parents"), eq(String.class), eq(PARENT_ID)))
+                .thenReturn("0368171004");
+        when(userRepository.save(any())).thenAnswer(call -> {
+            User user = call.getArgument(0);
+            user.setId(STUDENT_ID);
+            return user;
+        });
+        when(jdbcTemplate.queryForObject(contains("INSERT INTO classes"), eq(Long.class),
+                any(), any(), any(), any(), any(), any())).thenReturn(CLASS_ID);
+
+        service.confirm(REQUEST_ID, null);
+
+        ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(saved.capture());
+        assertEquals("hs_0368171004", saved.getValue().getUsername());
+        assertNull(saved.getValue().getPhone());
+    }
+
     // -------------------------------------------------------- designated tutor
 
     @Test
@@ -388,6 +414,27 @@ class StaffClassRequestServiceTest {
 
         verify(jdbcTemplate).update(contains("FROM class_applications"),
                 eq("Lớp bạn ứng tuyển đã cập nhật thông tin"), anyString(), eq(REQUEST_ID), eq(REQUEST_ID));
+    }
+
+    @Test
+    void update_rematchWithSessionsPerWeek_throwsFieldLocked() {
+        givenRequest("REMATCH", null, STUDENT_ID, null);
+
+        AppException ex = assertThrows(AppException.class, () -> service.update(
+                REQUEST_ID, UpdateClassRequest.builder().sessionsPerWeek(3).build(), null));
+
+        assertEquals(ErrorCode.CLASS_REQUEST_FIELD_LOCKED, ex.getErrorCode());
+    }
+
+    @Test
+    void update_newRequest_savesSessionsPerWeek() {
+        givenRequest("NEW", null, null, "Lê Hoàng Nam");
+        givenDetail();
+
+        service.update(REQUEST_ID, UpdateClassRequest.builder().sessionsPerWeek(3).build(), null);
+
+        verify(jdbcTemplate).update(contains("sessions_per_week  = COALESCE"),
+                any(), any(), any(), eq(3), any(), any(), any(), eq(REQUEST_ID));
     }
 
     @Test

@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
@@ -65,6 +66,10 @@ public class UpdateClassRequest {
     @DecimalMin(value = "10000", message = "Học phí mỗi buổi phải lớn hơn 10.000 VNĐ")
     @Schema(description = "Mức học phí mỗi buổi (VNĐ)", example = "300000")
     BigDecimal pricePerSession;
+
+    @Min(value = 1, message = "Số buổi mỗi tuần phải lớn hơn 0")
+    @Schema(description = "Số buổi mỗi tuần", example = "2")
+    Integer sessionsPerWeek;
 
     @Schema(description = "Lịch học mong muốn", example = "2 buổi/tuần, tối Thứ 3 và Thứ 6")
     String preferredSchedule;
