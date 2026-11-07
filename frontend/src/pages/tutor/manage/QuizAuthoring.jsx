@@ -391,7 +391,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
 
   const backTo = `${basePath}/lessons`;
 
-  /** Nút hành động chính — dùng ở header (desktop) và thanh sticky đáy (mobile). */
+  /** Nút hành động chính — footer khung tab (desktop) và thanh sticky đáy (mobile). */
   function renderActions() {
     return (
       <>
@@ -435,56 +435,13 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
     <div
       ref={pageRef}
       className={clsx(
-        // Desktop: chiều cao cố định = khung nhìn → 3 khối flex (header /
-        // vùng nội dung cuộn nội bộ / thanh hành động). Nhờ vậy cột phải
-        // (chat AI) đứng yên, không bao giờ di chuyển theo con lăn.
-        // Mobile: luồng cuộn bình thường của trang.
+        // Desktop: chiều cao cố định = khung nhìn → 2 khối flex (dải meta
+        // slim / vùng nội dung cuộn nội bộ). Nút hành động nằm trong footer
+        // khung tab phải (cột đứng yên). Mobile: luồng cuộn bình thường.
         pageHeight ? "flex flex-col gap-4" : "space-y-5"
       )}
       style={pageHeight ? { height: pageHeight } : undefined}
     >
-      {/* Header */}
-      <div className="shrink-0">
-        <Link
-          to={backTo}
-          className="mb-3 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-        >
-          <ArrowLeft size={16} /> Quay lại bài giảng
-        </Link>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50">
-                {isEditing ? "Sửa quiz" : "Soạn quiz bài giảng"}
-              </h2>
-              {previewMeta ? (
-                <Badge tone={previewMeta.tone}>{previewMeta.label}</Badge>
-              ) : (
-                <Badge tone="amber">Nháp</Badge>
-              )}
-              {hasAiContent && (
-                <Badge tone="violet">
-                  <Wand2 size={11} /> Có câu do AI gộp
-                </Badge>
-              )}
-            </div>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {detail?.title ? `Bài giảng: ${detail.title}` : "Nhập câu hỏi trắc nghiệm A–D cho bài giảng."}
-              {existing?.deadline ? ` · Hạn làm ${formatDeadlineLabel(existing.deadline)}` : ""}
-            </p>
-            {!isDraft && (
-              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                Quiz đã {previewMeta?.label?.toLowerCase() || "được xử lý"} — chỉ xem được, không sửa/giao lại.
-              </p>
-            )}
-          </div>
-
-          {/* Thao tác chính đặt ở góc phải header (desktop) để header không bị
-              trống; trên mobile chúng nằm ở thanh hành động sticky đáy. */}
-          <div className="hidden shrink-0 items-center gap-2 lg:flex">{renderActions()}</div>
-        </div>
-      </div>
-
       {formError && (
         <div
           role="alert"
@@ -550,6 +507,47 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
               pageHeight && "min-h-0 lg:overflow-y-auto lg:pr-2"
             )}
           >
+            {/* Dải meta slim (thay cho header cũ): link quay lại + tiêu đề +
+                badge trạng thái ở dòng 1; ngữ cảnh (tên bài giảng / hạn làm)
+                ở dòng 2 chỉ khi có; cảnh báo "chỉ xem" ở dòng 3 khi quiz
+                không còn nháp. Tất cả giữ nguyên nội dung header cũ, chỉ nén
+                chiều cao. */}
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <Link
+                  to={backTo}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                >
+                  <ArrowLeft size={14} /> Quay lại
+                </Link>
+                <span className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                  {isEditing ? "Sửa quiz" : "Soạn quiz"}
+                </span>
+                {previewMeta ? (
+                  <Badge tone={previewMeta.tone}>{previewMeta.label}</Badge>
+                ) : (
+                  <Badge tone="amber">Nháp</Badge>
+                )}
+                {hasAiContent && (
+                  <Badge tone="violet">
+                    <Wand2 size={11} /> AI gộp
+                  </Badge>
+                )}
+              </div>
+              {(detail?.title || existing?.deadline) && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {detail?.title ? `Bài giảng: ${detail.title}` : ""}
+                  {detail?.title && existing?.deadline ? " · " : ""}
+                  {existing?.deadline ? `Hạn làm ${formatDeadlineLabel(existing.deadline)}` : ""}
+                </p>
+              )}
+              {!isDraft && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Quiz đã {previewMeta?.label?.toLowerCase() || "được xử lý"} — chỉ xem được, không sửa/giao lại.
+                </p>
+              )}
+            </div>
+
             <Card className="space-y-3 p-5">
               <div>
                 <label
@@ -896,6 +894,13 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
                   <SkillProfilePanel items={skillProfile} loading={skillProfileLoading} />
                 </div>
               </div>
+
+              {/* Footer hành động (desktop): lưu nháp + giao bài — cột phải
+                  đứng yên (split-pane) nên nút luôn ở khung nhìn, không cần
+                  sticky. Mobile: dùng thanh sticky đáy ngoài trang. */}
+              <div className="hidden shrink-0 items-center justify-end gap-2 border-t border-slate-200 px-3 py-2.5 dark:border-slate-800 lg:flex">
+                {renderActions()}
+              </div>
             </div>
 
           </div>
@@ -909,8 +914,8 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
         className={clsx(
           "z-40 -mx-4 flex flex-col gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95 sm:-mx-6 sm:px-6 lg:-mx-6 lg:px-6",
           pageHeight ? "shrink-0" : "sticky bottom-0 mt-2",
-          // Desktop: nút hành động đã nằm ở góc phải header → ẩn thanh đáy
-          // (chỉ còn thông tin số câu / lỗi, phần lớn là dư).
+          // Desktop: nút hành động đã nằm trong footer khung tab phải
+          // (cột phải đứng yên) → ẩn thanh đáy, chỉ hiện trên mobile.
           "lg:hidden"
         )}
       >
