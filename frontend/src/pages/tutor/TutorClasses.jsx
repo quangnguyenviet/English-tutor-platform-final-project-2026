@@ -180,7 +180,7 @@ export default function TutorClasses() {
                   </div>
                 </div>
 
-                {cls.trialSession ? (
+                {cls.trialSession && !cls.trialSession.isPast ? (
                   <div className="flex items-center gap-2.5 rounded-xl border border-violet-200 bg-violet-50/80 p-3 text-xs dark:border-violet-900/60 dark:bg-violet-950/40">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-900/60 dark:text-violet-300">
                       <CalendarDays size={15} />
@@ -195,7 +195,7 @@ export default function TutorClasses() {
                     </div>
                     <Badge tone={cls.trialSession.statusTone}>{cls.trialSession.statusLabel}</Badge>
                   </div>
-                ) : cls.status === "TRIAL" ? (
+                ) : cls.status === "TRIAL" && !cls.trialSession ? (
                   <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-[11px] font-medium text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
                     <AlertCircle size={14} className="shrink-0" />
                     Chưa thiết lập lịch dạy thử. Vào chi tiết lớp để lên lịch buổi học thử.
