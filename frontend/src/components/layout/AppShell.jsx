@@ -243,7 +243,6 @@ function AppShellInner() {
       { to: "/tutor/classes", label: "Lớp học của tôi", icon: Users },
       { to: "/tutor/schedule", label: "Lịch dạy", icon: CalendarDays },
       { to: "/tutor/payments", label: "Phí nhận lớp", icon: Banknote },
-      { to: "/tutor/lessons", label: "Ghi nhận buổi học", icon: BookOpenCheck },
       { to: "/tutor/profile", label: "Hồ sơ", icon: IdCard },
       { to: "/tutor/settings", label: "Cài đặt", icon: Settings },
     ];

@@ -51,7 +51,6 @@ import LibraryMaterials from "./pages/tutor/LibraryMaterials";
 import TutorProfile from "./pages/tutor/TutorProfile";
 import TutorProfileEditPage from "./pages/tutor/TutorProfileEditPage";
 import TutorSchedule from "./pages/tutor/TutorSchedule";
-import TutorLessonSessions from "./pages/tutor/TutorLessonSessions";
 import ParentLearningProgress from "./pages/parent/ParentLearningProgress";
 import LessonOperations from "./pages/operations/LessonOperations";
 
@@ -199,7 +198,6 @@ export default function App() {
             <Route path="schedule" element={<TutorSchedule />} />
             <Route path="payments" element={<TutorPayments />} />
             <Route path="payments/:id" element={<TutorPaymentDetail />} />
-            <Route path="lessons" element={<TutorLessonSessions />} />
             <Route path="available-classes" element={<AvailableClasses />} />
             <Route path="available-classes/:classId" element={<AvailableClassDetail />} />
             <Route path="classes" element={<TutorClasses />} />
