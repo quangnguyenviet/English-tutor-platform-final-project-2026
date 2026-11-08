@@ -371,6 +371,26 @@ export function relativeDayLabel(dateISO) {
   return `${Math.abs(diff)} ngày trước`;
 }
 
+/**
+ * Buổi dạy thử còn hiện khi chưa diễn ra:
+ * - Ngày vẫn nằm ở tương lai → còn hiện.
+ * - Ngày là hôm nay → chỉ còn hiện tới khi giờ kết thúc chưa tới.
+ */
+export function isTrialUpcoming(trial) {
+  if (!trial?.sessionDate) return true;
+  const today = todayISO();
+  const date = String(trial.sessionDate).slice(0, 10);
+  if (date > today) return true;
+  if (date < today) return false;
+  const end = String(trial.endTime || "").slice(0, 5);
+  if (!end) return true;
+  const now = new Date();
+  const nowHM = `${String(now.getHours()).padStart(2, "0")}:${String(
+    now.getMinutes(),
+  ).padStart(2, "0")}`;
+  return end > nowHM;
+}
+
 /** Chuẩn hóa buổi dạy thử từ backend sang model hiển thị. */
 export function mapTrialSession(item) {
   if (!item) return null;
@@ -381,6 +401,7 @@ export function mapTrialSession(item) {
     statusLabel: SESSION_STATUS_META[item.status]?.label || item.status,
     statusTone: SESSION_STATUS_META[item.status]?.tone || "slate",
     modeLabel: TEACHING_MODE_LABELS[item.teachingMode] || item.teachingMode,
+    isPast: !isTrialUpcoming(item),
   };
 }
 
