@@ -55,7 +55,7 @@ export default function ConfirmModal({
       }}
       className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
     >
-      <div className="fade-slide-in relative flex w-full max-w-md flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+      <div className="fade-slide-in relative flex w-full max-w-md flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-[#0B1220]">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-slate-200 p-5 dark:border-slate-800">
           <div

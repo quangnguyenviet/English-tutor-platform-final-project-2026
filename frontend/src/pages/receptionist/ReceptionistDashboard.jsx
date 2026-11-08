@@ -24,6 +24,8 @@ import Button from "../../components/ui/Button";
 import { usePaymentsByStatus } from "../../components/payment/usePaymentData";
 import { apiSearchPayments } from "../../lib/paymentApi";
 import { PAYMENT_STATUS } from "../../lib/paymentModel";
+import { useComplaintSummary } from "../../components/complaint/useComplaintSummary";
+import { COMPLAINT_STATUS_META, TYPE_META, metaOf } from "../../lib/complaintModel";
 
 const fmtVND = (n) => n.toLocaleString("vi-VN") + "₫";
 
@@ -32,7 +34,6 @@ export default function ReceptionistDashboard() {
     tutorList,
     studentList,
     matchRequestList,
-    complaintList,
     notificationList = [],
   } = useAuth();
 
@@ -42,7 +43,7 @@ export default function ReceptionistDashboard() {
   const pendingMatches = matchRequestList?.filter((r) => r.status === "pending") || [];
   // Khoản phí chưa có minh chứng: việc Lễ tân cần theo dõi và thu hộ
   const { total: unpaidFeeTotal } = usePaymentsByStatus(apiSearchPayments, PAYMENT_STATUS.NOT_SUBMITTED, 1);
-  const pendingComplaints = complaintList?.filter((c) => c.status === "pending") || [];
+  const { counts: complaintCounts, recent: recentComplaints } = useComplaintSummary(3);
   const unreadNotifs = notificationList?.filter((n) => !n.read) || [];
 
   const showNotification = (msg) => {
@@ -118,8 +119,8 @@ export default function ReceptionistDashboard() {
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-3xl font-bold font-mono text-slate-900 dark:text-white">{pendingComplaints.length}</span>
-            <span className="text-xs font-medium text-slate-500">/ {complaintList.length} tổng</span>
+            <span className="text-3xl font-bold font-mono text-slate-900 dark:text-white">{complaintCounts.PENDING}</span>
+            <span className="text-xs font-medium text-slate-500">{complaintCounts.PROCESSING} chờ hoàn tiền</span>
           </div>
         </div>
 
@@ -242,7 +243,7 @@ export default function ReceptionistDashboard() {
                 Xử lý khiếu nại
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                {pendingComplaints.length} chưa xử lý
+                {complaintCounts.PENDING} chưa xử lý
               </p>
             </div>
           </Link>
@@ -270,7 +271,7 @@ export default function ReceptionistDashboard() {
       </div>
 
       {/* Recent complaints preview */}
-      {complaintList.length > 0 && (
+      {recentComplaints.length > 0 && (
         <Card padded={false}>
           <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
             <div className="flex items-center gap-2">
@@ -278,22 +279,22 @@ export default function ReceptionistDashboard() {
               <h2 className="font-semibold text-sm text-slate-900 dark:text-slate-50">Khiếu nại gần đây</h2>
             </div>
             <Link to="/receptionist/complaints" className="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">
-              Xem tất cả ({complaintList.length}) &rarr;
+              Xem tất cả ({complaintCounts.TOTAL}) &rarr;
             </Link>
           </div>
           <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-            {complaintList.slice(0, 3).map((c) => (
+            {recentComplaints.map((c) => (
               <div key={c.id} className="flex items-center justify-between gap-3 p-3.5 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                 <div className="flex items-center gap-3 min-w-0">
-                  <Badge tone={c.type === "REFUND" ? "rose" : "blue"}>
-                    {c.type === "REFUND" ? "Hoàn tiền" : "Ghép lại"}
-                  </Badge>
+                  <Badge tone={metaOf(TYPE_META, c.complaintType).tone}>{metaOf(TYPE_META, c.complaintType).label}</Badge>
                   <div className="min-w-0">
-                    <p className="font-medium text-slate-900 dark:text-white truncate">{c.complainantName} — {c.classInfo}</p>
-                    <p className="text-[11px] text-slate-400 truncate mt-0.5">{c.description}</p>
+                    <p className="font-medium text-slate-900 dark:text-white truncate">
+                      {c.complainantName} — <span className="font-mono">{c.requestCode}</span>
+                    </p>
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5">{c.complaintContent}</p>
                   </div>
                 </div>
-                <Badge tone={c.status === "pending" ? "amber" : "emerald"}>{c.statusLabel}</Badge>
+                <Badge tone={metaOf(COMPLAINT_STATUS_META, c.status).tone}>{metaOf(COMPLAINT_STATUS_META, c.status).label}</Badge>
               </div>
             ))}
           </div>

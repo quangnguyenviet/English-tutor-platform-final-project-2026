@@ -48,6 +48,7 @@ import Button from "../../components/ui/Button";
 import { usePaymentsByStatus } from "../../components/payment/usePaymentData";
 import { apiSearchPayments } from "../../lib/paymentApi";
 import { PAYMENT_STATUS, formatVnd } from "../../lib/paymentModel";
+import { useComplaintSummary } from "../../components/complaint/useComplaintSummary";
 
 const statusMeta = {
   active: { label: "Đang hoạt động", tone: "emerald" },
@@ -88,8 +89,8 @@ export function AdminDashboard() {
     matchRequestList,
     notificationList = [],
     receptionistList = [],
-    complaintList = [],
   } = useAuth();
+  const { counts: complaintCounts } = useComplaintSummary(1);
 
   const [timeframe, setTimeframe] = useState("month");
   const [notification, setNotification] = useState(null);
@@ -608,7 +609,7 @@ export function AdminDashboard() {
                 Xử lý khiếu nại
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                {complaintList.filter((c) => c.status === "pending").length} chưa xử lý
+                {complaintCounts.PENDING} chưa xử lý
               </p>
             </div>
           </Link>

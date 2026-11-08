@@ -15,6 +15,7 @@ import TutorManagement from "./pages/admin/TutorManagement";
 import StudentManagement from "./pages/admin/StudentManagement";
 import ClassRequestManagement from "./pages/admin/ClassRequests";
 import AccountantPayments from "./pages/accountant/AccountantPayments";
+import AccountantRefunds from "./pages/accountant/AccountantRefunds";
 import TutorPayments from "./pages/tutor/TutorPayments";
 import TutorPaymentDetail from "./pages/tutor/TutorPaymentDetail";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
@@ -172,6 +173,7 @@ export default function App() {
             {/* Giữ đường dẫn cũ để không vỡ link đã lưu */}
             <Route path="receptionists" element={<StaffManagement />} />
             <Route path="complaints" element={<ComplaintManagement />} />
+            <Route path="refunds" element={<AccountantRefunds />} />
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="lessons" element={<LessonOperations />} />
             <Route path="notifications" element={<AdminNotifications />} />
@@ -300,6 +302,7 @@ export default function App() {
           >
             <Route index element={<AccountantDashboard />} />
             <Route path="payments" element={<AccountantPayments />} />
+            <Route path="refunds" element={<AccountantRefunds />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 
