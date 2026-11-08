@@ -69,15 +69,6 @@ export const parentThreads = [
 
 export const notifications = [
   {
-    id: "n0",
-    type: "request",
-    title: "Yêu cầu lớp mới được phân công",
-    body: "Admin vừa giới thiệu yêu cầu từ Chị Nguyễn Thị Lan cho con Đặng Gia Bảo (Tiếng Anh giao tiếp thiếu niên).",
-    time: "2026-08-01 10:20",
-    read: false,
-    link: "/tutor/requests",
-  },
-  {
     id: "n1",
     type: "grading",
     title: "Bài chờ chấm mới",
@@ -112,15 +103,6 @@ export const notifications = [
     time: "2026-03-04 08:00",
     read: true,
     link: "/tutor/classes",
-  },
-  {
-    id: "n5",
-    type: "system",
-    title: "Kho lộ trình có mẫu mới",
-    body: "Đã thêm mẫu 'Lộ trình phản xạ giao tiếp nâng cao B2' vào Kho lộ trình.",
-    time: "2026-03-02 10:30",
-    read: true,
-    link: "/tutor/library/paths",
   },
   {
     id: "n6",

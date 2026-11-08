@@ -6,8 +6,6 @@ import { apiGetComplaintCounts, apiGetRefundCounts } from "../../lib/complaintAp
 import {
   LayoutDashboard,
   Users,
-  ClipboardList,
-  Map,
   ListChecks,
   Video,
   CalendarDays,
@@ -15,7 +13,6 @@ import {
   BookOpenCheck,
   Settings,
   IdCard,
-  Sparkles,
   Menu,
   X,
   UserCog,
@@ -37,7 +34,6 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { AiAssistantProvider, useAiAssistant } from "../../context/AiAssistantContext";
 import { StudentMatchingProvider, useStudentMatching } from "../../context/StudentMatchingContext";
-import { classRequests } from "../../data/mockData";
 import Avatar from "../ui/Avatar";
 import AiAssistantPanel from "../tutor/AiAssistantPanel";
 import TopBar from "./TopBar";
@@ -45,7 +41,6 @@ import TutorClassSidebar from "./TutorClassSidebar";
 import StudentClassSidebar from "./StudentClassSidebar";
 
 const tutorLibraryNav = [
-  { to: "/tutor/library/paths", label: "Khung chương trình", icon: Map },
   { to: "/tutor/library/exercises", label: "Kho bài tập", icon: ListChecks },
   { to: "/tutor/library/materials", label: "Kho video & tài liệu", icon: Video },
 ];
@@ -243,12 +238,9 @@ function AppShellInner() {
     items = [
       { to: "/tutor", label: "Tổng quan", icon: LayoutDashboard, end: true },
       { to: "/tutor/available-classes", label: "Lớp cần gia sư", icon: Search },
-      { to: "/tutor/requests", label: "Yêu cầu lớp", icon: ClipboardList, badge: () => classRequests.filter((r) => r.status === "pending_response").length },
       { to: "/tutor/classes", label: "Lớp học của tôi", icon: Users },
       { to: "/tutor/schedule", label: "Lịch dạy", icon: CalendarDays },
       { to: "/tutor/payments", label: "Phí nhận lớp", icon: Banknote },
-      { to: "/tutor/lessons", label: "Ghi nhận buổi học", icon: BookOpenCheck },
-      { to: "/tutor/exercise-generator", label: "Soạn bài (AI)", icon: Sparkles },
       { to: "/tutor/profile", label: "Hồ sơ", icon: IdCard },
       { to: "/tutor/settings", label: "Cài đặt", icon: Settings },
     ];

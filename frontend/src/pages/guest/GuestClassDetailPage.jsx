@@ -132,13 +132,6 @@ export default function GuestClassDetailPage() {
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => navigate("/tutor/requests")}
-              className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition-colors shrink-0 cursor-pointer shadow-md"
-            >
-              Vào mục Quản lý lớp
-            </button>
           </div>
         )}
 

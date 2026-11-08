@@ -41,19 +41,14 @@ import ManageAssignmentsRoute from "./pages/tutor/manage/ManageAssignmentsRoute"
 import AddAssignmentPage from "./pages/tutor/manage/AddAssignmentPage";
 import ManageMaterialsRoute from "./pages/tutor/manage/ManageMaterialsRoute";
 import TutorExerciseDetail from "./pages/tutor/TutorExerciseDetail";
-import ExerciseGenerator from "./pages/tutor/ExerciseGenerator";
-import ClassRequests from "./pages/tutor/ClassRequests";
 import AvailableClasses from "./pages/tutor/AvailableClasses";
 import AvailableClassDetail from "./pages/tutor/AvailableClassDetail";
 import TutorClasses from "./pages/tutor/TutorClasses";
-import LibraryPaths from "./pages/tutor/LibraryPaths";
-import LibraryPathDetail from "./pages/tutor/LibraryPathDetail";
 import LibraryExercises from "./pages/tutor/LibraryExercises";
 import LibraryMaterials from "./pages/tutor/LibraryMaterials";
 import TutorProfile from "./pages/tutor/TutorProfile";
 import TutorProfileEditPage from "./pages/tutor/TutorProfileEditPage";
 import TutorSchedule from "./pages/tutor/TutorSchedule";
-import TutorLessonSessions from "./pages/tutor/TutorLessonSessions";
 import ParentLearningProgress from "./pages/parent/ParentLearningProgress";
 import LessonOperations from "./pages/operations/LessonOperations";
 
@@ -201,8 +196,6 @@ export default function App() {
             <Route path="schedule" element={<TutorSchedule />} />
             <Route path="payments" element={<TutorPayments />} />
             <Route path="payments/:id" element={<TutorPaymentDetail />} />
-            <Route path="lessons" element={<TutorLessonSessions />} />
-            <Route path="exercise-generator" element={<ExerciseGenerator />} />
             <Route path="available-classes" element={<AvailableClasses />} />
             <Route path="available-classes/:classId" element={<AvailableClassDetail />} />
             <Route path="classes" element={<TutorClasses />} />
@@ -228,9 +221,6 @@ export default function App() {
             <Route path="classes/:classId/materials" element={<TutorClassWorkspace />}>
               <Route index element={<ManageMaterialsRoute />} />
             </Route>
-            <Route path="requests" element={<ClassRequests />} />
-            <Route path="library/paths" element={<LibraryPaths />} />
-            <Route path="library/paths/:templateId" element={<LibraryPathDetail />} />
             <Route path="library/exercises" element={<LibraryExercises />} />
             <Route path="library/materials" element={<LibraryMaterials />} />
             <Route path="profile" element={<TutorProfile />} />

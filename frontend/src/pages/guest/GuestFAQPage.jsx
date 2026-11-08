@@ -230,8 +230,8 @@ const TUTOR_TOPICS = [
     id: "t4",
     index: "04",
     icon: BookOpen,
-    title: "Ứng dụng Hệ thống Soạn bài tập & Giao bài AI",
-    shortDesc: "Hướng dẫn sử dụng công cụ Exercise Generator để tạo bài tập 4 dạng chuẩn chỉ trong 30 giây.",
+    title: "Ứng dụng trợ giảng AI trong giảng dạy",
+    shortDesc: "Gia sư được cấp bộ công cụ trợ giảng AI: soạn nháp bài tập theo chủ đề kèm lời giải thích đáp án chi tiết.",
     badge: "Gia sư cần biết",
     content: (
       <div className="space-y-3 text-sm leading-relaxed">

@@ -8,7 +8,7 @@
 
 Mọi trang và component mới (Student, Tutor, Admin, Receptionist, Guest...) **bắt buộc** phải tuân thủ nghiêm ngặt ngôn ngữ thiết kế đồng nhất của hệ thống, lấy 2 trang chuẩn sau làm **Golden Reference (Chuẩn tham chiếu vàng)**:
 1. **Landing Page**: [LandingPage.jsx](src/pages/LandingPage.jsx) và các component tại [frontend/src/components/landing/](src/components/landing/).
-2. **Trang Gia sư (Tutor Portal)**: [TutorDashboard.jsx](src/pages/tutor/TutorDashboard.jsx), [ClassRequests.jsx](src/pages/tutor/ClassRequests.jsx), [TutorProfile.jsx](src/pages/tutor/TutorProfile.jsx) cùng AppShell tại [AppShell.jsx](src/components/layout/AppShell.jsx).
+2. **Trang Gia sư (Tutor Portal)**: [TutorDashboard.jsx](src/pages/tutor/TutorDashboard.jsx), [TutorProfile.jsx](src/pages/tutor/TutorProfile.jsx) cùng AppShell tại [AppShell.jsx](src/components/layout/AppShell.jsx).
 3. **Design System Specification**: Đọc kỹ [frontend/DESIGN.md](DESIGN.md).
 
 > **Tuyệt đối không:** Tự ý tạo ra các phong cách thiết kế lệch chuẩn, bảng màu ngoại lai (tím neon, hồng rực, đen tuyền #000000), hoặc sử dụng emoji làm icon.
