@@ -11,7 +11,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-/** Đơn khiếu nại tại quầy, luôn gắn một lớp cần gia sư (ERD bảng {@code complaints}, V21). */
+/** Đơn khiếu nại tại quầy, luôn gắn một lớp cần gia sư (ERD bảng {@code complaints}, V22). */
 @Getter
 @Setter
 @Builder

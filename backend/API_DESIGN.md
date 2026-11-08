@@ -481,9 +481,9 @@ Hạn 7 ngày (Quy định website I.3) chỉ áp cho khiếu nại `NON_REFUND`
 | V18 | Đổi mã nhân viên sang định dạng `NV-xxxx` |
 | V19 | Nới `chk_class_requests_ready`: lớp `OPEN` được phép chưa có `student_id`, tài khoản học sinh tạo khi vào dạy thử |
 | V20 | `parents`: quy SĐT về dạng `0xxxxxxxxx`, gộp phụ huynh trùng số, thêm `UNIQUE (phone)` |
-| V21 | `complaints`: thêm `class_request_id` (NN), `request_outcome`; `class_id` nullable; `complaint_type` đổi `REMATCH` thành `NON_REFUND` |
+| V22 | `complaints`: thêm `class_request_id` (NN), `request_outcome`; `class_id` nullable; `complaint_type` đổi `REMATCH` thành `NON_REFUND` |
 
-> Thực tế `payments`, `complaints`, `refunds` đã được tạo trong V5; V7–V8 là seed và `unaccent`. `db/migration/` hiện có **V1–V21**, mọi file mới phải tăng version, không sửa file đã merge (Flyway immutable — V16 đổi tên bảng cũ thay vì sửa lại migration).
+> Thực tế `payments`, `complaints`, `refunds` đã được tạo trong V5; V7–V8 là seed và `unaccent`. `db/migration/` hiện có **V1–V22** (V21 là ôn tập ngắt quãng), mọi file mới phải tăng version, không sửa file đã merge (Flyway immutable — V16 đổi tên bảng cũ thay vì sửa lại migration).
 
 ## 6. Ma trận phân quyền tổng hợp
 
