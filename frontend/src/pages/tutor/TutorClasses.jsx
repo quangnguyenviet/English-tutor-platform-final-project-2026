@@ -195,6 +195,16 @@ export default function TutorClasses() {
                     </div>
                     <Badge tone={cls.trialSession.statusTone}>{cls.trialSession.statusLabel}</Badge>
                   </div>
+                ) : cls.trialSession ? (
+                  <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs dark:border-slate-800 dark:bg-slate-900/60">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                      <CalendarDays size={15} />
+                    </span>
+                    <p className="min-w-0 flex-1 font-medium text-slate-500 dark:text-slate-400">
+                      Buổi học thử {cls.trialSession.dateLabel} đã diễn ra.
+                    </p>
+                    <Badge tone="slate">Lịch sử</Badge>
+                  </div>
                 ) : cls.status === "TRIAL" && !cls.trialSession ? (
                   <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-[11px] font-medium text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
                     <AlertCircle size={14} className="shrink-0" />
