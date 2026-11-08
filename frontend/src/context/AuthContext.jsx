@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { tutors, tutor, students, matchRequests, paymentProofs, receptionists, receptionist as receptionistData, complaints as complaintsData, studentNotifications as studentNotificationsData } from "../data/mockData";
+import { tutors, tutor, students, matchRequests, paymentProofs, receptionists, receptionist as receptionistData, studentNotifications as studentNotificationsData } from "../data/mockData";
 import { apiLogin, apiChangePassword, apiLogout, apiIntrospect, apiRegisterTutor } from "../lib/authApi";
 import { decodeJwt, scopeToRole, isTokenExpired } from "../lib/jwtDecode";
 
@@ -97,8 +97,6 @@ export function AuthProvider({ children }) {
   const [paymentProofList, setPaymentProofList] = useState(() => [...paymentProofs]);
   // Receptionist state
   const [receptionistList, setReceptionistList] = useState(() => [...receptionists]);
-  // Complaint state
-  const [complaintList, setComplaintList] = useState(() => [...complaintsData]);
   // Notification state for admin
   const [notificationList, setNotificationList] = useState(() => [...initialNotifications]);
   // Thông báo dành riêng cho học sinh (UC-ST-17), tách khỏi luồng thông báo vận hành.
@@ -513,46 +511,6 @@ export function AuthProvider({ children }) {
     setReceptionistList((prev) => prev.filter((r) => r.id !== id));
   }
 
-  // Complaint helpers (FR-32, FR-37)
-  function addComplaint(newComplaint) {
-    const now = new Date();
-    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
-    const seq = String(complaintList.length + 1).padStart(3, "0");
-    const id = `KN-${dateStr}-${seq}`;
-    setComplaintList((prev) => [
-      {
-        ...newComplaint,
-        id,
-        createdAt: now.toISOString(),
-        status: "pending",
-        statusLabel: "Chưa xử lí",
-        resolution: null,
-        resolvedAt: null,
-      },
-      ...prev,
-    ]);
-  }
-
-  function updateComplaint(id, patch) {
-    setComplaintList((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-  }
-
-  function resolveComplaint(id, resolution) {
-    setComplaintList((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? {
-              ...c,
-              status: "resolved",
-              statusLabel: "Đã xử lí",
-              resolution,
-              resolvedAt: new Date().toISOString(),
-            }
-          : c
-      )
-    );
-  }
-
   // Notification helpers
   function markNotificationRead(id) {
     setNotificationList((prev) =>
@@ -617,11 +575,6 @@ export function AuthProvider({ children }) {
         addReceptionist,
         updateReceptionist,
         removeReceptionist,
-        complaintList,
-        setComplaintList,
-        addComplaint,
-        updateComplaint,
-        resolveComplaint,
         notificationList,
         setNotificationList,
         markNotificationRead,

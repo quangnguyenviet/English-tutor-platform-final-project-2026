@@ -130,6 +130,35 @@ class StaffClassRequestServiceTest {
     }
 
     @Test
+    void rematchClass_fromComplaint_acceptsActiveClassWithinSevenDays() {
+        givenRequest("MATCHED", TUTOR_ID, STUDENT_ID, null);
+        when(lifecycle.findLatestClass(REQUEST_ID))
+                .thenReturn(Optional.of(classWith("ACTIVE", MatchingLifecycleSupport.today().minusDays(3))));
+        when(lifecycle.reopenRejectedApplications(REQUEST_ID)).thenReturn(List.of());
+
+        service.rematchClass(REQUEST_ID, "Phụ huynh muốn đổi gia sư", true, null);
+
+        verify(lifecycle).closeOpenClasses(REQUEST_ID);
+        verify(lifecycle).terminateTutor(REQUEST_ID, TUTOR_ID);
+        verify(jdbcTemplate).update(contains("status = 'REMATCH', requested_tutor_id = NULL"), any(), eq(REQUEST_ID));
+        verify(lifecycle).notifyUser(eq(TUTOR_ID), eq("Lớp học đã kết thúc theo khiếu nại"), anyString(),
+                eq("CLASS"), eq(CLASS_ID));
+    }
+
+    @Test
+    void rematchClass_fromComplaint_rejectsActiveClassAfterSevenDays() {
+        givenRequest("MATCHED", TUTOR_ID, STUDENT_ID, null);
+        when(lifecycle.findLatestClass(REQUEST_ID))
+                .thenReturn(Optional.of(classWith("ACTIVE", MatchingLifecycleSupport.today().minusDays(8))));
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.rematchClass(REQUEST_ID, "Lý do", true, null));
+
+        assertEquals(ErrorCode.MATCH_REQUEST_NOT_TRIAL, ex.getErrorCode());
+        verify(lifecycle, never()).closeOpenClasses(anyLong());
+    }
+
+    @Test
     void rematch_cancelledRequest_throwsAlreadyCancelled() {
         givenRequest("CANCELLED", null, STUDENT_ID, null);
 

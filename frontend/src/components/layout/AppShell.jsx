@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import clsx from "clsx";
 import { useState, useEffect } from "react";
 import { apiGetClassRequestCounts } from "../../lib/staffClassRequestApi";
+import { apiGetComplaintCounts, apiGetRefundCounts } from "../../lib/complaintApi";
 import {
   LayoutDashboard,
   Users,
@@ -31,6 +32,7 @@ import {
   Megaphone,
   ChevronsLeft,
   ChevronsRight,
+  Wallet,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { AiAssistantProvider, useAiAssistant } from "../../context/AiAssistantContext";
@@ -61,7 +63,7 @@ export default function AppShell() {
 }
 
 function AppShellInner() {
-  const { session, token, logout, matchRequestList, notificationList, complaintList } = useAuth();
+  const { session, token, logout, matchRequestList, notificationList } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { open: chatOpen } = useAiAssistant();
@@ -123,6 +125,40 @@ function AppShellInner() {
     };
   }, [isAdmin, isReceptionist, currentToken, location.pathname]);
 
+  // Số khiếu nại chờ xử lý (Lễ tân, Admin) và yêu cầu hoàn tiền chờ Kế toán (Kế toán, Admin).
+  const [pendingComplaintCount, setPendingComplaintCount] = useState(0);
+  const [pendingRefundCount, setPendingRefundCount] = useState(0);
+
+  useEffect(() => {
+    const wantsComplaints = isAdmin || isReceptionist;
+    const wantsRefunds = isAdmin || isAccountant;
+    if (!wantsComplaints && !wantsRefunds) return undefined;
+    let isMounted = true;
+
+    async function loadCounts() {
+      if (wantsComplaints) {
+        apiGetComplaintCounts()
+          .then((c) => isMounted && setPendingComplaintCount(Number(c?.PENDING || 0)))
+          .catch(() => {});
+      }
+      if (wantsRefunds) {
+        apiGetRefundCounts()
+          .then((c) => isMounted && setPendingRefundCount(Number(c?.PENDING || 0)))
+          .catch(() => {});
+      }
+    }
+
+    loadCounts();
+    const interval = setInterval(loadCounts, 30000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [isAdmin, isReceptionist, isAccountant, location.pathname]);
+
+  const complaintBadge = () => (pendingComplaintCount > 0 ? pendingComplaintCount : null);
+  const refundBadge = () => (pendingRefundCount > 0 ? pendingRefundCount : null);
+
   // Build dynamic nav items
   let items = [];
   if (isAdmin) {
@@ -148,7 +184,8 @@ function AppShellInner() {
       { to: "/admin/students", label: "Quản lý học sinh", icon: Users },
       { to: "/admin/lessons", label: "Theo dõi buổi học", icon: BookOpenCheck },
       { to: "/admin/staff", label: "Quản lý nhân sự", icon: IdCard },
-      { to: "/admin/complaints", label: "Xử lý khiếu nại", icon: FileWarning },
+      { to: "/admin/complaints", label: "Xử lý khiếu nại", icon: FileWarning, badge: complaintBadge },
+      { to: "/admin/refunds", label: "Hoàn tiền", icon: Wallet, badge: refundBadge },
       { to: "/admin/analytics", label: "Báo cáo & Phân tích", icon: BarChart2 },
       {
         to: "/admin/notifications",
@@ -163,7 +200,6 @@ function AppShellInner() {
     const pendingMatchCount = realPendingMatchCount !== null
       ? realPendingMatchCount
       : (matchRequestList?.filter((r) => r.status === "pending").length || 0);
-    const pendingComplaintCount = complaintList?.filter((c) => c.status === "pending").length || 0;
     const unreadNotifCount = notificationList?.filter((n) => !n.read).length || 0;
 
     items = [
@@ -186,7 +222,7 @@ function AppShellInner() {
         to: "/receptionist/complaints",
         label: "Xử lý khiếu nại",
         icon: FileWarning,
-        badge: () => (pendingComplaintCount > 0 ? pendingComplaintCount : null),
+        badge: complaintBadge,
       },
       {
         to: "/receptionist/notifications",
@@ -200,6 +236,7 @@ function AppShellInner() {
     items = [
       { to: "/accountant", label: "Tổng quan", icon: LayoutDashboard, end: true },
       { to: "/accountant/payments", label: "Phí nhận lớp", icon: Banknote },
+      { to: "/accountant/refunds", label: "Hoàn tiền", icon: Wallet, badge: refundBadge },
       { to: "/accountant/settings", label: "Cài đặt", icon: Settings },
     ];
   } else if (isTutor) {

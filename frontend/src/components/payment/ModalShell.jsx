@@ -18,7 +18,7 @@ export default function ModalShell({ open, title, subtitle, onClose, children, f
       <div
         role="dialog"
         aria-modal="true"
-        className="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900 sm:rounded-2xl"
+        className="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-[#0B1220] sm:rounded-2xl"
       >
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 p-5 dark:border-slate-800">
           <div className="min-w-0">

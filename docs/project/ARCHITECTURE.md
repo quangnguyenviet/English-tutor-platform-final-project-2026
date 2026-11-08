@@ -95,7 +95,7 @@ Một ứng dụng Spring Boot, chia thành các gói theo nghiệp vụ dưới
 | `quiz` | Quiz, câu hỏi, câu trả lời, chuyển trạng thái draft/assigned, gọi AI Service, import | FR-13, FR-14, FR-22 |
 | `personalization` | Elo, hồ sơ kỹ năng, danh sách ôn tập | FR-22 |
 | `finance` | Khoản phí nhận lớp (tạo khi ghép thành công, chỉnh tỷ lệ), minh chứng và thu hộ, kế toán xác nhận hoặc yêu cầu gửi lại; yêu cầu hoàn tiền; thống kê và xuất Excel; dashboard kế toán | FR-15, FR-33, FR-40 đến FR-44 |
-| `complaint` | Khiếu nại: tạo, xem và sửa, giải quyết; tạo yêu cầu hoàn tiền qua service của `finance` | FR-35 đến FR-37 |
+| `complaint` | Khiếu nại: tạo, xem và sửa, giải quyết (không hoàn tiền gọi service của `matching`); yêu cầu hoàn tiền | FR-35 đến FR-37, FR-43 |
 | `staff` | Quản lý học sinh, nhân sự (lễ tân, kế toán), dashboard lễ tân | FR-24, FR-34, FR-38, FR-39 |
 | `common` | Audit log, thông báo, lưu tệp, xử lý lỗi, tiện ích bảo mật | FR-23 và hỗ trợ các gói khác |
 
@@ -113,6 +113,7 @@ graph LR
     quiz --> AIClient["ai client"]
     finance --> classroom
     complaint --> classroom
+    complaint --> matching
     complaint --> finance
     staff --> auth
     staff --> classroom
@@ -149,7 +150,7 @@ Không cho phép vòng phụ thuộc. `common` không phụ thuộc gói nào kh
 - **Quy tắc:** Spring Security xác thực JWT, `@PreAuthorize` kiểm tra vai trò. Với dữ liệu gắn với lớp, thêm kiểm tra quan hệ qua `ClassAccessGuard`:
   - Gia sư chỉ truy cập lớp, buổi học, quiz và học sinh có liên kết với mình.
   - Học sinh chỉ truy cập buổi học, quiz, câu trả lời của chính mình (UC-ST-06: buổi không thuộc học sinh thì từ chối và quay lại lịch học).
-  - `ADMIN` là tập cha của `RECEPTIONIST` và `ACCOUNTANT`. Các endpoint `staff/employees/**` chỉ cho `ADMIN`. Các endpoint xác nhận phí, hoàn tiền, thống kê (`finance/payments/*/approve`, `finance/refunds/**`, `finance/reports/**`) chỉ cho `ACCOUNTANT` và `ADMIN`; endpoint thu hộ minh chứng cho `RECEPTIONIST` và `ADMIN`.
+  - `ADMIN` là tập cha của `RECEPTIONIST` và `ACCOUNTANT`. Các endpoint `staff/employees/**` chỉ cho `ADMIN`. Các endpoint xác nhận phí, hoàn tiền, thống kê (`finance/payments/*/approve`, `refunds/**`, `finance/reports/**`) chỉ cho `ACCOUNTANT` và `ADMIN`; endpoint thu hộ minh chứng cho `RECEPTIONIST` và `ADMIN`.
   - Kiểm soát chéo kiểm tra ở service, không chỉ ở vai trò: người tải minh chứng không được xác nhận khoản đó, người tạo yêu cầu hoàn tiền không được chi khoản đó (QT-9 trong PRD).
 - **Phụ huynh:** không có vai trò riêng, dùng tài khoản học sinh nên đi qua cùng các kiểm tra của `STUDENT`.
 - **Công khai:** chỉ các endpoint tìm gia sư, xem hồ sơ đã duyệt, hai form của phụ huynh. Dữ liệu trả về lọc theo trạng thái hồ sơ "Đang hoạt động" và ẩn các mục rỗng.
@@ -245,7 +246,8 @@ stateDiagram-v2
 
 ### AD-11. Hoàn tiền và thống kê tài chính
 - **Hoàn tiền là một giao dịch có khóa:** khi kế toán xác nhận đã hoàn, Backend `SELECT ... FOR UPDATE` hàng `payments` bị hoàn, kiểm tra tổng tiền đã hoàn cộng khoản mới không vượt `received_amount` (C-10 trong ERD), rồi trong cùng giao dịch: `refunds` → `PAID`, khiếu nại → `RESOLVED` kèm kết quả tự sinh, ghi audit log, thông báo lễ tân. Khóa hàng để hai kế toán không cùng hoàn một khoản.
-- Tạo yêu cầu hoàn tiền (UC-REC-14) cũng là một giao dịch: tạo `refunds` `PENDING`, khiếu nại → `PROCESSING`. Ràng buộc chỉ một yêu cầu `PENDING`/`PAID` mỗi khiếu nại dùng partial unique index (C-12).
+- Tạo yêu cầu hoàn tiền (UC-REC-16) cũng là một giao dịch: tạo `refunds` `PENDING`, khiếu nại → `PROCESSING`. Ràng buộc chỉ một yêu cầu `PENDING`/`PAID` mỗi khiếu nại dùng partial unique index (C-12).
+- **Giải quyết khiếu nại không hoàn tiền là một giao dịch:** khóa khiếu nại và `class_requests`, đổi trạng thái đối tượng nếu chưa đúng, rồi khiếu nại → `RESOLVED`. Lỗi ở bước nào thì toàn bộ rollback.
 - **Thống kê không dùng bảng tổng hợp:** số liệu tính bằng truy vấn `SUM ... GROUP BY` trên `payments` (`APPROVED`, theo `reviewed_at`) và `refunds` (`PAID`, theo `processed_at`), có chỉ mục ở mục 6. Dữ liệu một trung tâm đủ nhỏ để truy vấn trực tiếp; nếu chậm thì thêm materialized view, không đổi API.
 - **Xuất Excel ở Backend** bằng Apache POI (`SXSSFWorkbook` dạng streaming), trả tệp qua phản hồi tải xuống; ghi audit log `EXPORT_FINANCE_REPORT` kèm bộ lọc.
 
@@ -324,21 +326,21 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant R as Lễ tân
-    participant B as Backend (complaint, finance)
+    participant B as Backend (complaint)
     participant D as PostgreSQL
     participant K as Kế toán
 
-    R->>B: POST /complaints/{id}/refund-request (payment, số tiền, tài khoản nhận)
+    R->>B: POST /complaints/{id}/refund-requests (payment, số tiền, tài khoản nhận)
     B->>D: Tạo refunds PENDING, khiếu nại PROCESSING
     B-->>K: Thông báo
     K->>B: Xem yêu cầu, chuyển khoản ngoài hệ thống, tải biên lai
     alt Hoàn tiền
-        K->>B: POST /finance/refunds/{id}/pay (approved_amount, proof)
+        K->>B: POST /refunds/{id}/pay (approved_amount, proof)
         B->>D: Khóa hàng payments, kiểm tra tổng hoàn <= received_amount
         B->>D: refunds PAID, khiếu nại RESOLVED, audit log
         B-->>R: Thông báo đã hoàn
     else Từ chối
-        K->>B: POST /finance/refunds/{id}/reject (lý do)
+        K->>B: POST /refunds/{id}/reject (lý do)
         B->>D: refunds REJECTED, khiếu nại PENDING
         B-->>R: Thông báo kèm lý do
     end
@@ -397,7 +399,7 @@ Chỉ mục cần có: `quiz_answers (student_id, question_id)` duy nhất; `cla
 | Quản lý và thêm nhân sự (FR-38, FR-39) | `staff`, `auth` | `pages/admin` | AD-3, AD-7 |
 | Dashboard kế toán, quản lý khoản phí (FR-40, FR-41) | `finance` | `pages/accountant` | AD-3, AD-7 |
 | Kế toán xác nhận phí (FR-42) | `finance` | `pages/accountant` | AD-5, AD-6 |
-| Hoàn tiền (FR-43) | `finance`, `complaint` | `pages/accountant`, `pages/receptionist` | AD-9, AD-11 |
+| Hoàn tiền (FR-43) | `complaint` | `pages/accountant`, `pages/receptionist` | AD-9, AD-11 |
 | Thống kê và xuất Excel (FR-44) | `finance` | `pages/accountant` | AD-11 |
 
 ## 8. Triển khai và phi chức năng

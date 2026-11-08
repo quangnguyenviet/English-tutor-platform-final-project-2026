@@ -49,7 +49,7 @@ Các danh từ liên quan đến vật:
 \- Câu hỏi → lớp **quiz_questions**: quiz_id, question_number, question_text, option_a, option_b, option_c, option_d, correct_answer, explanation, cefr_level, skill_id — Câu hỏi trắc nghiệm A/B/C/D với đáp án, lời giải thích, cấp độ CEFR và thẻ kỹ năng  
 \- Câu trả lời → lớp **quiz_answers**: question_id, student_id, selected_answer, is_correct, elo_before, elo_after, elo_change, next_review, review_count, easiness_factor, answered_at — Nguồn gốc tính điểm Elo và danh sách ôn tập Spaced Repetition. UNIQUE (student_id, question_id)  
 \- Khoản thanh toán → lớp **payments**: class_id, payer_type, fee_percentage, amount, payment_method, proof_url, received_amount, status, reject_reason, uploaded_by, uploaded_at, reviewed_by, reviewed_at — Khoản thu của trung tâm (phí nhận lớp hoặc học phí đóng trước)  
-\- Khiếu nại → lớp **complaints**: class_id, complainant_name, complainant_phone, complainant_role, complaint_type, complaint_content, status, resolution, received_by, resolved_by, resolved_at — Đơn khiếu nại tại quầy, Lễ tân tiếp nhận và xử lý  
+\- Khiếu nại → lớp **complaints**: class_request_id, class_id, complainant_name, complainant_phone, complainant_role, complaint_type, complaint_content, status, resolution, request_outcome, received_by, resolved_by, resolved_at — Đơn khiếu nại tại quầy, Lễ tân tiếp nhận và xử lý  
 \- Minh chứng khiếu nại → lớp **complaint_attachments**: complaint_id, file_url, file_name, uploaded_by — Ảnh minh chứng khi giải quyết khiếu nại  
 \- Yêu cầu hoàn tiền → lớp **refunds**: complaint_id, payment_id, requested_amount, approved_amount, recipient_name, bank_name, bank_account_number, status, reject_reason, proof_url, requested_by, processed_by, processed_at — Phát sinh từ khiếu nại REFUND, Lễ tân tạo và Kế toán xử lý  
 \- Thông báo → lớp **notifications**: user_id, title, content, link_url, link_entity_type, link_entity_id, is_read — Thông báo chuông cho người dùng  
@@ -80,7 +80,7 @@ Các danh từ thông tin:
 \- Số thứ tự câu, nội dung câu hỏi, phương án A/B/C/D, đáp án đúng, lời giải thích, cấp độ CEFR → thuộc tính của quiz_questions  
 \- Đáp án đã chọn, kết quả đúng/sai, Elo trước/sau/thay đổi, thời điểm ôn tập tiếp, số lần ôn, hệ số dễ → thuộc tính của quiz_answers  
 \- Loại người nộp, tỷ lệ phí, số tiền, phương thức thanh toán, biên lai, số tiền thực nhận, trạng thái, lý do từ chối → thuộc tính của payments  
-\- Tên người khiếu nại, SĐT, vai trò, loại khiếu nại, nội dung, trạng thái, kết quả xử lý → thuộc tính của complaints  
+\- Tên người khiếu nại, SĐT, vai trò, loại khiếu nại, lớp cần gia sư bị khiếu nại, nội dung, trạng thái, kết quả xử lý, kết quả với đối tượng → thuộc tính của complaints  
 \- Đường dẫn file, tên file → thuộc tính của complaint_attachments  
 \- Số tiền đề xuất hoàn, số tiền được duyệt, tên chủ tài khoản, ngân hàng, số tài khoản, trạng thái, lý do từ chối, biên lai hoàn tiền → thuộc tính của refunds  
 \- Tiêu đề, nội dung, liên kết, loại đối tượng liên kết, ID đối tượng, cờ đã đọc → thuộc tính của notifications  
@@ -127,7 +127,8 @@ Quan hệ 1-n (một-nhiều):
 \- students có nhiều quiz_answers → students \- quiz_answers là 1-n (một học sinh có nhiều câu trả lời)  
 \- classes có nhiều payments → classes \- payments là 1-n (một lớp có nhiều khoản phí: phí nhận lớp \+ học phí)  
 \- users có nhiều payments (thông qua uploaded_by, reviewed_by) → users \- payments là 1-n (uploaded_by \= người nộp minh chứng, reviewed_by \= Kế toán xác nhận, phải khác nhau)  
-\- classes có nhiều complaints → classes \- complaints là 1-n (một lớp có nhiều khiếu nại)  
+\- class_requests có nhiều complaints → class_requests \- complaints là 1-n (một lớp cần gia sư có nhiều khiếu nại)  
+\- classes có nhiều complaints → classes \- complaints là 0..1-n (khiếu nại trên lớp cần gia sư chưa có lớp học thì không gắn lớp)  
 \- users có nhiều complaints (thông qua received_by, resolved_by) → users \- complaints là 1-n (Lễ tân tiếp nhận, Lễ tân/Kế toán đóng đơn)  
 \- complaints có nhiều complaint_attachments → complaints \- complaint_attachments là 1-n (một khiếu nại có nhiều minh chứng)  
 \- users có nhiều complaint_attachments (thông qua uploaded_by) → users \- complaint_attachments là 1-n (Lễ tân tải lên nhiều minh chứng)  
@@ -171,7 +172,7 @@ Quan hệ tham chiếu (Reference):
 \- quiz_questions tham chiếu đến quizzes (quiz_id) và skills (skill_id)  
 \- quiz_answers tham chiếu đến quiz_questions (question_id) và students (student_id)  
 \- payments tham chiếu đến classes (class_id) và users (uploaded_by, reviewed_by — phải khác nhau, kiểm soát chéo)  
-\- complaints tham chiếu đến classes (class_id) và users (received_by, resolved_by)  
+\- complaints tham chiếu đến class_requests (class_request_id), classes (class_id, có thể NULL) và users (received_by, resolved_by)  
 \- complaint_attachments tham chiếu đến complaints (complaint_id) và users (uploaded_by)  
 \- refunds tham chiếu đến complaints (complaint_id), payments (payment_id), users (requested_by, processed_by — phải khác nhau, kiểm soát chéo)  
 \- notifications tham chiếu đến users (user_id)  

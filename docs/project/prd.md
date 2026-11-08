@@ -2,7 +2,7 @@
 title: PRD — Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition
 status: draft-v2
 created: 2026-08-31
-updated: 2026-10-13
+updated: 2026-11-06
 nguồn đối chiếu: docs/Usecase/*.md
 ---
 # PRD: Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition
@@ -105,7 +105,7 @@ Nền tảng Web **single-tenant** cho một trung tâm gia sư tiếng Anh 1-1,
 **UJ-5. Chị Hoa (lễ tân) xử lý ca trực**
 1. Dashboard hiện số lớp cần gia sư chờ xử lý, khiếu nại chưa xử lý, khiếu nại chờ hoàn tiền, số gia sư đang hoạt động.
 2. Chị duyệt hồ sơ gia sư mới. Một gia sư đến quầy nộp phí bằng tiền mặt: chị lập phiếu thu, tải ảnh lên và gửi kế toán.
-3. Phụ huynh đến quầy khiếu nại: chị tạo đơn. Nếu ghép gia sư khác, chị ghi kết quả kèm ảnh minh chứng và đóng đơn. Nếu hoàn tiền, chị thống nhất số tiền và tài khoản nhận với phụ huynh rồi gửi yêu cầu cho kế toán; đơn chuyển "Chờ hoàn tiền".
+3. Phụ huynh hoặc gia sư đến quầy khiếu nại: chị tạo đơn, chọn loại Hoàn tiền hoặc Không hoàn tiền. Với khiếu nại không hoàn tiền, chị liên hệ bên còn lại để xác nhận rồi tự xử lý: chọn Hủy lớp, hoặc Ghép lại khi lớp đã có gia sư. Lớp đã ghép thành công chỉ nhận khiếu nại trong 7 ngày đầu. Nếu đã thao tác hủy hoặc ghép lại ở trang Lớp cần gia sư trước đó, chị đính kèm minh chứng đã xử lý để đóng đơn. Với khiếu nại hoàn tiền của lớp online, chị thống nhất số tiền và tài khoản nhận với phụ huynh rồi gửi yêu cầu cho kế toán; đơn chuyển "Chờ hoàn tiền" và tự cập nhật khi kế toán xử lý.
 
 **UJ-6. Anh Bình (Admin) thêm nhân sự**
 1. Anh Bình đăng nhập, làm được mọi việc như lễ tân (UJ-5) và kế toán (UJ-7).
@@ -202,9 +202,9 @@ Hai yêu cầu FR-08 (gia sư ứng tuyển lớp) và FR-15 (gia sư nộp minh
 | FR-32 | Quản lý gia sư: 3 tab (Chờ duyệt, Đang hoạt động, Ngưng hoạt động), xem chi tiết, chỉnh trạng thái và thông tin, xác nhận trước khi lưu | UC-REC-09 | M |
 | FR-33 | Thu hộ minh chứng phí tại quầy: tìm khoản phí theo mã lớp, tên gia sư hoặc SĐT phụ huynh; chọn cách nộp (tiền mặt hoặc chuyển khoản), tải ảnh phiếu thu hoặc biên lai (≤ 10 MB); khoản phí chuyển "Chờ xác nhận", thông báo kế toán, ghi audit log. Lễ tân không xác nhận tiền | UC-REC-10 | M |
 | FR-34 | Quản lý học sinh: danh sách (Đang hoạt động, Dừng hoạt động), tìm kiếm và lọc, xem chi tiết (thông tin cá nhân, phụ huynh, lớp đã và đang học), chỉnh trạng thái | UC-REC-11 | M |
-| FR-35 | Tạo đơn khiếu nại tại quầy (người khiếu nại, SĐT, vai trò, mã lớp, loại khiếu nại, lý do) ở trạng thái "Chờ xử lý" | UC-REC-12 | M |
-| FR-36 | Xem và sửa đơn khiếu nại: mã đơn, loại (hoàn tiền hoặc ghép lại lớp), người gửi, lớp, lễ tân tiếp nhận, thời điểm, yêu cầu hoàn tiền gần nhất (số đề xuất, số đã hoàn, trạng thái, lý do từ chối), nội dung, trạng thái. Danh sách chia Chờ xử lý, Chờ hoàn tiền, Đã xử lý, Đã hủy; đơn "Chờ hoàn tiền" chỉ xem; rỗng thì hiện "Chưa có khiếu nại nào" | UC-REC-13 | M |
-| FR-37 | Giải quyết khiếu nại. **Ghép lại lớp**: bắt buộc nhập kết quả xử lý, có thể đính kèm ảnh minh chứng; chuyển "Đã xử lý", ghi audit log. **Hoàn tiền**: chọn khoản phí đã được kế toán xác nhận của lớp, nhập số tiền đề xuất (không vượt số còn có thể hoàn) và tài khoản nhận, gửi kế toán; đơn chuyển "Chờ hoàn tiền". Kế toán từ chối thì đơn quay về "Chờ xử lý" kèm lý do | UC-REC-14 | M |
+| FR-35 | Tạo đơn khiếu nại tại quầy (người khiếu nại, SĐT, vai trò, loại khiếu nại, lớp cần gia sư bị khiếu nại, lý do) ở trạng thái "Chờ xử lý". **Hoàn tiền** chỉ áp dụng lớp online, vì phụ huynh nộp tiền trước. **Không hoàn tiền** gắn với một lớp cần gia sư ở bất kỳ trạng thái nào trừ Đã hủy; lớp đã ghép thành công chỉ nhận trong 7 ngày kể từ ngày học chính thức. Tạo đơn chưa làm đổi trạng thái lớp | UC-REC-14 | M |
+| FR-36 | Xem và sửa đơn khiếu nại: mã đơn, loại (hoàn tiền hoặc không hoàn tiền), đối tượng khiếu nại, người gửi, lễ tân tiếp nhận, thời điểm, yêu cầu hoàn tiền gần nhất (số đề xuất, số đã hoàn, trạng thái, lý do từ chối), nội dung, trạng thái. Danh sách chia Chờ xử lý, Chờ hoàn tiền, Đã xử lý, Đã hủy; đơn "Chờ hoàn tiền" chỉ xem; đơn còn "Chờ xử lý" được hủy khiếu nại, đối tượng giữ nguyên; rỗng thì hiện "Chưa có khiếu nại nào" | UC-REC-15 | M |
+| FR-37 | Giải quyết khiếu nại. **Không hoàn tiền**: sau khi liên hệ bên còn lại, lễ tân tự xử lý, bắt buộc nhập kết quả xử lý, có thể đính kèm ảnh minh chứng; chuyển "Đã xử lý", ghi audit log. Lễ tân chọn **Hủy lớp**, hoặc **Ghép lại** khi lớp đang dạy thử hay ghép thành công trong 7 ngày (lớp "Đang ghép lại", lớp đang học hủy, gia sư cũ bị loại); hệ thống tự thực hiện. Nếu lễ tân đã thao tác thủ công ở trang Lớp cần gia sư trước đó, hệ thống không thao tác lại và bắt buộc đính kèm minh chứng đã xử lý. **Hoàn tiền**: chọn khoản phí đã được kế toán xác nhận của lớp, nhập số tiền đề xuất (không vượt số còn có thể hoàn) và tài khoản nhận, gửi kế toán; đơn chuyển "Chờ hoàn tiền". Kế toán từ chối thì đơn quay về "Chờ xử lý" kèm lý do; trạng thái đơn đồng bộ theo xử lý của kế toán | UC-REC-16 | M |
 
 ### 4.6. Cổng Admin (thêm so với Lễ tân và Kế toán)
 
@@ -247,7 +247,7 @@ Admin có toàn bộ FR-24 đến FR-37 của Lễ tân và FR-40 đến FR-44 c
 | Lớp cần gia sư | Chờ xử lý → Đã đăng → Đang dạy thử; Chờ xử lý → Đang dạy thử (có gia sư chỉ định); Đang dạy thử → Ghép thành công; Đang dạy thử → Đang ghép lại → Đang dạy thử; mọi trạng thái → Đã hủy (Ghép thành công chỉ trong 7 ngày) |
 | Lớp học | TRIAL → ACTIVE → kết thúc hoặc hủy |
 | Phí nhận lớp | Chưa nộp minh chứng → Chờ xác nhận (gia sư nộp hoặc lễ tân thu hộ) → Đã xác nhận (kế toán); Chờ xác nhận → Yêu cầu gửi lại → Chờ xác nhận |
-| Khiếu nại | Chờ xử lý → Đã xử lý (ghép lại lớp); Chờ xử lý → Chờ hoàn tiền → Đã xử lý (hoàn tiền); Chờ hoàn tiền → Chờ xử lý (kế toán từ chối); Chờ xử lý → Đã hủy |
+| Khiếu nại | Chờ xử lý → Đã xử lý (không hoàn tiền); Chờ xử lý → Chờ hoàn tiền → Đã xử lý (hoàn tiền); Chờ hoàn tiền → Chờ xử lý (kế toán từ chối); Chờ xử lý → Đã hủy |
 | Yêu cầu hoàn tiền | Chờ xử lý → Đã hoàn tiền; Chờ xử lý → Đã từ chối |
 | Quiz | draft → assigned → Đã hoàn thành; assigned → hết hạn |
 | Buổi học (hiển thị với học sinh) | Sắp diễn ra, Đang diễn ra, Đã học, Đã đổi lịch, Vắng, Hủy |
@@ -343,7 +343,9 @@ Những điểm use case chưa nêu rõ. Nhóm đã chọn một phương án m�
 | QĐ-5 | Lớp online phụ huynh đóng trước | Cùng công thức. Khoản phí tạo khi gia sư chốt lịch cố định (lớp chuyển ACTIVE) cho mọi lớp; lớp tại nhà thì gia sư nộp khi tròn 30 ngày dạy chính thức | Thời điểm tạo `payments` |
 | QĐ-6 | Lỗi tham chiếu và tên gọi trong `Usecase_Tutor.docx` | **Đã sửa**: UC-T04 trỏ tới màn hình chi tiết buổi học (UC-T02), và bỏ cụm "Lễ tân/Lễ tân" | Không |
 | QĐ-7 | Tài khoản học sinh được cấp thế nào khi chưa có use case tạo tài khoản | Lễ tân không tạo tài khoản trên giao diện. Dữ liệu ban đầu do script khởi tạo (seed) theo quy tắc chung: tên đăng nhập sinh từ họ tên và mã học sinh, mật khẩu mặc định dùng một lần (FR-06). Khi cần tạo tài khoản trên giao diện thì viết thêm use case | `auth`, dữ liệu mẫu |
-| QĐ-8 | Ai quyết số tiền hoàn | Lễ tân thống nhất với người khiếu nại và đề xuất; kế toán chốt số cuối (có thể thấp hơn đề xuất, không vượt số đã thu) hoặc từ chối kèm lý do. Hoàn tiền chuyển khoản ngoài hệ thống, hệ thống chỉ lưu biên lai | `refunds`, UC-REC-14, UC-ACC-04 |
+| QĐ-8 | Ai quyết số tiền hoàn | Lễ tân thống nhất với người khiếu nại và đề xuất; kế toán chốt số cuối (có thể thấp hơn đề xuất, không vượt số đã thu) hoặc từ chối kèm lý do. Hoàn tiền chuyển khoản ngoài hệ thống, hệ thống chỉ lưu biên lai | `refunds`, UC-REC-16, UC-ACC-04 |
+| QĐ-9 | Phân loại khiếu nại | Hai loại: **Hoàn tiền** cho lớp online vì phụ huynh nộp tiền trước, kế toán là người duyệt, nộp minh chứng và xác nhận cuối; **Không hoàn tiền** gồm hủy lớp hoặc ghép lại gia sư cho lớp cần gia sư, lễ tân tự xử lý; lớp đã ghép thành công chỉ trong 7 ngày đầu | `complaints`, UC-REC-14, UC-REC-16 |
+| QĐ-10 | Trạng thái `OPEN` | `OPEN` chỉ dành cho lớp đăng lần đầu. Ghép lại dùng trạng thái "Đang ghép lại" (`REMATCH`), không đưa đơn về `OPEN` | `class_requests`, UC-REC-16 |
 
 ## 11. Giả định
 

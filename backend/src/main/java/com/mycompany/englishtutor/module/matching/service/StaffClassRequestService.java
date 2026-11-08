@@ -1,6 +1,7 @@
 package com.mycompany.englishtutor.module.matching.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -506,17 +507,32 @@ public class StaffClassRequestService {
     @Transactional
     public ClassRequestDetailResponse rematch(
             Long id, RematchMatchRequest request, HttpServletRequest httpRequest) {
+        rematchClass(id, request.getReason().trim(), false, httpRequest);
+        return getClassRequest(id);
+    }
+
+    /**
+     * Ghép lại dùng chung cho trang Lớp cần gia sư và cho giải quyết khiếu nại.
+     *
+     * @param allowActive {@code true} khi gọi từ khiếu nại: nhận thêm lớp {@code ACTIVE} còn trong 7 ngày
+     *                    kể từ {@code active_from}; lớp {@code ACTIVE} giữ nguyên bài giảng và khoản phí.
+     */
+    @Transactional
+    public void rematchClass(Long id, String reason, boolean allowActive, HttpServletRequest httpRequest) {
         Map<String, Object> row = lockRequest(id);
         String status = (String) row.get("status");
         if ("CANCELLED".equalsIgnoreCase(status)) {
             throw new AppException(ErrorCode.CLASS_REQUEST_ALREADY_CANCELLED);
         }
 
+        LocalDate today = MatchingLifecycleSupport.today();
         ClassSnapshot trial = lifecycle.findLatestClass(id)
-                .filter(cl -> "MATCHED".equalsIgnoreCase(status) && cl.isTrial())
+                .filter(cl -> "MATCHED".equalsIgnoreCase(status))
+                .filter(cl -> cl.isTrial()
+                        || (allowActive && "ACTIVE".equalsIgnoreCase(cl.status()) && !cl.isCancelExpired(today)))
                 .orElseThrow(() -> new AppException(ErrorCode.MATCH_REQUEST_NOT_TRIAL));
+        boolean fromActive = !trial.isTrial();
 
-        String reason = request.getReason().trim();
         Long currentUserId = getCurrentUserId();
 
         lifecycle.closeOpenClasses(id);
@@ -535,12 +551,19 @@ public class StaffClassRequestService {
                 Map.of("reason", reason, "oldTutorId", trial.tutorId(), "cancelledClassId", trial.id()),
                 httpRequest);
 
-        lifecycle.notifyUser(trial.tutorId(), "Kết quả dạy thử không thành công",
-                "Lớp dạy thử " + safe(trial.className()) + " đã kết thúc do dạy thử không thành công. Lý do: "
-                        + reason + ". Bạn sẽ không thể ứng tuyển lại lớp này.",
-                "CLASS", trial.id());
+        if (fromActive) {
+            lifecycle.notifyUser(trial.tutorId(), "Lớp học đã kết thúc theo khiếu nại",
+                    "Lớp " + safe(trial.className()) + " đã kết thúc theo khiếu nại, trung tâm sẽ tìm gia sư khác. "
+                            + "Lý do: " + reason + ". Bạn sẽ không thể ứng tuyển lại lớp này.",
+                    "CLASS", trial.id());
+        } else {
+            lifecycle.notifyUser(trial.tutorId(), "Kết quả dạy thử không thành công",
+                    "Lớp dạy thử " + safe(trial.className()) + " đã kết thúc do dạy thử không thành công. Lý do: "
+                            + reason + ". Bạn sẽ không thể ứng tuyển lại lớp này.",
+                    "CLASS", trial.id());
+        }
         lifecycle.notifyUser(trial.studentId(), "Trung tâm đang tìm gia sư mới",
-                "Lớp dạy thử " + safe(trial.className())
+                (fromActive ? "Lớp " : "Lớp dạy thử ") + safe(trial.className())
                         + " đã kết thúc. Trung tâm đang tìm gia sư khác phù hợp và sẽ liên hệ lại với gia đình.",
                 "CLASS", trial.id());
         for (Long reopenedTutor : reopenedTutors) {
@@ -548,8 +571,6 @@ public class StaffClassRequestService {
                     "Lớp bạn từng ứng tuyển đang cần gia sư. Hồ sơ của bạn đã được đưa lại vào danh sách ứng tuyển.",
                     "CLASS_REQUEST", id);
         }
-
-        return getClassRequest(id);
     }
 
     /**
