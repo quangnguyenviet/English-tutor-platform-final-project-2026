@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.validation.Valid;
+
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,8 +20,18 @@ import org.springframework.web.bind.annotation.RestController;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AnswerResultResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AttemptStateResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.DashboardResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.DueReviewItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.QuizResultResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewFeedback;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewItem;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewScheduleResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewStatsResponse;
+import com.mycompany.englishtutor.module.student.api.ReviewAnswerRequest;
+import com.mycompany.englishtutor.module.student.api.ReviewRateRequest;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassDetail;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassMaterialItem;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassSummary;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentLessonItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentMaterialItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentScheduleResponse;
@@ -55,8 +67,9 @@ public class StudentPortalController {
     @PreAuthorize("hasRole('STUDENT')")
     @Operation(summary = "Lịch tuần T2–CN của học sinh", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<StudentScheduleResponse>> schedule(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart) {
-        return ok(service.getSchedule(weekStart));
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart,
+            @RequestParam(required = false) Long classId) {
+        return ok(service.getSchedule(weekStart, classId));
     }
 
     @GetMapping("/students/me/sessions")
@@ -72,6 +85,39 @@ public class StudentPortalController {
     @Operation(summary = "Gia sư đang dạy kèm tiến trình", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<List<StudentTutorItem>>> tutors() {
         return ok(service.getTutors());
+    }
+
+    @GetMapping("/students/me/classes")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(summary = "Danh sách lớp học của học sinh", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<List<StudentClassSummary>>> classes() {
+        return ok(service.getClasses());
+    }
+
+    @GetMapping("/students/me/classes/{classId}")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(summary = "Chi tiết lớp của học sinh", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<StudentClassDetail>> classDetail(@PathVariable Long classId) {
+        return ok(service.getClassDetail(classId));
+    }
+
+    @GetMapping("/students/me/classes/{classId}/lessons")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(
+            summary = "Bài giảng đã công bố của lớp",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<List<StudentLessonItem>>> classLessons(@PathVariable Long classId) {
+        return ok(service.getClassLessons(classId));
+    }
+
+    @GetMapping("/students/me/classes/{classId}/materials")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(
+            summary = "Tài liệu và video của các bài giảng đã công bố",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<List<StudentClassMaterialItem>>> classMaterials(
+            @PathVariable Long classId) {
+        return ok(service.getClassWorkspaceMaterials(classId));
     }
 
     /** Tài liệu lớp (bài giảng PUBLISHED) khi học sinh mở chi tiết buổi học (V16). */
@@ -100,8 +146,10 @@ public class StudentPortalController {
     @PreAuthorize("hasRole('STUDENT')")
     @Operation(summary = "Bài quiz của học sinh", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<List<StudentQuizItem>>> quizzes(
-            @RequestParam(required = false) String status, @RequestParam(required = false) Long sessionId) {
-        return ok(service.getQuizzes(status, sessionId));
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long sessionId,
+            @RequestParam(required = false) Long classId) {
+        return ok(service.getQuizzes(status, sessionId, classId));
     }
 
     @PostMapping("/quizzes/{id}/attempts/start")
@@ -135,5 +183,36 @@ public class StudentPortalController {
     @Operation(summary = "Danh sách ôn tập: các câu đã trả lời sai", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<List<ReviewItem>>> reviewList() {
         return ok(service.getReviewList());
+    }
+
+    @GetMapping("/students/me/reviews/due")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(summary = "Các câu sai đã đến hạn ôn", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<List<DueReviewItem>>> dueReviews(
+            @RequestParam(required = false) Integer limit) {
+        return ok(service.getDueReviews(limit));
+    }
+
+    @GetMapping("/students/me/reviews/stats")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(summary = "Thống kê phiên ôn tập", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<ReviewStatsResponse>> reviewStats() {
+        return ok(service.getReviewStats());
+    }
+
+    @PostMapping("/students/me/reviews/{questionId}/answer")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(summary = "Trả lời lại một câu sai", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<ReviewFeedback>> answerReview(
+            @PathVariable Long questionId, @Valid @RequestBody ReviewAnswerRequest request) {
+        return ok(service.answerReview(questionId, request.selectedAnswer()));
+    }
+
+    @PostMapping("/students/me/reviews/{questionId}/rate")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(summary = "Tự đánh giá và lên lịch lượt ôn kế tiếp", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<ReviewScheduleResponse>> rateReview(
+            @PathVariable Long questionId, @Valid @RequestBody ReviewRateRequest request) {
+        return ok(service.rateReview(questionId, request));
     }
 }

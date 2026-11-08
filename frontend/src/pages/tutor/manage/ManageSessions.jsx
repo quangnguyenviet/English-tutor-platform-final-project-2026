@@ -630,8 +630,8 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                   </div>
                 )}
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Bài giảng là tài liệu driver nhúng trong lớp — học sinh và phụ huynh xem được khi
-                  trạng thái "Đang hiển thị".
+                  {/* Bài giảng là tài liệu driver nhúng trong lớp — học sinh và phụ huynh xem được khi
+                  trạng thái "Đang hiển thị". */}
                 </p>
               </Card>
 

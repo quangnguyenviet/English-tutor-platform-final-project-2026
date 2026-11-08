@@ -40,6 +40,7 @@ import Avatar from "../ui/Avatar";
 import AiAssistantPanel from "../tutor/AiAssistantPanel";
 import TopBar from "./TopBar";
 import TutorClassSidebar from "./TutorClassSidebar";
+import StudentClassSidebar from "./StudentClassSidebar";
 
 const tutorLibraryNav = [
   { to: "/tutor/library/paths", label: "Khung chương trình", icon: Map },
@@ -226,6 +227,7 @@ function AppShellInner() {
         badge: () => (studentMatching?.studentStatus === "WAITING_APPROVAL" ? "1" : null),
       },
       { to: "/student", label: "Tổng quan LMS", icon: LayoutDashboard, end: true, locked: !isMatched },
+      { to: "/student/classes", label: "Lớp học của tôi", icon: Users, locked: !isMatched },
       { to: "/student/schedule", label: "Lịch học", icon: CalendarDays, locked: !isMatched },
       { to: "/student/exercises", label: "Bài tập & kiểm tra", icon: NotebookPen, locked: !isMatched },
       { to: "/student/progress", label: "Kết quả & tiến bộ", icon: LineChart, locked: !isMatched },
@@ -235,7 +237,9 @@ function AppShellInner() {
 
   // Detect workspace lớp học. Parse pathname vì useParams() ở layout route không thấy param của route con
   // (và /tutor/available-classes/:classId cũng có classId nên không được nhầm).
-  const isClassWorkspace = isTutor && /^\/tutor\/classes\/[^/]+/.test(location.pathname);
+  const isTutorClassWorkspace = isTutor && /^\/tutor\/classes\/[^/]+/.test(location.pathname);
+  const isStudentClassWorkspace = isStudent && /^\/student\/classes\/[^/]+/.test(location.pathname);
+  const isClassWorkspace = isTutorClassWorkspace || isStudentClassWorkspace;
   const classSidebarCompact = isClassWorkspace && classSidebarCollapsed;
 
   function handleLogout() {
@@ -310,7 +314,11 @@ function AppShellInner() {
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3">
           {isClassWorkspace ? (
-            <TutorClassSidebar collapsed={classSidebarCollapsed} />
+            isTutorClassWorkspace ? (
+              <TutorClassSidebar collapsed={classSidebarCollapsed} />
+            ) : (
+              <StudentClassSidebar collapsed={classSidebarCollapsed} />
+            )
           ) : (
             <>
               {/* Section Header for Student */}
@@ -321,7 +329,7 @@ function AppShellInner() {
               )}
 
               {/* Main nav */}
-              {items.map((item, idx) => {
+              {items.map((item) => {
                 // Divider before LMS items for student
                 const isLmsStart = isStudent && item.to === "/student";
                 return (

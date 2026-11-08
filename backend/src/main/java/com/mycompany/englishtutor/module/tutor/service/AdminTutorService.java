@@ -22,8 +22,12 @@ import com.mycompany.englishtutor.module.tutor.api.request.TutorStatusUpdateRequ
 import com.mycompany.englishtutor.module.tutor.api.response.TutorPendingSummaryResponse;
 import com.mycompany.englishtutor.module.tutor.api.response.TutorProfileResponse;
 import com.mycompany.englishtutor.module.tutor.domain.Tutor;
+import com.mycompany.englishtutor.module.tutor.domain.TutorCredential;
+import com.mycompany.englishtutor.module.tutor.domain.TutorSpecialty;
 import com.mycompany.englishtutor.module.tutor.domain.enums.ProfileStatus;
+import com.mycompany.englishtutor.module.tutor.repository.TutorCredentialRepository;
 import com.mycompany.englishtutor.module.tutor.repository.TutorRepository;
+import com.mycompany.englishtutor.module.tutor.repository.TutorSpecialtyRepository;
 import com.mycompany.englishtutor.module.user.domain.User;
 import com.mycompany.englishtutor.module.user.repository.UserRepository;
 import com.mycompany.englishtutor.shared.api.PageResponse;
@@ -48,6 +52,8 @@ public class AdminTutorService {
 
     UserRepository userRepository;
     TutorRepository tutorRepository;
+    TutorSpecialtyRepository tutorSpecialtyRepository;
+    TutorCredentialRepository tutorCredentialRepository;
     TutorProfileMapper tutorProfileMapper;
     AuditLogService auditLogService;
 
@@ -131,6 +137,30 @@ public class AdminTutorService {
         tutor.setReviewedBy(reviewerId);
         tutor.setReviewedAt(OffsetDateTime.now());
         tutorRepository.save(tutor);
+
+        if (tutorSpecialtyRepository != null) {
+            List<TutorSpecialty> specialties = tutorSpecialtyRepository.findByTutorId(tutorId);
+            if (specialties != null && !specialties.isEmpty()) {
+                for (TutorSpecialty s : specialties) {
+                    s.setIsVerified(true);
+                    s.setVerifiedBy(reviewerId);
+                    s.setVerifiedAt(OffsetDateTime.now());
+                }
+                tutorSpecialtyRepository.saveAll(specialties);
+            }
+        }
+
+        if (tutorCredentialRepository != null) {
+            List<TutorCredential> credentials = tutorCredentialRepository.findByTutorId(tutorId);
+            if (credentials != null && !credentials.isEmpty()) {
+                for (TutorCredential c : credentials) {
+                    c.setIsVerified(true);
+                    c.setVerifiedBy(reviewerId);
+                    c.setVerifiedAt(OffsetDateTime.now());
+                }
+                tutorCredentialRepository.saveAll(credentials);
+            }
+        }
 
         // Ghi Audit Log
         if (auditLogService != null) {

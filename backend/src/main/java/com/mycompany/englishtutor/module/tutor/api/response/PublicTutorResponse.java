@@ -31,10 +31,12 @@ public class PublicTutorResponse {
     String educationStatus;
     Integer experienceYears;
     String bio;
+    String hometown;
+    String address;
     String videoUrl;
     List<TutorProfileResponse.ServiceAreaResponse> serviceAreas;
     List<TutorProfileResponse.SpecialtyResponse> specialties;
-    /** Hình thức dạy (ONLINE, AT_HOME). Học phí không được công khai. */
+    /** Hình thức dạy (ONLINE, AT_HOME). Học phí không được công khai cho khách/phụ huynh. */
     List<String> teachingModes;
     List<TutorProfileResponse.AvailabilityResponse> availabilities;
     List<TutorProfileResponse.CredentialResponse> credentials;

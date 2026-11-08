@@ -14,13 +14,26 @@ function todayISO() {
  * Biểu mẫu thiết lập / chỉnh sửa lịch dạy thử (UC-T08).
  * Dùng chung cho modal tạo mới và chỉnh sửa trong workspace lớp học.
  */
-export default function TrialSessionForm({ initial, submitting, serverError, onCancel, onSubmit }) {
+export default function TrialSessionForm({
+  initial,
+  parentAddress = "",
+  submitting,
+  serverError,
+  onCancel,
+  onSubmit,
+}) {
+  const normalizedParentAddress = parentAddress.trim();
   const [sessionDate, setSessionDate] = useState(initial?.sessionDate || "");
   const [startTime, setStartTime] = useState(initial?.startTime || "");
   const [endTime, setEndTime] = useState(initial?.endTime || "");
   const [teachingMode, setTeachingMode] = useState(initial?.teachingMode || "ONLINE");
   const [meetingUrl, setMeetingUrl] = useState(initial?.meetingUrl || "");
   const [location, setLocation] = useState(initial?.location || "");
+  const [locationSource, setLocationSource] = useState(() =>
+    normalizedParentAddress && (!initial?.location || initial.location === normalizedParentAddress)
+      ? "PARENT"
+      : "CUSTOM",
+  );
   const [localError, setLocalError] = useState("");
 
   const error = localError || serverError;
@@ -45,7 +58,8 @@ export default function TrialSessionForm({ initial, submitting, serverError, onC
       setLocalError("Vui lòng nhập liên kết phòng học cho buổi học online.");
       return;
     }
-    if (teachingMode === "AT_HOME" && !location.trim()) {
+    const selectedLocation = locationSource === "PARENT" ? normalizedParentAddress : location.trim();
+    if (teachingMode === "AT_HOME" && !selectedLocation) {
       setLocalError("Vui lòng xác nhận địa chỉ cho buổi học tại nhà.");
       return;
     }
@@ -56,7 +70,7 @@ export default function TrialSessionForm({ initial, submitting, serverError, onC
       endTime,
       teachingMode,
       meetingUrl: teachingMode === "ONLINE" ? meetingUrl.trim() : null,
-      location: teachingMode === "AT_HOME" ? location.trim() : null,
+      location: teachingMode === "AT_HOME" ? selectedLocation : null,
     });
   };
 
@@ -152,18 +166,61 @@ export default function TrialSessionForm({ initial, submitting, serverError, onC
           />
         </div>
       ) : (
-        <div>
-          <label htmlFor="trial-location" className="mb-1 block text-xs font-bold text-slate-800 dark:text-slate-200">
-            Địa chỉ nhà học sinh <span className="text-rose-500">*</span>
-          </label>
-          <input
-            id="trial-location"
-            type="text"
-            value={location}
-            onChange={(event) => setLocation(event.target.value)}
-            placeholder="Số nhà, đường, quận/huyện, tỉnh/thành phố"
-            className={inputClass}
-          />
+        <div className="space-y-2.5">
+          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+            Địa điểm học thử <span className="text-rose-500">*</span>
+          </p>
+
+          {normalizedParentAddress && (
+            <button
+              type="button"
+              aria-pressed={locationSource === "PARENT"}
+              onClick={() => setLocationSource("PARENT")}
+              className={clsx(
+                "flex w-full cursor-pointer items-start gap-2.5 rounded-xl border p-3 text-left transition-all",
+                locationSource === "PARENT"
+                  ? "border-blue-600 bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300",
+              )}
+            >
+              <MapPin size={16} className="mt-0.5 shrink-0" />
+              <span>
+                <span className="block text-xs font-bold">Dùng địa chỉ của phụ huynh</span>
+                <span className="mt-0.5 block text-[11px] font-medium opacity-80">
+                  {normalizedParentAddress}
+                </span>
+              </span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            aria-pressed={locationSource === "CUSTOM"}
+            onClick={() => setLocationSource("CUSTOM")}
+            className={clsx(
+              "flex w-full cursor-pointer items-center gap-2.5 rounded-xl border p-3 text-left text-xs font-bold transition-all",
+              locationSource === "CUSTOM"
+                ? "border-blue-600 bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200"
+                : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300",
+            )}
+          >
+            <MapPin size={16} className="shrink-0" />
+            Nhập địa chỉ khác
+          </button>
+
+          {locationSource === "CUSTOM" && (
+            <div>
+              <label htmlFor="trial-location" className="sr-only">Địa chỉ học thử khác</label>
+              <input
+                id="trial-location"
+                type="text"
+                value={location}
+                onChange={(event) => setLocation(event.target.value)}
+                placeholder="Số nhà, đường, quận/huyện, tỉnh/thành phố"
+                className={inputClass}
+              />
+            </div>
+          )}
         </div>
       )}
 

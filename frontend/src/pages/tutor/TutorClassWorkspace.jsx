@@ -21,8 +21,8 @@ import {
  * Layout provider của workspace riêng cho một lớp học (UC-T08).
  *
  * <p>Dữ liệu lớp (thông tin + lịch dạy thử) lấy từ API thật; banner thiết lập lịch
- * dạy thử và modal form hiển thị trên mọi tab. Bốn danh sách của các tab prototype
- * (lộ trình, buổi học, bài tập, tài liệu) vẫn dùng dữ liệu mock như trước.
+ * dạy thử và modal form hiển thị trên mọi tab. Bài giảng và bài tập dùng API thật;
+ * lộ trình và kho tài liệu tổng hợp vẫn đang dùng dữ liệu prototype cũ.
  */
 export default function TutorClassWorkspace() {
   const { classId } = useParams();
@@ -44,8 +44,8 @@ export default function TutorClassWorkspace() {
   const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
 
-  // Dữ liệu mock của các tab prototype (lộ trình, bài tập, tài liệu) — giữ nguyên.
-  // Tab "Bài giảng" đã nối API thật (không dùng mock).
+  // Dữ liệu prototype còn được tab lộ trình / tài liệu dùng. Tab "Bài giảng"
+  // và "Bài tập" đã nối API thật, không đọc exercisesList này nữa.
   const [demoStudent] = useState(() => students[0]);
   const [pathItems, setPathItems] = useState(demoStudent.learningPath || []);
   const [exercisesList, setExercisesList] = useState(demoStudent.exercises || []);
@@ -266,6 +266,7 @@ export default function TutorClassWorkspace() {
 
             <TrialSessionForm
               initial={formInitial}
+              parentAddress={detail.parentAddress}
               submitting={submitting}
               serverError={formError}
               onCancel={closeTrialForm}
@@ -348,7 +349,7 @@ export default function TutorClassWorkspace() {
           basePath,
           openTrialForm,
           openScheduleForm,
-          // Mock cho 4 tab prototype
+          // Prototype còn dùng bởi lộ trình / tài liệu
           student: demoStudent,
           pathItems,
           setPathItems,

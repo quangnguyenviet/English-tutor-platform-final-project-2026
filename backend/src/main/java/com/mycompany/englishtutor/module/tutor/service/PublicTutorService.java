@@ -153,7 +153,7 @@ public class PublicTutorService {
         };
     }
 
-    /** Subquery: gia sư có chuyên môn đã xác minh mà cột {@code column} chứa một trong các cụm từ. */
+    /** Subquery: gia sư có chuyên môn mà cột {@code column} chứa một trong các cụm từ. */
     private static Subquery<Long> verifiedSpecialtyExists(
             Subquery<Long> sub, Root<Tutor> tutor, CriteriaBuilder cb, String column, List<String> values) {
         Root<TutorSpecialty> specialty = sub.from(TutorSpecialty.class);
@@ -161,7 +161,7 @@ public class PublicTutorService {
                 .map(value -> likeUnaccent(cb, specialty.<String>get(column), PublicSearchSupport.likeContains(value)))
                 .toArray(Predicate[]::new));
         return sub.select(specialty.<Long>get("id"))
-                .where(cb.equal(specialty.get("tutor"), tutor), cb.isTrue(specialty.get("isVerified")), anyValue);
+                .where(cb.equal(specialty.get("tutor"), tutor), anyValue);
     }
 
     private static Predicate likeUnaccent(CriteriaBuilder cb, Path<String> column, String pattern) {
@@ -229,6 +229,8 @@ public class PublicTutorService {
                 .experienceYears(
                         tutor.getExperienceYears() == null ? null : tutor.getExperienceYears().intValue())
                 .bio(tutor.getBio())
+                .hometown(tutor.getHometown())
+                .address(tutor.getAddress())
                 .videoUrl(tutor.getVideoUrl())
                 .serviceAreas(areas.stream()
                         .map(area -> TutorProfileResponse.ServiceAreaResponse.builder()
@@ -238,14 +240,13 @@ public class PublicTutorService {
                                 .build())
                         .toList())
                 .specialties(specialties.stream()
-                        .filter(specialty -> Boolean.TRUE.equals(specialty.getIsVerified()))
                         .map(specialty -> TutorProfileResponse.SpecialtyResponse.builder()
                                 .id(specialty.getId())
                                 .specialty(specialty.getSpecialty())
                                 .gradeLevel(specialty.getGradeLevel())
                                 .build())
                         .toList())
-                // Học phí không công khai: chỉ lộ hình thức dạy.
+                // Học phí không công khai cho phụ huynh/khách: chỉ hiển thị hình thức dạy.
                 .teachingModes(prices.stream()
                         .map(price -> price.getTeachingMode().name())
                         .distinct()
@@ -258,7 +259,6 @@ public class PublicTutorService {
                                 .build())
                         .toList())
                 .credentials(credentials.stream()
-                        .filter(credential -> Boolean.TRUE.equals(credential.getIsVerified()))
                         .map(credential -> TutorProfileResponse.CredentialResponse.builder()
                                 .id(credential.getId())
                                 .title(credential.getTitle())

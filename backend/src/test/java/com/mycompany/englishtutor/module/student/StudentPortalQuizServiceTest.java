@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -33,15 +34,21 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.mycompany.englishtutor.module.classroom.service.ClassOccurrenceService;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AnswerResultResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewFeedback;
+import com.mycompany.englishtutor.module.student.api.ReviewRateRequest;
+import com.mycompany.englishtutor.module.student.api.ReviewRating;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizDetailResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizQuestion;
 import com.mycompany.englishtutor.module.student.config.EloProperties;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.QuestionRow;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.QuizAccessRow;
+import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.ReviewAttemptRow;
+import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.ReviewCardStateRow;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.StoredAnswerRow;
 import com.mycompany.englishtutor.module.student.service.EloCalculator;
 import com.mycompany.englishtutor.module.student.service.QuizExpiryService;
+import com.mycompany.englishtutor.module.student.service.SpacedRepetitionScheduler;
 import com.mycompany.englishtutor.module.student.service.StudentPortalService;
 import com.mycompany.englishtutor.module.user.domain.User;
 import com.mycompany.englishtutor.module.user.repository.UserRepository;
@@ -71,6 +78,9 @@ class StudentPortalQuizServiceTest {
 
     @Spy
     EloCalculator eloCalculator = new EloCalculator(new EloProperties());
+
+    @Spy
+    SpacedRepetitionScheduler spacedRepetitionScheduler = new SpacedRepetitionScheduler();
 
     @InjectMocks
     StudentPortalService service;
@@ -226,5 +236,68 @@ class StudentPortalQuizServiceTest {
         assertNull(detail.questions().get(1).correctAnswer());
         assertNull(detail.questions().get(1).explanation());
         assertEquals("C", detail.questions().get(0).correctAnswer());
+    }
+
+    @Test
+    void answerReview_dueCardCreatesPendingAttemptWithoutChangingElo() {
+        when(repository.findPendingReviewAttempt(STUDENT_ID, QUESTION_ID)).thenReturn(Optional.empty());
+        when(repository.findReviewCard(STUDENT_ID, QUESTION_ID))
+                .thenReturn(Optional.of(new ReviewCardStateRow(
+                        55L, QUESTION_ID, "C", "Giải thích", OffsetDateTime.now().minusMinutes(1))));
+        when(repository.insertReviewAttempt(55L, STUDENT_ID, QUESTION_ID, "B", false))
+                .thenReturn(Optional.of(77L));
+
+        ReviewFeedback result = service.answerReview(QUESTION_ID, "b");
+
+        assertEquals(77L, result.reviewAttemptId());
+        assertFalse(result.isCorrect());
+        assertEquals("C", result.correctAnswer());
+        verify(repository, never()).updateElo(anyLong(), anyInt());
+    }
+
+    @Test
+    void answerReview_notDueIsRejected() {
+        when(repository.findPendingReviewAttempt(STUDENT_ID, QUESTION_ID)).thenReturn(Optional.empty());
+        when(repository.findReviewCard(STUDENT_ID, QUESTION_ID))
+                .thenReturn(Optional.of(new ReviewCardStateRow(
+                        55L, QUESTION_ID, "C", null, OffsetDateTime.now().plusMinutes(1))));
+
+        AppException ex = assertThrows(AppException.class, () -> service.answerReview(QUESTION_ID, "A"));
+
+        assertEquals(ErrorCode.REVIEW_NOT_DUE, ex.getErrorCode());
+        verify(repository, never()).insertReviewAttempt(anyLong(), anyLong(), anyLong(), anyString(), anyBoolean());
+    }
+
+    @Test
+    void rateReview_easySchedulesFiveDaysAndIncrementsCard() {
+        var attempt = new ReviewAttemptRow(
+                77L, 55L, QUESTION_ID, "B", false, "C", "Giải thích", null, null, null, 2);
+        when(repository.lockReviewAttempt(STUDENT_ID, QUESTION_ID, 77L)).thenReturn(Optional.of(attempt));
+        when(repository.updateReviewCardSchedule(
+                        eq(55L), eq("EASY"), any(OffsetDateTime.class), any(OffsetDateTime.class), eq(432_000)))
+                .thenReturn(3);
+
+        var result = service.rateReview(QUESTION_ID, new ReviewRateRequest(77L, ReviewRating.EASY));
+
+        assertEquals(432_000, result.intervalSeconds());
+        assertEquals(3, result.reviewCount());
+        verify(repository).rateReviewAttempt(
+                eq(77L), eq("EASY"), any(OffsetDateTime.class), any(OffsetDateTime.class), eq(432_000));
+        verify(repository, never()).updateElo(anyLong(), anyInt());
+    }
+
+    @Test
+    void rateReview_alreadyRatedReplaysStoredSchedule() {
+        OffsetDateTime next = OffsetDateTime.now().plusMinutes(10);
+        var attempt = new ReviewAttemptRow(
+                77L, 55L, QUESTION_ID, "C", true, "C", null, "GOOD", next, 600, 4);
+        when(repository.lockReviewAttempt(STUDENT_ID, QUESTION_ID, 77L)).thenReturn(Optional.of(attempt));
+
+        var result = service.rateReview(QUESTION_ID, new ReviewRateRequest(77L, ReviewRating.AGAIN));
+
+        assertEquals("GOOD", result.rating());
+        assertEquals(next, result.nextReview());
+        verify(repository, never()).rateReviewAttempt(anyLong(), anyString(), any(), any(), anyInt());
+        verify(repository, never()).updateReviewCardSchedule(anyLong(), anyString(), any(), any(), anyInt());
     }
 }

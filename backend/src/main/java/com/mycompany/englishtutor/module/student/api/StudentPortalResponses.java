@@ -1,5 +1,6 @@
 package com.mycompany.englishtutor.module.student.api;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
@@ -45,6 +46,77 @@ public final class StudentPortalResponses {
             LocalDate activeFrom,
             Integer completedSessions,
             List<String> weeklySlots) {}
+
+    /** Một lớp của chính học sinh trong màn "Lớp học của tôi". */
+    public record StudentClassSummary(
+            Long classId,
+            String className,
+            String status,
+            String teachingMode,
+            Long tutorId,
+            String tutorName,
+            LocalDate activeFrom,
+            Integer completedSessions,
+            Integer lessonCount,
+            Integer quizCount,
+            Integer materialCount,
+            List<String> weeklySlots) {}
+
+    public record StudentScheduleSlot(
+            Integer dayOfWeek,
+            LocalTime startTime,
+            LocalTime endTime,
+            LocalDate validFrom,
+            LocalDate validTo) {}
+
+    public record StudentTrialSession(
+            LocalDate sessionDate,
+            LocalTime startTime,
+            LocalTime endTime,
+            String teachingMode,
+            String meetingUrl,
+            String location) {}
+
+    /** Chi tiết lớp dạng chỉ đọc dành cho học sinh sở hữu lớp. */
+    public record StudentClassDetail(
+            Long classId,
+            String className,
+            String status,
+            String teachingMode,
+            BigDecimal pricePerSession,
+            LocalDate activeFrom,
+            OffsetDateTime createdAt,
+            Long tutorId,
+            String tutorName,
+            String school,
+            String grade,
+            String learningGoal,
+            Integer completedSessions,
+            Integer lessonCount,
+            Integer quizCount,
+            Integer materialCount,
+            List<StudentScheduleSlot> schedules,
+            StudentTrialSession trialSession) {}
+
+    /** Bài giảng học sinh được phép xem — chỉ lấy trạng thái PUBLISHED. */
+    public record StudentLessonItem(
+            Long lessonId,
+            Integer lessonNumber,
+            String title,
+            OffsetDateTime createdAt,
+            Integer materialCount,
+            Integer quizCount) {}
+
+    /** Tài liệu trong workspace lớp, kèm bài giảng chứa tài liệu. */
+    public record StudentClassMaterialItem(
+            Long materialId,
+            Long lessonId,
+            String lessonTitle,
+            String fileName,
+            String fileType,
+            Long fileSize,
+            String uploadedBy,
+            OffsetDateTime createdAt) {}
 
     public record StudentQuizItem(
             Long id,
@@ -121,6 +193,43 @@ public final class StudentPortalResponses {
             String explanation,
             String skillName,
             OffsetDateTime answeredAt) {}
+
+    /** Kết quả lượt trả lời lại đang chờ học sinh tự đánh giá độ khó. */
+    public record ReviewFeedback(
+            Long reviewAttemptId,
+            String selectedAnswer,
+            Boolean isCorrect,
+            String correctAnswer,
+            String explanation) {}
+
+    /** Một thẻ đã đến hạn trong phiên ôn tập; đáp án chỉ xuất hiện sau khi đã trả lời. */
+    public record DueReviewItem(
+            Long questionId,
+            Long quizId,
+            String quizTitle,
+            String content,
+            String optionA,
+            String optionB,
+            String optionC,
+            String optionD,
+            String skillName,
+            String cefrLevel,
+            OffsetDateTime nextReview,
+            Integer reviewCount,
+            String lastRating,
+            ReviewFeedback pendingFeedback) {}
+
+    public record ReviewScheduleResponse(
+            Long reviewAttemptId,
+            String rating,
+            OffsetDateTime nextReview,
+            Integer intervalSeconds,
+            Integer reviewCount) {}
+
+    public record ReviewStatsResponse(
+            Integer dueCount,
+            Integer reviewedToday,
+            OffsetDateTime nextReview) {}
 
     /** Câu trong chi tiết quiz của học sinh: đáp án đúng và giải thích chỉ có khi đã trả lời câu đó. */
     public record StudentQuizQuestion(

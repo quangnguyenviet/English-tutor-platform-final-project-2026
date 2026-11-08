@@ -22,6 +22,7 @@ import com.mycompany.englishtutor.module.matching.api.response.ClassRequestSubmi
 import com.mycompany.englishtutor.module.matching.service.ClassRequestSubmitService;
 import com.mycompany.englishtutor.module.matching.service.PublicClassRequestService;
 import com.mycompany.englishtutor.module.tutor.api.response.PublicTutorResponse;
+import com.mycompany.englishtutor.module.tutor.api.response.TutorProfileResponse;
 import com.mycompany.englishtutor.module.tutor.service.PublicTutorService;
 import com.mycompany.englishtutor.shared.api.PageResponse;
 import com.mycompany.englishtutor.shared.exception.AppException;
@@ -114,6 +115,28 @@ class PublicPortalControllerTest {
         mockMvc.perform(get("/api/v1/public/tutors/99"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(1101));
+    }
+
+    @Test
+    void getTutor_publicDetail_doesNotExposePriceOrSpecialtyVerificationState() throws Exception {
+        PublicTutorResponse tutor = PublicTutorResponse.builder()
+                .tutorId(3L)
+                .fullName("Phạm Ngọc Gia Sư")
+                .specialties(List.of(TutorProfileResponse.SpecialtyResponse.builder()
+                        .id(7L)
+                        .specialty("IELTS")
+                        .gradeLevel("THPT")
+                        .build()))
+                .teachingModes(List.of("ONLINE"))
+                .build();
+        when(publicTutorService.getActiveTutor(3L)).thenReturn(tutor);
+
+        mockMvc.perform(get("/api/v1/public/tutors/3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.specialties[0].specialty").value("IELTS"))
+                .andExpect(jsonPath("$.result.specialties[0].gradeLevel").value("THPT"))
+                .andExpect(jsonPath("$.result.specialties[0].isVerified").doesNotExist())
+                .andExpect(jsonPath("$.result.prices").doesNotExist());
     }
 
     @Test

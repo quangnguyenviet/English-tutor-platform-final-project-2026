@@ -23,7 +23,9 @@ import com.mycompany.englishtutor.module.tutor.api.request.TutorProfileRejectReq
 import com.mycompany.englishtutor.module.tutor.api.response.TutorPendingSummaryResponse;
 import com.mycompany.englishtutor.module.tutor.api.response.TutorProfileResponse;
 import com.mycompany.englishtutor.module.tutor.domain.Tutor;
+import com.mycompany.englishtutor.module.tutor.repository.TutorCredentialRepository;
 import com.mycompany.englishtutor.module.tutor.repository.TutorRepository;
+import com.mycompany.englishtutor.module.tutor.repository.TutorSpecialtyRepository;
 import com.mycompany.englishtutor.module.user.domain.User;
 import com.mycompany.englishtutor.module.user.repository.UserRepository;
 import com.mycompany.englishtutor.shared.exception.AppException;
@@ -44,6 +46,12 @@ class AdminTutorServiceTest {
 
     @Mock
     TutorRepository tutorRepository;
+
+    @Mock
+    TutorSpecialtyRepository tutorSpecialtyRepository;
+
+    @Mock
+    TutorCredentialRepository tutorCredentialRepository;
 
     @Mock
     TutorProfileMapper tutorProfileMapper;

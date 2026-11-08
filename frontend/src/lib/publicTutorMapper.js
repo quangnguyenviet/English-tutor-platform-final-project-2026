@@ -9,6 +9,12 @@ const MODE_LABELS = {
   AT_HOME: "Dạy tại nhà",
 };
 
+const EDUCATION_STATUS_LABELS = {
+  STUDENT: "Sinh viên",
+  GRADUATED: "Đã tốt nghiệp",
+  LECTURER: "Giảng viên",
+};
+
 function getInitials(fullName = "") {
   return fullName
     .trim()
@@ -20,6 +26,7 @@ function getInitials(fullName = "") {
 
 /**
  * Chuẩn hóa response công khai của backend về shape dùng bởi TutorCard và trang chi tiết.
+ * Lưu ý: Học phí không công khai cho phụ huynh/khách (chỉ Lễ tân, Admin và chính Gia sư xem được).
  */
 export function mapPublicTutor(profile) {
   const serviceAreas = profile.serviceAreas || [];
@@ -32,6 +39,23 @@ export function mapPublicTutor(profile) {
     ? "Trực tuyến & tại nhà"
     : MODE_LABELS[modes[0]] || "Trao đổi với gia sư";
 
+  // Danh sách chứng chỉ & minh chứng
+  const certificates = credentials.map((item) => ({
+    id: item.id,
+    name: item.title,
+    score: item.score,
+    type: item.type === "ACHIEVEMENT" ? "Thành tích" : "Chứng chỉ",
+    rawType: item.type,
+    fileUrl: item.fileUrl,
+  }));
+
+  const highlights = credentials
+    .map((item) => [item.title, item.score].filter(Boolean).join(" "))
+    .filter(Boolean);
+
+  const subjects = [...new Set(specialties.map((item) => item.specialty).filter(Boolean))];
+  const gradeLevels = [...new Set(specialties.map((item) => item.gradeLevel).filter(Boolean))];
+
   return {
     id: String(profile.tutorId),
     name: profile.fullName || "Gia sư EnglishPath",
@@ -40,31 +64,35 @@ export function mapPublicTutor(profile) {
     gender: GENDER_LABELS[profile.gender] || profile.gender || "",
     university: profile.university || "Thông tin đang cập nhật",
     educationStatus: profile.educationStatus,
+    educationStatusLabel: EDUCATION_STATUS_LABELS[profile.educationStatus] || profile.educationStatus || "",
     experienceYears: profile.experienceYears,
     bio: profile.bio || "Gia sư đã được EnglishPath thẩm định hồ sơ.",
+    hometown: profile.hometown || "",
+    address: profile.address || "",
+    videoUrl: profile.videoUrl || "",
     province: firstArea.province || "",
     district: firstArea.district || "",
-    location: [firstArea.district, firstArea.province].filter(Boolean).join(", ") || "Dạy trực tuyến",
+    location: [firstArea.district, firstArea.province].filter(Boolean).join(", ")
+      || profile.address
+      || "Dạy trực tuyến",
     serviceAreas,
-    subjects: specialties.map((item) => item.specialty).filter(Boolean),
-    specialization: specialties.map((item) => item.specialty).filter(Boolean),
-    gradeLevels: [...new Set(specialties.map((item) => item.gradeLevel).filter(Boolean))],
-    highlights: credentials.map((item) => [item.title, item.score].filter(Boolean).join(" ")).filter(Boolean),
-    certificates: credentials.map((item) => ({
-      name: item.title,
-      score: item.score,
-      type: item.type,
-      fileUrl: item.fileUrl,
-    })),
+    specialties,
+    subjects,
+    specialization: subjects,
+    gradeLevels,
+    highlights,
+    certificates,
     attachedImages: credentials
       .filter((item) => item.fileUrl)
-      .map((item) => ({ id: item.id, title: item.title, category: item.type, fileUrl: item.fileUrl })),
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        score: item.score,
+        category: item.type === "ACHIEVEMENT" ? "Thành tích" : "Chứng chỉ",
+        fileUrl: item.fileUrl,
+      })),
     learningMode: mode,
     learningModeLabel: modeLabel,
     availabilities: profile.availabilities || [],
-    selfIntroduction: null,
-    teachingAchievements: [],
-    awards: [],
-    taughtClasses: [],
   };
 }

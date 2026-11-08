@@ -7,6 +7,13 @@ import { ThemeProvider } from "./context/ThemeContext";
 import LandingPage from "./pages/LandingPage";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import StudentSchedule from "./pages/student/StudentSchedule";
+import StudentClasses from "./pages/student/StudentClasses";
+import StudentClassWorkspace from "./pages/student/StudentClassWorkspace";
+import StudentClassOverview from "./pages/student/StudentClassOverview";
+import StudentClassSchedule from "./pages/student/StudentClassSchedule";
+import StudentClassLessons from "./pages/student/StudentClassLessons";
+import StudentClassExercises from "./pages/student/StudentClassExercises";
+import StudentClassMaterials from "./pages/student/StudentClassMaterials";
 import AppShell from "./components/layout/AppShell";
 import LoginPage from "./pages/LoginPage";
 
@@ -250,6 +257,15 @@ export default function App() {
             <Route path="marketplace" element={<StudentMarketplace />} />
             <Route path="onboarding" element={<StudentOnboarding />} />
             <Route path="chat" element={<StudentChat />} />
+            <Route path="classes" element={<StudentClasses />} />
+            <Route path="classes/:classId" element={<StudentClassWorkspace />}>
+              <Route index element={<Navigate to="overview" replace />} />
+              <Route path="overview" element={<StudentClassOverview />} />
+              <Route path="schedule" element={<StudentClassSchedule />} />
+              <Route path="lessons" element={<StudentClassLessons />} />
+              <Route path="exercises" element={<StudentClassExercises />} />
+              <Route path="materials" element={<StudentClassMaterials />} />
+            </Route>
             <Route path="schedule" element={<StudentSchedule />} />
             <Route path="exercises" element={<StudentExercises />} />
             <Route path="exercises/:exerciseId" element={<ExerciseTaking />} />
