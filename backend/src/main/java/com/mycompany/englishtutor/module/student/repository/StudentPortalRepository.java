@@ -13,11 +13,20 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.QuizQuestionForStudent;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.DueReviewItem;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewFeedback;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewItem;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewStatsResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassDetail;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassMaterialItem;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassSummary;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentLessonItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizQuestion;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentMaterialItem;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentScheduleSlot;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentSessionItem;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentTrialSession;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentTutorItem;
 
 import lombok.AccessLevel;
@@ -52,6 +61,26 @@ public class StudentPortalRepository {
     /** Bài làm đã lưu của một câu (phục vụ idempotent). */
     public record StoredAnswerRow(
             String selectedAnswer, boolean correct, Integer eloBefore, Integer eloAfter, Integer eloChange) {}
+
+    public record ReviewCardStateRow(
+            Long answerId,
+            Long questionId,
+            String correctAnswer,
+            String explanation,
+            OffsetDateTime nextReview) {}
+
+    public record ReviewAttemptRow(
+            Long id,
+            Long answerId,
+            Long questionId,
+            String selectedAnswer,
+            boolean correct,
+            String correctAnswer,
+            String explanation,
+            String rating,
+            OffsetDateTime nextReview,
+            Integer intervalSeconds,
+            Integer reviewCount) {}
 
     /** Lớp đang mở (dạy thử / chính thức) của học sinh — nguồn để dựng lịch cố định. */
     public record ClassBrief(Long id, String className, String tutorName, String teachingMode, String status) {}
@@ -327,6 +356,171 @@ public class StudentPortalRepository {
                 studentId);
     }
 
+    // ----------------------------------------------------------- CLASS WORKSPACE
+
+    /** Danh sách lớp thuộc chính học sinh, gồm số liệu phục vụ thẻ tổng quan. */
+    public List<StudentClassSummary> findClasses(Long studentId) {
+        return jdbc.query(
+                """
+                SELECT c.id, c.class_name, c.status, c.teaching_mode, c.tutor_id,
+                       t.full_name AS tutor_name, c.active_from,
+                       (SELECT COUNT(*) FROM teaching_logs tl WHERE tl.class_id = c.id) AS completed_sessions,
+                       (SELECT COUNT(*) FROM lessons l
+                         WHERE l.class_id = c.id AND l.status = 'PUBLISHED') AS lesson_count,
+                       (SELECT COUNT(*) FROM quizzes q JOIN lessons l ON l.id = q.lesson_id
+                         WHERE l.class_id = c.id AND l.status = 'PUBLISHED' AND q.status <> 'DRAFT') AS quiz_count,
+                       (SELECT COUNT(*) FROM lesson_materials lm JOIN lessons l ON l.id = lm.lesson_id
+                         WHERE l.class_id = c.id AND l.status = 'PUBLISHED') AS material_count
+                FROM classes c
+                JOIN users t ON t.id = c.tutor_id
+                WHERE c.student_id = ? AND c.status <> 'CANCELLED'
+                ORDER BY CASE c.status WHEN 'ACTIVE' THEN 1 WHEN 'TRIAL' THEN 2 ELSE 3 END,
+                         c.created_at DESC
+                """,
+                (rs, i) -> new StudentClassSummary(
+                        rs.getLong("id"),
+                        rs.getString("class_name"),
+                        rs.getString("status"),
+                        rs.getString("teaching_mode"),
+                        rs.getLong("tutor_id"),
+                        rs.getString("tutor_name"),
+                        rs.getObject("active_from", LocalDate.class),
+                        rs.getInt("completed_sessions"),
+                        rs.getInt("lesson_count"),
+                        rs.getInt("quiz_count"),
+                        rs.getInt("material_count"),
+                        findWeeklySlots(rs.getLong("id"))),
+                studentId);
+    }
+
+    /** Chi tiết lớp dạng chỉ đọc; điều kiện student_id đồng thời là ownership guard. */
+    public Optional<StudentClassDetail> findClassDetail(Long classId, Long studentId) {
+        return jdbc.query(
+                        """
+                        SELECT c.id, c.class_name, c.status, c.teaching_mode, c.price_per_session,
+                               c.active_from, c.created_at, c.tutor_id, t.full_name AS tutor_name,
+                               s.school, s.grade, s.learning_goal,
+                               c.trial_date, c.trial_start_time, c.trial_end_time,
+                               c.trial_teaching_mode, c.trial_meeting_url, c.trial_location,
+                               (SELECT COUNT(*) FROM teaching_logs tl WHERE tl.class_id = c.id) AS completed_sessions,
+                               (SELECT COUNT(*) FROM lessons l
+                                 WHERE l.class_id = c.id AND l.status = 'PUBLISHED') AS lesson_count,
+                               (SELECT COUNT(*) FROM quizzes q JOIN lessons l ON l.id = q.lesson_id
+                                 WHERE l.class_id = c.id AND l.status = 'PUBLISHED' AND q.status <> 'DRAFT') AS quiz_count,
+                               (SELECT COUNT(*) FROM lesson_materials lm JOIN lessons l ON l.id = lm.lesson_id
+                                 WHERE l.class_id = c.id AND l.status = 'PUBLISHED') AS material_count
+                        FROM classes c
+                        JOIN users t ON t.id = c.tutor_id
+                        JOIN students s ON s.id = c.student_id
+                        WHERE c.id = ? AND c.student_id = ?
+                        """,
+                        (rs, i) -> {
+                            LocalDate trialDate = rs.getObject("trial_date", LocalDate.class);
+                            StudentTrialSession trial = trialDate == null
+                                    ? null
+                                    : new StudentTrialSession(
+                                            trialDate,
+                                            rs.getObject("trial_start_time", LocalTime.class),
+                                            rs.getObject("trial_end_time", LocalTime.class),
+                                            rs.getString("trial_teaching_mode"),
+                                            rs.getString("trial_meeting_url"),
+                                            rs.getString("trial_location"));
+                            return new StudentClassDetail(
+                                    rs.getLong("id"),
+                                    rs.getString("class_name"),
+                                    rs.getString("status"),
+                                    rs.getString("teaching_mode"),
+                                    rs.getBigDecimal("price_per_session"),
+                                    rs.getObject("active_from", LocalDate.class),
+                                    rs.getObject("created_at", OffsetDateTime.class),
+                                    rs.getLong("tutor_id"),
+                                    rs.getString("tutor_name"),
+                                    rs.getString("school"),
+                                    rs.getString("grade"),
+                                    rs.getString("learning_goal"),
+                                    rs.getInt("completed_sessions"),
+                                    rs.getInt("lesson_count"),
+                                    rs.getInt("quiz_count"),
+                                    rs.getInt("material_count"),
+                                    findScheduleSlots(rs.getLong("id")),
+                                    trial);
+                        },
+                        classId,
+                        studentId)
+                .stream()
+                .findFirst();
+    }
+
+    private List<StudentScheduleSlot> findScheduleSlots(Long classId) {
+        return jdbc.query(
+                """
+                SELECT day_of_week, start_time, end_time, valid_from, valid_to
+                FROM class_schedules
+                WHERE class_id = ?
+                ORDER BY day_of_week, start_time
+                """,
+                (rs, i) -> new StudentScheduleSlot(
+                        rs.getInt("day_of_week"),
+                        rs.getObject("start_time", LocalTime.class),
+                        rs.getObject("end_time", LocalTime.class),
+                        rs.getObject("valid_from", LocalDate.class),
+                        rs.getObject("valid_to", LocalDate.class)),
+                classId);
+    }
+
+    public List<StudentLessonItem> findPublishedLessons(Long classId, Long studentId) {
+        return jdbc.query(
+                """
+                SELECT x.lesson_id, x.lesson_number, x.title, x.created_at,
+                       x.material_count, x.quiz_count
+                FROM (
+                    SELECT l.id AS lesson_id, l.title, l.created_at,
+                           ROW_NUMBER() OVER (PARTITION BY l.class_id ORDER BY l.created_at, l.id) AS lesson_number,
+                           (SELECT COUNT(*) FROM lesson_materials lm WHERE lm.lesson_id = l.id) AS material_count,
+                           (SELECT COUNT(*) FROM quizzes q
+                             WHERE q.lesson_id = l.id AND q.status <> 'DRAFT') AS quiz_count
+                    FROM lessons l
+                    JOIN classes c ON c.id = l.class_id
+                    WHERE l.class_id = ? AND c.student_id = ? AND l.status = 'PUBLISHED'
+                ) x
+                ORDER BY x.lesson_number DESC, x.lesson_id DESC
+                """,
+                (rs, i) -> new StudentLessonItem(
+                        rs.getLong("lesson_id"),
+                        rs.getInt("lesson_number"),
+                        rs.getString("title"),
+                        rs.getObject("created_at", OffsetDateTime.class),
+                        rs.getInt("material_count"),
+                        rs.getInt("quiz_count")),
+                classId,
+                studentId);
+    }
+
+    public List<StudentClassMaterialItem> findClassWorkspaceMaterials(Long classId, Long studentId) {
+        return jdbc.query(
+                """
+                SELECT lm.id, lm.lesson_id, l.title AS lesson_title, lm.file_name, lm.file_type,
+                       lm.file_size, u.full_name AS uploaded_by, lm.created_at
+                FROM lesson_materials lm
+                JOIN lessons l ON l.id = lm.lesson_id
+                JOIN classes c ON c.id = l.class_id
+                JOIN users u ON u.id = lm.uploaded_by
+                WHERE c.id = ? AND c.student_id = ? AND l.status = 'PUBLISHED'
+                ORDER BY l.created_at DESC, lm.created_at DESC, lm.id DESC
+                """,
+                (rs, i) -> new StudentClassMaterialItem(
+                        rs.getLong("id"),
+                        rs.getLong("lesson_id"),
+                        rs.getString("lesson_title"),
+                        rs.getString("file_name"),
+                        rs.getString("file_type"),
+                        rs.getObject("file_size", Long.class),
+                        rs.getString("uploaded_by"),
+                        rs.getObject("created_at", OffsetDateTime.class)),
+                classId,
+                studentId);
+    }
+
     /** Ca cố định dạng "thứ|giờ bắt đầu|giờ kết thúc" (thứ ISO 1–7). */
     private List<String> findWeeklySlots(Long classId) {
         return jdbc.query(
@@ -400,11 +594,15 @@ public class StudentPortalRepository {
      * {@code answeredCount} đếm bài làm của chính học sinh.
      */
     public List<StudentQuizItem> findQuizzes(Long studentId, String status, Long sessionId) {
+        return findQuizzes(studentId, status, sessionId, null);
+    }
+
+    public List<StudentQuizItem> findQuizzes(Long studentId, String status, Long sessionId, Long classId) {
         String sql =
                 """
                 SELECT * FROM (
                     SELECT q.id, q.title, q.deadline, q.total_questions, q.lesson_id,
-                           l.title AS session_title, t.full_name AS tutor_name,
+                           l.title AS session_title, t.full_name AS tutor_name, c.id AS class_id,
                            CASE WHEN q.status = 'ASSIGNED' AND q.deadline IS NOT NULL AND q.deadline < NOW()
                                 THEN 'EXPIRED' ELSE q.status END AS eff_status,
                            (SELECT COUNT(*) FROM quiz_answers a
@@ -418,6 +616,7 @@ public class StudentPortalRepository {
                 ) x
                 WHERE (?::text IS NULL OR x.eff_status = ?)
                   AND (?::bigint IS NULL OR x.lesson_id = ?)
+                  AND (?::bigint IS NULL OR x.class_id = ?)
                 ORDER BY x.deadline NULLS LAST, x.id DESC
                 """;
         return jdbc.query(
@@ -436,7 +635,9 @@ public class StudentPortalRepository {
                 status,
                 status,
                 sessionId,
-                sessionId);
+                sessionId,
+                classId,
+                classId);
     }
 
     /** {@code lessonId} = bài giảng quiz gắn với (V16: quiz gắn lesson, không gắn buổi). */
@@ -583,8 +784,8 @@ public class StudentPortalRepository {
         return jdbc.update(
                 """
                 INSERT INTO quiz_answers (question_id, student_id, selected_answer, is_correct,
-                                          elo_before, elo_after, elo_change)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                                          elo_before, elo_after, elo_change, next_review)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN NULL ELSE NOW() END)
                 ON CONFLICT (student_id, question_id) DO NOTHING
                 """,
                 questionId,
@@ -593,7 +794,8 @@ public class StudentPortalRepository {
                 correct,
                 before,
                 after,
-                change);
+                change,
+                correct);
     }
 
     public void markQuizCompleted(Long quizId) {
@@ -620,6 +822,209 @@ public class StudentPortalRepository {
                 (ResultSet rs, int i) -> new int[] {rs.getInt("correct"), rs.getInt("elo")},
                 quizId,
                 studentId);
+    }
+
+    public List<DueReviewItem> findDueReviews(Long studentId, int limit) {
+        return jdbc.query(
+                """
+                SELECT a.question_id, qq.quiz_id, q.title AS quiz_title, qq.question_text,
+                       qq.option_a, qq.option_b, qq.option_c, qq.option_d,
+                       sk.skill_name, qq.cefr_level, a.next_review, a.review_count, a.last_rating,
+                       rr.id AS review_attempt_id, rr.selected_answer AS review_selected_answer,
+                       rr.is_correct AS review_is_correct,
+                       CASE WHEN rr.id IS NOT NULL THEN qq.correct_answer END AS review_correct_answer,
+                       CASE WHEN rr.id IS NOT NULL THEN qq.explanation END AS review_explanation
+                FROM quiz_answers a
+                JOIN quiz_questions qq ON qq.id = a.question_id
+                JOIN quizzes q ON q.id = qq.quiz_id
+                LEFT JOIN skills sk ON sk.id = qq.skill_id
+                LEFT JOIN spaced_repetition_reviews rr
+                       ON rr.student_id = a.student_id
+                      AND rr.question_id = a.question_id
+                      AND rr.rating IS NULL
+                WHERE a.student_id = ?
+                  AND a.is_correct = FALSE
+                  AND (a.next_review <= NOW() OR rr.id IS NOT NULL)
+                ORDER BY CASE WHEN rr.id IS NOT NULL THEN 0 ELSE 1 END,
+                         a.next_review NULLS FIRST, a.question_id
+                LIMIT ?
+                """,
+                (rs, i) -> {
+                    Long attemptId = rs.getObject("review_attempt_id", Long.class);
+                    ReviewFeedback feedback = attemptId == null
+                            ? null
+                            : new ReviewFeedback(
+                                    attemptId,
+                                    rs.getString("review_selected_answer").trim(),
+                                    rs.getBoolean("review_is_correct"),
+                                    rs.getString("review_correct_answer").trim(),
+                                    rs.getString("review_explanation"));
+                    return new DueReviewItem(
+                            rs.getLong("question_id"),
+                            rs.getLong("quiz_id"),
+                            rs.getString("quiz_title"),
+                            rs.getString("question_text"),
+                            rs.getString("option_a"),
+                            rs.getString("option_b"),
+                            rs.getString("option_c"),
+                            rs.getString("option_d"),
+                            rs.getString("skill_name"),
+                            rs.getString("cefr_level"),
+                            rs.getObject("next_review", OffsetDateTime.class),
+                            rs.getInt("review_count"),
+                            rs.getString("last_rating"),
+                            feedback);
+                },
+                studentId,
+                limit);
+    }
+
+    public ReviewStatsResponse findReviewStats(Long studentId) {
+        return jdbc.queryForObject(
+                """
+                SELECT
+                    (SELECT COUNT(*) FROM quiz_answers a
+                      WHERE a.student_id = ? AND a.is_correct = FALSE AND a.next_review <= NOW()) AS due_count,
+                    (SELECT COUNT(*) FROM spaced_repetition_reviews rr
+                      WHERE rr.student_id = ?
+                        AND rr.rated_at >= date_trunc('day', NOW())) AS reviewed_today,
+                    (SELECT MIN(a.next_review) FROM quiz_answers a
+                      WHERE a.student_id = ? AND a.is_correct = FALSE AND a.next_review > NOW()) AS next_review
+                """,
+                (rs, i) -> new ReviewStatsResponse(
+                        rs.getInt("due_count"),
+                        rs.getInt("reviewed_today"),
+                        rs.getObject("next_review", OffsetDateTime.class)),
+                studentId,
+                studentId,
+                studentId);
+    }
+
+    public Optional<ReviewCardStateRow> findReviewCard(Long studentId, Long questionId) {
+        return jdbc.query(
+                        """
+                        SELECT a.id AS answer_id, a.question_id, qq.correct_answer,
+                               qq.explanation, a.next_review
+                        FROM quiz_answers a
+                        JOIN quiz_questions qq ON qq.id = a.question_id
+                        WHERE a.student_id = ? AND a.question_id = ? AND a.is_correct = FALSE
+                        """,
+                        (rs, i) -> new ReviewCardStateRow(
+                                rs.getLong("answer_id"),
+                                rs.getLong("question_id"),
+                                rs.getString("correct_answer").trim(),
+                                rs.getString("explanation"),
+                                rs.getObject("next_review", OffsetDateTime.class)),
+                        studentId,
+                        questionId)
+                .stream()
+                .findFirst();
+    }
+
+    public Optional<ReviewAttemptRow> findPendingReviewAttempt(Long studentId, Long questionId) {
+        return jdbc.query(
+                        """
+                        SELECT rr.id, rr.quiz_answer_id, rr.question_id, rr.selected_answer,
+                               rr.is_correct, qq.correct_answer, qq.explanation, rr.rating,
+                               rr.next_review, rr.interval_seconds, a.review_count
+                        FROM spaced_repetition_reviews rr
+                        JOIN quiz_answers a ON a.id = rr.quiz_answer_id
+                        JOIN quiz_questions qq ON qq.id = rr.question_id
+                        WHERE rr.student_id = ? AND rr.question_id = ? AND rr.rating IS NULL
+                        """,
+                        (rs, i) -> mapReviewAttempt(rs),
+                        studentId,
+                        questionId)
+                .stream()
+                .findFirst();
+    }
+
+    public Optional<Long> insertReviewAttempt(
+            Long answerId, Long studentId, Long questionId, String selected, boolean correct) {
+        return jdbc.query(
+                        """
+                        INSERT INTO spaced_repetition_reviews
+                            (quiz_answer_id, student_id, question_id, selected_answer, is_correct)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT DO NOTHING
+                        RETURNING id
+                        """,
+                        (rs, i) -> rs.getLong("id"),
+                        answerId,
+                        studentId,
+                        questionId,
+                        selected,
+                        correct)
+                .stream()
+                .findFirst();
+    }
+
+    public Optional<ReviewAttemptRow> lockReviewAttempt(Long studentId, Long questionId, Long attemptId) {
+        return jdbc.query(
+                        """
+                        SELECT rr.id, rr.quiz_answer_id, rr.question_id, rr.selected_answer,
+                               rr.is_correct, qq.correct_answer, qq.explanation, rr.rating,
+                               rr.next_review, rr.interval_seconds, a.review_count
+                        FROM spaced_repetition_reviews rr
+                        JOIN quiz_answers a ON a.id = rr.quiz_answer_id
+                        JOIN quiz_questions qq ON qq.id = rr.question_id
+                        WHERE rr.student_id = ? AND rr.question_id = ? AND rr.id = ?
+                        FOR UPDATE OF rr, a
+                        """,
+                        (rs, i) -> mapReviewAttempt(rs),
+                        studentId,
+                        questionId,
+                        attemptId)
+                .stream()
+                .findFirst();
+    }
+
+    public void rateReviewAttempt(Long attemptId, String rating, OffsetDateTime ratedAt,
+            OffsetDateTime nextReview, int intervalSeconds) {
+        jdbc.update(
+                """
+                UPDATE spaced_repetition_reviews
+                SET rating = ?, rated_at = ?, next_review = ?, interval_seconds = ?
+                WHERE id = ? AND rating IS NULL
+                """,
+                rating,
+                ratedAt,
+                nextReview,
+                intervalSeconds,
+                attemptId);
+    }
+
+    public int updateReviewCardSchedule(Long answerId, String rating, OffsetDateTime reviewedAt,
+            OffsetDateTime nextReview, int intervalSeconds) {
+        jdbc.update(
+                """
+                UPDATE quiz_answers
+                SET next_review = ?, review_count = review_count + 1,
+                    last_reviewed_at = ?, last_rating = ?, review_interval_seconds = ?
+                WHERE id = ?
+                """,
+                nextReview,
+                reviewedAt,
+                rating,
+                intervalSeconds,
+                answerId);
+        return jdbc.queryForObject(
+                "SELECT review_count FROM quiz_answers WHERE id = ?", Integer.class, answerId);
+    }
+
+    private static ReviewAttemptRow mapReviewAttempt(ResultSet rs) throws SQLException {
+        return new ReviewAttemptRow(
+                rs.getLong("id"),
+                rs.getLong("quiz_answer_id"),
+                rs.getLong("question_id"),
+                rs.getString("selected_answer").trim(),
+                rs.getBoolean("is_correct"),
+                rs.getString("correct_answer").trim(),
+                rs.getString("explanation"),
+                rs.getString("rating"),
+                rs.getObject("next_review", OffsetDateTime.class),
+                rs.getObject("interval_seconds", Integer.class),
+                rs.getInt("review_count"));
     }
 
     public List<ReviewItem> findReviewList(Long studentId) {

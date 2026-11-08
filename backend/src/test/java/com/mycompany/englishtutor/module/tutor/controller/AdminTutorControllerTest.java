@@ -71,7 +71,12 @@ class AdminTutorControllerTest {
                 .profileStatus("PENDING")
                 .serviceAreas(List.of())
                 .specialties(List.of())
-                .prices(List.of())
+                .prices(List.of(TutorProfileResponse.PriceResponse.builder()
+                        .id(5L)
+                        .teachingMode("ONLINE")
+                        .pricePerSession(250000)
+                        .program("IELTS")
+                        .build()))
                 .availabilities(List.of())
                 .credentials(List.of())
                 .build();
@@ -130,7 +135,15 @@ class AdminTutorControllerTest {
                         .with(jwt().authorities(() -> "ROLE_RECEPTIONIST")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.tutorId").value(TUTOR_ID))
-                .andExpect(jsonPath("$.result.profileStatus").value("PENDING"));
+                .andExpect(jsonPath("$.result.profileStatus").value("PENDING"))
+                .andExpect(jsonPath("$.result.prices[0].pricePerSession").value(250000));
+    }
+
+    @Test
+    void getProfileDetail_studentRole_forbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/tutors/{tutorId}", TUTOR_ID)
+                        .with(jwt().authorities(() -> "ROLE_STUDENT")))
+                .andExpect(status().isForbidden());
     }
 
     @Test

@@ -2,14 +2,13 @@ import { useOutletContext } from "react-router-dom";
 import ManageAssignments from "./ManageAssignments";
 
 export default function ManageAssignmentsRoute() {
-  const { classId, pathItems, exercisesList, setExercisesList } = useOutletContext();
+  const { token, classId, basePath } = useOutletContext();
 
   return (
     <ManageAssignments
+      token={token}
       classId={classId}
-      exercisesList={exercisesList}
-      setExercisesList={setExercisesList}
-      pathItems={pathItems}
+      basePath={basePath}
     />
   );
 }

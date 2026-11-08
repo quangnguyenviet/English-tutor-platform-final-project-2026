@@ -72,6 +72,9 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
   const navigate = useNavigate();
   const toast = useToast();
   const quizIdParam = searchParams.get("quizId");
+  const returnTo = searchParams.get("from") === "exercises"
+    ? `${basePath}/exercises`
+    : `${basePath}/lessons`;
   const isEditing = Boolean(quizIdParam);
 
   const [title, setTitle] = useState("");
@@ -387,7 +390,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
       if (forAssign) return id;
 
       toast.success(isEditing ? "Đã lưu chỉnh sửa quiz." : "Đã lưu quiz nháp.");
-      navigate(`${basePath}/lessons`);
+      navigate(returnTo);
       return id;
     } catch (err) {
       setFormError(err.message || "Không thể lưu quiz. Vui lòng kiểm tra lại nội dung.");
@@ -421,7 +424,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
       await apiAssignQuiz(token, id, iso);
       setShowAssign(false);
       toast.success("Đã giao quiz cho học sinh.");
-      navigate(`${basePath}/lessons`);
+      navigate(returnTo);
     } catch (err) {
       setFormError(err.message || "Không thể giao quiz. Vui lòng thử lại.");
       setAssigning(false);
@@ -434,7 +437,7 @@ export default function QuizAuthoring({ token, classId, basePath, detail }) {
     return status ? QUIZ_STATUS_META[status] : null;
   }, [existing]);
 
-  const backTo = `${basePath}/lessons`;
+  const backTo = returnTo;
 
   // Popover "Nhảy tới câu": đo vị trí nút để đặt popover ngay phía trên,
   // luôn nằm trong khung nhìn (đẩy sát mép khi sát cạnh).

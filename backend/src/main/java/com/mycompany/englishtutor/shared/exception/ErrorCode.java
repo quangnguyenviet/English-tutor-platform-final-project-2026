@@ -209,6 +209,9 @@ public enum ErrorCode {
             "Nội dung câu hỏi trong form quá dài, vượt giới hạn ký tự của trợ lý AI. "
                     + "Vui lòng rút gọn câu hỏi rồi thử lại.",
             HttpStatus.BAD_REQUEST),
+    REVIEW_NOT_AVAILABLE(1419, "Câu hỏi này không có trong danh sách ôn tập của bạn", HttpStatus.NOT_FOUND),
+    REVIEW_NOT_DUE(1420, "Câu hỏi này chưa đến thời điểm ôn lại", HttpStatus.CONFLICT),
+    REVIEW_ATTEMPT_NOT_FOUND(1421, "Lượt ôn tập không tồn tại hoặc không thuộc về bạn", HttpStatus.NOT_FOUND),
     // --- Quản lý nhân sự (Lễ tân / Kế toán) - module staff (UC-ADM-11, UC-ADM-12) ---
     PHONE_EXISTED(1300, "Số điện thoại đã được đăng ký trong hệ thống", HttpStatus.BAD_REQUEST),
     EMPLOYEE_NOT_FOUND(1301, "Nhân sự không tồn tại", HttpStatus.NOT_FOUND),

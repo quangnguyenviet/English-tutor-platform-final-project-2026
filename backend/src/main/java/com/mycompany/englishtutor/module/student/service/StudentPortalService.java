@@ -2,6 +2,7 @@ package com.mycompany.englishtutor.module.student.service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -19,10 +20,20 @@ import com.mycompany.englishtutor.module.classroom.service.ClassOccurrenceServic
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AnswerResultResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AttemptStateResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.DashboardResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.DueReviewItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.EloInfo;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.QuizResultResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewFeedback;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewItem;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewScheduleResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewStatsResponse;
+import com.mycompany.englishtutor.module.student.api.ReviewRateRequest;
+import com.mycompany.englishtutor.module.student.api.ReviewRating;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentInfo;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassDetail;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassMaterialItem;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassSummary;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentLessonItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentMaterialItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizDetailResponse;
@@ -34,6 +45,7 @@ import com.mycompany.englishtutor.module.student.repository.StudentPortalReposit
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.LogBrief;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.IncomingReschedule;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.QuizAccessRow;
+import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.ReviewAttemptRow;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.StoredAnswerRow;
 import com.mycompany.englishtutor.module.user.repository.UserRepository;
 import com.mycompany.englishtutor.shared.exception.AppException;
@@ -59,6 +71,7 @@ public class StudentPortalService {
     ClassOccurrenceService occurrenceService;
     EloCalculator eloCalculator;
     QuizExpiryService quizExpiryService;
+    SpacedRepetitionScheduler spacedRepetitionScheduler;
 
     private static final DateTimeFormatter DAY_MONTH = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -66,13 +79,26 @@ public class StudentPortalService {
 
     @Transactional(readOnly = true)
     public StudentScheduleResponse getSchedule(LocalDate weekStart) {
+        return getSchedule(weekStart, null);
+    }
+
+    @Transactional(readOnly = true)
+    public StudentScheduleResponse getSchedule(LocalDate weekStart, Long classId) {
         Long studentId = currentUserId();
+        if (classId != null) {
+            requireOwnedClass(classId, studentId);
+        }
         LocalDate monday = (weekStart != null ? weekStart : LocalDate.now()).with(DayOfWeek.MONDAY);
         LocalDate end = monday.plusDays(7);
 
         // Buổi học thật (đã tạo, gồm cả buổi dạy thử) + các ca lịch cố định gia sư đã đặt nhưng chưa tạo buổi.
-        List<StudentSessionItem> items = new ArrayList<>(repository.findSessionsBetween(studentId, monday, end));
-        for (ClassBrief cls : repository.findOpenClasses(studentId)) {
+        List<StudentSessionItem> items = new ArrayList<>(repository.findSessionsBetween(studentId, monday, end)
+                .stream()
+                .filter(item -> classId == null || classId.equals(item.classId()))
+                .toList());
+        for (ClassBrief cls : repository.findOpenClasses(studentId).stream()
+                .filter(item -> classId == null || classId.equals(item.id()))
+                .toList()) {
             for (OccurrenceResponse occurrence :
                     occurrenceService.listOccurrences(cls.id(), monday).getOccurrences()) {
                 StudentSessionItem virtual = toVirtualItem(cls, occurrence, monday, end);
@@ -188,6 +214,34 @@ public class StudentPortalService {
         return repository.findTutors(currentUserId());
     }
 
+    // ----------------------------------------------------------- CLASS WORKSPACE
+
+    @Transactional(readOnly = true)
+    public List<StudentClassSummary> getClasses() {
+        return repository.findClasses(currentUserId());
+    }
+
+    @Transactional(readOnly = true)
+    public StudentClassDetail getClassDetail(Long classId) {
+        Long studentId = currentUserId();
+        return repository.findClassDetail(classId, studentId)
+                .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentLessonItem> getClassLessons(Long classId) {
+        Long studentId = currentUserId();
+        requireOwnedClass(classId, studentId);
+        return repository.findPublishedLessons(classId, studentId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentClassMaterialItem> getClassWorkspaceMaterials(Long classId) {
+        Long studentId = currentUserId();
+        requireOwnedClass(classId, studentId);
+        return repository.findClassWorkspaceMaterials(classId, studentId);
+    }
+
     // ------------------------------------------------------------------- DASHBOARD
 
     /** Mỗi khu vực chạy độc lập: lỗi một khu → {@code null} + {@code errors[key]}, khu khác vẫn trả bình thường. */
@@ -243,8 +297,17 @@ public class StudentPortalService {
 
     @Transactional(readOnly = true)
     public List<StudentQuizItem> getQuizzes(String status, Long sessionId) {
+        return getQuizzes(status, sessionId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentQuizItem> getQuizzes(String status, Long sessionId, Long classId) {
+        Long studentId = currentUserId();
+        if (classId != null) {
+            requireOwnedClass(classId, studentId);
+        }
         String normalized = (status == null || status.isBlank()) ? null : status.trim().toUpperCase();
-        return repository.findQuizzes(currentUserId(), normalized, sessionId);
+        return repository.findQuizzes(studentId, normalized, sessionId, classId);
     }
 
     /** Chi tiết quiz cho học sinh sở hữu: đáp án đúng và giải thích chỉ có ở câu đã trả lời. */
@@ -348,7 +411,85 @@ public class StudentPortalService {
         return repository.findReviewList(currentUserId());
     }
 
+    @Transactional(readOnly = true)
+    public List<DueReviewItem> getDueReviews(Integer requestedLimit) {
+        int limit = requestedLimit == null ? 20 : Math.max(1, Math.min(requestedLimit, 50));
+        return repository.findDueReviews(currentUserId(), limit);
+    }
+
+    @Transactional(readOnly = true)
+    public ReviewStatsResponse getReviewStats() {
+        return repository.findReviewStats(currentUserId());
+    }
+
+    /** Trả lời lại một thẻ đến hạn. Không tác động kết quả quiz hoặc Elo. */
+    @Transactional
+    public ReviewFeedback answerReview(Long questionId, String selectedAnswer) {
+        Long studentId = currentUserId();
+        String selected = selectedAnswer == null ? "" : selectedAnswer.trim().toUpperCase();
+        if (!selected.matches("[A-D]")) {
+            throw new AppException(ErrorCode.QUIZ_ANSWER_INVALID);
+        }
+
+        var existing = repository.findPendingReviewAttempt(studentId, questionId);
+        if (existing.isPresent()) {
+            return toFeedback(existing.get());
+        }
+
+        var card = repository.findReviewCard(studentId, questionId)
+                .orElseThrow(() -> new AppException(ErrorCode.REVIEW_NOT_AVAILABLE));
+        OffsetDateTime now = OffsetDateTime.now();
+        if (card.nextReview() == null || card.nextReview().isAfter(now)) {
+            throw new AppException(ErrorCode.REVIEW_NOT_DUE);
+        }
+
+        boolean correct = selected.equals(card.correctAnswer());
+        var attemptId = repository.insertReviewAttempt(
+                card.answerId(), studentId, questionId, selected, correct);
+        if (attemptId.isEmpty()) {
+            return repository.findPendingReviewAttempt(studentId, questionId)
+                    .map(StudentPortalService::toFeedback)
+                    .orElseThrow(() -> new AppException(ErrorCode.REVIEW_ATTEMPT_NOT_FOUND));
+        }
+        return new ReviewFeedback(
+                attemptId.get(), selected, correct, card.correctAnswer(), card.explanation());
+    }
+
+    /** Lưu tự đánh giá và lên lịch lượt tiếp theo bằng giờ server; gọi lại an toàn. */
+    @Transactional
+    public ReviewScheduleResponse rateReview(Long questionId, ReviewRateRequest request) {
+        Long studentId = currentUserId();
+        ReviewAttemptRow attempt = repository
+                .lockReviewAttempt(studentId, questionId, request.reviewAttemptId())
+                .orElseThrow(() -> new AppException(ErrorCode.REVIEW_ATTEMPT_NOT_FOUND));
+
+        if (attempt.rating() != null) {
+            return new ReviewScheduleResponse(
+                    attempt.id(),
+                    attempt.rating(),
+                    attempt.nextReview(),
+                    attempt.intervalSeconds(),
+                    attempt.reviewCount());
+        }
+
+        ReviewRating rating = request.rating();
+        OffsetDateTime now = OffsetDateTime.now();
+        var schedule = spacedRepetitionScheduler.schedule(rating, now);
+        repository.rateReviewAttempt(
+                attempt.id(), rating.name(), now, schedule.nextReview(), schedule.intervalSeconds());
+        int reviewCount = repository.updateReviewCardSchedule(
+                attempt.answerId(), rating.name(), now, schedule.nextReview(), schedule.intervalSeconds());
+        return new ReviewScheduleResponse(
+                attempt.id(), rating.name(), schedule.nextReview(), schedule.intervalSeconds(), reviewCount);
+    }
+
     // --------------------------------------------------------------------- HELPERS
+
+    private void requireOwnedClass(Long classId, Long studentId) {
+        if (repository.findClassDetail(classId, studentId).isEmpty()) {
+            throw new AppException(ErrorCode.CLASS_NOT_FOUND);
+        }
+    }
 
     private QuizAccessRow requireOwnedQuiz(Long quizId, Long studentId) {
         QuizAccessRow quiz =
@@ -373,6 +514,15 @@ public class StudentPortalService {
                 stored.correct(), stored.selectedAnswer(), correctAnswer, explanation,
                 stored.eloBefore(), stored.eloAfter(), stored.eloChange(), answered, total,
                 total > 0 && answered >= total);
+    }
+
+    private static ReviewFeedback toFeedback(ReviewAttemptRow attempt) {
+        return new ReviewFeedback(
+                attempt.id(),
+                attempt.selectedAnswer(),
+                attempt.correct(),
+                attempt.correctAnswer(),
+                attempt.explanation());
     }
 
     private Long currentUserId() {

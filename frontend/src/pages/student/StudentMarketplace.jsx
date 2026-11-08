@@ -1,11 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Award, User, X, Search } from "lucide-react";
-import { tutors } from "../../data/mockData";
+import { BookOpen, MapPin, Search, User, Video, X } from "lucide-react";
+import { apiGetPublicTutors } from "../../lib/tutorApi";
+import { mapPublicTutor } from "../../lib/publicTutorMapper";
 import { useStudentMatching } from "../../context/StudentMatchingContext";
 import TutorCard from "../../components/guest/TutorCard";
 import TutorDetailModal from "./TutorDetailModal";
 import PageHeader from "../../components/ui/PageHeader";
+import Button from "../../components/ui/Button";
+import { EmptyState, ErrorBox, SkeletonRows } from "../../components/student/AsyncBlock";
 
 const SUBJECTS = [
   "IELTS",
@@ -17,21 +20,16 @@ const SUBJECTS = [
   "Luyện thi Chuyên Anh",
   "Ngữ pháp & Từ vựng",
   "Phát âm chuẩn IPA",
-  "Tiếng Anh Mất gốc / Foundation"
+  "Tiếng Anh Mất gốc / Foundation",
 ];
 
-const HIGHLIGHT_OPTIONS = [
-  "Học sinh giỏi Quốc Gia",
-  "Học sinh trường chuyên (Cấp 3)",
-  "Học sinh giỏi Tỉnh/TP",
-  "Huy chương vàng Quốc Tế",
-  "Du học sinh",
-  "Thủ khoa",
-  "Á khoa",
-  "Học bổng",
-  "Chuyên dạy học sinh mất gốc",
-  "Chuyên luyện thi Đại học"
+const TEACHING_MODES = [
+  { label: "Tất cả hình thức", value: "" },
+  { label: "Trực tuyến (Online)", value: "ONLINE" },
+  { label: "Tại nhà", value: "AT_HOME" },
 ];
+
+const PROVINCES = ["Tất cả khu vực", "Hà Nội", "TP. Hồ Chí Minh"];
 
 const GENDERS = ["Tất cả giới tính", "Nam", "Nữ"];
 
@@ -39,99 +37,80 @@ export default function StudentMarketplace() {
   const navigate = useNavigate();
   const { selectTutorAndStartOnboarding } = useStudentMatching();
 
+  const [tutors, setTutors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [totalPages, setTotalPages] = useState(1);
   const [selectedTutorForDetail, setSelectedTutorForDetail] = useState(null);
+
+  // Filters
+  const [searchKeyword, setSearchKeyword] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("");
-  const [selectedHighlight, setSelectedHighlight] = useState("");
+  const [selectedMode, setSelectedMode] = useState("");
+  const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedGender, setSelectedGender] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // 3 gia sư mỗi hàng, tối đa 2 hàng = 6 gia sư / trang
-  const tutorsPerPage = 6;
+  const fetchTutors = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const gender =
+        selectedGender === "Nam" ? "MALE" : selectedGender === "Nữ" ? "FEMALE" : undefined;
+      const province = selectedProvince && selectedProvince !== "Tất cả khu vực"
+        ? selectedProvince.replace(/^TP\.\s*/i, "")
+        : undefined;
 
-  // Filter tutors by 3 criteria
-  const filteredTutors = useMemo(() => {
-    return tutors.filter((t) => {
-      // 1. Chuyên môn Tiếng Anh
-      if (selectedSubject) {
-        const sLow = selectedSubject.toLowerCase();
-        const combinedText = [
-          ...(t.subjects || []),
-          ...(t.specialization || []),
-          t.bio || "",
-          t.university || ""
-        ].join(" ").toLowerCase();
+      const res = await apiGetPublicTutors({
+        page: currentPage - 1,
+        size: 6,
+        keyword: searchKeyword.trim() || undefined,
+        specialty: selectedSubject ? [selectedSubject] : undefined,
+        teachingMode: selectedMode || undefined,
+        gender,
+        province,
+      });
 
-        let matched = combinedText.includes(sLow);
-        if (!matched) {
-          if (sLow.includes("ielts") && combinedText.includes("ielts")) matched = true;
-          if (sLow.includes("toeic") && combinedText.includes("toeic")) matched = true;
-          if (sLow.includes("giao tiếp") && (combinedText.includes("giao tiếp") || combinedText.includes("speaking"))) matched = true;
-          if (sLow.includes("thpt") && (combinedText.includes("thpt") || combinedText.includes("cấp 3"))) matched = true;
-          if (sLow.includes("thcs") && (combinedText.includes("thcs") || combinedText.includes("cấp 2") || combinedText.includes("chuyên"))) matched = true;
-          if (sLow.includes("tiểu học") && (combinedText.includes("tiểu học") || combinedText.includes("cấp 1"))) matched = true;
-          if (sLow.includes("ngữ pháp") && combinedText.includes("ngữ pháp")) matched = true;
-          if (sLow.includes("phát âm") && (combinedText.includes("phát âm") || combinedText.includes("ipa"))) matched = true;
-          if (sLow.includes("mất gốc") && combinedText.includes("mất gốc")) matched = true;
-        }
-        if (!matched) return false;
-      }
+      const items = (res?.items || []).map(mapPublicTutor);
+      setTutors(items);
+      setTotalPages(Math.max(1, res?.totalPages || 1));
+    } catch (err) {
+      setError(err.message || "Không thể tải danh sách gia sư. Vui lòng thử lại sau.");
+      setTutors([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchKeyword, selectedSubject, selectedMode, selectedProvince, selectedGender, currentPage]);
 
-      // 2. Thành tích nổi bật
-      if (selectedHighlight) {
-        const hLow = selectedHighlight.toLowerCase();
-        let matched = (t.highlights || []).some(
-          (th) => th.toLowerCase().includes(hLow) || hLow.includes(th.toLowerCase())
-        );
-
-        if (!matched) {
-          const bioAwardsText = [
-            t.bio || "",
-            t.highSchool || "",
-            t.academicRank || "",
-            ...(t.awards || []).map((a) => a.title || ""),
-            ...(t.certificates || []).map((c) => c.name || "")
-          ].join(" ").toLowerCase();
-
-          matched = bioAwardsText.includes(hLow);
-        }
-        if (!matched) return false;
-      }
-
-      // 3. Giới tính
-      if (selectedGender && selectedGender !== "Tất cả giới tính") {
-        if ((t.gender || "").toLowerCase() !== selectedGender.toLowerCase()) return false;
-      }
-
-      return true;
-    });
-  }, [selectedSubject, selectedHighlight, selectedGender]);
-
-  // Pagination calculation
-  const totalPages = Math.ceil(filteredTutors.length / tutorsPerPage);
-  const paginatedTutors = useMemo(() => {
-    const start = (currentPage - 1) * tutorsPerPage;
-    return filteredTutors.slice(start, start + tutorsPerPage);
-  }, [filteredTutors, currentPage, tutorsPerPage]);
+  useEffect(() => {
+    fetchTutors();
+  }, [fetchTutors]);
 
   const handlePageChange = (pageNum) => {
     setCurrentPage(pageNum);
   };
 
   const handleResetFilters = () => {
+    setSearchKeyword("");
     setSelectedSubject("");
-    setSelectedHighlight("");
+    setSelectedMode("");
+    setSelectedProvince("");
     setSelectedGender("");
     setCurrentPage(1);
   };
 
   function handleConnectTutor(tutorItem) {
-    selectTutorAndStartOnboarding(tutorItem);
+    if (selectTutorAndStartOnboarding) {
+      selectTutorAndStartOnboarding(tutorItem);
+    }
     navigate("/student/onboarding");
   }
 
   const hasActiveFilters = Boolean(
+    searchKeyword.trim() ||
     selectedSubject ||
-    selectedHighlight ||
+    selectedMode ||
+    (selectedProvince && selectedProvince !== "Tất cả khu vực") ||
     (selectedGender && selectedGender !== "Tất cả giới tính")
   );
 
@@ -141,12 +120,28 @@ export default function StudentMarketplace() {
         className="mb-0"
         eyebrow="Bước 1/3 · Chọn gia sư"
         title="Khám phá Gia sư"
-        description="Lọc theo chuyên môn, thành tích và giới tính để tìm gia sư phù hợp với mục tiêu của bạn."
+        description="Tìm kiếm gia sư phù hợp theo chuyên môn, hình thức học, khu vực và giới tính."
       />
 
-      {/* 3 Dropdown Filters at the Top */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+      {/* Filter panel */}
+      <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        {/* Search bar */}
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <input
+            type="text"
+            value={searchKeyword}
+            onChange={(e) => {
+              setSearchKeyword(e.target.value);
+              setCurrentPage(1);
+            }}
+            placeholder="Tìm theo tên gia sư hoặc trường đại học..."
+            className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-10 pr-4 text-xs text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-800/40 dark:text-white dark:focus:bg-slate-900"
+          />
+        </div>
+
+        {/* 4 Dropdowns */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {/* Dropdown 1: Chuyên môn */}
           <div className="space-y-1.5">
             <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
@@ -169,29 +164,49 @@ export default function StudentMarketplace() {
             </select>
           </div>
 
-          {/* Dropdown 2: Thành tích nổi bật */}
+          {/* Dropdown 2: Hình thức học */}
           <div className="space-y-1.5">
             <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
-              <Award size={14} className="text-blue-600 dark:text-blue-400" strokeWidth={1.75} /> Thành tích nổi bật
+              <Video size={14} className="text-blue-600 dark:text-blue-400" strokeWidth={1.75} /> Hình thức học
             </label>
             <select
-              value={selectedHighlight}
+              value={selectedMode}
               onChange={(e) => {
-                setSelectedHighlight(e.target.value);
+                setSelectedMode(e.target.value);
                 setCurrentPage(1);
               }}
               className="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             >
-              <option value="">Tất cả thành tích</option>
-              {HIGHLIGHT_OPTIONS.map((hl) => (
-                <option key={hl} value={hl}>
-                  {hl}
+              {TEACHING_MODES.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Dropdown 3: Giới tính */}
+          {/* Dropdown 3: Khu vực */}
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
+              <MapPin size={14} className="text-blue-600 dark:text-blue-400" strokeWidth={1.75} /> Khu vực
+            </label>
+            <select
+              value={selectedProvince}
+              onChange={(e) => {
+                setSelectedProvince(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 outline-none transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+            >
+              {PROVINCES.map((p) => (
+                <option key={p} value={p === "Tất cả khu vực" ? "" : p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Dropdown 4: Giới tính */}
           <div className="space-y-1.5">
             <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
               <User size={14} className="text-blue-600 dark:text-blue-400" strokeWidth={1.75} /> Giới tính
@@ -215,7 +230,7 @@ export default function StudentMarketplace() {
 
         {/* Clear filter action */}
         {hasActiveFilters && (
-          <div className="mt-3 flex justify-end border-t border-slate-200 pt-3 dark:border-slate-800">
+          <div className="flex justify-end border-t border-slate-200 pt-3 dark:border-slate-800">
             <button
               type="button"
               onClick={handleResetFilters}
@@ -227,11 +242,37 @@ export default function StudentMarketplace() {
         )}
       </div>
 
+      {/* Loading state */}
+      {loading && (
+        <div className="space-y-4">
+          <SkeletonRows rows={3} className="h-44" />
+        </div>
+      )}
+
+      {/* Error state */}
+      {!loading && error && <ErrorBox message={error} onRetry={fetchTutors} />}
+
+      {/* Empty state */}
+      {!loading && !error && tutors.length === 0 && (
+        <EmptyState
+          icon={Search}
+          title="Không tìm thấy gia sư phù hợp"
+          description="Không có gia sư nào thỏa mãn tiêu chí lọc hiện tại. Thử chọn lại chuyên môn, hình thức hoặc từ khóa khác."
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" size="sm" onClick={handleResetFilters}>
+                Đặt lại bộ lọc
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
+
       {/* Tutor Cards Grid: 3 gia sư mỗi hàng, tối đa 2 hàng (6 gia sư/trang) */}
-      {paginatedTutors.length > 0 ? (
+      {!loading && !error && tutors.length > 0 && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {paginatedTutors.map((tutor, i) => (
+            {tutors.map((tutor, i) => (
               <TutorCard
                 key={tutor.id}
                 tutor={tutor}
@@ -280,25 +321,6 @@ export default function StudentMarketplace() {
             </div>
           )}
         </>
-      ) : (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-6 py-16 text-center dark:border-slate-700 dark:bg-slate-900">
-          <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-            <Search className="h-7 w-7 text-slate-400" strokeWidth={1.75} />
-          </div>
-          <h3 className="mb-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
-            Không tìm thấy gia sư phù hợp
-          </h3>
-          <p className="mb-4 max-w-xs text-xs text-slate-500 dark:text-slate-400">
-            Không có gia sư nào thỏa mãn cả 3 tiêu chí lọc hiện tại. Thử chọn lại chuyên môn hoặc thành tích khác.
-          </p>
-          <button
-            type="button"
-            onClick={handleResetFilters}
-            className="cursor-pointer rounded-xl bg-blue-600 px-4 py-2 text-xs font-medium text-white transition-all hover:bg-blue-700 active:scale-[0.98]"
-          >
-            Đặt lại bộ lọc
-          </button>
-        </div>
       )}
 
       {/* Tutor Detail Modal */}

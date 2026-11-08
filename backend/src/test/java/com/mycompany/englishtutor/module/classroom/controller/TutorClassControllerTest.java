@@ -105,12 +105,19 @@ class TutorClassControllerTest {
                         .status("TRIAL")
                         .teachingMode("ONLINE")
                         .studentName("Nguyễn Minh Khôi")
+                        .parentName("Nguyễn Văn Minh")
+                        .parentPhone("0912345678")
+                        .parentEmail("minh.phuhuynh@example.com")
+                        .parentAddress("12 Nguyễn Trãi, Thanh Xuân, Hà Nội")
                         .trialSession(trialResponse())
                         .build());
 
         mockMvc.perform(get("/api/v1/classes/1")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_TUTOR"))))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.parentName").value("Nguyễn Văn Minh"))
+                .andExpect(jsonPath("$.result.parentPhone").value("0912345678"))
+                .andExpect(jsonPath("$.result.parentAddress").value("12 Nguyễn Trãi, Thanh Xuân, Hà Nội"))
                 .andExpect(jsonPath("$.result.trialSession.sessionDate").value("2026-10-28"))
                 .andExpect(jsonPath("$.result.trialSession.status").value("SCHEDULED"));
     }

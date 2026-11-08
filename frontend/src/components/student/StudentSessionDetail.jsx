@@ -95,7 +95,7 @@ export default function StudentSessionDetail({ sessionId, sessionStatus, session
     setMaterials([]);
     setMaterialsLoading(true);
     setError("");
-    if (!token || !sessionId) {
+    if (!token || !sessionId || detail?.hasLog === false) {
       setMaterialsLoading(false);
       return;
     }
@@ -106,7 +106,7 @@ export default function StudentSessionDetail({ sessionId, sessionStatus, session
     return () => {
       cancelled = true;
     };
-  }, [token, sessionId]);
+  }, [token, sessionId, detail?.hasLog]);
 
   async function openMaterial(material, mode) {
     const materialId = material.materialId ?? material.id;

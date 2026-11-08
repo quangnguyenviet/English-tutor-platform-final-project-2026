@@ -51,9 +51,12 @@ const enc = encodeURIComponent;
 
 // ---------- Lịch & buổi học (3.6) ----------
 
-/** Lịch tuần T2–CN của học sinh. `weekStart` = thứ 2 (YYYY-MM-DD), bỏ trống = tuần hiện tại. */
-export function apiGetMySchedule(token, weekStart) {
-  const query = weekStart ? `?weekStart=${enc(weekStart)}` : "";
+/** Lịch tuần T2–CN của học sinh; có thể lọc theo một lớp trong workspace. */
+export function apiGetMySchedule(token, weekStart, classId) {
+  const params = new URLSearchParams();
+  if (weekStart) params.set("weekStart", weekStart);
+  if (classId) params.set("classId", classId);
+  const query = params.size ? `?${params.toString()}` : "";
   return request(token, `/api/v1/students/me/schedule${query}`);
 }
 
@@ -77,6 +80,22 @@ export function apiGetMyTutors(token) {
   return request(token, "/api/v1/students/me/tutors");
 }
 
+export function apiGetMyClasses(token) {
+  return request(token, "/api/v1/students/me/classes");
+}
+
+export function apiGetMyClassDetail(token, classId) {
+  return request(token, `/api/v1/students/me/classes/${enc(classId)}`);
+}
+
+export function apiGetMyClassLessons(token, classId) {
+  return request(token, `/api/v1/students/me/classes/${enc(classId)}/lessons`);
+}
+
+export function apiGetMyClassMaterials(token, classId) {
+  return request(token, `/api/v1/students/me/classes/${enc(classId)}/materials`);
+}
+
 /** Dashboard gộp; mỗi khu vực lỗi độc lập (`null` + `error`). */
 export function apiGetMyDashboard(token) {
   return request(token, "/api/v1/students/me/dashboard");
@@ -84,8 +103,11 @@ export function apiGetMyDashboard(token) {
 
 // ---------- Quiz, Elo (3.7) ----------
 
-export function apiGetMyQuizzes(token, status) {
-  const query = status ? `?status=${enc(status)}` : "";
+export function apiGetMyQuizzes(token, status, classId) {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (classId) params.set("classId", classId);
+  const query = params.size ? `?${params.toString()}` : "";
   return request(token, `/api/v1/students/me/quizzes${query}`);
 }
 
@@ -108,4 +130,26 @@ export function apiGetQuizResult(token, quizId) {
 
 export function apiGetReviewList(token) {
   return request(token, "/api/v1/students/me/review-list");
+}
+
+export function apiGetDueReviews(token, limit = 20) {
+  return request(token, `/api/v1/students/me/reviews/due?limit=${enc(limit)}`);
+}
+
+export function apiGetReviewStats(token) {
+  return request(token, "/api/v1/students/me/reviews/stats");
+}
+
+export function apiAnswerReview(token, questionId, selectedAnswer) {
+  return request(token, `/api/v1/students/me/reviews/${enc(questionId)}/answer`, {
+    method: "POST",
+    body: JSON.stringify({ selectedAnswer }),
+  });
+}
+
+export function apiRateReview(token, questionId, reviewAttemptId, rating) {
+  return request(token, `/api/v1/students/me/reviews/${enc(questionId)}/rate`, {
+    method: "POST",
+    body: JSON.stringify({ reviewAttemptId, rating }),
+  });
 }

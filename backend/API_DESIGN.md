@@ -370,6 +370,14 @@ Công thức `payments.amount`: `fee_percentage × sessions_per_week × 4 × pri
 | POST | `/api/v1/quizzes/{id}/questions/{questionId}/answer` | STUDENT | Body `{ selectedAnswer }`. Chấm ngay, trả `{ isCorrect, correctAnswer, explanation, eloBefore, eloAfter, eloChange }`. UNIQUE (student, question) → gọi lại trả lại kết quả cũ (idempotent). Cập nhật `students.elo`. Hoàn tất → quiz `COMPLETED` | FR-22 |
 | GET | `/api/v1/quizzes/{id}/result` | STUDENT, TUTOR | Tổng kết: số đúng/sai, tổng Elo thay đổi | FR-22 |
 | GET | `/api/v1/students/me/review-list` | STUDENT | Danh sách ôn tập: các câu `is_correct = false` | FR-22 |
+| GET | `/api/v1/students/me/reviews/due` | STUDENT | Các câu sai đã đến hạn; nếu đã trả lời nhưng chưa đánh giá thì trả kèm feedback để tiếp tục sau reload | FR-22 |
+| GET | `/api/v1/students/me/reviews/stats` | STUDENT | Số câu đến hạn, số lượt đã ôn hôm nay và thời điểm ôn kế tiếp | FR-22 |
+| POST | `/api/v1/students/me/reviews/{questionId}/answer` | STUDENT | Trả lời lại câu sai, không cập nhật kết quả quiz/Elo; trả đáp án đúng và giải thích | FR-22 |
+| POST | `/api/v1/students/me/reviews/{questionId}/rate` | STUDENT | Body `{ reviewAttemptId, rating }`, `rating` là `AGAIN/HARD/GOOD/EASY`; server lên lịch lần lượt `+1m/+6m/+10m/+5d` | FR-22 |
+
+Lịch ôn dùng giờ server làm nguồn sự thật. Mỗi câu chỉ có tối đa một lượt đã trả lời nhưng chưa đánh giá;
+hai endpoint POST đều an toàn khi client gửi lặp và lịch sử từng lượt được giữ trong
+`spaced_repetition_reviews`.
 
 > **V16:** quiz gắn **bài giảng** (`quizzes.lesson_id`) thay buổi học — học sinh xem quiz theo lớp/bài
 > giảng, không còn "thuộc buổi" (D-03). Đường dẫn quiz đổi từ `/sessions/{sessionId}/quizzes` sang
