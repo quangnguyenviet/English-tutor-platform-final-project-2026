@@ -6,7 +6,6 @@ import { apiGetComplaintCounts, apiGetRefundCounts } from "../../lib/complaintAp
 import {
   LayoutDashboard,
   Users,
-  ClipboardList,
   Map,
   ListChecks,
   Video,
@@ -36,7 +35,6 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { AiAssistantProvider, useAiAssistant } from "../../context/AiAssistantContext";
 import { StudentMatchingProvider, useStudentMatching } from "../../context/StudentMatchingContext";
-import { classRequests } from "../../data/mockData";
 import Avatar from "../ui/Avatar";
 import AiAssistantPanel from "../tutor/AiAssistantPanel";
 import TopBar from "./TopBar";
@@ -242,7 +240,6 @@ function AppShellInner() {
     items = [
       { to: "/tutor", label: "Tổng quan", icon: LayoutDashboard, end: true },
       { to: "/tutor/available-classes", label: "Lớp cần gia sư", icon: Search },
-      { to: "/tutor/requests", label: "Yêu cầu lớp", icon: ClipboardList, badge: () => classRequests.filter((r) => r.status === "pending_response").length },
       { to: "/tutor/classes", label: "Lớp học của tôi", icon: Users },
       { to: "/tutor/schedule", label: "Lịch dạy", icon: CalendarDays },
       { to: "/tutor/payments", label: "Phí nhận lớp", icon: Banknote },

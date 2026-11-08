@@ -180,7 +180,7 @@ export default function TutorDashboard() {
       {/* --- Quick Actions --- */}
       <div>
         <h2 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Thao tác nhanh</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {/* Primary CTA: Lịch dạy */}
           <Link
             to="/tutor/schedule"
@@ -203,18 +203,6 @@ export default function TutorDashboard() {
             </div>
             <p className="text-sm font-semibold leading-tight">Xem lớp học</p>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">{students.length} học sinh</p>
-          </Link>
-
-          {/* Secondary: Yêu cầu lớp */}
-          <Link
-            to="/tutor/requests"
-            className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-2xl p-4 flex flex-col items-start gap-2 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 transition-all active:scale-[0.98]"
-          >
-            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center">
-              <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
-            </div>
-            <p className="text-sm font-semibold leading-tight">Yêu cầu lớp</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">Xem & phản hồi</p>
           </Link>
         </div>
       </div>

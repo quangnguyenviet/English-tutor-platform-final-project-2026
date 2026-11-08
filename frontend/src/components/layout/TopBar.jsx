@@ -26,7 +26,6 @@ const routeMeta = {
     "/tutor/classes": { label: "Lớp học của tôi" },
     "/tutor/classes/:classId": { label: "Chi tiết lớp học" },
     "/tutor/schedule": { label: "Lịch dạy" },
-    "/tutor/requests": { label: "Yêu cầu lớp" },
     "/tutor/library/paths": { label: "Khung chương trình" },
     "/tutor/library/exercises": { label: "Kho bài tập" },
     "/tutor/library/materials": { label: "Kho video & tài liệu" },

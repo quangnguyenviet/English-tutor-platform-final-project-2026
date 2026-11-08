@@ -41,7 +41,6 @@ import ManageAssignmentsRoute from "./pages/tutor/manage/ManageAssignmentsRoute"
 import AddAssignmentPage from "./pages/tutor/manage/AddAssignmentPage";
 import ManageMaterialsRoute from "./pages/tutor/manage/ManageMaterialsRoute";
 import TutorExerciseDetail from "./pages/tutor/TutorExerciseDetail";
-import ClassRequests from "./pages/tutor/ClassRequests";
 import AvailableClasses from "./pages/tutor/AvailableClasses";
 import AvailableClassDetail from "./pages/tutor/AvailableClassDetail";
 import TutorClasses from "./pages/tutor/TutorClasses";
@@ -226,7 +225,6 @@ export default function App() {
             <Route path="classes/:classId/materials" element={<TutorClassWorkspace />}>
               <Route index element={<ManageMaterialsRoute />} />
             </Route>
-            <Route path="requests" element={<ClassRequests />} />
             <Route path="library/paths" element={<LibraryPaths />} />
             <Route path="library/paths/:templateId" element={<LibraryPathDetail />} />
             <Route path="library/exercises" element={<LibraryExercises />} />

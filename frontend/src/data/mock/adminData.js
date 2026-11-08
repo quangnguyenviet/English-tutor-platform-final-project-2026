@@ -69,15 +69,6 @@ export const parentThreads = [
 
 export const notifications = [
   {
-    id: "n0",
-    type: "request",
-    title: "Yêu cầu lớp mới được phân công",
-    body: "Admin vừa giới thiệu yêu cầu từ Chị Nguyễn Thị Lan cho con Đặng Gia Bảo (Tiếng Anh giao tiếp thiếu niên).",
-    time: "2026-08-01 10:20",
-    read: false,
-    link: "/tutor/requests",
-  },
-  {
     id: "n1",
     type: "grading",
     title: "Bài chờ chấm mới",

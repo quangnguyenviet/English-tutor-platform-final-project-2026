@@ -10,16 +10,11 @@ export * from "./mock/receptionistData.js";
 export * from "./mock/guestData.js";
 
 import { students } from "./mock/studentsData.js";
-import { classRequests } from "./mock/requestsData.js";
 import { pathTemplates } from "./mock/libraryData.js";
 
 // Helper functions cho toàn bộ ứng dụng
 export function getStudentById(id) {
   return students.find((s) => s.id === id);
-}
-
-export function getClassRequestById(id) {
-  return classRequests.find((r) => r.id === id);
 }
 
 export function getPathTemplateById(id) {
