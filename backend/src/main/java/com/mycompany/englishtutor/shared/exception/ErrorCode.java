@@ -215,6 +215,33 @@ public enum ErrorCode {
     INVALID_EMPLOYEE_ROLE(1302, "Vai trò nhân sự không hợp lệ (chỉ RECEPTIONIST hoặc ACCOUNTANT)", HttpStatus.BAD_REQUEST),
     INVALID_EMPLOYEE_STATUS(1303, "Trạng thái nhân sự không hợp lệ", HttpStatus.CONFLICT),
     ACCOUNT_INACTIVE(1304, "Tài khoản đã bị vô hiệu hóa, vui lòng liên hệ quản trị viên", HttpStatus.FORBIDDEN),
+    // --- Khiếu nại & hoàn tiền (1500 – 1599) ---
+    COMPLAINT_NOT_FOUND(1500, "Đơn khiếu nại không tồn tại", HttpStatus.NOT_FOUND),
+    COMPLAINT_INVALID_STATE(1501, "Đơn khiếu nại không ở trạng thái cho phép thao tác này", HttpStatus.CONFLICT),
+    COMPLAINT_TYPE_MISMATCH(1502, "Loại khiếu nại không phù hợp với thao tác này", HttpStatus.CONFLICT),
+    COMPLAINT_TARGET_NOT_PROCESSABLE(
+            1503, "Lớp không còn ở trạng thái có thể xử lý theo lựa chọn này", HttpStatus.CONFLICT),
+    COMPLAINT_RESOLUTION_REQUIRED(1504, "Vui lòng nhập kết quả xử lý.", HttpStatus.BAD_REQUEST),
+    REFUND_NOT_FOUND(1505, "Yêu cầu hoàn tiền không tồn tại", HttpStatus.NOT_FOUND),
+    REFUND_INVALID_STATE(1506, "Yêu cầu hoàn tiền không ở trạng thái cho phép thao tác này", HttpStatus.CONFLICT),
+    REFUND_PAYMENT_INVALID(
+            1507, "Khoản phí phải đã được xác nhận và thuộc đúng lớp của khiếu nại", HttpStatus.CONFLICT),
+    REFUND_ALREADY_EXISTS(1508, "Khiếu nại đã có yêu cầu hoàn tiền đang chờ hoặc đã hoàn", HttpStatus.CONFLICT),
+    REFUND_AMOUNT_EXCEEDED(1509, "Số tiền hoàn vượt quá giới hạn còn lại", HttpStatus.BAD_REQUEST),
+    REFUND_SAME_ACTOR(1510, "Người tạo yêu cầu hoàn tiền không được tự xử lý yêu cầu đó", HttpStatus.FORBIDDEN),
+    REFUND_PROOF_REQUIRED(
+            1511, "Vui lòng đính kèm ảnh biên lai chuyển khoản hoàn tiền trước khi xác nhận.", HttpStatus.BAD_REQUEST),
+    REFUND_REJECT_REASON_REQUIRED(
+            1512, "Vui lòng nhập lý do từ chối hoàn tiền để Lễ tân nắm được thông tin.", HttpStatus.BAD_REQUEST),
+    COMPLAINT_OUTCOME_REQUIRED(1513, "Vui lòng chọn Hủy lớp hoặc Ghép lại.", HttpStatus.BAD_REQUEST),
+    COMPLAINT_EVIDENCE_REQUIRED(
+            1514, "Lớp đã được xử lý trước đó. Vui lòng đính kèm minh chứng đã xử lý.", HttpStatus.BAD_REQUEST),
+    REFUND_CLASS_NOT_ONLINE(1515, "Khiếu nại hoàn tiền chỉ áp dụng cho lớp Online", HttpStatus.CONFLICT),
+    COMPLAINT_WINDOW_EXPIRED(
+            1516,
+            "Lớp đã ghép thành công quá 7 ngày, không thể tiếp nhận khiếu nại hủy lớp hoặc ghép lại.",
+            HttpStatus.CONFLICT),
+    COMPLAINT_TOO_MANY_FILES(1517, "Chỉ được đính kèm tối đa 5 tệp minh chứng.", HttpStatus.BAD_REQUEST),
     PASSWORD_CHANGE_REQUIRED(1600, "Bạn cần đổi mật khẩu trước khi tiếp tục sử dụng hệ thống", HttpStatus.FORBIDDEN),
     EMPLOYEE_STATUS_VALUE_INVALID(1601, "Giá trị trạng thái nhân sự không hợp lệ", HttpStatus.BAD_REQUEST),
     EMPLOYEE_CONTACT_EXISTED(1602, "Email hoặc Số điện thoại đã được đăng ký trong hệ thống", HttpStatus.BAD_REQUEST),
