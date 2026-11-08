@@ -1,12 +1,12 @@
 ---
 title: Kế hoạch triển khai đề tài — Nền tảng hỗ trợ vận hành và giảng dạy cá nhân hóa cho mô hình gia sư tiếng Anh ứng dụng LLM và Spaced Repetition
-version: 2.2
+version: 2.4
 ngày lập: 2026-09-04
-cập nhật: 2026-10-11
+cập nhật: 2026-11-08
 ngày bắt đầu: 2026-09-07
-ngày kết thúc: 2026-11-15
+ngày kết thúc: 2026-11-22
 nhóm: 3 thành viên
-thời lượng: 10 tuần
+thời lượng: 11 tuần
 tài liệu liên quan: prd.md, mo_ta_de_tai.md, ARCHITECTURE.md, ../database.mmd, ../use-case-specification-document/
 ---
 # 1. Tóm tắt
@@ -14,6 +14,10 @@ tài liệu liên quan: prd.md, mo_ta_de_tai.md, ARCHITECTURE.md, ../database.mm
 Nền tảng Web single-tenant cho trung tâm gia sư tiếng Anh 1-1: số hóa quy trình ghép lớp, thu phí nhận lớp, khiếu nại; hỗ trợ gia sư soạn quiz bằng AI; học sinh làm quiz với phản hồi tức thì và điểm Elo. Chi tiết xem `prd.md`.
 
 **Cập nhật kế hoạch tại mốc tuần 6 (11/10/2026):** Hiện tại nhóm **mới hoàn thành việc viết và chốt tài liệu Đặc tả Use Case**. Khối lượng công việc kỹ thuật thực tế (ERD hoàn chỉnh, DDL/migration CSDL, toàn bộ backend nghiệp vụ, tích hợp AI và kết nối frontend) cần được tập trung cao độ triển khai trong 5 tuần còn lại (tuần 6 đến tuần 10).
+
+**Cập nhật kế hoạch tại mốc tuần 9 (08/11/2026):** Tiến độ kỹ thuật tốt hơn dự kiến: M1–M3 đã đạt, AI Service chạy LLM thật, các cổng Gia sư/Học sinh đã thay mock bằng API. Tuy nhiên **nhiệm vụ xử lý khiếu nại (WBS 6.1) vẫn chưa hoàn thành** — backend chưa có module khiếu nại, 2 trang khiếu nại (Admin, Lễ tân) vẫn chạy dữ liệu mock trong context. Phần khiếu nại và dọn dẹp frontend (6.2) dồn lại cho tuần 10, kiểm thử & đóng gói (7.2, 7.3) sang tuần 11 mới được bổ sung, **M4 (liên thông 4 cổng & xử lý khiếu nại) bị lùi nhẹ so với kế hoạch**.
+
+**Bổ sung 1 tuần triển khai (22/11/2026):** Do khối lượng công việc dồn lại cho tuần cuối quá lớn (xử lý khiếu nại + dọn mock + UAT + đóng gói), nhóm **bổ sung thêm tuần 11 (16/11 – 22/11)** chuyên cho kiểm thử, UAT và đóng gói bàn giao. **M5 được dời sang cuối tuần 11**, giữ nguyên tiêu chí hoàn thành.
 
 ## 1.1. Kiến trúc công nghệ
 
@@ -26,25 +30,26 @@ Nền tảng Web single-tenant cho trung tâm gia sư tiếng Anh 1-1: số hóa
 | Lưu trữ file    | Tương thích S3                  | Chứng chỉ, tài liệu, minh chứng                                               |
 | Hạ tầng         | Docker Compose, GitHub Actions     | Chạy local, CI                                                                    |
 
-# 2. Hiện trạng (tính đến 11/10/2026)
+# 2. Hiện trạng (tính đến 08/11/2026)
 
 | Hạng mục                             | Trạng thái                        | Ghi chú                                                                                                                           |
 | -------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Đặc tả use case**           | **Đã hoàn thành**         | Đã hoàn thành viết tài liệu đặc tả use case chi tiết, chuẩn hóa các luồng nghiệp vụ chính, thay thế, ngoại lệ |
-| Thiết kế CSDL (ERD)                  | Mới có phác thảo ban đầu      | Bản phác thảo`docs/database.mmd`, cần nhóm rà soát chốt lại bám sát use case                                          |
-| DDL & Migration DB                     | Chưa có                           | `init.sql` mới bật extension, chưa có bảng và dữ liệu mẫu                                                               |
-| Sơ đồ UML (trạng thái, tuần tự) | Chưa có                           | Cần vẽ sơ đồ trạng thái các thực thể chính và sơ đồ tuần tự các luồng cốt lõi                                 |
-| Tài liệu PRD, Kiến trúc            | Bản dự thảo v2                   | Cần cập nhật đồng bộ theo bộ use case vừa hoàn tất                                                                       |
-| Docker Compose, CI                     | Khung cơ bản                      | `docker compose up --build` chạy được các service rỗng                                                                     |
-| Frontend                               | Prototype giao diện cũ, mock data | Giao diện prototype cần dọn dẹp các trang ngoài phạm vi use case, chưa nối API                                            |
-| Backend                                | **Mới có khung rỗng**      | Mới có`HealthController` và cấu hình kết nối DB, chưa có Entity, Repository, Service, Auth JWT                          |
-| AI Service                             | **Mới có khung rỗng**      | FastAPI với endpoint`/health`, chưa có logic sinh quiz hay LangGraph                                                          |
+| **Đặc tả use case**           | **Đã hoàn thành**         | Tài liệu đặc tả use case chi tiết, chuẩn hóa các luồng nghiệp vụ chính, thay thế, ngoại lệ |
+| Thiết kế CSDL (ERD)                  | Chốt & triển khai           | ERD bám use case, đã sinh bảng và dữ liệu mẫu qua migration |
+| DDL & Migration DB                     | Chạy trong Docker            | Bộ migration Flyway (V1 → V18+) với bảng nghiệp vụ và seed data mẫu                        |
+| Sơ đồ UML (trạng thái, tuần tự) | Một phần                      | Sơ đồ trạng thái các thực thể chính; sơ đồ tuần tự quiz AI (`docs/project/diagrams/quiz-ai-authoring.md`); còn thiếu một số luồng |
+| Tài liệu PRD, Kiến trúc            | Bản dự thảo v2                   | Đã cập nhật đồng bộ theo bộ use case vừa hoàn tất                                                                       |
+| Docker Compose, CI                     | Chạy được                     | `docker compose up --build` chạy toàn bộ service, pipeline CI kèm test backend/frontend  |
+| Frontend                               | Thay mock bằng API theo từng lát | Cổng Gia sư, Học sinh đã nối API thật; các trang khiếu nại và một số trang thừa vẫn dùng mock data; cần dọn dẹp triệt để |
+| Backend                                | **Đã có module nghiệp vụ**  | Các module auth, tutor, matching, classroom, payment, quiz, student, staff, audit; Auth JWT + phân quyền; chưa có module khiếu nại |
+| AI Service                             | **Chạy LLM thật**           | FastAPI hỗ trợ LLM native OpenAI/Anthropic, sinh quiz theo CEFR, parser & kiểm định JSON import |
 
 **Đánh giá thực tế:**
 
-- Nhóm đã hoàn thành xong mốc nền móng quan trọng nhất về phân tích nghiệp vụ: **Đặc tả Use Case**.
-- Còn đúng **5 tuần** để biến toàn bộ use case thành hệ thống chạy thực tế (DB, Backend Spring Boot, Frontend React, AI Service FastAPI).
-- Chiến lược bắt buộc: Triển khai theo **lát cắt dọc (vertical slice)**, ưu tiên tuyệt đối cho các yêu cầu bắt buộc (Must-have, 35 FRs), cắt giảm triệt để các tính năng rườm rà ngoài use case.
+- **Đã đạt M1–M3** (18/10, 25/10, 01/11): CSDL + Auth + hồ sơ gia sư; luồng ghép lớp–lịch–phí; buổi học & AI quiz, học sinh làm quiz + Elo + ôn tập ngắt quãng.
+- **Tiến độ tốt hơn dự kiến** so với mốc tuần 6 nhờ tái sử dụng prototype và làm lát dọc.
+- **Rủi ro chính còn lại:** Nghiệp vụ **xử lý khiếu nại (WBS 6.1) chưa hoàn thành** — backend chưa có module khiếu nại, 2 trang khiếu nại (Admin/Lễ tân) vẫn chạy dữ liệu mock trong context. Dồn cho tuần 10; UAT & đóng gói (WBS 7.2, 7.3) tách ra tuần 11 mới (16/11 – 22/11).
+- Chiến lược duy trì: Làm lát cắt dọc, ưu tiên Must-have, cắt bỏ 4 tính năng Should-have nếu chưa kịp.
 
 # 3. Phạm vi và nguyên tắc triển khai
 
@@ -83,38 +88,38 @@ Dọn khỏi routing/menu các trang cũ nằm ngoài use case:
 | **1.0** | **Khởi tạo và Phân tích thiết kế**                                                                    |                                            |                   |
 | 1.1           | Đặc tả trường hợp sử dụng (Use Case Specification)                                                         | Tài liệu đặc tả use case hoàn chỉnh | **Xong**    |
 | 1.2           | Rà soát PRD và chốt phạm vi MVP theo Use Case                                                                 | PRD v2 chuẩn hóa                         | Hoàn thành      |
-| 1.3           | Thiết kế CSDL chi tiết (ERD) & DDL/Migration                                                                    | ERD chốt bám use case, file DDL/Flyway   | Đang thực hiện |
-| 1.4           | Sơ đồ trạng thái UML (Hồ sơ GS, Lớp học, Đơn ghép, Phí, Khiếu nại)                                  | Bộ sơ đồ State Machine                 | Chưa làm        |
-| 1.5           | Sơ đồ tuần tự UML cho các luồng cốt lõi                                                                   | Bộ sơ đồ Sequence Diagram              | Chưa làm        |
+| 1.3           | Thiết kế CSDL chi tiết (ERD) & DDL/Migration                                                                    | ERD chốt bám use case, file DDL/Flyway   | Xong              |
+| 1.4           | Sơ đồ trạng thái UML (Hồ sơ GS, Lớp học, Đơn ghép, Phí, Khiếu nại)                                  | Bộ sơ đồ State Machine                 | Một phần          |
+| 1.5           | Sơ đồ tuần tự UML cho các luồng cốt lõi                                                                   | Bộ sơ đồ Sequence Diagram              | Một phần          |
 | 1.6           | Hạ tầng Docker Compose & CI cơ bản                                                                             | Docker running, CI pipeline                | Xong              |
 | **2.0** | **Nền tảng Backend & Cơ sở dữ liệu**                                                                   |                                            |                   |
-| 2.1           | Migration DB (Flyway/DDL) và dữ liệu mẫu (Seed Data)                                                           | Database schema chạy trong Docker         | Chưa làm        |
-| 2.2           | Module Auth: Đăng nhập JWT, đổi mật khẩu, phân quyền RBAC (FR-05, FR-06)                                  | API Auth, Security filter                  | Chưa làm        |
-| 2.3           | Dịch vụ dùng chung: Lưu trữ file S3/MinIO, Audit Log, Thông báo                                             | Service upload & audit                     | Chưa làm        |
+| 2.1           | Migration DB (Flyway/DDL) và dữ liệu mẫu (Seed Data)                                                           | Database schema chạy trong Docker         | Xong              |
+| 2.2           | Module Auth: Đăng nhập JWT, đổi mật khẩu, phân quyền RBAC (FR-05, FR-06)                                  | API Auth, Security filter                  | Xong              |
+| 2.3           | Dịch vụ dùng chung: Lưu trữ file S3/MinIO, Audit Log, Thông báo                                             | Service upload & audit                     | Xong              |
 | **3.0** | **Lát cắt 1: Quản lý Hồ sơ Gia sư & Cổng Công khai**                                                |                                            |                   |
-| 3.1           | Khách/Phụ huynh: Tìm kiếm & xem hồ sơ gia sư (FR-01, FR-02)                                                 | API & UI tìm kiếm gia sư                | Chưa làm        |
-| 3.2           | Gia sư: Thiết lập hồ sơ 5 bước, tải chứng chỉ, video, bảng giá (FR-07)                                 | API & UI hồ sơ gia sư                   | Chưa làm        |
-| 3.3           | Lễ tân/Admin: Duyệt/Từ chối hồ sơ gia sư (FR-31, FR-32)                                                    | API & UI duyệt hồ sơ                    | Chưa làm        |
+| 3.1           | Khách/Phụ huynh: Tìm kiếm & xem hồ sơ gia sư (FR-01, FR-02)                                                 | API & UI tìm kiếm gia sư                | Xong              |
+| 3.2           | Gia sư: Thiết lập hồ sơ 5 bước, tải chứng chỉ, video, bảng giá (FR-07)                                 | API & UI hồ sơ gia sư                   | Xong              |
+| 3.3           | Lễ tân/Admin: Duyệt/Từ chối hồ sơ gia sư (FR-31, FR-32)                                                    | API & UI duyệt hồ sơ                    | Xong              |
 | **4.0** | **Lát cắt 2: Luồng Ghép lớp, Xếp lịch & Duyệt phí**                                                 |                                            |                   |
-| 4.1           | Phụ huynh: Gửi yêu cầu tìm gia sư & Đăng ký chỉ định (FR-03, FR-04)                                    | API & UI đăng ký                        | Chưa làm        |
-| 4.2           | Lễ tân: Quản lý Lớp cần gia sư, Đơn ghép lớp (FR-25 → FR-30)                                           | API & UI ghép lớp                        | Chưa làm        |
-| 4.3           | Gia sư: Ứng tuyển lớp, Lịch dạy thử, Chốt lịch cố định (FR-08 → FR-10)                                | API & UI lịch và nhận lớp              | Chưa làm        |
-| 4.4           | Gia sư & Lễ tân: Nộp và duyệt minh chứng phí nhận lớp (FR-15, FR-33)                                     | API & UI quản lý phí                    | Chưa làm        |
+| 4.1           | Phụ huynh: Gửi yêu cầu tìm gia sư & Đăng ký chỉ định (FR-03, FR-04)                                    | API & UI đăng ký                        | Xong              |
+| 4.2           | Lễ tân: Quản lý Lớp cần gia sư, Đơn ghép lớp (FR-25 → FR-30)                                           | API & UI ghép lớp                        | Xong              |
+| 4.3           | Gia sư: Ứng tuyển lớp, Lịch dạy thử, Chốt lịch cố định (FR-08 → FR-10)                                | API & UI lịch và nhận lớp              | Xong              |
+| 4.4           | Gia sư & Lễ tân: Nộp và duyệt minh chứng phí nhận lớp (FR-15, FR-33)                                     | API & UI quản lý phí                    | Xong              |
 | **5.0** | **Lát cắt 3: Vận hành Buổi học, Trợ lý AI & Quiz**                                                   |                                            |                   |
-| 5.1           | Gia sư & Học sinh: Lịch dạy, khởi tạo buổi học, nhật ký buổi học (FR-11, FR-12, FR-17, FR-19 → FR-21) | API & UI buổi học & nhật ký            | Chưa làm        |
-| 5.2           | AI Service: Endpoint chat sinh quiz theo CEFR & Prompt import kiểm định JSON (FR-13, FR-14)                     | FastAPI service chạy thật                | Chưa làm        |
-| 5.3           | Gia sư: Không gian soạn quiz chia đôi kết hợp AI và xem hồ sơ kỹ năng học sinh (FR-13, FR-14)         | UI soạn quiz tích hợp AI                | Chưa làm        |
-| 5.4           | Học sinh: Làm quiz từng câu, chấm điểm tức thì, cập nhật Elo và ôn tập (FR-22)                       | Engine tính Elo, API & UI làm quiz       | Chưa làm        |
+| 5.1           | Gia sư & Học sinh: Lịch dạy, khởi tạo buổi học, nhật ký buổi học (FR-11, FR-12, FR-17, FR-19 → FR-21) | API & UI buổi học & nhật ký            | Xong              |
+| 5.2           | AI Service: Endpoint chat sinh quiz theo CEFR & Prompt import kiểm định JSON (FR-13, FR-14)                     | FastAPI service chạy thật                | Xong              |
+| 5.3           | Gia sư: Không gian soạn quiz chia đôi kết hợp AI và xem hồ sơ kỹ năng học sinh (FR-13, FR-14)         | UI soạn quiz tích hợp AI                | Xong              |
+| 5.4           | Học sinh: Làm quiz từng câu, chấm điểm tức thì, cập nhật Elo và ôn tập (FR-22)                       | Engine tính Elo, API & UI làm quiz       | Xong              |
 | **6.0** | **Lát cắt 4: Quản lý Vận hành, Khiếu nại & Hoàn thiện**                                            |                                            |                   |
-| 6.1           | Lễ tân/Admin: Quản lý học sinh, tiếp nhận và xử lý khiếu nại (FR-34 → FR-37)                          | API & UI khiếu nại                       | Chưa làm        |
+| 6.1           | Lễ tân/Admin: Quản lý học sinh, tiếp nhận và xử lý khiếu nại (FR-34 → FR-37)                          | API & UI khiếu nại                       | Đang thực hiện  |
 | 6.2           | Dọn dẹp triệt để frontend, thay 100% dữ liệu mock bằng API thật                                           | Giao diện 4 cổng liên thông            | Chưa làm        |
 | 6.3           | *(S)* Admin: Quản lý lễ tân; Học sinh: Hồ sơ cá nhân (FR-16, FR-18, FR-38, FR-39)                       | Tính năng phụ (nếu kịp)               | Đã làm phần Admin   |
 | **7.0** | **Tích hợp, Kiểm thử & Đóng gói Bàn giao**                                                           |                                            |                   |
-| 7.1           | Unit test & Integration test cho các luồng nghiệp vụ cốt lõi                                                 | Test suite pass                            | Chưa làm        |
+| 7.1           | Unit test & Integration test cho các luồng nghiệp vụ cốt lõi                                                 | Test suite pass                            | Một phần        |
 | 7.2           | UAT nội bộ theo các hành trình người dùng (UJ-1 đến UJ-6)                                                | Biên bản test & sửa bug                 | Chưa làm        |
 | 7.3           | Đóng gói hệ thống Docker, tài liệu kỹ thuật & kịch bản báo cáo                                        | Tài liệu & Demo hoàn chỉnh             | Chưa làm        |
 
-# 5. Lịch triển khai 10 tuần
+# 5. Lịch triển khai 11 tuần
 
 ## 5.1. Giai đoạn 1 (Tuần 1–5, 07/09 – 11/10): Khởi tạo, Khảo sát & Đặc tả Use Case
 
@@ -128,15 +133,16 @@ Dọn khỏi routing/menu các trang cũ nằm ngoài use case:
 
 > **Hiện trạng chuyển giao sang tuần 6:** Đã có tài liệu Đặc tả Use Case chuẩn làm kim chỉ nam. Các phần thiết kế CSDL chi tiết, DDL/migration và toàn bộ backend nghiệp vụ được chuyển giao để thực hiện gấp rút từ đầu Tuần 6.
 
-## 5.2. Giai đoạn 2 (Tuần 6–10, 12/10 – 15/11): Phát triển theo Lát cắt dọc, Tích hợp & Bàn giao
+## 5.2. Giai đoạn 2 (Tuần 6–11, 12/10 – 22/11): Phát triển theo Lát cắt dọc, Tích hợp & Bàn giao
 
 | Tuần        | Thời gian     | Trọng tâm WBS                        | Nội dung công việc chi tiết                                                                                                                                                                                                                                                                                                                                                                                             | Kết quả cuối tuần                                                                                                                          |
 | ------------ | -------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **6**  | 12/10 – 18/10 | 1.3, 1.4, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3 | **Chốt CSDL, Backend nền tảng & Hồ sơ Gia sư**- Rà soát và chốt ERD bám use case, viết DDL/Flyway migration.- Xây dựng module Auth JWT, phân quyền Spring Security.- Dựng S3 file upload (chứng chỉ/video) và audit log.- CRUD Hồ sơ gia sư, Lễ tân duyệt hồ sơ, trang tìm kiếm gia sư công khai.- Vẽ sơ đồ trạng thái UML cho các thực thể chính.                          | Gia sư nộp hồ sơ, Lễ tân duyệt hồ sơ, Phụ huynh tìm được gia sư trên dữ liệu thật DB. (**M1**)                        |
-| **7**  | 19/10 – 25/10 | 1.5, 4.1, 4.2, 4.3, 4.4                | **Luồng Ghép lớp, Lịch dạy & Thu phí**- Form gửi yêu cầu tìm gia sư và đăng ký chỉ định.- Nghiệp vụ Lớp cần gia sư (tạo, ứng tuyển, chọn gia sư).- Nghiệp vụ Đơn ghép lớp (tạo, duyệt, hủy).- Xếp lịch dạy thử, chốt lịch cố định, kiểm tra trùng ca dạy.- Nộp minh chứng và Lễ tân duyệt phí nhận lớp (35–40%).                                           | Chạy thông suốt luồng từ Phụ huynh đăng ký → Ghép lớp → Dạy thử → Chốt lịch cố định → Nộp & duyệt phí. (**M2**) |
-| **8**  | 26/10 – 01/11 | 5.1, 5.2, 5.3, 5.4                     | **Buổi học, AI Service & Quiz cá nhân hóa**- Quản lý buổi học, khởi tạo ca, nhật ký dạy học và tài liệu.- Xây dựng AI Service FastAPI: endpoint chat sinh quiz theo CEFR, parser kiểm định JSON import.- UI soạn quiz chia đôi tích hợp AI chatbot và xem hồ sơ kỹ năng.- Học sinh làm quiz từng câu, chấm điểm tức thì, cập nhật điểm Elo và danh sách ôn tập.     | Hoàn thành luồng giảng dạy: Gia sư soạn quiz qua AI/import, giao bài, Học sinh làm bài, Elo tự cập nhật. (**M3**)          |
-| **9**  | 02/11 – 08/11 | 6.1, 6.2, 6.3, 7.1                     | **Quản lý Khiếu nại, Dọn Frontend & Tích hợp 4 cổng**- Tiếp nhận và xử lý khiếu nại (Đổi gia sư / Hoàn phí).- Quản lý danh sách học sinh.- Dọn dẹp triệt để các trang thừa trên frontend, thay thế toàn bộ mock data bằng API thật.- Viết test nghiệp vụ quan trọng (phân quyền, trùng ca, tính phí, Elo).- *(Nếu còn thời gian)*: Làm 4 tính năng Should-have. | Hệ thống liên thông 4 cổng trên dữ liệu thật, không còn mock data. Kiểm thử tích hợp pass. (**M4**)                       |
-| **10** | 09/11 – 15/11 | 7.2, 7.3                               | **Kiểm thử UAT, Đóng gói Docker & Bàn giao**- Đóng băng toàn bộ tính năng từ đầu tuần.- UAT nội bộ theo các kịch bản người dùng UJ-1 đến UJ-6, sửa lỗi tồn đọng.- Đóng gói Docker Compose production ổn định.- Hoàn thiện tài liệu kỹ thuật, hướng dẫn sử dụng, slide và kịch bản demo đề tài.                                                                 | Hệ thống chạy demo ổn định, tài liệu hoàn chỉnh, sẵn sàng báo cáo tốt nghiệp. (**M5**)                                   |
+| **6**  | 12/10 – 18/10 | 1.3, 1.4, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3 | **Chốt CSDL, Backend nền tảng & Hồ sơ Gia sư**- Rà soát và chốt ERD bám use case, viết DDL/Flyway migration.- Xây dựng module Auth JWT, phân quyền Spring Security.- Dựng S3 file upload (chứng chỉ/video) và audit log.- CRUD Hồ sơ gia sư, Lễ tân duyệt hồ sơ, trang tìm kiếm gia sư công khai.- Vẽ sơ đồ trạng thái UML cho các thực thể chính.                          | **Đã đạt (18/10):** Gia sư nộp hồ sơ, Lễ tân duyệt hồ sơ, Phụ huynh tìm được gia sư trên dữ liệu thật DB. (**M1**)                        |
+| **7**  | 19/10 – 25/10 | 1.5, 4.1, 4.2, 4.3, 4.4                | **Luồng Ghép lớp, Lịch dạy & Thu phí**- Form gửi yêu cầu tìm gia sư và đăng ký chỉ định.- Nghiệp vụ Lớp cần gia sư (tạo, ứng tuyển, chọn gia sư).- Nghiệp vụ Đơn ghép lớp (tạo, duyệt, hủy).- Xếp lịch dạy thử, chốt lịch cố định, kiểm tra trùng ca dạy.- Nộp minh chứng và Lễ tân duyệt phí nhận lớp (35–40%).                                           | **Đã đạt (25/10):** Chạy thông suốt luồng từ Phụ huynh đăng ký → Ghép lớp → Dạy thử → Chốt lịch cố định → Nộp & duyệt phí. (**M2**) |
+| **8**  | 26/10 – 01/11 | 5.1, 5.2, 5.3, 5.4                     | **Buổi học, AI Service & Quiz cá nhân hóa**- Quản lý buổi học, khởi tạo ca, nhật ký dạy học và tài liệu.- Xây dựng AI Service FastAPI: endpoint chat sinh quiz theo CEFR, parser kiểm định JSON import.- UI soạn quiz chia đôi tích hợp AI chatbot và xem hồ sơ kỹ năng.- Học sinh làm quiz từng câu, chấm điểm tức thì, cập nhật điểm Elo và danh sách ôn tập.     | **Đã đạt (01/11):** Hoàn thành luồng giảng dạy: Gia sư soạn quiz qua AI/import, giao bài, Học sinh làm bài, Elo tự cập nhật. (**M3**)          |
+| **9**  | 02/11 – 08/11 | 6.1, 6.2, 7.1                     | **Quản lý Khiếu nại, Dọn Frontend & Tích hợp 4 cổng**- Tiếp nhận và xử lý khiếu nại (Đổi gia sư / Hoàn phí).- Quản lý danh sách học sinh.- Dọn dẹp triệt để các trang thừa trên frontend, thay thế toàn bộ mock data bằng API thật.- Viết test nghiệp vụ quan trọng (phân quyền, trùng ca, tính phí, Elo). | **Đạt một phần:** Hoàn thiện giao diện soạn quiz tích hợp AI, workspace học sinh + ôn tập ngắt quãng, gộp Lớp cần gia sư, quản lý nhân sự (FR-38, FR-39). **Chưa xong: xử lý khiếu nại (6.1) và dọn mock frontend (6.2)** → chuyển sang tuần 10. (**M4 lùi nhẹ**) |
+| **10** | 09/11 – 15/11 | 6.1, 6.2, 7.1                    | **Xử lý Khiếu nại, Dọn Frontend & Tích hợp 4 cổng**- Xây dựng module khiếu nại backend (entity, service, controller, RBAC Lễ tân/Admin), nối 2 trang Admin/Lễ tân vào API thật (FR-34 → FR-37), gồm luồng đổi gia sư và hoàn phí.- Dọn dẹp triệt để các trang thừa trên frontend và thay thế 100% mock data bằng API thật.- Quản lý danh sách học sinh.- Hoàn thiện tính năng ôn tập câu sai (lấy câu đến hạn, đánh dấu mức độ nắm vững, đẩy lịch ôn ngắt quãng) tích hợp trong **không gian Học sinh**, thay thế trang `SpacedRepetitionSession` riêng (đã dọn theo 6.2).- Bổ sung test nghiệp vụ quan trọng (phân quyền, trùng ca, tính phí, Elo, khiếu nại). | Nghiệp vụ khiếu nại chạy end-to-end, không còn mock data; ôn tập câu sai hoàn chỉnh trên dữ liệu thật. Kiểm thử tích hợp pass. (**M4**)   |
+| **11** | 16/11 – 22/11 | 7.1, 7.2, 7.3                      | **Tăng cường Kiểm thử, UAT & Đóng gói Bàn giao**- Hoàn thiện & chạy xanh toàn bộ test suite (7.1).- UAT nội bộ theo các kịch bản người dùng UJ-1 đến UJ-6, sửa lỗi tồn đọng, đóng băng tính năng trước demo.- Đóng gói Docker Compose production ổn định, rà soát lại toàn bộ service.- Hoàn thiện tài liệu kỹ thuật, hướng dẫn sử dụng, slide và kịch bản demo đề tài. | Hệ thống chạy demo ổn định, UAT đạt yêu cầu, tài liệu và kịch bản báo cáo tốt nghiệp hoàn chỉnh. (**M5**) |
 
 ## 5.3. Phân công trách nhiệm 3 thành viên
 
@@ -154,8 +160,8 @@ Dọn khỏi routing/menu các trang cũ nằm ngoài use case:
 | **M1 — Nền tảng CSDL, Auth & Hồ sơ Gia sư**    | Cuối tuần 6 (18/10)        | DDL/Flyway migration chạy trong Docker; Đăng nhập JWT & phân quyền; Gia sư tạo và gửi duyệt hồ sơ, Lễ tân duyệt hồ sơ, Phụ huynh xem hồ sơ trên DB thật |
 | **M2 — Luồng Ghép lớp, Lịch & Thu phí**        | Cuối tuần 7 (25/10)        | Luồng ghép lớp vận hành từ yêu cầu phụ huynh đến lớp chuyển ACTIVE và phí nhận lớp được phê duyệt trên dữ liệu thật                                  |
 | **M3 — Vận hành Giảng dạy & AI Quiz**           | Cuối tuần 8 (01/11)        | Gia sư quản lý buổi học & soạn quiz với AI; Học sinh làm quiz, chấm tự động, cập nhật Elo                                                                       |
-| **M4 — Liên thông 4 cổng & Xử lý Khiếu nại** | Cuối tuần 9 (08/11)        | Giải quyết khiếu nại, quản lý học sinh; dọn dẹp xong frontend; liên thông toàn bộ 4 cổng bằng API thật                                                         |
-| **M5 — Demo & Đóng gói Bàn giao**               | Cuối tuần 10 (15/11)       | UAT đạt yêu cầu; Docker chạy thông suốt; tài liệu báo cáo và kịch bản demo sẵn sàng                                                                            |
+| **M4 — Liên thông 4 cổng & Xử lý Khiếu nại** | Cuối tuần 10 (15/11) — lùi nhẹ từ cuối tuần 9 | Giải quyết khiếu nại, quản lý học sinh; dọn dẹp xong frontend; liên thông toàn bộ 4 cổng bằng API thật                                                         |
+| **M5 — Demo & Đóng gói Bàn giao**               | **Cuối tuần 11 (22/11)** — bổ sung thêm 1 tuần | UAT đạt yêu cầu; Docker chạy thông suốt; tài liệu báo cáo và kịch bản demo sẵn sàng                                                                            |
 
 # 7. Quản lý rủi ro & Phương án xử lý
 
@@ -165,7 +171,8 @@ Dọn khỏi routing/menu các trang cũ nằm ngoài use case:
 | Thiết kế CSDL (ERD) bị thay đổi làm ảnh hưởng API                  | **Cao**         | Chốt dứt điểm ERD và DDL trong 2 ngày đầu Tuần 6 (12/10 - 13/10) trước khi code các module nghiệp vụ.                                                                                                                     |
 | AI Service sinh quiz chậm hoặc vượt giới hạn token                    | **Trung bình** | - Đặt timeout 60s và cơ chế retry ở client.- Tính năng Import Quiz ngoài (Prompt template + JSON validate) đóng vai trò phương án dự phòng 0-token.                                                                    |
 | Sai lệch giữa Frontend prototype và Backend API                          | **Trung bình** | Thống nhất contract API (OpenAPI/DTO mẫu) đầu mỗi tuần trước khi triển khai song song.                                                                                                                                        |
+| **Khiếu nại (WBS 6.1) chưa hoàn thành đến cuối tuần 9, M4 bị lùi vào tuần 10** | **Cao** | **Đã xử lý:** Bổ sung tuần 11 (16/11 – 22/11) chuyên cho UAT và đóng gói, giảm tải tuần 10 xuống còn khiếu nại + dọn mock + ôn tập câu sai. Cắt bỏ Should-have nếu chưa kịp. |
 
 ---
 
-*Kế hoạch triển khai phiên bản 2.2 — Cập nhật ngày 11/10/2026 sau khi nhóm hoàn thành tài liệu Đặc tả Use Case.*
+*Kế hoạch triển khai phiên bản 2.4 — Cập nhật ngày 08/11/2026, cuối tuần 9: M1–M3 đã đạt; xử lý khiếu nại (WBS 6.1) và dọn mock frontend (WBS 6.2) chuyển sang tuần 10; bổ sung thêm tuần 11 (16/11 – 22/11) cho UAT & đóng gói, M5 dời sang cuối tuần 11.*
