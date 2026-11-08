@@ -105,15 +105,6 @@ export const notifications = [
     link: "/tutor/classes",
   },
   {
-    id: "n5",
-    type: "system",
-    title: "Kho lộ trình có mẫu mới",
-    body: "Đã thêm mẫu 'Lộ trình phản xạ giao tiếp nâng cao B2' vào Kho lộ trình.",
-    time: "2026-03-02 10:30",
-    read: true,
-    link: "/tutor/library/paths",
-  },
-  {
     id: "n6",
     type: "parent",
     title: "Hội thoại đã được xử lý",

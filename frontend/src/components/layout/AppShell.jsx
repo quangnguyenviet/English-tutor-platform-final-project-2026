@@ -6,7 +6,6 @@ import { apiGetComplaintCounts, apiGetRefundCounts } from "../../lib/complaintAp
 import {
   LayoutDashboard,
   Users,
-  Map,
   ListChecks,
   Video,
   CalendarDays,
@@ -42,7 +41,6 @@ import TutorClassSidebar from "./TutorClassSidebar";
 import StudentClassSidebar from "./StudentClassSidebar";
 
 const tutorLibraryNav = [
-  { to: "/tutor/library/paths", label: "Khung chương trình", icon: Map },
   { to: "/tutor/library/exercises", label: "Kho bài tập", icon: ListChecks },
   { to: "/tutor/library/materials", label: "Kho video & tài liệu", icon: Video },
 ];
