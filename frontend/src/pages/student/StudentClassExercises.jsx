@@ -1,8 +1,15 @@
 import { Link, useOutletContext } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { ArrowRight, CalendarClock, CheckCircle2, ClipboardList, Clock3 } from "lucide-react";
+import { ArrowRight, CalendarClock, CheckCircle2, ClipboardList, Clock3, PlayCircle } from "lucide-react";
 import { apiGetMyQuizzes } from "../../lib/studentApi";
-import { QUIZ_STATUS_META, deadlineInfo, quizProgressPercent, sortQuizzesByDeadline } from "../../lib/studentModel";
+import {
+  QUIZ_WORK_STATE_META,
+  countQuizzesByWorkState,
+  deadlineInfo,
+  quizProgressPercent,
+  quizWorkState,
+  sortQuizzesByDeadline,
+} from "../../lib/studentModel";
 import { formatSessionDate } from "../../lib/classroomApi";
 import { useStudentData } from "../../hooks/useStudentData";
 import Badge from "../../components/ui/Badge";
@@ -12,17 +19,22 @@ import ProgressBar from "../../components/ui/ProgressBar";
 import { EmptyState, ErrorBox, SkeletonRows } from "../../components/student/AsyncBlock";
 
 const TABS = [
-  { id: "ASSIGNED", label: "Cần làm", icon: Clock3 },
-  { id: "COMPLETED", label: "Đã hoàn thành", icon: CheckCircle2 },
+  { id: "NOT_STARTED", label: "Chưa làm", icon: Clock3 },
+  { id: "IN_PROGRESS", label: "Đang làm", icon: PlayCircle },
+  { id: "COMPLETED", label: "Đã làm", icon: CheckCircle2 },
   { id: "EXPIRED", label: "Quá hạn", icon: ClipboardList },
 ];
 
 export default function StudentClassExercises() {
   const { classId, detail } = useOutletContext();
-  const [tab, setTab] = useState("ASSIGNED");
+  const [tab, setTab] = useState("NOT_STARTED");
   const { data, loading, error, retry } = useStudentData((token) => apiGetMyQuizzes(token, null, classId), [classId]);
   const quizzes = useMemo(() => (Array.isArray(data) ? data : []), [data]);
-  const visible = useMemo(() => sortQuizzesByDeadline(quizzes.filter((quiz) => quiz.status === tab)), [quizzes, tab]);
+  const counts = useMemo(() => countQuizzesByWorkState(quizzes), [quizzes]);
+  const visible = useMemo(
+    () => sortQuizzesByDeadline(quizzes.filter((quiz) => quizWorkState(quiz) === tab)),
+    [quizzes, tab],
+  );
 
   return (
     <div className="space-y-5">
@@ -34,8 +46,7 @@ export default function StudentClassExercises() {
 
       <div role="tablist" className="flex gap-2 overflow-x-auto pb-1">
         {TABS.map(({ id, label, icon: Icon }) => {
-          const count = quizzes.filter((quiz) => quiz.status === id).length;
-          return <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all active:scale-[0.98] ${tab === id ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-800"}`}><Icon size={15} />{label}<span className="font-mono text-xs opacity-80">{count}</span></button>;
+          return <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all active:scale-[0.98] ${tab === id ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-800"}`}><Icon size={15} />{label}<Badge tone={tab === id ? "slate" : QUIZ_WORK_STATE_META[id].tone} size="xs" className={tab === id ? "bg-white/20 text-white dark:bg-white/20 dark:text-white" : ""}>{loading ? "–" : counts[id]}</Badge></button>;
         })}
       </div>
 
@@ -44,7 +55,7 @@ export default function StudentClassExercises() {
       ) : (
         <div className="space-y-3">
           {visible.map((quiz) => {
-            const status = QUIZ_STATUS_META[quiz.status] ?? { label: quiz.status, tone: "slate" };
+            const status = QUIZ_WORK_STATE_META[quizWorkState(quiz)];
             const deadline = deadlineInfo(quiz.deadline);
             const total = quiz.totalQuestions ?? 0;
             const answered = quiz.answeredCount ?? 0;

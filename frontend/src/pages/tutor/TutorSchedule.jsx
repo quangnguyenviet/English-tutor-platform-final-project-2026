@@ -48,12 +48,9 @@ function statusMeta(item) {
 }
 
 function detailUrl(item, weekStart) {
-  const params = new URLSearchParams({
-    weekStart,
-    classId: String(item.classId),
-    occurrence: item.occurrenceKey,
-  });
-  return `/tutor/lessons?${params.toString()}`;
+  const params = new URLSearchParams({ weekStart });
+  if (item.occurrenceKey) params.set("occurrence", item.occurrenceKey);
+  return `/tutor/classes/${item.classId}/schedule?${params.toString()}`;
 }
 
 function SessionCard({ item, weekStart }) {
@@ -97,7 +94,7 @@ function SessionCard({ item, weekStart }) {
 
 export default function TutorSchedule() {
   const [weekStart, setWeekStart] = useState(() => weekStartOf(todayISO()));
-  const { occurrences, loading, error, partialError, reload } = useTutorWeekSchedule(weekStart);
+  const { classes, occurrences, loading, error, partialError, reload } = useTutorWeekSchedule(weekStart);
   const days = useMemo(() => buildWeekDays(weekStart, occurrences), [weekStart, occurrences]);
   const currentWeek = weekStartOf(todayISO());
 
@@ -105,10 +102,12 @@ export default function TutorSchedule() {
     <div className="mx-auto min-h-[100dvh] max-w-6xl space-y-5 px-4 py-6 lg:px-8 lg:py-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="mb-1 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">Dữ liệu lịch lớp thực tế</p>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">Lịch tổng hợp tất cả lớp</p>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Lịch dạy</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {loading ? "Đang tải lịch..." : `${occurrences.length} ca dạy trong tuần được chọn.`}
+            {loading
+              ? "Đang tải lịch..."
+              : `${occurrences.length} ca dạy từ ${classes.length} lớp trong tuần được chọn.`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2" aria-label="Chọn tuần">
@@ -141,8 +140,9 @@ export default function TutorSchedule() {
                     const meta = statusMeta(item);
                     return (
                       <Link key={`${item.classId}-${item.occurrenceKey}`} to={detailUrl(item, weekStart)} className={clsx("block rounded-xl border p-2.5 text-left transition-all hover:border-blue-400 active:scale-[0.98] dark:hover:border-blue-700", SURFACE[meta.tone])}>
-                        <p className="truncate text-xs font-semibold text-slate-900 dark:text-white">{item.studentName}</p>
-                        <p className="mt-1 font-mono text-xs text-slate-600 dark:text-slate-300">{item.startTime}</p>
+                        <p className="line-clamp-2 text-xs font-semibold text-slate-900 dark:text-white">{item.className}</p>
+                        <p className="mt-1 truncate text-[11px] text-slate-500 dark:text-slate-400">{item.studentName}</p>
+                        <p className="mt-1 font-mono text-xs text-slate-600 dark:text-slate-300">{item.startTime}–{item.endTime}</p>
                         <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{meta.label}</p>
                       </Link>
                     );

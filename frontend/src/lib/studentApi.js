@@ -111,6 +111,11 @@ export function apiGetMyQuizzes(token, status, classId) {
   return request(token, `/api/v1/students/me/quizzes${query}`);
 }
 
+/** Chi tiết quiz và toàn bộ câu hỏi; đáp án chỉ có ở câu học sinh đã trả lời. */
+export function apiGetQuizDetail(token, quizId) {
+  return request(token, `/api/v1/quizzes/${enc(quizId)}`);
+}
+
 /** Bắt đầu hoặc làm tiếp: trả câu chưa trả lời kế tiếp và tiến độ. */
 export function apiStartAttempt(token, quizId) {
   return request(token, `/api/v1/quizzes/${enc(quizId)}/attempts/start`, { method: "POST" });
