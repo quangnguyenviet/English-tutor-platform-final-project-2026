@@ -151,7 +151,21 @@ export default function TutorClasses() {
             >
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-1.5">
-                  <Badge tone={cls.statusTone}>{cls.statusLabel}</Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge tone={cls.statusTone}>{cls.statusLabel}</Badge>
+                    {cls.status === "TRIAL" && !cls.trialSession ? (
+                      <span
+                        title="Chưa thiết lập lịch dạy thử. Vào chi tiết lớp để lên lịch buổi học thử."
+                        className="group relative flex h-5 w-5 cursor-help items-center justify-center rounded-md bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400"
+                      >
+                        <AlertCircle size={14} />
+                        <span className="pointer-events-none absolute left-0 top-full z-20 mt-1.5 hidden w-56 rounded-lg border border-slate-200 bg-white p-2.5 text-left text-[11px] font-medium leading-relaxed text-slate-600 shadow-lg group-hover:block dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                          Chưa thiết lập lịch dạy thử. Vào chi tiết lớp để lên lịch
+                          buổi học thử.
+                        </span>
+                      </span>
+                    ) : null}
+                  </div>
                   <Badge tone="slate">{cls.modeLabel || "Chưa rõ hình thức"}</Badge>
                 </div>
 
@@ -194,21 +208,6 @@ export default function TutorClasses() {
                       </p>
                     </div>
                     <Badge tone={cls.trialSession.statusTone}>{cls.trialSession.statusLabel}</Badge>
-                  </div>
-                ) : cls.trialSession ? (
-                  <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs dark:border-slate-800 dark:bg-slate-900/60">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
-                      <CalendarDays size={15} />
-                    </span>
-                    <p className="min-w-0 flex-1 font-medium text-slate-500 dark:text-slate-400">
-                      Buổi học thử {cls.trialSession.dateLabel} đã diễn ra.
-                    </p>
-                    <Badge tone="slate">Lịch sử</Badge>
-                  </div>
-                ) : cls.status === "TRIAL" && !cls.trialSession ? (
-                  <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-[11px] font-medium text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
-                    <AlertCircle size={14} className="shrink-0" />
-                    Chưa thiết lập lịch dạy thử. Vào chi tiết lớp để lên lịch buổi học thử.
                   </div>
                 ) : null}
               </div>
