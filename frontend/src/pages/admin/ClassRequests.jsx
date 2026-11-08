@@ -296,7 +296,8 @@ export function ClassRequestManagement() {
     setFormModal({ mode: "create" });
   };
 
-  const handleOpenEdit = async (req) => {
+  /** next: "publish" | "confirm" khi mở từ nút Đăng lớp / Xác nhận đơn, form lưu xong sẽ chuyển trạng thái luôn. */
+  const handleOpenEdit = async (req, next = null) => {
     setFormError("");
     let item = req;
     try {
@@ -323,10 +324,10 @@ export function ClassRequestManagement() {
       preferredSchedule: item.preferredSchedule || "",
       tutorRequirement: item.tutorRequirement || "",
     });
-    setFormModal({ mode: req.status === "REMATCH" ? "rematch" : "edit", item });
+    setFormModal({ mode: req.status === "REMATCH" ? "rematch" : "edit", item, next });
   };
 
-  const validateForm = (mode) => {
+  const validateForm = (mode, next = null) => {
     if (!formData.pricePerSession) return "Vui lòng nhập học phí mỗi buổi.";
     if (Number(formData.pricePerSession) < 10000) return "Học phí mỗi buổi phải lớn hơn 10.000₫.";
     if (mode === "rematch") return "";
@@ -334,6 +335,10 @@ export function ClassRequestManagement() {
     if (!formData.studentName.trim()) return "Vui lòng nhập họ tên học sinh.";
     if (formData.parentEmail.trim() && !/^\S+@\S+\.\S+$/.test(formData.parentEmail.trim()))
       return "Email phụ huynh không hợp lệ.";
+    if (next === "publish") {
+      if (!formData.classRequirement.trim()) return "Vui lòng nhập yêu cầu lớp học trước khi đăng lớp.";
+      if (!formData.teachingMode) return "Vui lòng chọn hình thức học trước khi đăng lớp.";
+    }
     if (mode === "create") {
       if (!PHONE_PATTERN.test(cleanPhone(formData.phone)))
         return "Vui lòng nhập đúng số điện thoại (10 chữ số nhà mạng Việt Nam).";
@@ -353,10 +358,17 @@ export function ClassRequestManagement() {
     return payload;
   };
 
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
+  /** Bước tiếp theo sau khi lưu form bổ sung: có gia sư chỉ định thì xác nhận, không có thì đăng lớp. */
+  const nextActionOf = (mode, saveOnly) => {
+    if (mode !== "edit" || saveOnly || !formModal?.next) return null;
+    return formData.tutorId ? "confirm" : "publish";
+  };
+
+  const handleFormSubmit = (e, saveOnly = false) => {
+    e?.preventDefault();
     const mode = formModal?.mode;
-    const err = validateForm(mode);
+    const next = nextActionOf(mode, saveOnly);
+    const err = validateForm(mode, next);
     if (err) {
       setFormError(err);
       return;
@@ -366,12 +378,22 @@ export function ClassRequestManagement() {
     const isCreate = mode === "create";
     setConfirmModal({
       open: true,
-      title: isCreate ? "Xác nhận tạo lớp" : "Xác nhận cập nhật lớp",
+      title: isCreate
+        ? "Xác nhận tạo lớp"
+        : next === "publish"
+          ? "Lưu và đăng lớp"
+          : next === "confirm"
+            ? "Lưu và chuyển dạy thử"
+            : "Xác nhận cập nhật lớp",
       message: isCreate
         ? "Bạn xác nhận tạo lớp này chứ? Lớp sẽ ở trạng thái Chờ xử lý để Lễ tân tiếp tục trao đổi."
-        : `Bạn xác nhận cập nhật thông tin lớp ${formModal.item.requestCode} chứ?`,
+        : next === "publish"
+          ? `Lưu thông tin và đăng lớp ${formModal.item.requestCode} lên trang gia sư chứ?`
+          : next === "confirm"
+            ? `Lưu thông tin và xác nhận gia sư chỉ định cùng phụ huynh ${formData.parentName} đã đồng ý, chuyển lớp sang "Đang dạy thử" chứ?`
+            : `Bạn xác nhận cập nhật thông tin lớp ${formModal.item.requestCode} chứ?`,
       confirmLabel: "Đồng ý",
-      confirmTone: "blue",
+      confirmTone: next === "confirm" ? "emerald" : "blue",
       onConfirm: async () => {
         closeConfirmModal();
         setIsSubmitting(true);
@@ -413,7 +435,19 @@ export function ClassRequestManagement() {
                 currentToken
               );
             }
-            showToast("Đã lưu thông tin lớp.");
+            if (next === "publish") {
+              await apiPublishClassRequest(formModal.item.id, currentToken);
+              showToast("Đã lưu thông tin và đăng lớp lên trang gia sư.");
+            } else if (next === "confirm") {
+              const confirmed = await apiConfirmClassRequest(formModal.item.id, currentToken);
+              const tutor = activeTutors.find((t) => String(tutorKey(t)) === formData.tutorId);
+              const tutorName = tutor ? tutorLabel(tutor) : formModal.item.tutorName || "chỉ định";
+              setSuccessPopup(
+                `Lớp của học sinh ${formData.studentName} đã chuyển sang "Đang dạy thử" và đã gửi thông báo tới gia sư ${tutorName}.${accountNote(confirmed)}`
+              );
+            } else {
+              showToast("Đã lưu thông tin lớp.");
+            }
           }
           setFormModal(null);
           loadData();
@@ -452,29 +486,8 @@ export function ClassRequestManagement() {
     }
   };
 
-  // ── Đăng lớp (Chờ xử lý → Đã đăng) ───────────────────────────────────────
-  const handlePublish = (req) => {
-    setConfirmModal({
-      open: true,
-      title: "Đăng lớp",
-      message: `Bạn xác nhận đăng lớp "${req.classRequirement || req.requestCode}" lên trang gia sư chứ?`,
-      confirmLabel: "Đăng lớp",
-      confirmTone: "blue",
-      onConfirm: async () => {
-        closeConfirmModal();
-        setIsSubmitting(true);
-        try {
-          await apiPublishClassRequest(req.id, currentToken);
-          showToast("Đã đăng lớp lên trang gia sư.");
-          loadData();
-        } catch (err) {
-          showToast(err.message || "Đăng lớp thất bại.", true);
-        } finally {
-          setIsSubmitting(false);
-        }
-      },
-    });
-  };
+  // ── Đăng lớp (Chờ xử lý → Đã đăng): mở form bổ sung thông tin, lưu xong đăng luôn ──
+  const handlePublish = (req) => handleOpenEdit(req, "publish");
 
   const accountNote = (result) =>
     result?.initialPassword
@@ -483,36 +496,8 @@ export function ClassRequestManagement() {
         ? ` Học sinh đăng nhập bằng tài khoản hiện có: "${result.studentUsername}".`
         : "";
 
-  // ── Xác nhận lớp có gia sư chỉ định → Đang dạy thử ────────────────────────
-  const handleConfirmRequest = (req) => {
-    if (!req.studentName || !req.pricePerSession) {
-      showToast("Vui lòng bổ sung họ tên học sinh và học phí trước khi chuyển sang dạy thử.", true);
-      handleOpenEdit(req);
-      return;
-    }
-    setConfirmModal({
-      open: true,
-      title: "Xác nhận chuyển dạy thử",
-      message: `Bạn xác nhận gia sư ${req.tutorName || "chỉ định"} và phụ huynh ${req.parentName} đã đồng ý, chuyển lớp sang "Đang dạy thử" chứ?`,
-      confirmLabel: "Đồng ý",
-      confirmTone: "emerald",
-      onConfirm: async () => {
-        closeConfirmModal();
-        setIsSubmitting(true);
-        try {
-          const confirmed = await apiConfirmClassRequest(req.id, currentToken);
-          setSuccessPopup(
-            `Lớp của học sinh ${req.studentName} đã chuyển sang "Đang dạy thử" và đã gửi thông báo tới gia sư ${req.tutorName}.${accountNote(confirmed)}`
-          );
-          loadData();
-        } catch (err) {
-          showToast(err.message || "Xác nhận thất bại.", true);
-        } finally {
-          setIsSubmitting(false);
-        }
-      },
-    });
-  };
+  // ── Xác nhận lớp có gia sư chỉ định → Đang dạy thử: bổ sung thông tin rồi xác nhận ──
+  const handleConfirmRequest = (req) => handleOpenEdit(req, "confirm");
 
   // ── Danh sách gia sư ứng tuyển + Chọn gia sư (UC-REC-03) ──────────────────
   const handleOpenApplications = async (req) => {
@@ -747,7 +732,7 @@ export function ClassRequestManagement() {
     const cancelExpired = req.status === "MATCHED" && req.cancellable === false;
     return (
       <>
-        {(req.status === "NEW" || req.status === "REMATCH") && (
+        {req.status === "REMATCH" && (
           <Button
             size="sm"
             variant="outline"
@@ -756,7 +741,7 @@ export function ClassRequestManagement() {
             className={`${widthClass} justify-center cursor-pointer text-xs active:scale-[0.98]`}
           >
             <Pencil size={15} />
-            <span>{req.status === "NEW" ? "Bổ sung thông tin" : "Sửa thông tin"}</span>
+            <span>Sửa thông tin</span>
           </Button>
         )}
         {canChangeTutor(req) && (
@@ -1185,7 +1170,11 @@ export function ClassRequestManagement() {
                 {formModal.mode === "create"
                   ? "Tạo mới Lớp cần gia sư"
                   : formModal.mode === "edit"
-                    ? "Bổ sung thông tin lớp"
+                    ? formModal.next === "publish"
+                      ? "Bổ sung thông tin và đăng lớp"
+                      : formModal.next === "confirm"
+                        ? "Bổ sung thông tin và xác nhận đơn"
+                        : "Bổ sung thông tin lớp"
                     : "Sửa thông tin lớp đang ghép lại"}
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">
@@ -1466,9 +1455,28 @@ export function ClassRequestManagement() {
                 <Button type="button" variant="outline" onClick={() => setFormModal(null)} disabled={isSubmitting} className="cursor-pointer">
                   Hủy
                 </Button>
+                {nextActionOf(formModal.mode, false) && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={(e) => handleFormSubmit(e, true)}
+                    disabled={isSubmitting}
+                    className="cursor-pointer active:scale-[0.98]"
+                  >
+                    Chỉ lưu
+                  </Button>
+                )}
                 <Button type="submit" disabled={isSubmitting || !!phoneOwner} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                   {isSubmitting ? <Loader2 size={15} className="animate-spin mr-1.5" /> : null}
-                  <span>{formModal.mode === "create" ? "Tạo lớp" : "Lưu thay đổi"}</span>
+                  <span>
+                    {formModal.mode === "create"
+                      ? "Tạo lớp"
+                      : nextActionOf(formModal.mode, false) === "publish"
+                        ? "Lưu và đăng lớp"
+                        : nextActionOf(formModal.mode, false) === "confirm"
+                          ? "Lưu và xác nhận"
+                          : "Lưu thay đổi"}
+                  </span>
                 </Button>
               </div>
             </form>
