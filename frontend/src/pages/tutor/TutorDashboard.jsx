@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import { Sparkles, CalendarDays, Users, ArrowRight } from "lucide-react";
+import { CalendarDays, Users, ArrowRight } from "lucide-react";
 import { students } from "../../data/mockData";
 import clsx from "clsx";
 import Card from "../../components/ui/Card";
@@ -122,7 +122,7 @@ export default function TutorDashboard() {
     <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6 max-w-6xl mx-auto">
 
       {/* --- Desktop Header --- */}
-      <div className="hidden lg:flex items-start justify-between">
+      <div className="hidden lg:block">
         <div>
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">
             {formatDate(today)}
@@ -136,13 +136,6 @@ export default function TutorDashboard() {
             đang chờ.
           </p>
         </div>
-        <Link
-          to="/tutor/exercise-generator"
-          className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700 active:scale-[0.98] transition-all"
-        >
-          <Sparkles size={16} />
-          Soạn bài tập AI
-        </Link>
       </div>
 
       {/* --- Mobile Header --- */}
@@ -188,30 +181,16 @@ export default function TutorDashboard() {
       <div>
         <h2 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Thao tác nhanh</h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Primary CTA */}
+          {/* Primary CTA: Lịch dạy */}
           <Link
-            to="/tutor/exercise-generator"
+            to="/tutor/schedule"
             className="bg-blue-600 text-white rounded-2xl p-4 flex flex-col items-start gap-2 hover:bg-blue-700 active:scale-[0.98] transition-all"
           >
             <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-              <Sparkles size={16} strokeWidth={1.75} />
-            </div>
-            <p className="text-sm font-semibold leading-tight">Soạn bài tập AI</p>
-            <p className="text-xs opacity-80 leading-tight">Trong 2 phút</p>
-          </Link>
-
-          {/* Secondary: Lịch dạy */}
-          <Link
-            to="/tutor/schedule"
-            className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-2xl p-4 flex flex-col items-start gap-2 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 transition-all active:scale-[0.98]"
-          >
-            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center">
-              <CalendarDays size={16} className="text-blue-600 dark:text-blue-400" strokeWidth={1.75} />
+              <CalendarDays size={16} strokeWidth={1.75} />
             </div>
             <p className="text-sm font-semibold leading-tight">Xem lịch dạy</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
-              {upcomingSessions.length} buổi hôm nay
-            </p>
+            <p className="text-xs opacity-80 leading-tight">{upcomingSessions.length} buổi hôm nay</p>
           </Link>
 
           {/* Secondary: Lớp học */}

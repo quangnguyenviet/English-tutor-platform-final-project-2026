@@ -15,7 +15,6 @@ import {
   BookOpenCheck,
   Settings,
   IdCard,
-  Sparkles,
   Menu,
   X,
   UserCog,
@@ -248,7 +247,6 @@ function AppShellInner() {
       { to: "/tutor/schedule", label: "Lịch dạy", icon: CalendarDays },
       { to: "/tutor/payments", label: "Phí nhận lớp", icon: Banknote },
       { to: "/tutor/lessons", label: "Ghi nhận buổi học", icon: BookOpenCheck },
-      { to: "/tutor/exercise-generator", label: "Soạn bài (AI)", icon: Sparkles },
       { to: "/tutor/profile", label: "Hồ sơ", icon: IdCard },
       { to: "/tutor/settings", label: "Cài đặt", icon: Settings },
     ];

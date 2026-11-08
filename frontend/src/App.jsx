@@ -41,7 +41,6 @@ import ManageAssignmentsRoute from "./pages/tutor/manage/ManageAssignmentsRoute"
 import AddAssignmentPage from "./pages/tutor/manage/AddAssignmentPage";
 import ManageMaterialsRoute from "./pages/tutor/manage/ManageMaterialsRoute";
 import TutorExerciseDetail from "./pages/tutor/TutorExerciseDetail";
-import ExerciseGenerator from "./pages/tutor/ExerciseGenerator";
 import ClassRequests from "./pages/tutor/ClassRequests";
 import AvailableClasses from "./pages/tutor/AvailableClasses";
 import AvailableClassDetail from "./pages/tutor/AvailableClassDetail";
@@ -202,7 +201,6 @@ export default function App() {
             <Route path="payments" element={<TutorPayments />} />
             <Route path="payments/:id" element={<TutorPaymentDetail />} />
             <Route path="lessons" element={<TutorLessonSessions />} />
-            <Route path="exercise-generator" element={<ExerciseGenerator />} />
             <Route path="available-classes" element={<AvailableClasses />} />
             <Route path="available-classes/:classId" element={<AvailableClassDetail />} />
             <Route path="classes" element={<TutorClasses />} />
