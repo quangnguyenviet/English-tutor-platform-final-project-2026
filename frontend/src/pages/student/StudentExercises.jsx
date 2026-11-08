@@ -6,13 +6,16 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock3,
+  PlayCircle,
   RotateCcw,
 } from "lucide-react";
 import { apiGetMyQuizzes } from "../../lib/studentApi";
 import {
-  QUIZ_STATUS_META,
+  QUIZ_WORK_STATE_META,
+  countQuizzesByWorkState,
   deadlineInfo,
   quizProgressPercent,
+  quizWorkState,
   sortQuizzesByDeadline,
 } from "../../lib/studentModel";
 import { formatSessionDate } from "../../lib/classroomApi";
@@ -25,13 +28,15 @@ import ProgressBar from "../../components/ui/ProgressBar";
 import { EmptyState, ErrorBox, SkeletonRows } from "../../components/student/AsyncBlock";
 
 const TABS = [
-  { id: "ASSIGNED", label: "Cần làm" },
-  { id: "COMPLETED", label: "Đã hoàn thành" },
-  { id: "EXPIRED", label: "Quá hạn" },
+  { id: "NOT_STARTED", label: "Chưa làm", icon: Clock3 },
+  { id: "IN_PROGRESS", label: "Đang làm", icon: PlayCircle },
+  { id: "COMPLETED", label: "Đã làm", icon: CheckCircle2 },
+  { id: "EXPIRED", label: "Quá hạn", icon: ClipboardList },
 ];
 
 function QuizCard({ quiz }) {
-  const meta = QUIZ_STATUS_META[quiz.status] ?? { label: quiz.status, tone: "slate" };
+  const workState = quizWorkState(quiz);
+  const meta = QUIZ_WORK_STATE_META[workState];
   const total = quiz.totalQuestions ?? 0;
   const answered = quiz.answeredCount ?? 0;
   const deadline = deadlineInfo(quiz.deadline);
@@ -92,17 +97,13 @@ function QuizCard({ quiz }) {
 }
 
 export default function StudentExercises() {
-  const [tab, setTab] = useState("ASSIGNED");
+  const [tab, setTab] = useState("NOT_STARTED");
   const { data, loading, error, retry } = useStudentData((token) => apiGetMyQuizzes(token), []);
 
   const quizzes = useMemo(() => (Array.isArray(data) ? data : (data?.content ?? [])), [data]);
-  const counts = useMemo(
-    () =>
-      quizzes.reduce((acc, quiz) => ({ ...acc, [quiz.status]: (acc[quiz.status] || 0) + 1 }), {}),
-    [quizzes],
-  );
+  const counts = useMemo(() => countQuizzesByWorkState(quizzes), [quizzes]);
   const visible = useMemo(
-    () => sortQuizzesByDeadline(quizzes.filter((quiz) => quiz.status === tab)),
+    () => sortQuizzesByDeadline(quizzes.filter((quiz) => quizWorkState(quiz) === tab)),
     [quizzes, tab],
   );
 
@@ -121,12 +122,8 @@ export default function StudentExercises() {
         }
       />
 
-      <section aria-label="Tóm tắt bài tập" className="grid grid-cols-3 gap-3">
-        {[
-          { id: "ASSIGNED", label: "Cần làm", icon: Clock3 },
-          { id: "COMPLETED", label: "Đã hoàn thành", icon: CheckCircle2 },
-          { id: "EXPIRED", label: "Quá hạn", icon: ClipboardList },
-        ].map(({ id, label, icon: Icon }) => (
+      <section aria-label="Tóm tắt bài tập" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {TABS.map(({ id, label, icon: Icon }) => (
           <Card key={id} className="p-4">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -144,22 +141,33 @@ export default function StudentExercises() {
       </section>
 
       <div role="tablist" className="flex gap-2 overflow-x-auto">
-        {TABS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === item.id}
-            onClick={() => setTab(item.id)}
-            className={`shrink-0 cursor-pointer rounded-xl border px-3.5 py-2 text-sm font-medium transition-all active:scale-[0.98] ${
-              tab === item.id
-                ? "border-blue-600 bg-blue-600 text-white"
-                : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-blue-800"
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
+        {TABS.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.id}
+              onClick={() => setTab(item.id)}
+              className={`inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all active:scale-[0.98] ${
+                tab === item.id
+                  ? "border-blue-600 bg-blue-600 text-white"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-blue-800"
+              }`}
+            >
+              <Icon size={15} />
+              {item.label}
+              <Badge
+                tone={tab === item.id ? "slate" : QUIZ_WORK_STATE_META[item.id].tone}
+                size="xs"
+                className={tab === item.id ? "bg-white/20 text-white dark:bg-white/20 dark:text-white" : ""}
+              >
+                {loading ? "–" : counts[item.id]}
+              </Badge>
+            </button>
+          );
+        })}
       </div>
 
       {loading ? (

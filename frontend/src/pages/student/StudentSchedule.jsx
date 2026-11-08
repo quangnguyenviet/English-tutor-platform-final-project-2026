@@ -23,6 +23,7 @@ import {
 import {
   addDays,
   buildWeekDays,
+  isStudentSessionLearned,
   sortSessionsDesc,
   weekRangeLabel,
   weekStartOf,
@@ -50,6 +51,7 @@ const STATUS_SURFACES = {
 };
 
 function sessionMeta(item) {
+  if (isStudentSessionLearned(item)) return { label: "Đã học", tone: "emerald" };
   if (!item?.status) return { label: "Chưa ghi nhận", tone: "slate" };
   return SESSION_STATUS_META[item.status] ?? { label: item.status, tone: "slate" };
 }
@@ -90,11 +92,14 @@ function CompactSession({ item, onOpen }) {
           "cursor-pointer transition-all hover:border-blue-400 active:scale-[0.98] dark:hover:border-blue-700",
       )}
     >
-      <p className="truncate text-xs font-bold text-slate-900 dark:text-white">
-        {getInitials(item.tutorName)}
+      <p className="line-clamp-2 text-xs font-bold text-slate-900 dark:text-white">
+        {item.className || item.title || "Lớp học"}
       </p>
       <p className="mt-1 font-mono text-xs font-semibold text-slate-700 dark:text-slate-200">
-        {formatSessionTime(item.startTime)}
+        {formatSessionTime(item.startTime)}–{formatSessionTime(item.endTime)}
+      </p>
+      <p className="mt-1 truncate text-[11px] text-slate-500 dark:text-slate-400">
+        {item.tutorName ? `GV ${item.tutorName}` : "Đang cập nhật gia sư"}
       </p>
       <p className="mt-1 line-clamp-2 text-xs leading-tight text-slate-500 dark:text-slate-400">
         {meta.label}
@@ -202,6 +207,10 @@ function WeekView({ onOpen }) {
     [data],
   );
   const days = useMemo(() => buildWeekDays(weekStart, items), [weekStart, items]);
+  const classCount = useMemo(
+    () => new Set(items.map((item) => item.classId).filter(Boolean)).size,
+    [items],
+  );
   const today = todayISO();
   const currentWeekStart = weekStartOf(today);
 
@@ -209,9 +218,12 @@ function WeekView({ onOpen }) {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-base font-semibold text-slate-900 dark:text-white">Lịch học theo tuần</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-white">Lịch học của tất cả lớp</h2>
+            {!loading && <Badge tone="blue">{classCount} lớp</Badge>}
+          </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {loading ? "Đang tải lịch học..." : `${items.length} buổi trong tuần được chọn.`}
+            {loading ? "Đang tải lịch học..." : `${items.length} buổi của tất cả lớp trong tuần được chọn.`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2" aria-label="Chọn tuần">
@@ -264,12 +276,15 @@ function WeekView({ onOpen }) {
           >
             {days.map((day) => {
               const isToday = day.date === today;
+              const hasLearnedSession = day.sessions.some((item) => isStudentSessionLearned(item));
               return (
                 <div key={day.date} className="min-w-0 space-y-2">
                   <div
                     className={clsx(
                       "rounded-xl border px-2 py-2 text-center",
-                      isToday
+                      hasLearnedSession
+                        ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
+                        : isToday
                         ? "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"
                         : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
                     )}
@@ -277,7 +292,9 @@ function WeekView({ onOpen }) {
                     <p
                       className={clsx(
                         "text-xs font-medium",
-                        isToday
+                        hasLearnedSession
+                          ? "text-emerald-700 dark:text-emerald-300"
+                          : isToday
                           ? "text-blue-700 dark:text-blue-300"
                           : "text-slate-500 dark:text-slate-400",
                       )}

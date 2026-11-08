@@ -85,6 +85,34 @@ export const SESSION_STATUS_META = {
   CANCELLED: { label: "Đã hủy", tone: "rose" },
 };
 
+/**
+ * Một ca được xem là đã học khi có nhật ký/COMPLETED hoặc đã qua giờ kết thúc.
+ * Ca hủy/vắng luôn bị loại. `now` được truyền vào khi test để tránh phụ thuộc đồng hồ.
+ */
+export function isStudentSessionLearned(session, now = new Date()) {
+  if (!session) return false;
+  if (["CANCELLED", "ABSENT", "STUDENT_ABSENT", "TUTOR_ABSENT"].includes(session.status)) {
+    return false;
+  }
+  if (
+    session.hasLog
+    || session.status === "COMPLETED"
+    || session.logKnowledge
+    || session.logHomework
+  ) return true;
+
+  const date = session.date ?? session.sessionDate;
+  if (!date) return false;
+  const currentDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+    now.getDate(),
+  ).padStart(2, "0")}`;
+  if (date < currentDate) return true;
+  if (date > currentDate || !session.endTime) return false;
+
+  const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  return String(session.endTime).slice(0, 5) <= currentTime;
+}
+
 // ---------- Buổi học & nhật ký ----------
 
 /**
@@ -138,6 +166,32 @@ export const QUIZ_STATUS_META = {
   COMPLETED: { label: "Đã hoàn thành", tone: "emerald" },
   EXPIRED: { label: "Quá hạn", tone: "rose" },
 };
+
+export const QUIZ_WORK_STATE_META = {
+  NOT_STARTED: { label: "Chưa làm", tone: "blue" },
+  IN_PROGRESS: { label: "Đang làm", tone: "amber" },
+  COMPLETED: { label: "Đã làm", tone: "emerald" },
+  EXPIRED: { label: "Quá hạn", tone: "rose" },
+};
+
+/** Tách quiz ASSIGNED thành chưa bắt đầu và đang làm để hiển thị badge số lượng. */
+export function quizWorkState(quiz) {
+  if (quiz?.status === "COMPLETED") return "COMPLETED";
+  if (quiz?.status === "EXPIRED") return "EXPIRED";
+  if (quiz?.status === "ASSIGNED" && Number(quiz?.answeredCount || 0) > 0) return "IN_PROGRESS";
+  return "NOT_STARTED";
+}
+
+export function countQuizzesByWorkState(quizzes = []) {
+  return (quizzes || []).reduce(
+    (counts, quiz) => {
+      const state = quizWorkState(quiz);
+      counts[state] += 1;
+      return counts;
+    },
+    { NOT_STARTED: 0, IN_PROGRESS: 0, COMPLETED: 0, EXPIRED: 0 },
+  );
+}
 
 /** Số câu đã làm / tổng → phần trăm nguyên 0–100. */
 export function quizProgressPercent(answered, total) {

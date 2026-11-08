@@ -1,8 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, RotateCcw, Trophy, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  ListChecks,
+  Loader2,
+  RotateCcw,
+  Trophy,
+  XCircle,
+} from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { apiAnswerQuestion, apiGetQuizResult, apiStartAttempt } from "../../lib/studentApi";
+import {
+  apiAnswerQuestion,
+  apiGetQuizDetail,
+  apiGetQuizResult,
+  apiStartAttempt,
+} from "../../lib/studentApi";
 import {
   eloChangeTone,
   formatEloChange,
@@ -16,8 +30,7 @@ import ProgressBar from "../../components/ui/ProgressBar";
 import { ErrorBox, SkeletonRows } from "../../components/student/AsyncBlock";
 
 function optionClass({ locked, selected, feedback, optionKey }) {
-  const base =
-    "flex w-full items-start gap-3 rounded-xl border p-3.5 text-left text-sm transition-all";
+  const base = "flex w-full items-start gap-3 rounded-xl border p-3.5 text-left text-sm transition-all";
   if (!locked) {
     return `${base} cursor-pointer border-slate-200 bg-white text-slate-900 hover:border-blue-300 active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900 dark:text-white dark:hover:border-blue-800`;
   }
@@ -30,7 +43,26 @@ function optionClass({ locked, selected, feedback, optionKey }) {
   return `${base} cursor-not-allowed border-slate-200 bg-white text-slate-500 opacity-70 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400`;
 }
 
-function ResultSummary({ result }) {
+function toNavigableQuestion(raw) {
+  const question = normalizeQuestion(raw);
+  if (!question) return null;
+  const answered = Boolean(raw?.answered);
+  return {
+    ...question,
+    answered,
+    selectedAnswer: answered ? raw.selectedAnswer : null,
+    feedback: answered
+      ? {
+          isCorrect: Boolean(raw.isCorrect),
+          selectedAnswer: raw.selectedAnswer,
+          correctAnswer: raw.correctAnswer,
+          explanation: raw.explanation,
+        }
+      : null,
+  };
+}
+
+function ResultSummary({ result, onReview }) {
   const correct = result?.correctCount ?? 0;
   const total = result?.totalQuestions ?? 0;
   const wrong = result?.wrongCount ?? Math.max(0, total - correct);
@@ -43,9 +75,7 @@ function ResultSummary({ result }) {
       </span>
       <div>
         <h1 className="text-xl font-bold text-slate-900 dark:text-white">Hoàn thành bài quiz</h1>
-        {result?.title && (
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{result.title}</p>
-        )}
+        {result?.title && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{result.title}</p>}
       </div>
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/40">
@@ -69,6 +99,12 @@ function ResultSummary({ result }) {
         </p>
       )}
       <div className="flex flex-col justify-center gap-2 sm:flex-row">
+        {total > 0 && (
+          <Button type="button" variant="outline" onClick={onReview}>
+            <ListChecks size={16} />
+            Xem lại từng câu
+          </Button>
+        )}
         {wrong > 0 && (
           <Button as={Link} to="/student/spaced-repetition" variant="outline">
             <RotateCcw size={16} />
@@ -88,52 +124,56 @@ export default function ExerciseTaking() {
   const { exerciseId: quizId } = useParams();
   const { token } = useAuth();
 
-  const [phase, setPhase] = useState("loading"); // loading | question | done | error
+  const [phase, setPhase] = useState("loading");
   const [error, setError] = useState("");
-  const [attempt, setAttempt] = useState(null); // { title, totalQuestions, answeredCount }
-  const [question, setQuestion] = useState(null);
-  const [selected, setSelected] = useState(null);
-  const [feedback, setFeedback] = useState(null); // kết quả chấm của câu hiện tại
-  const [submitting, setSubmitting] = useState(false);
+  const [answerError, setAnswerError] = useState("");
+  const [attempt, setAttempt] = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [submittingQuestionId, setSubmittingQuestionId] = useState(null);
+  const [pendingSelection, setPendingSelection] = useState(null);
   const [result, setResult] = useState(null);
 
   const loadResult = useCallback(async () => {
-    try {
-      setResult(await apiGetQuizResult(token, quizId));
-      setPhase("done");
-    } catch (err) {
-      setError(err.message);
-      setPhase("error");
-    }
+    const summary = await apiGetQuizResult(token, quizId);
+    setResult(summary);
+    return summary;
   }, [token, quizId]);
 
-  // Vào bài hoặc reload giữa chừng: backend trả đúng câu chưa trả lời kế tiếp.
   const start = useCallback(async () => {
     if (!token) return;
     setPhase("loading");
     setError("");
-    setSelected(null);
-    setFeedback(null);
+    setAnswerError("");
+    setPendingSelection(null);
     try {
-      const data = await apiStartAttempt(token, quizId);
-      const next = normalizeQuestion(data.nextQuestion ?? data.question);
+      const state = await apiStartAttempt(token, quizId);
+      const detail = await apiGetQuizDetail(token, quizId);
+      const nextQuestions = (detail?.questions || []).map(toNavigableQuestion).filter(Boolean);
+      const answeredCount = detail?.answeredCount ?? state?.answeredCount ?? 0;
+      const completed = Boolean(state?.completed || detail?.status === "COMPLETED");
+
+      setQuestions(nextQuestions);
       setAttempt({
-        title: data.title ?? "",
-        totalQuestions: data.totalQuestions ?? 0,
-        answeredCount: data.answeredCount ?? 0,
+        title: detail?.title ?? state?.title ?? "",
+        totalQuestions: detail?.totalQuestions ?? state?.totalQuestions ?? nextQuestions.length,
+        answeredCount,
+        completed,
       });
-      if (data.completed || !next) {
+
+      if (completed) {
         await loadResult();
+        setCurrentIndex(0);
+        setPhase("summary");
         return;
       }
-      setQuestion(next);
+
+      const nextId = state?.nextQuestion?.id ?? state?.question?.id;
+      const nextIndex = nextQuestions.findIndex((item) => item.id === nextId);
+      const firstUnanswered = nextQuestions.findIndex((item) => !item.answered);
+      setCurrentIndex(nextIndex >= 0 ? nextIndex : Math.max(0, firstUnanswered));
       setPhase("question");
     } catch (err) {
-      // Quiz đã hoàn thành trước đó → xem tổng kết thay vì báo lỗi
-      if (err.status === 409) {
-        await loadResult();
-        return;
-      }
       setError(
         err.code === 1410 || err.status === 410
           ? "Bài quiz này đã quá hạn nên không thể làm tiếp."
@@ -148,30 +188,64 @@ export default function ExerciseTaking() {
   }, [start]);
 
   async function handleSelect(optionKey) {
-    // Khóa ngay sau lần chọn đầu tiên: không đổi được đáp án
-    if (feedback || submitting) return;
-    setSelected(optionKey);
-    setSubmitting(true);
+    const current = questions[currentIndex];
+    if (!current || current.answered || submittingQuestionId != null) return;
+    setPendingSelection(optionKey);
+    setSubmittingQuestionId(current.id);
+    setAnswerError("");
     try {
-      const data = await apiAnswerQuestion(token, quizId, question.id, optionKey);
-      setFeedback(data);
-      setAttempt((prev) => ({ ...prev, answeredCount: (prev?.answeredCount ?? 0) + 1 }));
+      const feedback = await apiAnswerQuestion(token, quizId, current.id, optionKey);
+      setQuestions((items) =>
+        items.map((item) =>
+          item.id === current.id
+            ? { ...item, answered: true, selectedAnswer: feedback.selectedAnswer ?? optionKey, feedback }
+            : item,
+        ),
+      );
+      setAttempt((previous) => ({
+        ...previous,
+        answeredCount:
+          feedback.answeredCount
+          ?? Math.min((previous?.answeredCount ?? 0) + 1, previous?.totalQuestions ?? 0),
+        completed: Boolean(feedback.completed),
+      }));
+      if (feedback.completed) {
+        try {
+          await loadResult();
+        } catch {
+          setAnswerError("Câu trả lời đã được lưu nhưng chưa tải được phần tổng kết.");
+        }
+      }
     } catch (err) {
-      setSelected(null);
-      setError(err.message);
+      setAnswerError(err.message || "Không thể lưu câu trả lời. Vui lòng thử lại.");
     } finally {
-      setSubmitting(false);
+      setSubmittingQuestionId(null);
+      setPendingSelection(null);
     }
   }
 
-  async function handleNext() {
-    // Bắt đầu lại để lấy câu kế tiếp từ backend (nguồn sự thật duy nhất)
-    await start();
+  function moveQuestion(offset) {
+    setCurrentIndex((index) => Math.max(0, Math.min(questions.length - 1, index + offset)));
+    setAnswerError("");
+    setPendingSelection(null);
   }
 
-  const total = attempt?.totalQuestions ?? 0;
+  async function showSummary() {
+    try {
+      if (!result) await loadResult();
+      setPhase("summary");
+    } catch (err) {
+      setAnswerError(err.message || "Không thể tải kết quả bài làm.");
+    }
+  }
+
+  const question = questions[currentIndex] ?? null;
+  const feedback = question?.feedback ?? null;
+  const selected = question?.selectedAnswer
+    ?? (submittingQuestionId === question?.id ? pendingSelection : null);
+  const total = attempt?.totalQuestions ?? questions.length;
   const answered = attempt?.answeredCount ?? 0;
-  const isLast = total > 0 && answered >= total;
+  const isSubmitting = submittingQuestionId === question?.id;
 
   return (
     <div className="mx-auto min-h-[100dvh] max-w-3xl space-y-5 px-4 py-6 lg:px-8 lg:py-8">
@@ -184,27 +258,38 @@ export default function ExerciseTaking() {
       </Link>
 
       {phase === "loading" && <SkeletonRows rows={3} className="h-24" />}
-
       {phase === "error" && <ErrorBox message={error} onRetry={start} />}
-
-      {phase === "done" && <ResultSummary result={result} />}
+      {phase === "summary" && (
+        <ResultSummary
+          result={result}
+          onReview={() => {
+            setCurrentIndex(0);
+            setPhase("question");
+          }}
+        />
+      )}
 
       {phase === "question" && question && (
         <>
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <h1 className="text-base font-semibold text-slate-900 dark:text-white">{attempt?.title}</h1>
-              <span className="shrink-0 font-mono text-xs text-slate-500 dark:text-slate-400">
-                {Math.min(answered + (feedback ? 0 : 1), total)}/{total} câu
-              </span>
+              <Badge tone={attempt?.completed ? "emerald" : "blue"}>
+                {attempt?.completed ? "Đã hoàn thành" : `${answered}/${total} câu đã làm`}
+              </Badge>
             </div>
             <ProgressBar value={quizProgressPercent(answered, total)} />
           </div>
 
           <Card className="space-y-4 p-5">
-            <div className="flex flex-wrap items-center gap-2">
-              {question.skillName && <Badge skill={question.skillName}>{question.skillName}</Badge>}
-              {question.cefrLevel && <Badge tone="slate">{question.cefrLevel}</Badge>}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {question.skillName && <Badge skill={question.skillName}>{question.skillName}</Badge>}
+                {question.cefrLevel && <Badge tone="slate">{question.cefrLevel}</Badge>}
+              </div>
+              <span className="shrink-0 font-mono text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Câu {currentIndex + 1}/{questions.length}
+              </span>
             </div>
             <p className="text-base font-medium leading-relaxed text-slate-900 dark:text-white">
               {question.content}
@@ -217,10 +302,10 @@ export default function ExerciseTaking() {
                   type="button"
                   role="radio"
                   aria-checked={selected === option.key}
-                  disabled={Boolean(feedback) || submitting}
+                  disabled={question.answered || isSubmitting}
                   onClick={() => handleSelect(option.key)}
                   className={optionClass({
-                    locked: Boolean(feedback) || submitting,
+                    locked: question.answered || isSubmitting,
                     selected: selected === option.key,
                     feedback,
                     optionKey: option.key,
@@ -230,20 +315,14 @@ export default function ExerciseTaking() {
                     {option.key}
                   </span>
                   <span className="min-w-0 flex-1">{option.text}</span>
-                  {submitting && selected === option.key && (
-                    <Loader2 size={16} className="shrink-0 animate-spin" />
-                  )}
-                  {feedback && option.key === feedback.correctAnswer && (
-                    <CheckCircle2 size={18} className="shrink-0" />
-                  )}
-                  {feedback && selected === option.key && !feedback.isCorrect && (
-                    <XCircle size={18} className="shrink-0" />
-                  )}
+                  {isSubmitting && selected === option.key && <Loader2 size={16} className="shrink-0 animate-spin" />}
+                  {feedback && option.key === feedback.correctAnswer && <CheckCircle2 size={18} className="shrink-0" />}
+                  {feedback && selected === option.key && !feedback.isCorrect && <XCircle size={18} className="shrink-0" />}
                 </button>
               ))}
             </div>
 
-            {error && !feedback && <ErrorBox message={error} />}
+            {answerError && <ErrorBox message={answerError} />}
           </Card>
 
           {feedback && (
@@ -265,15 +344,16 @@ export default function ExerciseTaking() {
                   {feedback.isCorrect ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
                   {feedback.isCorrect ? "Chính xác" : `Chưa đúng — đáp án đúng là ${feedback.correctAnswer}`}
                 </p>
-                <Badge tone={eloChangeTone(feedback.eloChange)}>
-                  Elo {formatEloChange(feedback.eloChange)}
-                  {feedback.eloBefore != null && feedback.eloAfter != null && (
-                    <span className="font-mono">
-                      {" "}
-                      ({Math.round(feedback.eloBefore)} → {Math.round(feedback.eloAfter)})
-                    </span>
-                  )}
-                </Badge>
+                {feedback.eloChange != null && (
+                  <Badge tone={eloChangeTone(feedback.eloChange)}>
+                    Elo {formatEloChange(feedback.eloChange)}
+                    {feedback.eloBefore != null && feedback.eloAfter != null && (
+                      <span className="font-mono">
+                        {" "}({Math.round(feedback.eloBefore)} → {Math.round(feedback.eloAfter)})
+                      </span>
+                    )}
+                  </Badge>
+                )}
               </div>
               {feedback.explanation && (
                 <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
@@ -281,14 +361,48 @@ export default function ExerciseTaking() {
                   {feedback.explanation}
                 </p>
               )}
-              <div className="flex justify-end">
-                <Button onClick={handleNext}>
-                  {isLast ? "Xem tổng kết" : "Câu tiếp theo"}
-                  <ArrowRight size={16} />
-                </Button>
-              </div>
             </Card>
           )}
+
+          <Card className="p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={currentIndex === 0}
+                onClick={() => moveQuestion(-1)}
+                aria-label="Câu trước"
+                title="Câu trước"
+              >
+                <ArrowLeft size={17} />
+              </Button>
+              <div className="text-center">
+                <p className="font-mono text-sm font-semibold text-slate-900 dark:text-white">
+                  {currentIndex + 1} / {questions.length}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={currentIndex >= questions.length - 1}
+                onClick={() => moveQuestion(1)}
+                aria-label="Câu tiếp theo"
+                title="Câu tiếp theo"
+              >
+                <ArrowRight size={17} />
+              </Button>
+            </div>
+            {attempt?.completed && (
+              <div className="mt-3 flex justify-center border-t border-slate-100 pt-3 dark:border-slate-800">
+                <Button type="button" size="sm" onClick={showSummary}>
+                  <Trophy size={16} />
+                  Xem tổng kết
+                </Button>
+              </div>
+            )}
+          </Card>
         </>
       )}
     </div>

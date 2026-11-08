@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Pencil } from "lucide-react";
 import Badge from "../../../components/ui/Badge";
 import Button from "../../../components/ui/Button";
@@ -16,7 +17,13 @@ export default function ClassSchedulePage({
   classId,
   onEditSchedules,
 }) {
-  const [weekStart, setWeekStart] = useState(() => toISO(startOfWeek(todayISO())));
+  const [searchParams] = useSearchParams();
+  const [weekStart, setWeekStart] = useState(() => {
+    const requestedWeek = searchParams.get("weekStart");
+    return /^\d{4}-\d{2}-\d{2}$/.test(requestedWeek || "")
+      ? toISO(startOfWeek(requestedWeek))
+      : toISO(startOfWeek(todayISO()));
+  });
   const [refreshKey, setRefreshKey] = useState(0);
 
   const bumpRefresh = () => setRefreshKey((key) => key + 1);

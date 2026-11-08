@@ -5,12 +5,15 @@ import {
   addDays,
   dashboardArea,
   buildWeekDays,
+  countQuizzesByWorkState,
   deadlineInfo,
   eloChangeTone,
   formatEloChange,
+  isStudentSessionLearned,
   materialAction,
   normalizeQuestion,
   quizProgressPercent,
+  quizWorkState,
   sessionLogState,
   sortQuizzesByDeadline,
   sortSessionsDesc,
@@ -55,6 +58,16 @@ test("sessionLogState: Chưa có / Gia sư chưa gửi nhật ký / đã có", (
   assert.equal(sessionLogState({ status: "COMPLETED", logKnowledge: "Thì hiện tại đơn" }).kind, "ready");
 });
 
+test("isStudentSessionLearned: nhận diện ca đã qua của lịch tổng và loại ca hủy/vắng", () => {
+  const now = new Date(2026, 10, 8, 10, 30);
+  assert.equal(isStudentSessionLearned({ date: "2026-11-07", endTime: "20:30" }, now), true);
+  assert.equal(isStudentSessionLearned({ date: "2026-11-08", endTime: "09:00" }, now), true);
+  assert.equal(isStudentSessionLearned({ date: "2026-11-08", endTime: "20:30" }, now), false);
+  assert.equal(isStudentSessionLearned({ date: "2026-11-09", endTime: "09:00" }, now), false);
+  assert.equal(isStudentSessionLearned({ date: "2026-11-07", status: "CANCELLED" }, now), false);
+  assert.equal(isStudentSessionLearned({ date: "2026-11-09", hasLog: true }, now), true);
+});
+
 test("sortSessionsDesc: mới nhất trước", () => {
   const sorted = sortSessionsDesc([
     { id: 1, sessionDate: "2026-10-20", startTime: "19:00" },
@@ -81,6 +94,22 @@ test("Elo và tiến độ quiz", () => {
   assert.equal(quizProgressPercent(3, 10), 30);
   assert.equal(quizProgressPercent(0, 0), 0);
   assert.equal(quizProgressPercent(12, 10), 100);
+});
+
+test("quizWorkState: tách bài chưa làm, đang làm, đã làm và quá hạn", () => {
+  assert.equal(quizWorkState({ status: "ASSIGNED", answeredCount: 0 }), "NOT_STARTED");
+  assert.equal(quizWorkState({ status: "ASSIGNED", answeredCount: 2 }), "IN_PROGRESS");
+  assert.equal(quizWorkState({ status: "COMPLETED", answeredCount: 4 }), "COMPLETED");
+  assert.equal(quizWorkState({ status: "EXPIRED", answeredCount: 1 }), "EXPIRED");
+  assert.deepEqual(
+    countQuizzesByWorkState([
+      { status: "ASSIGNED", answeredCount: 0 },
+      { status: "ASSIGNED", answeredCount: 1 },
+      { status: "COMPLETED" },
+      { status: "COMPLETED" },
+    ]),
+    { NOT_STARTED: 1, IN_PROGRESS: 1, COMPLETED: 2, EXPIRED: 0 },
+  );
 });
 
 test("deadlineInfo và sortQuizzesByDeadline", () => {
