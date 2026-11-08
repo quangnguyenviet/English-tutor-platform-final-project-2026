@@ -2,7 +2,7 @@
 
 > **Tác giả:** Chuyên gia kiến trúc phần mềm  
 > **Ngày tạo:** 12/10/2026  
-> **Phiên bản:** 2.9 — một SĐT là một phụ huynh: `parents.phone` có `UNIQUE`, lưu dạng `0xxxxxxxxx` (migration V20). Bản 2.8: gộp Đơn ghép lớp vào Lớp cần gia sư (migration V19): lớp `OPEN` được phép chưa có `student_id`, tài khoản học sinh tạo khi vào dạy thử. Bản 2.7: refactor theo kế hoạch `plan-refactor-lessons-logs` (migration V16): đổi `sessions` thành `lessons` (bài giảng "driver" nhúng vào lớp, CHỈ quan hệ `class_id` + `title` + `status` PUBLISHED/HIDDEN — bỏ hết ngày/giờ, `is_trial`, `teaching_mode`/`meeting_url`/`location` và 2 cột log); tách nhật ký dạy học thành bảng mới `teaching_logs` (chỉ `class_id` + `log_date` + `start_time` + knowledge/homework, UNIQUE theo ô ca — C-15'); các cột ca thử chuyển lên `classes` (6 cột `trial_*`, R-TRIAL — chỉ khi `status = TRIAL`); đổi tên bảng con `session_materials` → `lesson_materials`, `quizzes.session_id` → `lesson_id`, `session_exceptions` → `schedule_exceptions`; bỏ luồng "vật chất hóa ô ảo" (không còn tạo session on-demand, chỉ tạo bài giảng ở tab riêng); `ai_chat_messages` (Mongo) soft-link `session_id` → `lesson_id`. (2.6: bổ sung bảng `session_exceptions` (V13: lớp overlay cho ô ảo của lịch cố định), `classes.sessions_per_week` (V11) và bảng hạ tầng `invalidated_token`; mô tả lại cơ chế "ô ảo". (2.5: `class_schedules` bổ sung `valid_from` (DATE, NOT NULL) + `valid_to` (DATE, NULL = không giới hạn): khoảng hiệu lực **từng ca** dùng để render lịch và kiểm tra session on-demand, thay thế vai trò render của `classes.active_from` (trường này chỉ còn ghi nhận ngày kích hoạt lớp). (2.4: bảng `class_requests` bổ sung `sessions_per_week` (số buổi/tuần) và `fee_percentage` (tỷ lệ phí nhận lớp, DEFAULT 40, 0–50, migration V10) + trạng thái `REMATCH` (ghép lại sau khi dạy thử thất bại); `class_applications` thêm trạng thái `TERMINATED` (dạy thử không thành công, loại khỏi danh sách ứng viên); `tutors` thêm `is_open_to_teaching` (migration V10). (2.3: bổ sung `tutors.submitted_at` (V4); làm rõ kế thừa `users` → `tutors`/`employees`/`students`; ghi luồng form công khai) (2.2: bỏ `current_address` khỏi `tutors` — V3; giữ `hometown` — V2)
+> **Phiên bản:** 3.0 — khiếu nại: thêm loại `NON_REFUND`, `complaints.class_request_id` (luôn gắn một lớp cần gia sư), `request_outcome`, `class_id` nullable (migration V21). Bản 2.9: một SĐT là một phụ huynh: `parents.phone` có `UNIQUE`, lưu dạng `0xxxxxxxxx` (migration V20). Bản 2.8: gộp Đơn ghép lớp vào Lớp cần gia sư (migration V19): lớp `OPEN` được phép chưa có `student_id`, tài khoản học sinh tạo khi vào dạy thử. Bản 2.7: refactor theo kế hoạch `plan-refactor-lessons-logs` (migration V16): đổi `sessions` thành `lessons` (bài giảng "driver" nhúng vào lớp, CHỈ quan hệ `class_id` + `title` + `status` PUBLISHED/HIDDEN — bỏ hết ngày/giờ, `is_trial`, `teaching_mode`/`meeting_url`/`location` và 2 cột log); tách nhật ký dạy học thành bảng mới `teaching_logs` (chỉ `class_id` + `log_date` + `start_time` + knowledge/homework, UNIQUE theo ô ca — C-15'); các cột ca thử chuyển lên `classes` (6 cột `trial_*`, R-TRIAL — chỉ khi `status = TRIAL`); đổi tên bảng con `session_materials` → `lesson_materials`, `quizzes.session_id` → `lesson_id`, `session_exceptions` → `schedule_exceptions`; bỏ luồng "vật chất hóa ô ảo" (không còn tạo session on-demand, chỉ tạo bài giảng ở tab riêng); `ai_chat_messages` (Mongo) soft-link `session_id` → `lesson_id`. (2.6: bổ sung bảng `session_exceptions` (V13: lớp overlay cho ô ảo của lịch cố định), `classes.sessions_per_week` (V11) và bảng hạ tầng `invalidated_token`; mô tả lại cơ chế "ô ảo". (2.5: `class_schedules` bổ sung `valid_from` (DATE, NOT NULL) + `valid_to` (DATE, NULL = không giới hạn): khoảng hiệu lực **từng ca** dùng để render lịch và kiểm tra session on-demand, thay thế vai trò render của `classes.active_from` (trường này chỉ còn ghi nhận ngày kích hoạt lớp). (2.4: bảng `class_requests` bổ sung `sessions_per_week` (số buổi/tuần) và `fee_percentage` (tỷ lệ phí nhận lớp, DEFAULT 40, 0–50, migration V10) + trạng thái `REMATCH` (ghép lại sau khi dạy thử thất bại); `class_applications` thêm trạng thái `TERMINATED` (dạy thử không thành công, loại khỏi danh sách ứng viên); `tutors` thêm `is_open_to_teaching` (migration V10). (2.3: bổ sung `tutors.submitted_at` (V4); làm rõ kế thừa `users` → `tutors`/`employees`/`students`; ghi luồng form công khai) (2.2: bỏ `current_address` khỏi `tutors` — V3; giữ `hometown` — V2)
 > **Cơ sở dữ liệu:** PostgreSQL (27 bảng nghiệp vụ + 1 bảng hạ tầng `invalidated_token` = 28 bảng, cùng 1 view `v_student_skill_stats`) + MongoDB (1 collection `ai_chat_messages`)
 
 ---
@@ -73,7 +73,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `avatar_url` | `VARCHAR(500)` | | Đường dẫn ảnh đại diện (lưu trên S3), học sinh có thể tự cập nhật (UC-ST-02) |
 | `role` | `VARCHAR(20)` | NN | Vai trò người dùng: `ADMIN`, `RECEPTIONIST`, `ACCOUNTANT`, `TUTOR`, `STUDENT`. Quyết định phân quyền truy cập API và giao diện |
 | `status` | `VARCHAR(20)` | NN | Trạng thái tài khoản: `ACTIVE` (Đang hoạt động), `INACTIVE` (Ngưng hoạt động). Lễ tân/Admin có thể thay đổi (UC-REC-08, UC-REC-09) |
-| `must_change_password` | `BOOLEAN` | NN, DEFAULT TRUE | Cờ bắt buộc đổi mật khẩu lần đăng nhập đầu: tài khoản mới được tạo bởi Admin sẽ yêu cầu đổi mật khẩu (UC-ST-01 bước 5, UC-REC-12) |
+| `must_change_password` | `BOOLEAN` | NN, DEFAULT TRUE | Cờ bắt buộc đổi mật khẩu lần đăng nhập đầu: tài khoản mới được tạo bởi Admin sẽ yêu cầu đổi mật khẩu (UC-ST-01 bước 5, UC-REC-14) |
 | `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm tạo tài khoản, dùng cho báo cáo và audit |
 | `updated_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm cập nhật gần nhất |
 
@@ -258,6 +258,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 > **Luồng 2 (đăng tuyển):** `NEW` → Lễ tân gọi, bổ sung thông tin → `OPEN` → gia sư ứng tuyển (`class_applications`) → Lễ tân chọn → tạo tài khoản học sinh nếu chưa có, tạo `classes` (`TRIAL`) → `MATCHED`.
 > **Ghép lại (dạy thử thất bại):** khi lớp đang `TRIAL` thất bại, đơn (đang `MATCHED`) đi theo một trong hai hướng: (1) phụ huynh không muốn tìm gia sư nữa → `CANCELLED`; (2) phụ huynh muốn tìm gia sư khác → `REMATCH`: gia sư cũ bị loại (`TERMINATED`), `requested_tutor_id` về NULL, các lượt `REJECTED` quay về `APPLIED`. Sau đó Lễ tân chọn gia sư ứng tuyển hoặc đặt gia sư chỉ định rồi xác nhận → `MATCHED`. Gia sư và khách thấy lớp `REMATCH` như lớp đăng tuyển bình thường; lớp đang có gia sư chỉ định thì tạm ẩn.
 > **Hủy lớp:** hủy được ở mọi trạng thái. Lớp đã ghép thành công chỉ hủy trong 7 ngày kể từ `classes.active_from` (Quy định website I.3), quá hạn hệ thống từ chối.
+> **Khiếu nại không hoàn tiền:** Lễ tân giải quyết bằng Hủy lớp (`CANCELLED`) hoặc Ghép lại (`REMATCH`, chỉ khi lớp đã có gia sư). Ghép lại áp dụng cả lớp `ACTIVE` trong 7 ngày đầu: lớp học `CANCELLED`, gia sư cũ `TERMINATED`. Lớp đã ghép thành công quá 7 ngày không nhận khiếu nại loại này. `OPEN` chỉ dành cho lớp đăng lần đầu.
 
 ---
 
@@ -524,21 +525,23 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `complaints`
 
-> Đơn khiếu nại tại quầy. Lễ tân tiếp nhận, ghi nhận thông tin người khiếu nại (có thể là phụ huynh không có tài khoản) và xử lý (UC-REC-12, UC-REC-13, UC-REC-14). Khiếu nại `REFUND` được Lễ tân chuyển sang Kế toán bằng một yêu cầu hoàn tiền (`refunds`); đơn tự đóng khi Kế toán hoàn tiền xong (UC-ACC-04).
+> Đơn khiếu nại tại quầy. Lễ tân tiếp nhận, ghi nhận thông tin người khiếu nại (có thể là phụ huynh không có tài khoản) và xử lý (UC-REC-14, UC-REC-15, UC-REC-16). Mỗi khiếu nại gắn với một lớp cần gia sư. Có hai loại. `NON_REFUND` (hủy lớp hoặc ghép lại gia sư) do Lễ tân tự xử lý; với lớp đã ghép thành công chỉ tiếp nhận và xử lý trong 7 ngày kể từ `classes.active_from`. `REFUND` chỉ áp dụng lớp Online vì phụ huynh nộp tiền trước, được Lễ tân chuyển sang Kế toán bằng một yêu cầu hoàn tiền (`refunds`); đơn tự đóng khi Kế toán hoàn tiền xong (UC-ACC-04).
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
 | `id` | `BIGSERIAL` | PK | Khóa chính tự tăng |
-| `class_id` | `BIGINT` | FK → classes.id, NN | FK tới lớp học liên quan. Khiếu nại phát sinh sau khi lớp được ghép (UC-REC-12: "Mã lớp đang tham gia") |
-| `complainant_name` | `VARCHAR(100)` | NN | Tên người khiếu nại — ghi trực tiếp vì có thể là PH không có tài khoản (UC-REC-12 form) |
-| `complainant_phone` | `VARCHAR(15)` | NN | SĐT người khiếu nại (UC-REC-12 form) |
-| `complainant_role` | `VARCHAR(20)` | NN | Vai trò: `PARENT`, `TUTOR`, `STUDENT` (UC-REC-12: "Role") |
-| `complaint_type` | `VARCHAR(30)` | NN | Loại khiếu nại: `REFUND` (Hoàn tiền), `REMATCH` (Ghép lại lớp) — UC-REC-12, UC-REC-13 |
-| `complaint_content` | `TEXT` | NN | Nội dung chi tiết lý do khiếu nại (UC-REC-12: "Lí do khiếu nại") |
-| `status` | `VARCHAR(20)` | NN | Trạng thái: `PENDING` (Chờ xử lý), `PROCESSING` (Chờ Kế toán hoàn tiền), `RESOLVED` (Đã xử lý), `CANCELLED` (Đã hủy) — UC-REC-14, UC-ACC-04 |
-| `resolution` | `TEXT` | | Kết quả xử lý chi tiết (UC-REC-14: "Kết quả xử lý & Ghi chú"). Với `REFUND`, hệ thống tự ghi khi Kế toán hoàn tiền xong |
-| `received_by` | `BIGINT` | FK → users.id, NN | ID Lễ tân tiếp nhận khiếu nại (UC-REC-12) |
-| `resolved_by` | `BIGINT` | FK → users.id | ID người đóng đơn: Lễ tân (`REMATCH`, UC-REC-14) hoặc Kế toán đã hoàn tiền (`REFUND`, UC-ACC-04) |
+| `class_request_id` | `BIGINT` | FK → class_requests.id, NN | Lớp cần gia sư bị khiếu nại (V21) |
+| `class_id` | `BIGINT` | FK → classes.id | Lớp học `TRIAL`/`ACTIVE` của lớp cần gia sư tại thời điểm tạo đơn. NULL khi lớp chưa có gia sư; bắt buộc với `REFUND` (V21, trước đó NN) |
+| `complainant_name` | `VARCHAR(100)` | NN | Tên người khiếu nại — ghi trực tiếp vì có thể là PH không có tài khoản (UC-REC-14 form) |
+| `complainant_phone` | `VARCHAR(15)` | NN | SĐT người khiếu nại (UC-REC-14 form) |
+| `complainant_role` | `VARCHAR(20)` | NN | Vai trò: `PARENT`, `TUTOR`, `STUDENT` (UC-REC-14: "Role") |
+| `complaint_type` | `VARCHAR(30)` | NN | Loại khiếu nại: `REFUND` (Hoàn tiền), `NON_REFUND` (Không hoàn tiền: hủy lớp hoặc ghép lại gia sư) — UC-REC-14, UC-REC-15 |
+| `complaint_content` | `TEXT` | NN | Nội dung chi tiết lý do khiếu nại (UC-REC-14: "Lí do khiếu nại") |
+| `status` | `VARCHAR(20)` | NN | Trạng thái: `PENDING` (Chờ xử lý), `PROCESSING` (Chờ Kế toán hoàn tiền), `RESOLVED` (Đã xử lý), `CANCELLED` (Đã hủy) — UC-REC-16, UC-ACC-04 |
+| `resolution` | `TEXT` | | Kết quả xử lý chi tiết (UC-REC-16: "Kết quả xử lý & Ghi chú"). Với `REFUND`, hệ thống tự ghi khi Kế toán hoàn tiền xong |
+| `request_outcome` | `VARCHAR(20)` | | Kết quả với đối tượng khi giải quyết khiếu nại `NON_REFUND`: `REMATCH` (Ghép lại), `CANCELLED` (Hủy lớp). Lưu riêng vì trạng thái `class_requests` còn đổi tiếp (V21, C-17) |
+| `received_by` | `BIGINT` | FK → users.id, NN | ID Lễ tân tiếp nhận khiếu nại (UC-REC-14) |
+| `resolved_by` | `BIGINT` | FK → users.id | ID người đóng đơn: Lễ tân (`NON_REFUND`, UC-REC-16) hoặc Kế toán đã hoàn tiền (`REFUND`, UC-ACC-04) |
 | `resolved_at` | `TIMESTAMPTZ` | | Thời điểm giải quyết xong |
 | `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm tiếp nhận khiếu nại |
 | `updated_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm cập nhật |
@@ -547,7 +550,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `complaint_attachments`
 
-> Ảnh minh chứng khi giải quyết khiếu nại. Một đơn có thể có nhiều ảnh (UC-REC-14: "Đính kèm minh chứng").
+> Ảnh minh chứng khi giải quyết khiếu nại. Một đơn có thể có nhiều ảnh (UC-REC-16: "Đính kèm minh chứng").
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -562,7 +565,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `refunds`
 
-> Yêu cầu hoàn tiền phát sinh từ khiếu nại `REFUND`. Lễ tân tạo yêu cầu kèm số tiền đề xuất và tài khoản nhận (UC-REC-14), **Kế toán duyệt số tiền, chuyển khoản và tải biên lai** hoặc từ chối kèm lý do (UC-ACC-04). Tách khỏi `complaints` vì có vòng đời và người xử lý riêng, và một khiếu nại có thể phải gửi lại yêu cầu sau khi bị từ chối.
+> Yêu cầu hoàn tiền phát sinh từ khiếu nại `REFUND`. Lễ tân tạo yêu cầu kèm số tiền đề xuất và tài khoản nhận (UC-REC-16), **Kế toán duyệt số tiền, chuyển khoản và tải biên lai** hoặc từ chối kèm lý do (UC-ACC-04). Tách khỏi `complaints` vì có vòng đời và người xử lý riêng, và một khiếu nại có thể phải gửi lại yêu cầu sau khi bị từ chối.
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -620,7 +623,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 |---|---|---|---|
 | `id` | `BIGSERIAL` | PK | Khóa chính tự tăng |
 | `user_id` | `BIGINT` | FK → users.id, NN | ID người thực hiện thao tác (Lễ tân, Admin) |
-| `action` | `VARCHAR(50)` | NN | Hành động: `APPROVE_TUTOR`, `REJECT_TUTOR`, `COLLECT_PAYMENT_PROOF`, `UPDATE_FEE_RATE`, `APPROVE_PAYMENT`, `REQUEST_PAYMENT_RESUBMIT`, `REQUEST_REFUND`, `PAY_REFUND`, `REJECT_REFUND`, `EXPORT_FINANCE_REPORT`, `CREATE_EMPLOYEE`, `RESOLVE_COMPLAINT`... |
+| `action` | `VARCHAR(50)` | NN | Hành động: `APPROVE_TUTOR`, `REJECT_TUTOR`, `COLLECT_PAYMENT_PROOF`, `UPDATE_FEE_RATE`, `APPROVE_PAYMENT`, `REQUEST_PAYMENT_RESUBMIT`, `REQUEST_REFUND`, `PAY_REFUND`, `REJECT_REFUND`, `EXPORT_FINANCE_REPORT`, `CREATE_EMPLOYEE`, `CREATE_COMPLAINT`, `UPDATE_COMPLAINT`, `CANCEL_COMPLAINT`, `RESOLVE_COMPLAINT`... |
 | `entity_type` | `VARCHAR(30)` | NN | Loại đối tượng bị tác động: `TUTOR`, `PAYMENT`, `REFUND`, `COMPLAINT`, `USER`... |
 | `entity_id` | `BIGINT` | NN | ID đối tượng bị tác động |
 | `details` | `JSONB` | | Chi tiết thay đổi (old value -> new value), lưu linh hoạt dạng JSON |
@@ -961,6 +964,7 @@ erDiagram
 
     complaints {
         BIGSERIAL id PK
+        BIGINT class_request_id FK
         BIGINT class_id FK
         VARCHAR complainant_name
         VARCHAR complainant_phone
@@ -969,6 +973,7 @@ erDiagram
         TEXT complaint_content
         VARCHAR status
         TEXT resolution
+        VARCHAR request_outcome
         BIGINT received_by FK
         BIGINT resolved_by FK
         TIMESTAMPTZ resolved_at
@@ -1071,7 +1076,8 @@ erDiagram
 
     classes ||--o{ payments : "has fees"
     users ||--o{ payments : "uploads or reviews"
-    classes ||--o{ complaints : "has complaints"
+    class_requests ||--o{ complaints : "has complaints"
+    classes |o--o{ complaints : "has complaints"
     users ||--o{ complaints : "receives or resolves"
     complaints ||--o{ complaint_attachments : "has attachments"
     users ||--o{ complaint_attachments : "uploads"
@@ -1155,7 +1161,8 @@ erDiagram
 |---|---|---|---|---|
 | R-33 | `classes` | `payments` | 1 : 0..* | Khoản thu gắn với lớp: phí nhận lớp của gia sư, và học phí đóng trước của phụ huynh nếu lớp online. Yêu cầu gửi lại minh chứng cập nhật trên cùng bản ghi. |
 | R-34 | `users` | `payments` | 1 : 0..* | Hai vai trò: (1) `uploaded_by` = gia sư hoặc Lễ tân thu hộ tải minh chứng; (2) `reviewed_by` = Kế toán xác nhận số tiền thực nhận. **Phải khác nhau** (kiểm soát chéo). |
-| R-35 | `classes` | `complaints` | 1 : 0..* | Khiếu nại bắt buộc gắn lớp (phát sinh sau ghép lớp). |
+| R-35 | `classes` | `complaints` | 0..1 : 0..* | Khiếu nại `REFUND` bắt buộc gắn lớp. Khiếu nại `NON_REFUND` gắn lớp khi lớp cần gia sư đã có lớp học (V21). |
+| R-49 | `class_requests` | `complaints` | 1 : 0..* | Khiếu nại luôn gắn với một lớp cần gia sư (V21). |
 | R-36 | `users` | `complaints` | 1 : 0..* | Lễ tân tiếp nhận (`received_by`); Lễ tân hoặc Kế toán đóng đơn (`resolved_by`). |
 | R-37 | `complaints` | `complaint_attachments` | 1 : 0..* | Một đơn khiếu nại có nhiều ảnh minh chứng khi giải quyết. |
 | R-41 | `complaints` | `refunds` | 1 : 0..* | Khiếu nại `REFUND` sinh yêu cầu hoàn tiền. `0..*` vì yêu cầu bị Kế toán từ chối thì Lễ tân gửi lại yêu cầu mới; tối đa 1 yêu cầu `PENDING` hoặc `PAID` (C-12). |
@@ -1193,9 +1200,10 @@ erDiagram
 | C-11 | `processed_by != requested_by`; `processed_by` có role `ACCOUNTANT` hoặc `ADMIN`; `proof_url` NOT NULL khi `status = 'PAID'` | `refunds` | Lễ tân đề xuất, Kế toán chi tiền — kiểm soát chéo |
 | C-12 | Partial UNIQUE (`complaint_id`) WHERE `status IN ('PENDING','PAID')` | `refunds` | Mỗi khiếu nại chỉ có 1 yêu cầu hoàn tiền đang chờ hoặc đã chi. `refunds` `PAID` thì khiếu nại chuyển `RESOLVED`; `REJECTED` thì khiếu nại quay về `PENDING` |
 | C-13 | `fee_percentage` BETWEEN 0 AND 50 (V9); `amount >= 0` khi NOT NULL; chỉ sửa phí khi `status IN ('NEW', 'NOT_SUBMITTED')`; `amount` NOT NULL khi `status != 'NEW'` (backend enforce) | `payments` | Lễ tân hoặc Admin chỉnh tỷ lệ phí trước khi có minh chứng. Payment tạo ở `NEW` khi ghép lớp (snapshot `fee_percentage`); chuyển `NOT_SUBMITTED` + tính `amount` khi kích hoạt lớp. Lớp `TRIAL` bị hủy → payment `NEW` → `CANCELLED` |
-| C-14 | `class_requests.status` transitions (V10): `NEW → OPEN / MATCHED / CANCELLED`; `OPEN → MATCHED / CANCELLED`; `MATCHED → REMATCH / CANCELLED` (lớp `TRIAL` thất bại: phụ huynh muốn tìm gia sư khác → `REMATCH`, không muốn → `CANCELLED`); `REMATCH → MATCHED / CANCELLED`. `CANCELLED` là trạng thái cuối | `class_requests` | Khi `REMATCH`, lượt ứng tuyển `SELECTED` cũ chuyển `TERMINATED` (gia sư cũ bị loại khỏi đơn); kiểm tra ở backend |
+| C-14 | `class_requests.status` transitions (V10): `NEW → OPEN / MATCHED / CANCELLED`; `OPEN → MATCHED / CANCELLED`; `MATCHED → REMATCH / CANCELLED` (lớp `TRIAL` thất bại: phụ huynh muốn tìm gia sư khác → `REMATCH`, không muốn → `CANCELLED`); `REMATCH → MATCHED / CANCELLED`. `CANCELLED` là trạng thái cuối. Khiếu nại không hoàn tiền dùng `MATCHED → REMATCH / CANCELLED` với lớp `TRIAL`, và lớp `ACTIVE` trong 7 ngày kể từ `active_from` (V21). Không có đường về `OPEN` | `class_requests` | Khi `REMATCH`, lượt ứng tuyển `SELECTED` cũ chuyển `TERMINATED` (gia sư cũ bị loại khỏi đơn); kiểm tra ở backend |
 | C-15 | UNIQUE (`class_id`, `log_date`, `start_time`) (V16, thay C-15 cũ của `sessions` — bỏ luồng tạo buổi on-demand) | `teaching_logs` | 1 ca diễn ra 1 ngày = tối đa 1 log; ghi đè bằng upsert (idempotent). **R-LOG:** không ghi/sửa log ở ô có exception `CANCELLED`/`RESCHEDULED` (buổi không diễn ra đúng ca đó) — kiểm tra ở backend |
 | C-16 | UNIQUE (`schedule_id`, `exception_date`) (V16: bảng đổi tên `schedule_exceptions`) | `schedule_exceptions` | Mỗi ca chỉ có 1 ngoại lệ cho 1 ngày; ghi đè bằng `INSERT ... ON CONFLICT DO UPDATE` (idempotent). `class_id`/`schedule_id` đều `ON DELETE CASCADE` — xóa ca cố định tự dọn ngoại lệ |
+| C-17 | `complaints` (V21): `complaint_type` IN (`REFUND`, `NON_REFUND`); `REFUND` thì `class_id` NOT NULL; `request_outcome` IN (`REMATCH`, `CANCELLED`) và chỉ có khi `NON_REFUND` + `RESOLVED`. Backend enforce: lớp của khiếu nại `REFUND` phải `ONLINE`; `REMATCH` chỉ khi lớp đã có gia sư; lớp đã ghép thành công quá 7 ngày không nhận khiếu nại `NON_REFUND`; lớp đã được xử lý thủ công thì bắt buộc có tệp minh chứng | `complaints` | Bảo đảm khiếu nại đúng đối tượng và lưu đúng kết quả xử lý |
 | R-TRIAL | 1 lớp TRIAL = đúng 1 ca thử, lưu trên 6 cột `trial_*` của chính dòng `classes` (V16, thay dòng `sessions` có `is_trial = TRUE`); chỉ có giá trị khi `status = TRIAL` (enforce backend); ca thử `ONLINE` bắt buộc đủ bộ `trial_date` + `trial_end_time` + `trial_meeting_url` (CHECK). Log thử là 1 dòng `teaching_logs` thường tại ca thử, không có cờ/trạng thái riêng | `classes` | Kế hoạch refactor V16 (R-TRIAL) |
 | C-LESSON | CHECK `status IN ('PUBLISHED','HIDDEN')` (V16, thay C-15/C-16 status của `sessions`) | `lessons` | Bài giảng "driver" nhúng vào lớp — chỉ ẩn/hiện, không có trạng thái dạy. Lớp TRIAL bị hủy → bài giảng `HIDDEN` (matching `closeOpenClasses`) |
 

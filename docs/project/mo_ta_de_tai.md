@@ -69,7 +69,7 @@ Dạy kèm tiếng Anh 1-1 đang phổ biến, nhưng một trung tâm gia sư n
 - **Hồ sơ gia sư**: duyệt hoặc từ chối hồ sơ mới, xem và chỉnh trạng thái hoạt động.
 - **Hồ sơ học sinh**: xem chi tiết (thông tin cá nhân, phụ huynh, lớp đã và đang học), chỉnh trạng thái.
 - **Thu hộ minh chứng phí nhận lớp**: khi gia sư hoặc phụ huynh nộp tiền mặt hay mang biên lai đến quầy, lễ tân tải phiếu thu hoặc biên lai lên và chuyển cho kế toán xác nhận. Lễ tân không tự xác nhận tiền.
-- **Khiếu nại tại quầy**: tạo đơn, xem và sửa, giải quyết. Khiếu nại ghép lại lớp do lễ tân đóng đơn; khiếu nại hoàn tiền thì lễ tân chốt số tiền và tài khoản nhận với người khiếu nại rồi gửi yêu cầu cho kế toán, đơn tự đóng khi kế toán hoàn tiền xong.
+- **Khiếu nại tại quầy**: tạo đơn, xem và sửa, giải quyết. Có hai loại. Khiếu nại không hoàn tiền (hủy lớp hoặc ghép lại gia sư cho lớp cần gia sư; lớp đã ghép thành công chỉ trong 7 ngày đầu) do lễ tân xác nhận với bên còn lại rồi tự xử lý; khiếu nại hoàn tiền áp dụng lớp online, lễ tân chốt số tiền và tài khoản nhận với người khiếu nại rồi gửi yêu cầu cho kế toán, đơn tự đóng khi kế toán hoàn tiền xong.
 - **Dashboard**: số lớp cần gia sư chờ xử lý, khiếu nại chờ xử lý, khiếu nại chờ hoàn tiền, số gia sư đang hoạt động.
 
 **Riêng Quản trị viên** (ngoài toàn bộ các mục trên và mục 3.5):
@@ -109,7 +109,7 @@ Chọn gia sư chỉ định ───────►  Tạo "Lớp cần gia s�
                                Kế toán đối chiếu số tiền, xác nhận
 ```
 
-Khiếu nại (hoàn tiền hoặc ghép lại lớp) có thể phát sinh ở bất kỳ bước nào sau khi lớp được ghép, do lễ tân tiếp nhận. Khiếu nại ghép lại lớp do lễ tân xử lý; khiếu nại hoàn tiền được lễ tân chuyển thành yêu cầu hoàn tiền, kế toán chi tiền và đơn tự đóng.
+Khiếu nại (hoàn tiền hoặc không hoàn tiền) có thể phát sinh từ khi có lớp cần gia sư, do lễ tân tiếp nhận. Khiếu nại không hoàn tiền do lễ tân xử lý; khiếu nại hoàn tiền được lễ tân chuyển thành yêu cầu hoàn tiền, kế toán chi tiền và đơn tự đóng.
 
 ## 5. Thành phần kỹ thuật cốt lõi
 

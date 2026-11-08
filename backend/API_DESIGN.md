@@ -2,7 +2,7 @@
 
 Tài liệu thiết kế API cho backend (Spring Boot 3.2, Java 17). Bám sát `docs/project/ERD.md`, `docs/project/prd.md` (FR-01 → FR-44) và code hiện có tại `backend/src/main/java/com/mycompany/englishtutor`.
 
-Phiên bản: 1.3 — 07/11/2026.
+Phiên bản: 1.4 — 07/11/2026 (khiếu nại và hoàn tiền theo mô hình Lớp cần gia sư hợp nhất). Bản 1.3: gộp Đơn ghép lớp vào Lớp cần gia sư.
 
 ---
 
@@ -142,7 +142,7 @@ Mỗi bảng dưới đây cho biết một đối tượng có những trạng 
 | --- | --- | --- |
 | `NEW` | Chờ xử lý, chờ lễ tân gọi lại | `OPEN` (không có gia sư chỉ định, đăng lớp), `MATCHED` (có gia sư chỉ định, lễ tân xác nhận), `CANCELLED` |
 | `OPEN` | Đã đăng, gia sư đang ứng tuyển | `MATCHED` (chọn gia sư ứng tuyển), `CANCELLED` |
-| `MATCHED` | Đã ghép, đã có lớp | `REMATCH` (lớp `TRIAL` dạy thử thất bại, phụ huynh muốn tìm gia sư khác), `CANCELLED` (lớp `ACTIVE`/`COMPLETED` chỉ hủy được trong 7 ngày kể từ `active_from`, quá hạn trả 409 `CLASS_REQUEST_CANCEL_EXPIRED` 1169) |
+| `MATCHED` | Đã ghép, đã có lớp | `REMATCH` (lớp `TRIAL` dạy thử thất bại, phụ huynh muốn tìm gia sư khác; hoặc giải quyết khiếu nại khi lớp `TRIAL`, lớp `ACTIVE` trong 7 ngày kể từ `active_from`), `CANCELLED` (lớp `ACTIVE`/`COMPLETED` chỉ hủy được trong 7 ngày kể từ `active_from`, quá hạn trả 409 `CLASS_REQUEST_CANCEL_EXPIRED` 1169) |
 | `REMATCH` | Đang ghép lại: gia sư cũ bị loại, lớp mở lại để ứng tuyển | `MATCHED` (chọn gia sư ứng tuyển, hoặc xác nhận gia sư chỉ định), `CANCELLED` |
 | `CANCELLED` | Đã hủy | không |
 
@@ -161,12 +161,14 @@ Trạng thái trả về ở API quản lý suy ra từ `class_requests.status` 
 
 Gia sư và khách không thấy `REMATCH`: API gia sư trả lớp này về `OPEN`, lớp hiển thị như lớp đăng tuyển bình thường. Lớp `REMATCH` đang có `requested_tutor_id` thì tạm ẩn và không nhận ứng tuyển.
 
+Chuyển `REMATCH` do khiếu nại trên lớp `ACTIVE` (chỉ trong 7 ngày kể từ `active_from`, quá hạn trả 409 `COMPLAINT_WINDOW_EXPIRED` 1516): lớp → `CANCELLED`, bài giảng và khoản phí giữ nguyên, các bước còn lại như trên. `OPEN` chỉ đi từ `NEW` (lớp đăng lần đầu), không có đường về `OPEN` khi ghép lại.
+
 **Đơn ứng tuyển** (`class_applications.status`)
 
 | Trạng thái | Ý nghĩa | Chuyển được sang |
 | --- | --- | --- |
 | `APPLIED` | Gia sư đã ứng tuyển | `SELECTED` (được chọn), `REJECTED` (không được chọn hoặc lớp bị hủy) |
-| `SELECTED` | Được chọn | `TERMINATED` (dạy thử thất bại → ghép lại, hoặc hủy đơn khi đang dạy thử) |
+| `SELECTED` | Được chọn | `TERMINATED` (dạy thử thất bại → ghép lại, hủy lớp khi đang có lớp, hoặc giải quyết khiếu nại) |
 | `REJECTED` | Không được chọn | `APPLIED` (tự động khi lớp chuyển `REMATCH`). Ngoài trường hợp này không ứng tuyển lại được (409 `APPLICATION_REJECTED` 1162) |
 | `TERMINATED` | Đã loại sau dạy thử không thành công, không ứng tuyển lại được (UNIQUE C-01, 409 `APPLICATION_TERMINATED` 1159) | không |
 
@@ -290,7 +292,7 @@ Validate SĐT: regex `^(0|\+84|84)(3|5|7|8|9)\d{8}$`, sai trả 400 "Số điệ
 | POST | `/api/v1/class-requests/{id}/complete-match` | RECEPTIONIST, ADMIN | Body tùy chọn `{ sessionsPerWeek, pricePerSession, feePercentage }`. Lớp `TRIAL → ACTIVE`, ghi `active_from`, kích hoạt khoản phí. Khác `TRIAL` → 409 `MATCH_REQUEST_NOT_TRIAL` 1111 | FR-29 |
 | POST | `/api/v1/class-requests/{id}/rematch` | RECEPTIONIST, ADMIN | Body `{ reason }` bắt buộc. Dạy thử không thành công, phụ huynh muốn tìm gia sư khác: lớp `MATCHED` + lớp học mới nhất `TRIAL` (khác → 409 `MATCH_REQUEST_NOT_TRIAL` 1111) → `REMATCH`. Hủy lớp `TRIAL` và payment `NEW`, gia sư cũ `TERMINATED`, lượt `REJECTED` về `APPLIED`, thông báo các bên. Một transaction | FR-30 |
 | POST | `/api/v1/class-requests/{id}/cancel` | RECEPTIONIST, ADMIN | Body `{ reason }` bắt buộc. → `CANCELLED` ở mọi trạng thái; đóng lớp học nếu có, loại gia sư đang dạy, từ chối lượt `APPLIED`, thông báo gia sư, học sinh. Lớp đã ghép thành công quá 7 ngày → 409 `CLASS_REQUEST_CANCEL_EXPIRED` 1169. Đã hủy → 409 `CLASS_REQUEST_ALREADY_CANCELLED` 1110 | FR-27 |
-| POST | `/api/v1/classes/{id}/cancel` | RECEPTIONIST, ADMIN | Body `{ reason }`. Hủy lớp ở `TRIAL`/`ACTIVE`, thông báo các bên. Nếu đơn gốc còn hiệu lực → cho phép về `OPEN` (ghép lại) | FR-30 |
+| POST | `/api/v1/classes/{id}/cancel` | RECEPTIONIST, ADMIN | Body `{ reason }`. Hủy lớp ở `TRIAL`/`ACTIVE`, thông báo các bên. Không đưa lớp cần gia sư về `OPEN`; muốn tìm gia sư khác thì dùng `rematch` | FR-30 |
 | GET | `/api/v1/tutors/me/open-requests` | TUTOR | Lớp đang tuyển, kèm cờ `applied`. Gồm `OPEN` và `REMATCH` chưa có gia sư chỉ định, cả hai đều trả `requestStatus = OPEN` | FR-08 |
 | GET | `/api/v1/tutors/me/open-requests/{id}` | TUTOR | Chi tiết lớp tuyển (ẩn SĐT phụ huynh) | FR-08 |
 | POST | `/api/v1/tutors/me/open-requests/{id}/apply` | TUTOR | Body `{ message }` (tùy chọn). 409 nếu đã ứng tuyển, lớp không còn tuyển, hoặc lớp đang có gia sư chỉ định | FR-08 |
@@ -409,18 +411,24 @@ Khi ghép lớp thành công (`class_requests` chuyển `MATCHED`) → gia sư x
 | Method | Path | Quyền | Mô tả | FR |
 | --- | --- | --- | --- | --- |
 | GET | `/api/v1/complaints` | RECEPTIONIST, ADMIN, ACCOUNTANT | Query `status`, `type`, `keyword`, phân trang | FR-36 |
-| GET | `/api/v1/complaints/{id}` | RECEPTIONIST, ADMIN, ACCOUNTANT | Chi tiết kèm yêu cầu hoàn tiền gần nhất và tệp đính kèm | FR-36 |
-| POST | `/api/v1/complaints` | RECEPTIONIST, ADMIN | Body `{ complainantName, complainantPhone, complainantRole, classId, complaintType, complaintContent }` → `PENDING` | FR-35 |
-| PUT | `/api/v1/complaints/{id}` | RECEPTIONIST, ADMIN | Sửa khi chưa `RESOLVED`/`CANCELLED` | FR-36 |
-| POST | `/api/v1/complaints/{id}/resolve-rematch` | RECEPTIONIST, ADMIN | Body `{ resolution }` + ảnh minh chứng (multipart, nhiều tệp). `REMATCH`: → `RESOLVED`, lớp → `CANCELLED`, đơn gốc → `OPEN`, audit `RESOLVE_COMPLAINT` | FR-37 |
-| POST | `/api/v1/complaints/{id}/refund-requests` | RECEPTIONIST, ADMIN | Body `{ paymentId, requestedAmount, recipientName, bankName, bankAccountNumber }`. `paymentId` phải `APPROVED` và cùng lớp; tối đa 1 yêu cầu `PENDING`/`PAID`. Complaint → `PROCESSING`, audit `REQUEST_REFUND` | FR-37 |
-| POST | `/api/v1/complaints/{id}/cancel` | RECEPTIONIST, ADMIN | Hủy khiếu nại | FR-36 |
-| GET | `/api/v1/refunds` | ACCOUNTANT | Query `tab` (`PENDING`/`PAID`/`REJECTED`) | FR-43 |
-| GET | `/api/v1/refunds/{id}` | ACCOUNTANT | Kèm số đã thu / đã hoàn / còn lại | FR-43 |
-| POST | `/api/v1/refunds/{id}/pay` | ACCOUNTANT | Body `{ approvedAmount }` + biên lai (multipart). `approvedAmount ≤ received_amount − đã hoàn`. → `PAID`, complaint → `RESOLVED`, audit `PAY_REFUND`. **`processed_by ≠ requested_by`** | FR-43 |
-| POST | `/api/v1/refunds/{id}/reject` | ACCOUNTANT | Body `{ reason }`. → `REJECTED`, complaint → `PENDING` | FR-43 |
+| GET | `/api/v1/complaints/counts` | RECEPTIONIST, ADMIN, ACCOUNTANT | Số đơn theo trạng thái `{ PENDING, PROCESSING, RESOLVED, CANCELLED, TOTAL }`, dùng cho badge menu và Dashboard | FR-24, FR-36 |
+| GET | `/api/v1/complaints/{id}` | RECEPTIONIST, ADMIN, ACCOUNTANT | Chi tiết kèm lớp cần gia sư bị khiếu nại (trạng thái hiển thị, gia sư, `cancelDeadline`, cờ `alreadyHandled`), `requestOutcome`, yêu cầu hoàn tiền gần nhất, tệp đính kèm và `refundablePayments` (khoản `APPROVED` của lớp: `receivedAmount`, `refundedAmount`, `remainingAmount`) | FR-36 |
+| POST | `/api/v1/complaints` | RECEPTIONIST, ADMIN | Body `{ complainantName, complainantPhone, complainantRole, complaintType, classRequestId, complaintContent }` → `PENDING`, chưa đổi trạng thái lớp. Đối tượng luôn là một lớp cần gia sư; hệ thống tự ghi `class_id` là lớp học `TRIAL`/`ACTIVE` hiện tại nếu có. `NON_REFUND`: lớp không được `CANCELLED` (409 `COMPLAINT_TARGET_NOT_PROCESSABLE` 1503); lớp đã ghép thành công quá 7 ngày kể từ `active_from` → 409 `COMPLAINT_WINDOW_EXPIRED` 1516. `REFUND`: lớp học mới nhất phải `ONLINE` (khác → 409 `REFUND_CLASS_NOT_ONLINE` 1515), nhận cả lớp đã hủy vì phụ huynh thường đòi hoàn tiền sau khi lớp dừng | FR-35 |
+| PUT | `/api/v1/complaints/{id}` | RECEPTIONIST, ADMIN | Sửa họ tên, SĐT, vai trò, nội dung khi `PENDING`. Không đổi loại, đối tượng, trạng thái | FR-36 |
+| POST | `/api/v1/complaints/{id}/resolve` | RECEPTIONIST, ADMIN | Chỉ đơn `NON_REFUND`, `PENDING`. Multipart: `resolution`, `requestOutcome`, ảnh minh chứng (nhiều tệp). `requestOutcome`: `CANCELLED` (Hủy lớp) hoặc `REMATCH` (Ghép lại). Lớp chưa có gia sư (`NEW`/`OPEN`/`REMATCH`) chỉ có Hủy lớp, bỏ trống thì hiểu là `CANCELLED`; gửi `REMATCH` → 409 `COMPLAINT_TARGET_NOT_PROCESSABLE` 1503. Lớp đang dạy thử hoặc ghép thành công bắt buộc chọn (thiếu → 400 `COMPLAINT_OUTCOME_REQUIRED` 1513). `CANCELLED`: như `POST /class-requests/{id}/cancel`. `REMATCH`: lớp `TRIAL`, hoặc `ACTIVE` trong 7 ngày, → `CANCELLED`, gia sư cũ `TERMINATED`, lớp cần gia sư → `REMATCH`. Quá 7 ngày → 409 `COMPLAINT_WINDOW_EXPIRED` 1516. **Lớp đã được xử lý thủ công trước đó** (đã ở đúng kết quả được chọn): không thao tác lại, bắt buộc đính kèm ít nhất 1 tệp minh chứng đã xử lý (thiếu → 400 `COMPLAINT_EVIDENCE_REQUIRED` 1514), không áp hạn 7 ngày. Khiếu nại → `RESOLVED`, lưu `request_outcome`, audit `RESOLVE_COMPLAINT` | FR-37 |
+| POST | `/api/v1/complaints/{id}/refund-requests` | RECEPTIONIST, ADMIN | Body `{ paymentId, requestedAmount, recipientName, bankName, bankAccountNumber }`. Chỉ đơn `REFUND`. `paymentId` phải `APPROVED` và cùng lớp; `requestedAmount` không vượt số còn lại; tối đa 1 yêu cầu `PENDING`/`PAID`. Complaint → `PROCESSING`, audit `REQUEST_REFUND` | FR-37 |
+| POST | `/api/v1/complaints/{id}/cancel` | RECEPTIONIST, ADMIN | Hủy khiếu nại khi `PENDING`, đối tượng giữ nguyên | FR-36 |
+| GET | `/api/v1/refunds` | ACCOUNTANT, ADMIN | Query `tab` (`PENDING`/`PAID`/`REJECTED`) | FR-43 |
+| GET | `/api/v1/refunds/counts` | ACCOUNTANT, ADMIN | Số yêu cầu theo trạng thái `{ PENDING, PAID, REJECTED }` | FR-43 |
+| GET | `/api/v1/refunds/{id}` | ACCOUNTANT, ADMIN | Kèm số đã thu / đã hoàn / còn lại | FR-43 |
+| POST | `/api/v1/refunds/{id}/pay` | ACCOUNTANT, ADMIN | Multipart `approvedAmount`, biên lai. `approvedAmount ≤ min(requested_amount, received_amount − đã hoàn)`. → `PAID`, complaint → `RESOLVED`, audit `PAY_REFUND`. **`processed_by ≠ requested_by`** | FR-43 |
+| POST | `/api/v1/refunds/{id}/reject` | ACCOUNTANT, ADMIN | Body `{ reason }`. → `REJECTED`, complaint → `PENDING` | FR-43 |
 | GET | `/api/v1/accounting/dashboard` | ACCOUNTANT | Thẻ chỉ số: phí chờ xác nhận, hoàn tiền chờ, thu/hoàn trong tháng, công nợ | FR-40 |
 | GET | `/api/v1/accounting/statistics` | ACCOUNTANT | Query `from`, `to`, `groupBy` (`month`\|`payerType`\|`tutor`\|`teachingMode`). Công thức ở `ERD.md` mục 2.6 | FR-44 |
+
+Mã lỗi nhóm 1500: `COMPLAINT_NOT_FOUND` 1500, `COMPLAINT_INVALID_STATE` 1501, `COMPLAINT_TYPE_MISMATCH` 1502, `COMPLAINT_TARGET_NOT_PROCESSABLE` 1503, `COMPLAINT_RESOLUTION_REQUIRED` 1504, `REFUND_NOT_FOUND` 1505, `REFUND_INVALID_STATE` 1506, `REFUND_PAYMENT_INVALID` 1507, `REFUND_ALREADY_EXISTS` 1508, `REFUND_AMOUNT_EXCEEDED` 1509, `REFUND_SAME_ACTOR` 1510, `REFUND_PROOF_REQUIRED` 1511, `REFUND_REJECT_REASON_REQUIRED` 1512, `COMPLAINT_OUTCOME_REQUIRED` 1513, `COMPLAINT_EVIDENCE_REQUIRED` 1514, `REFUND_CLASS_NOT_ONLINE` 1515, `COMPLAINT_WINDOW_EXPIRED` 1516, `COMPLAINT_TOO_MANY_FILES` 1517 (tối đa 5 tệp minh chứng).
+
+Hạn 7 ngày (Quy định website I.3) chỉ áp cho khiếu nại `NON_REFUND` trên lớp đã ghép thành công, tính từ `classes.active_from`. Lớp đang dạy thử hoặc chưa có gia sư không bị giới hạn. Khiếu nại `REFUND` không theo hạn này, số tiền hoàn do kế toán đối soát.
 
 ### 3.10. Học sinh, Nhân sự, Dashboard, Thông báo (module `staff`, `student`, `notification`)
 
@@ -469,10 +477,13 @@ Khi ghép lớp thành công (`class_requests` chuyển `MATCHED`) → gia sư x
 | V14 | Seed catalog kỹ năng (≥ 20, idempotent theo `skill_code`) |
 | V15 | `class_requests` lưu thông tin HS khi đơn `NEW` (chưa có tài khoản) |
 | V16 | **Refactor lessons/logs:** `sessions` → `lessons` (bỏ ngày/giờ, `is_trial`, 2 cột log; `status` PUBLISHED/HIDDEN); bảng mới `teaching_logs` (UNIQUE `class_id`+`log_date`+`start_time`); 6 cột `classes.trial_*`; đổi tên `lesson_materials`, `quizzes.lesson_id`, `schedule_exceptions`; copy seed V6 |
+| V17 | Bỏ 3 cột override khỏi `schedule_exceptions` |
+| V18 | Đổi mã nhân viên sang định dạng `NV-xxxx` |
 | V19 | Nới `chk_class_requests_ready`: lớp `OPEN` được phép chưa có `student_id`, tài khoản học sinh tạo khi vào dạy thử |
 | V20 | `parents`: quy SĐT về dạng `0xxxxxxxxx`, gộp phụ huynh trùng số, thêm `UNIQUE (phone)` |
+| V21 | `complaints`: thêm `class_request_id` (NN), `request_outcome`; `class_id` nullable; `complaint_type` đổi `REMATCH` thành `NON_REFUND` |
 
-> Thực tế `payments`, `complaints`, `refunds` đã được tạo trong V5; V7–V8 là seed và `unaccent`. `db/migration/` hiện có **V1–V20**, mọi file mới phải tăng version, không sửa file đã merge (Flyway immutable — V16 đổi tên bảng cũ thay vì sửa lại migration).
+> Thực tế `payments`, `complaints`, `refunds` đã được tạo trong V5; V7–V8 là seed và `unaccent`. `db/migration/` hiện có **V1–V21**, mọi file mới phải tăng version, không sửa file đã merge (Flyway immutable — V16 đổi tên bảng cũ thay vì sửa lại migration).
 
 ## 6. Ma trận phân quyền tổng hợp
 
