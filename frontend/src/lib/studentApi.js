@@ -145,15 +145,15 @@ export function apiGetReviewStats(token) {
   return request(token, "/api/v1/students/me/reviews/stats");
 }
 
-export function apiAnswerReview(token, questionId, selectedAnswer) {
-  return request(token, `/api/v1/students/me/reviews/${enc(questionId)}/answer`, {
+export function apiAnswerReview(token, cardId, selectedAnswer) {
+  return request(token, `/api/v1/students/me/reviews/${enc(cardId)}/answer`, {
     method: "POST",
     body: JSON.stringify({ selectedAnswer }),
   });
 }
 
-export function apiRateReview(token, questionId, reviewAttemptId, rating) {
-  return request(token, `/api/v1/students/me/reviews/${enc(questionId)}/rate`, {
+export function apiRateReview(token, cardId, reviewAttemptId, rating) {
+  return request(token, `/api/v1/students/me/reviews/${enc(cardId)}/rate`, {
     method: "POST",
     body: JSON.stringify({ reviewAttemptId, rating }),
   });

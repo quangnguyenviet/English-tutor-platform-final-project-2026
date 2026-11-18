@@ -134,14 +134,14 @@ export default function SpacedRepetitionSession() {
     setSelected(current?.pendingFeedback?.selectedAnswer ?? "");
     setFeedback(current?.pendingFeedback ?? null);
     setError("");
-  }, [current?.questionId, current?.pendingFeedback]);
+  }, [current?.cardId, current?.pendingFeedback]);
 
   async function checkAnswer() {
     if (!current || !selected || feedback || submitting) return;
     setSubmitting(true);
     setError("");
     try {
-      setFeedback(await apiAnswerReview(token, current.questionId, selected));
+      setFeedback(await apiAnswerReview(token, current.cardId, selected));
     } catch (err) {
       setError(err.message || "Không thể kiểm tra đáp án");
     } finally {
@@ -157,7 +157,7 @@ export default function SpacedRepetitionSession() {
       try {
         const schedule = await apiRateReview(
           token,
-          current.questionId,
+          current.cardId,
           feedback.reviewAttemptId,
           rating,
         );
@@ -280,7 +280,6 @@ export default function SpacedRepetitionSession() {
                   </span>
                   {question.skillName && <Badge skill={question.skillName}>{question.skillName}</Badge>}
                   {question.cefrLevel && <Badge tone="slate">{question.cefrLevel}</Badge>}
-                  {current.quizTitle && <Badge tone="neutral">{current.quizTitle}</Badge>}
                 </div>
                 <span className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                   <RotateCcw size={14} />
