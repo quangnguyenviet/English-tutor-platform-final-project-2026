@@ -158,3 +158,23 @@ export function apiRateReview(token, cardId, reviewAttemptId, rating) {
     body: JSON.stringify({ reviewAttemptId, rating }),
   });
 }
+
+/** Cấu hình ôn tập: học sinh có bật/tắt "tự động thêm câu sai vào danh sách ôn" không. */
+export function apiGetReviewSettings(token) {
+  return request(token, "/api/v1/students/me/review-settings");
+}
+
+export function apiUpdateReviewSettings(token, autoReviewWrong) {
+  return request(token, "/api/v1/students/me/review-settings", {
+    method: "PUT",
+    body: JSON.stringify({ autoReviewWrong }),
+  });
+}
+
+/** Thêm thủ công một câu đã trả lời (đúng hoặc sai) vào danh sách ôn. Trả {cardId, created}. */
+export function apiAddReviewCard(token, quizId, questionId) {
+  return request(token, "/api/v1/students/me/review-cards", {
+    method: "POST",
+    body: JSON.stringify({ quizId, questionId }),
+  });
+}

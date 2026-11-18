@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
+  BookmarkPlus,
   CheckCircle2,
   ListChecks,
   Loader2,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
+  apiAddReviewCard,
   apiAnswerQuestion,
   apiGetQuizDetail,
   apiGetQuizResult,
@@ -133,6 +135,8 @@ export default function ExerciseTaking() {
   const [submittingQuestionId, setSubmittingQuestionId] = useState(null);
   const [pendingSelection, setPendingSelection] = useState(null);
   const [result, setResult] = useState(null);
+  const [addingReviewQuestionId, setAddingReviewQuestionId] = useState(null);
+  const [manuallyAddedReview, setManuallyAddedReview] = useState(() => new Set());
 
   const loadResult = useCallback(async () => {
     const summary = await apiGetQuizResult(token, quizId);
@@ -202,6 +206,7 @@ export default function ExerciseTaking() {
             : item,
         ),
       );
+      if (feedback.inReview) setManuallyAddedReview((prev) => new Set(prev).add(current.id));
       setAttempt((previous) => ({
         ...previous,
         answeredCount:
@@ -228,6 +233,20 @@ export default function ExerciseTaking() {
     setCurrentIndex((index) => Math.max(0, Math.min(questions.length - 1, index + offset)));
     setAnswerError("");
     setPendingSelection(null);
+  }
+
+  async function addReview(questionId) {
+    if (addingReviewQuestionId != null || manuallyAddedReview.has(questionId)) return;
+    setAddingReviewQuestionId(questionId);
+    setAnswerError("");
+    try {
+      await apiAddReviewCard(token, quizId, questionId);
+      setManuallyAddedReview((prev) => new Set(prev).add(questionId));
+    } catch (err) {
+      setAnswerError(err.message || "Không thể thêm câu vào danh sách ôn.");
+    } finally {
+      setAddingReviewQuestionId(null);
+    }
   }
 
   async function showSummary() {
@@ -361,6 +380,29 @@ export default function ExerciseTaking() {
                   {feedback.explanation}
                 </p>
               )}
+              {(() => {
+                const inReview = feedback.inReview || manuallyAddedReview.has(question.id);
+                return inReview ? (
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle2 size={14} /> Đã trong danh sách ôn tập
+                  </p>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={addingReviewQuestionId !== null}
+                    onClick={() => addReview(question.id)}
+                  >
+                    {addingReviewQuestionId === question.id ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <BookmarkPlus size={14} />
+                    )}
+                    Thêm vào danh sách ôn
+                  </Button>
+                );
+              })()}
             </Card>
           )}
 

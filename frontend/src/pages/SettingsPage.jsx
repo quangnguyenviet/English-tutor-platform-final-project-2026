@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { Eye, EyeOff, CheckCircle2, XCircle, Wifi } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Eye, EyeOff, CheckCircle2, XCircle, Wifi, Loader2 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
+import { apiGetReviewSettings, apiUpdateReviewSettings } from "../lib/studentApi";
 import PageHeader from "../components/ui/PageHeader";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
@@ -22,7 +23,7 @@ const themePreviews = {
 const TAB_DEFS = {
   admin:   [{ id: "appearance", label: "Giao diện" }, { id: "ai", label: "Cấu hình AI" }, { id: "telegram", label: "Telegram Bot" }, { id: "account", label: "Tài khoản" }],
   tutor:   [{ id: "appearance", label: "Giao diện" }, { id: "account", label: "Tài khoản" }],
-  student: [{ id: "appearance", label: "Giao diện" }, { id: "account", label: "Tài khoản" }],
+  student: [{ id: "appearance", label: "Giao diện" }, { id: "review", label: "Ôn tập" }, { id: "account", label: "Tài khoản" }],
 };
 
 const inputClass =
@@ -30,7 +31,7 @@ const inputClass =
 
 export default function SettingsPage() {
   const { theme, setTheme, themes } = useTheme();
-  const { session } = useAuth();
+  const { session, token } = useAuth();
 
   const tabs = TAB_DEFS[session?.role] ?? TAB_DEFS.student;
   const [activeTab, setActiveTab] = useState("appearance");
@@ -44,6 +45,30 @@ export default function SettingsPage() {
 
   const [accountForm, setAccountForm] = useState({ name: session?.name ?? "", email: session?.email ?? "" });
   const [accountSaved, setAccountSaved] = useState(false);
+
+  const [autoReviewWrong, setAutoReviewWrong] = useState(null);
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewSaved, setReviewSaved] = useState(false);
+
+  useEffect(() => {
+    if (session?.role === "student" && activeTab === "review" && autoReviewWrong === null && token) {
+      apiGetReviewSettings(token)
+        .then((s) => setAutoReviewWrong(Boolean(s?.autoReviewWrong)))
+        .catch(() => setAutoReviewWrong(true));
+    }
+  }, [activeTab, session?.role, autoReviewWrong, token]);
+
+  async function saveReviewSettings() {
+    setReviewSaving(true);
+    setReviewSaved(false);
+    try {
+      await apiUpdateReviewSettings(token, autoReviewWrong);
+      setReviewSaved(true);
+      setTimeout(() => setReviewSaved(false), 2000);
+    } finally {
+      setReviewSaving(false);
+    }
+  }
 
   function testAiConnection() {
     setAiStatus("testing");
@@ -192,6 +217,55 @@ export default function SettingsPage() {
           </div>
           <div className="mt-5 flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">
             <Button size="sm">Lưu cấu hình</Button>
+          </div>
+        </Card>
+      )}
+
+      {activeTab === "review" && (
+        <Card>
+          <h2 className="mb-1 text-sm font-semibold text-slate-900 dark:text-slate-50">Ôn tập ngắt quãng</h2>
+          <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
+            Chọn cách câu hỏi được thêm vào danh sách ôn tập của bạn.
+          </p>
+
+          <div className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 dark:border-slate-800">
+            <div>
+              <p className="text-sm font-medium text-slate-900 dark:text-slate-50">Tự động thêm câu trả lời sai</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                Câu sai trong quiz được thêm vào danh sách ôn tập ngay khi bạn trả lời.
+                Bạn vẫn có thể tự thêm bất kỳ câu đúng nào (kể cả câu đoán đúng) thông qua nút
+                "Thêm vào danh sách ôn" trong bài quiz.
+              </p>
+            </div>
+            <button
+              onClick={() => autoReviewWrong !== null && setAutoReviewWrong((v) => !v)}
+              disabled={autoReviewWrong === null}
+              aria-label="Bật hoặc tắt tự động thêm câu sai"
+              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+                autoReviewWrong ? "accent-bg" : "bg-slate-300 dark:bg-slate-700"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  autoReviewWrong ? "translate-x-5" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="mt-5 flex items-center gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+            {autoReviewWrong === null ? (
+              <Loader2 size={16} className="animate-spin text-slate-400" />
+            ) : (
+              <Button size="sm" onClick={saveReviewSettings} disabled={reviewSaving}>
+                {reviewSaving ? "Đang lưu..." : "Lưu cấu hình"}
+              </Button>
+            )}
+            {reviewSaved && (
+              <span className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 size={15} /> Đã lưu
+              </span>
+            )}
           </div>
         </Card>
       )}
