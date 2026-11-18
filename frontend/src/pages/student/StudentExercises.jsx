@@ -117,7 +117,7 @@ export default function StudentExercises() {
         actions={
           <Button as={Link} to="/student/spaced-repetition" variant="outline" size="sm">
             <RotateCcw size={16} />
-            Ôn câu sai
+            Ôn tập ngắt quãng
           </Button>
         }
       />

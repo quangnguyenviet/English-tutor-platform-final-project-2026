@@ -236,7 +236,7 @@ export default function SpacedRepetitionSession() {
         )}
       </div>
 
-      {decks.length > 1 && (
+      {decks.length > 0 && (
         <div className="flex flex-wrap gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1.5 dark:border-slate-800 dark:bg-slate-900/60">
           <button
             type="button"

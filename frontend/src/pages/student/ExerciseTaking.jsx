@@ -112,7 +112,7 @@ function ResultSummary({ result, onReview }) {
         {wrong > 0 && (
           <Button as={Link} to="/student/spaced-repetition" variant="outline">
             <RotateCcw size={16} />
-            Ôn câu sai
+            Ôn tập ngắt quãng
           </Button>
         )}
         <Button as={Link} to="/student/exercises">

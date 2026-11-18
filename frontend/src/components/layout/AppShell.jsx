@@ -260,7 +260,7 @@ function AppShellInner() {
       { to: "/student/classes", label: "Lớp học của tôi", icon: Users, locked: !isMatched },
       { to: "/student/schedule", label: "Lịch học", icon: CalendarDays, locked: !isMatched },
       { to: "/student/exercises", label: "Bài tập & kiểm tra", icon: NotebookPen, locked: !isMatched },
-      { to: "/student/spaced-repetition", label: "Ôn câu sai", icon: RotateCcw, locked: !isMatched },
+      { to: "/student/spaced-repetition", label: "Ôn tập ngắt quãng", icon: RotateCcw, locked: !isMatched },
       { to: "/student/progress", label: "Kết quả & tiến bộ", icon: LineChart, locked: !isMatched },
       { to: "/student/settings", label: "Cài đặt", icon: Settings },
     ];
