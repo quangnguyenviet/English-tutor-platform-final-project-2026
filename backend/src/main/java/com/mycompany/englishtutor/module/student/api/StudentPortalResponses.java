@@ -180,9 +180,7 @@ public final class StudentPortalResponses {
             Integer currentElo) {}
 
     public record ReviewItem(
-            Long questionId,
-            Long quizId,
-            String quizTitle,
+            Long cardId,
             String content,
             String optionA,
             String optionB,
@@ -204,9 +202,7 @@ public final class StudentPortalResponses {
 
     /** Một thẻ đã đến hạn trong phiên ôn tập; đáp án chỉ xuất hiện sau khi đã trả lời. */
     public record DueReviewItem(
-            Long questionId,
-            Long quizId,
-            String quizTitle,
+            Long cardId,
             String content,
             String optionA,
             String optionB,

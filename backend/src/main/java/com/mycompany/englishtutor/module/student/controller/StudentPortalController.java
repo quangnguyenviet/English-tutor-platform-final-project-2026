@@ -200,19 +200,19 @@ public class StudentPortalController {
         return ok(service.getReviewStats());
     }
 
-    @PostMapping("/students/me/reviews/{questionId}/answer")
+    @PostMapping("/students/me/reviews/{cardId}/answer")
     @PreAuthorize("hasRole('STUDENT')")
     @Operation(summary = "Trả lời lại một câu sai", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<ReviewFeedback>> answerReview(
-            @PathVariable Long questionId, @Valid @RequestBody ReviewAnswerRequest request) {
-        return ok(service.answerReview(questionId, request.selectedAnswer()));
+            @PathVariable Long cardId, @Valid @RequestBody ReviewAnswerRequest request) {
+        return ok(service.answerReview(cardId, request.selectedAnswer()));
     }
 
-    @PostMapping("/students/me/reviews/{questionId}/rate")
+    @PostMapping("/students/me/reviews/{cardId}/rate")
     @PreAuthorize("hasRole('STUDENT')")
     @Operation(summary = "Tự đánh giá và lên lịch lượt ôn kế tiếp", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<ReviewScheduleResponse>> rateReview(
-            @PathVariable Long questionId, @Valid @RequestBody ReviewRateRequest request) {
-        return ok(service.rateReview(questionId, request));
+            @PathVariable Long cardId, @Valid @RequestBody ReviewRateRequest request) {
+        return ok(service.rateReview(cardId, request));
     }
 }
