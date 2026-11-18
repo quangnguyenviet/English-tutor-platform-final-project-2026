@@ -797,12 +797,13 @@ public class StudentPortalRepository {
     }
 
     /**
-     * Sinh thẻ ôn tập khi học sinh trả lời sai: snapshot nội dung câu hỏi vào
-     * review_cards (không giữ FK với quiz) và lên lịch ôn đầu tiên ngay bây giờ.
-     * Trùng nội dung (cùng học sinh + câu + CEFR) thì bỏ qua — thẻ đã có lịch riêng.
+     * Sinh thẻ ôn tập: snapshot nội dung câu hỏi vào review_cards (không giữ FK
+     * với quiz) và lên lịch ôn đầu tiên ngay bây giờ. Dùng khi học sinh trả lời
+     * sai (auto) hoặc chủ động thêm câu (thủ công). Trùng nội dung (cùng học sinh
+     * + câu + CEFR) thì bỏ qua — thẻ đã có lịch riêng.
      * @return id thẻ nếu chèn mới, null nếu thẻ đã tồn tại.
      */
-    public Long insertReviewCardOnWrong(Long studentId, Long questionId) {
+    public Long insertReviewCardSnapshot(Long studentId, Long questionId) {
         return jdbc.query(
                         """
                         INSERT INTO review_cards (
@@ -832,6 +833,45 @@ public class StudentPortalRepository {
                 .stream()
                 .findFirst()
                 .orElse(null);
+    }
+
+    /** Thẻ ôn tập đã tồn tại cho câu hỏi này của học sinh (khớp unique key nội dung). */
+    public boolean existsReviewCardForQuestion(Long studentId, Long questionId) {
+        Boolean found = jdbc.query(
+                        """
+                        SELECT EXISTS (
+                            SELECT 1 FROM review_cards c
+                            JOIN quiz_questions qq ON qq.id = ?
+                            WHERE c.student_id = ?
+                              AND c.question_text = qq.question_text
+                              AND c.cefr_level IS NOT DISTINCT FROM qq.cefr_level)
+                        """,
+                        rs -> rs.next() && rs.getBoolean(1),
+                        questionId,
+                        studentId);
+        return found != null && found;
+    }
+
+    /** Đọc setting ôn tập; chưa có row → {@code true} (mặc định, tương đương hành vi cũ). */
+    public boolean findAutoReviewWrongSetting(Long studentId) {
+        List<Boolean> rows = jdbc.query(
+                "SELECT auto_review_wrong FROM student_settings WHERE student_id = ?",
+                (rs, i) -> rs.getBoolean(1),
+                studentId);
+        return rows.isEmpty() || rows.get(0);
+    }
+
+    public void upsertReviewSetting(Long studentId, boolean autoReviewWrong) {
+        jdbc.update(
+                """
+                INSERT INTO student_settings (student_id, auto_review_wrong)
+                VALUES (?, ?)
+                ON CONFLICT (student_id) DO UPDATE
+                    SET auto_review_wrong = EXCLUDED.auto_review_wrong,
+                        updated_at = NOW()
+                """,
+                studentId,
+                autoReviewWrong);
     }
 
     public void markQuizCompleted(Long quizId) {
