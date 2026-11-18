@@ -137,24 +137,79 @@ export function apiGetReviewList(token) {
   return request(token, "/api/v1/students/me/review-list");
 }
 
-export function apiGetDueReviews(token, limit = 20) {
-  return request(token, `/api/v1/students/me/reviews/due?limit=${enc(limit)}`);
+export function apiGetDueReviews(token, limit = 20, deckId) {
+  const params = new URLSearchParams();
+  if (limit != null) params.set("limit", limit);
+  if (deckId != null) params.set("deckId", deckId);
+  const query = params.size ? `?${params.toString()}` : "";
+  return request(token, `/api/v1/students/me/reviews/due${query}`);
 }
 
-export function apiGetReviewStats(token) {
-  return request(token, "/api/v1/students/me/reviews/stats");
+/** deckId trống = thống kê mọi bộ thẻ. */
+export function apiGetReviewStats(token, deckId) {
+  const query = deckId != null ? `?deckId=${enc(deckId)}` : "";
+  return request(token, `/api/v1/students/me/reviews/stats${query}`);
 }
 
-export function apiAnswerReview(token, questionId, selectedAnswer) {
-  return request(token, `/api/v1/students/me/reviews/${enc(questionId)}/answer`, {
+export function apiAnswerReview(token, cardId, selectedAnswer) {
+  return request(token, `/api/v1/students/me/reviews/${enc(cardId)}/answer`, {
     method: "POST",
     body: JSON.stringify({ selectedAnswer }),
   });
 }
 
-export function apiRateReview(token, questionId, reviewAttemptId, rating) {
-  return request(token, `/api/v1/students/me/reviews/${enc(questionId)}/rate`, {
+export function apiRateReview(token, cardId, reviewAttemptId, rating) {
+  return request(token, `/api/v1/students/me/reviews/${enc(cardId)}/rate`, {
     method: "POST",
     body: JSON.stringify({ reviewAttemptId, rating }),
+  });
+}
+
+/** Cấu hình ôn tập: học sinh có bật/tắt "tự động thêm câu sai vào danh sách ôn" không. */
+export function apiGetReviewSettings(token) {
+  return request(token, "/api/v1/students/me/review-settings");
+}
+
+export function apiUpdateReviewSettings(token, autoReviewWrong) {
+  return request(token, "/api/v1/students/me/review-settings", {
+    method: "PUT",
+    body: JSON.stringify({ autoReviewWrong }),
+  });
+}
+
+/** Thêm thủ công một câu đã trả lời (đúng hoặc sai) vào danh sách ôn.
+ *  deckId trống = deck mặc định. Trả {cardId, created} (created=false khi câu
+ *  đã có thẻ trong đúng deck). */
+export function apiAddReviewCard(token, quizId, questionId, deckId) {
+  return request(token, "/api/v1/students/me/review-cards", {
+    method: "POST",
+    body: JSON.stringify({ quizId, questionId, ...(deckId != null ? { deckId } : {}) }),
+  });
+}
+
+// ---------- Bộ thẻ ôn tập (decks, V26) ----------
+
+/** Danh sách bộ thẻ ôn tập của học sinh (deck mặc định trước, kèm số thẻ / câu đến hạn). */
+export function apiGetReviewDecks(token) {
+  return request(token, "/api/v1/students/me/review-decks");
+}
+
+export function apiCreateReviewDeck(token, name) {
+  return request(token, "/api/v1/students/me/review-decks", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function apiRenameReviewDeck(token, deckId, name) {
+  return request(token, `/api/v1/students/me/review-decks/${enc(deckId)}`, {
+    method: "PUT",
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function apiDeleteReviewDeck(token, deckId) {
+  return request(token, `/api/v1/students/me/review-decks/${enc(deckId)}`, {
+    method: "DELETE",
   });
 }

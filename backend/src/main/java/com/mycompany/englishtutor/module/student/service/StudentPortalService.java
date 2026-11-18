@@ -18,17 +18,24 @@ import org.springframework.transaction.annotation.Transactional;
 import com.mycompany.englishtutor.module.classroom.api.response.OccurrenceResponse;
 import com.mycompany.englishtutor.module.classroom.service.ClassOccurrenceService;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AnswerResultResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AddReviewCardResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AttemptStateResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.DashboardResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.DueReviewItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.EloInfo;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.QuizResultResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewFeedback;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewDeckResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewScheduleResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewSettingsResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewStatsResponse;
+import com.mycompany.englishtutor.module.student.api.AddReviewCardRequest;
+import com.mycompany.englishtutor.module.student.api.CreateReviewDeckRequest;
+import com.mycompany.englishtutor.module.student.api.RenameReviewDeckRequest;
 import com.mycompany.englishtutor.module.student.api.ReviewRateRequest;
 import com.mycompany.englishtutor.module.student.api.ReviewRating;
+import com.mycompany.englishtutor.module.student.api.ReviewSettingsRequest;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentInfo;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassDetail;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassMaterialItem;
@@ -46,6 +53,7 @@ import com.mycompany.englishtutor.module.student.repository.StudentPortalReposit
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.IncomingReschedule;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.QuizAccessRow;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.ReviewAttemptRow;
+import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.ReviewDeckRow;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.StoredAnswerRow;
 import com.mycompany.englishtutor.module.user.repository.UserRepository;
 import com.mycompany.englishtutor.shared.exception.AppException;
@@ -74,6 +82,8 @@ public class StudentPortalService {
     SpacedRepetitionScheduler spacedRepetitionScheduler;
 
     private static final DateTimeFormatter DAY_MONTH = DateTimeFormatter.ofPattern("dd/MM");
+    private static final int MAX_REVIEW_DECKS = 50;
+    private static final int MAX_DECK_NAME_LENGTH = 60;
 
     // ---------------------------------------------------------------- LỊCH & BUỔI
 
@@ -361,7 +371,7 @@ public class StudentPortalService {
         var stored = repository.findStoredAnswer(studentId, questionId);
         if (stored.isPresent()) {
             return replay(stored.get(), question.correctAnswer(), question.explanation(),
-                    repository.countAnswers(quizId, studentId), total);
+                    repository.countAnswers(quizId, studentId), total, studentId, questionId);
         }
         requireNotExpired(quiz);
 
@@ -375,18 +385,27 @@ public class StudentPortalService {
             // Hai request đồng thời: giữ kết quả của request ghi trước
             var again = repository.findStoredAnswer(studentId, questionId).orElseThrow();
             return replay(again, question.correctAnswer(), question.explanation(),
-                    repository.countAnswers(quizId, studentId), total);
+                    repository.countAnswers(quizId, studentId), total, studentId, questionId);
         }
         repository.updateElo(studentId, elo.after());
+        if (!correct && repository.findAutoReviewWrongSetting(studentId)) {
+            // Sinh thẻ ôn (snapshot) khi học sinh bật tính năng; tắt thì chỉ lưu quiz_answers.
+            // Câu sai tự động luôn rơi vào deck mặc định của học sinh.
+            Long defaultDeckId =
+                    repository.findDefaultDeckId(studentId).orElseThrow(
+                            () -> new AppException(ErrorCode.REVIEW_DECK_NOT_FOUND));
+            repository.insertReviewCardSnapshot(studentId, questionId, defaultDeckId);
+        }
 
         int answered = repository.countAnswers(quizId, studentId);
         boolean completed = total > 0 && answered >= total;
         if (completed) {
             repository.markQuizCompleted(quizId);
         }
+        boolean inReview = repository.existsReviewCardForQuestion(studentId, questionId);
         return new AnswerResultResponse(
                 correct, selected, question.correctAnswer(), question.explanation(),
-                elo.before(), elo.after(), elo.change(), answered, total, completed);
+                elo.before(), elo.after(), elo.change(), answered, total, completed, inReview);
     }
 
     /** Tổng kết: học sinh làm bài hoặc gia sư sở hữu lớp. */
@@ -406,37 +425,161 @@ public class StudentPortalService {
                 repository.findElo(quiz.studentId()));
     }
 
+    /** {@code deckId} null = xem tất cả deck. */
     @Transactional(readOnly = true)
-    public List<ReviewItem> getReviewList() {
-        return repository.findReviewList(currentUserId());
+    public List<ReviewItem> getReviewList(Long deckId) {
+        return repository.findReviewList(currentUserId(), ownedDeckIdOrNull(deckId));
     }
 
+    /** {@code deckId} null = xem tất cả deck. */
     @Transactional(readOnly = true)
-    public List<DueReviewItem> getDueReviews(Integer requestedLimit) {
+    public List<DueReviewItem> getDueReviews(Integer requestedLimit, Long deckId) {
         int limit = requestedLimit == null ? 20 : Math.max(1, Math.min(requestedLimit, 50));
-        return repository.findDueReviews(currentUserId(), limit);
+        return repository.findDueReviews(currentUserId(), ownedDeckIdOrNull(deckId), limit);
     }
 
+    /** {@code deckId} null = xem tất cả deck. */
     @Transactional(readOnly = true)
-    public ReviewStatsResponse getReviewStats() {
-        return repository.findReviewStats(currentUserId());
+    public ReviewStatsResponse getReviewStats(Long deckId) {
+        return repository.findReviewStats(currentUserId(), ownedDeckIdOrNull(deckId));
+    }
+
+    /** Chỉ guard ownership khi học sinh thực sự lọc theo deck. */
+    private Long ownedDeckIdOrNull(Long deckId) {
+        if (deckId == null) {
+            return null;
+        }
+        requireOwnedDeck(currentUserId(), deckId);
+        return deckId;
+    }
+
+    /** Cấu hình ôn tập; chưa có row = tự động thêm câu sai (mặc định true). */
+    @Transactional(readOnly = true)
+    public ReviewSettingsResponse getReviewSettings() {
+        Long studentId = currentUserId();
+        return new ReviewSettingsResponse(repository.findAutoReviewWrongSetting(studentId));
+    }
+
+    // ------------------------------------------------------------- DECKS ÔN TẬP
+
+    /** Danh sách bộ thẻ ôn tập: deck mặc định trước, kèm số thẻ và số câu đến hạn. */
+    @Transactional(readOnly = true)
+    public List<ReviewDeckResponse> getReviewDecks() {
+        return repository.findReviewDecks(currentUserId()).stream()
+                .map(this::toDeckResponse)
+                .toList();
+    }
+
+    /** Tạo bộ thẻ mới (tên 1–60 ký tự, không trùng trong học sinh, tối đa 50 bộ). */
+    @Transactional
+    public ReviewDeckResponse createReviewDeck(CreateReviewDeckRequest request) {
+        Long studentId = currentUserId();
+        validateDeckName(request.name());
+        if (repository.countReviewDecks(studentId) >= MAX_REVIEW_DECKS) {
+            throw new AppException(ErrorCode.REVIEW_DECK_LIMIT_REACHED);
+        }
+        if (repository.reviewDeckNameTaken(studentId, request.name())) {
+            throw new AppException(ErrorCode.REVIEW_DECK_NAME_TAKEN);
+        }
+        Long deckId =
+                repository.insertReviewDeck(studentId, request.name())
+                        .orElseThrow(() -> new AppException(ErrorCode.REVIEW_DECK_NAME_TAKEN));
+        return toDeckResponse(requireOwnedDeck(studentId, deckId));
+    }
+
+    /** Đổi tên bộ thẻ (kể cả deck mặc định); không được trùng tên bộ thẻ khác. */
+    @Transactional
+    public ReviewDeckResponse renameReviewDeck(Long deckId, RenameReviewDeckRequest request) {
+        Long studentId = currentUserId();
+        validateDeckName(request.name());
+        ReviewDeckRow deck = requireOwnedDeck(studentId, deckId);
+        if (!deck.name().equals(request.name().trim())
+                && repository.reviewDeckNameTaken(studentId, request.name())) {
+            throw new AppException(ErrorCode.REVIEW_DECK_NAME_TAKEN);
+        }
+        if (!deck.name().equals(request.name().trim())) {
+            repository.updateReviewDeckName(studentId, deckId, request.name());
+        }
+        return toDeckResponse(requireOwnedDeck(studentId, deckId));
+    }
+
+    /** Xóa bộ thẻ thường (cascades xóa thẻ + lịch sử ôn); deck mặc định không xóa được. */
+    @Transactional
+    public void deleteReviewDeck(Long deckId) {
+        Long studentId = currentUserId();
+        requireOwnedDeck(studentId, deckId);
+        int deleted = repository.deleteReviewDeck(studentId, deckId);
+        if (deleted == 0) {
+            throw new AppException(ErrorCode.REVIEW_DECK_DELETE_FORBIDDEN);
+        }
+    }
+
+    private void validateDeckName(String name) {
+        String trimmed = name == null ? "" : name.trim();
+        if (trimmed.isEmpty() || trimmed.length() > MAX_DECK_NAME_LENGTH) {
+            throw new AppException(ErrorCode.REVIEW_DECK_NAME_INVALID);
+        }
+    }
+
+    /** Guard quyền sở hữu; trả về deck (kèm số liệu) hoặc ném {@code REVIEW_DECK_NOT_FOUND}. */
+    private ReviewDeckRow requireOwnedDeck(Long studentId, Long deckId) {
+        return repository.findReviewDeck(studentId, deckId)
+                .orElseThrow(() -> new AppException(ErrorCode.REVIEW_DECK_NOT_FOUND));
+    }
+
+    private ReviewDeckResponse toDeckResponse(ReviewDeckRow deck) {
+        return new ReviewDeckResponse(
+                deck.id(), deck.name(), deck.isDefault(), deck.cardCount(), deck.dueCount());
+    }
+
+    @Transactional
+    public ReviewSettingsResponse updateReviewSettings(ReviewSettingsRequest request) {
+        Long studentId = currentUserId();
+        repository.upsertReviewSetting(studentId, request.autoReviewWrong());
+        return new ReviewSettingsResponse(request.autoReviewWrong());
+    }
+
+    /**
+     * Thêm thủ công một câu đã trả lời vào danh sách ôn (đặc biệt câu đúng vì
+     * đoán). Thẻ đã tồn tại (do sai trước đó) thì không đụng lại lịch ôn.
+     */
+    @Transactional
+    public AddReviewCardResponse addReviewCard(AddReviewCardRequest request) {
+        Long studentId = currentUserId();
+        requireOwnedQuiz(request.quizId(), studentId);
+        repository.findQuestion(request.quizId(), request.questionId())
+                .orElseThrow(() -> new AppException(ErrorCode.QUESTION_NOT_FOUND));
+        repository.findStoredAnswer(studentId, request.questionId())
+                .orElseThrow(() -> new AppException(ErrorCode.REVIEW_CARD_ANSWER_REQUIRED));
+
+        // deckId trống = deck mặc định; có deckId thì phải là deck của chính học sinh.
+        Long deckId = request.deckId() == null
+                ? repository.findDefaultDeckId(studentId)
+                        .orElseThrow(() -> new AppException(ErrorCode.REVIEW_DECK_NOT_FOUND))
+                : requireOwnedDeck(studentId, request.deckId()).id();
+
+        if (repository.existsReviewCardInDeck(studentId, request.questionId(), deckId)) {
+            return new AddReviewCardResponse(null, false);
+        }
+        Long cardId = repository.insertReviewCardSnapshot(studentId, request.questionId(), deckId);
+        return new AddReviewCardResponse(cardId, true);
     }
 
     /** Trả lời lại một thẻ đến hạn. Không tác động kết quả quiz hoặc Elo. */
     @Transactional
-    public ReviewFeedback answerReview(Long questionId, String selectedAnswer) {
+    public ReviewFeedback answerReview(Long cardId, String selectedAnswer) {
         Long studentId = currentUserId();
         String selected = selectedAnswer == null ? "" : selectedAnswer.trim().toUpperCase();
         if (!selected.matches("[A-D]")) {
             throw new AppException(ErrorCode.QUIZ_ANSWER_INVALID);
         }
 
-        var existing = repository.findPendingReviewAttempt(studentId, questionId);
+        var existing = repository.findPendingReviewAttempt(studentId, cardId);
         if (existing.isPresent()) {
             return toFeedback(existing.get());
         }
 
-        var card = repository.findReviewCard(studentId, questionId)
+        var card = repository.findReviewCard(studentId, cardId)
                 .orElseThrow(() -> new AppException(ErrorCode.REVIEW_NOT_AVAILABLE));
         OffsetDateTime now = OffsetDateTime.now();
         if (card.nextReview() == null || card.nextReview().isAfter(now)) {
@@ -445,9 +588,9 @@ public class StudentPortalService {
 
         boolean correct = selected.equals(card.correctAnswer());
         var attemptId = repository.insertReviewAttempt(
-                card.answerId(), studentId, questionId, selected, correct);
+                card.cardId(), studentId, selected, correct);
         if (attemptId.isEmpty()) {
-            return repository.findPendingReviewAttempt(studentId, questionId)
+            return repository.findPendingReviewAttempt(studentId, cardId)
                     .map(StudentPortalService::toFeedback)
                     .orElseThrow(() -> new AppException(ErrorCode.REVIEW_ATTEMPT_NOT_FOUND));
         }
@@ -457,10 +600,10 @@ public class StudentPortalService {
 
     /** Lưu tự đánh giá và lên lịch lượt tiếp theo bằng giờ server; gọi lại an toàn. */
     @Transactional
-    public ReviewScheduleResponse rateReview(Long questionId, ReviewRateRequest request) {
+    public ReviewScheduleResponse rateReview(Long cardId, ReviewRateRequest request) {
         Long studentId = currentUserId();
         ReviewAttemptRow attempt = repository
-                .lockReviewAttempt(studentId, questionId, request.reviewAttemptId())
+                .lockReviewAttempt(studentId, cardId, request.reviewAttemptId())
                 .orElseThrow(() -> new AppException(ErrorCode.REVIEW_ATTEMPT_NOT_FOUND));
 
         if (attempt.rating() != null) {
@@ -478,7 +621,7 @@ public class StudentPortalService {
         repository.rateReviewAttempt(
                 attempt.id(), rating.name(), now, schedule.nextReview(), schedule.intervalSeconds());
         int reviewCount = repository.updateReviewCardSchedule(
-                attempt.answerId(), rating.name(), now, schedule.nextReview(), schedule.intervalSeconds());
+                attempt.cardId(), rating.name(), now, schedule.nextReview(), schedule.intervalSeconds());
         return new ReviewScheduleResponse(
                 attempt.id(), rating.name(), schedule.nextReview(), schedule.intervalSeconds(), reviewCount);
     }
@@ -508,12 +651,14 @@ public class StudentPortalService {
         }
     }
 
-    private static AnswerResultResponse replay(
-            StoredAnswerRow stored, String correctAnswer, String explanation, int answered, int total) {
+    private AnswerResultResponse replay(
+            StoredAnswerRow stored, String correctAnswer, String explanation, int answered, int total,
+            Long studentId, Long questionId) {
+        boolean inReview = repository.existsReviewCardForQuestion(studentId, questionId);
         return new AnswerResultResponse(
                 stored.correct(), stored.selectedAnswer(), correctAnswer, explanation,
                 stored.eloBefore(), stored.eloAfter(), stored.eloChange(), answered, total,
-                total > 0 && answered >= total);
+                total > 0 && answered >= total, inReview);
     }
 
     private static ReviewFeedback toFeedback(ReviewAttemptRow attempt) {

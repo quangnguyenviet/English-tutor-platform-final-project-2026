@@ -240,6 +240,7 @@ export function sortQuizzesByDeadline(quizzes = []) {
 /**
  * Chuẩn hóa một câu hỏi từ backend: chấp nhận `options` dạng { A, B, C, D }
  * hoặc các trường rời optionA..optionD; trả về mảng [{ key, text }].
+ * Thẻ ôn tập (snapshot review_cards) dùng cardId làm id.
  */
 export function normalizeQuestion(question) {
   if (!question) return null;
@@ -253,7 +254,8 @@ export function normalizeQuestion(question) {
     .filter((key) => source?.[key] != null && source[key] !== "")
     .map((key) => ({ key, text: String(source[key]) }));
   return {
-    id: question.id ?? question.questionId,
+    id: question.cardId ?? question.id ?? question.questionId,
+    cardId: question.cardId ?? null,
     orderNo: question.orderNo ?? question.questionNumber ?? null,
     content: question.content ?? question.questionText ?? "",
     skillName: question.skillName ?? question.skill ?? "",

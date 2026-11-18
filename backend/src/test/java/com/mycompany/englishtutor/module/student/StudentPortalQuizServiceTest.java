@@ -34,9 +34,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.mycompany.englishtutor.module.classroom.service.ClassOccurrenceService;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AnswerResultResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AddReviewCardResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewFeedback;
+import com.mycompany.englishtutor.module.student.api.AddReviewCardRequest;
+import com.mycompany.englishtutor.module.student.api.CreateReviewDeckRequest;
+import com.mycompany.englishtutor.module.student.api.RenameReviewDeckRequest;
 import com.mycompany.englishtutor.module.student.api.ReviewRateRequest;
 import com.mycompany.englishtutor.module.student.api.ReviewRating;
+import com.mycompany.englishtutor.module.student.api.ReviewSettingsRequest;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizDetailResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentQuizQuestion;
 import com.mycompany.englishtutor.module.student.config.EloProperties;
@@ -45,6 +50,7 @@ import com.mycompany.englishtutor.module.student.repository.StudentPortalReposit
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.QuizAccessRow;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.ReviewAttemptRow;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.ReviewCardStateRow;
+import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.ReviewDeckRow;
 import com.mycompany.englishtutor.module.student.repository.StudentPortalRepository.StoredAnswerRow;
 import com.mycompany.englishtutor.module.student.service.EloCalculator;
 import com.mycompany.englishtutor.module.student.service.QuizExpiryService;
@@ -63,6 +69,9 @@ class StudentPortalQuizServiceTest {
     private static final Long STUDENT_ID = 20L;
     private static final Long QUIZ_ID = 7L;
     private static final Long QUESTION_ID = 100L;
+    private static final Long CARD_ID = 55L;
+    private static final Long DECK_ID = 90L;
+    private static final Long OTHER_DECK_ID = 91L;
 
     @Mock
     StudentPortalRepository repository;
@@ -95,6 +104,8 @@ class StudentPortalQuizServiceTest {
         when(repository.findQuestion(QUIZ_ID, QUESTION_ID))
                 .thenReturn(Optional.of(new QuestionRow(QUESTION_ID, QUIZ_ID, "C", "Giải thích", "A2")));
         when(repository.countQuestions(QUIZ_ID)).thenReturn(2);
+        // Mặc định: học sinh BẬT tự động thêm câu sai vào ôn tập (chưa có row setting).
+        when(repository.findAutoReviewWrongSetting(STUDENT_ID)).thenReturn(true);
     }
 
     @AfterEach
@@ -114,6 +125,7 @@ class StudentPortalQuizServiceTest {
         when(repository.insertAnswer(eq(STUDENT_ID), eq(QUESTION_ID), eq("C"), eq(true), eq(1000), eq(1016), eq(16)))
                 .thenReturn(1);
         when(repository.countAnswers(QUIZ_ID, STUDENT_ID)).thenReturn(1);
+        when(repository.existsReviewCardForQuestion(STUDENT_ID, QUESTION_ID)).thenReturn(false);
 
         AnswerResultResponse result = service.answer(QUIZ_ID, QUESTION_ID, "c");
 
@@ -121,8 +133,48 @@ class StudentPortalQuizServiceTest {
         assertEquals(16, result.eloChange());
         assertEquals(1016, result.eloAfter());
         assertFalse(result.completed());
+        assertFalse(result.inReview());
         verify(repository).updateElo(STUDENT_ID, 1016);
         verify(repository, never()).markQuizCompleted(anyLong());
+        // Trả lời đúng không sinh thẻ ôn tập
+        verify(repository, never()).insertReviewCardSnapshot(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void answer_wrong_generatesReviewCardSnapshot() {
+        when(repository.findStoredAnswer(STUDENT_ID, QUESTION_ID)).thenReturn(Optional.empty());
+        when(repository.lockElo(STUDENT_ID)).thenReturn(1000);
+        when(repository.insertAnswer(anyLong(), anyLong(), anyString(), anyBoolean(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(1);
+        when(repository.countAnswers(QUIZ_ID, STUDENT_ID)).thenReturn(1);
+        when(repository.findDefaultDeckId(STUDENT_ID)).thenReturn(Optional.of(DECK_ID));
+        when(repository.existsReviewCardForQuestion(STUDENT_ID, QUESTION_ID)).thenReturn(true);
+
+        AnswerResultResponse result = service.answer(QUIZ_ID, QUESTION_ID, "A");
+
+        assertFalse(result.isCorrect());
+        assertTrue(result.inReview());
+        // Trả lời sai + setting bật → sinh thẻ snapshot vào deck mặc định; trùng nội dung
+        // trong cùng deck (kể cả từ quiz khác) bị unique index (student, deck, question_text, cefr) gộp lại.
+        verify(repository).insertReviewCardSnapshot(STUDENT_ID, QUESTION_ID, DECK_ID);
+    }
+
+    @Test
+    void answer_wrong_settingDisabled_noReviewCardGenerated() {
+        when(repository.findStoredAnswer(STUDENT_ID, QUESTION_ID)).thenReturn(Optional.empty());
+        when(repository.lockElo(STUDENT_ID)).thenReturn(1000);
+        when(repository.insertAnswer(anyLong(), anyLong(), anyString(), anyBoolean(), anyInt(), anyInt(), anyInt()))
+                .thenReturn(1);
+        when(repository.countAnswers(QUIZ_ID, STUDENT_ID)).thenReturn(1);
+        when(repository.findAutoReviewWrongSetting(STUDENT_ID)).thenReturn(false);
+        when(repository.existsReviewCardForQuestion(STUDENT_ID, QUESTION_ID)).thenReturn(false);
+
+        AnswerResultResponse result = service.answer(QUIZ_ID, QUESTION_ID, "A");
+
+        assertFalse(result.isCorrect());
+        assertFalse(result.inReview());
+        // Tắt tự động → không sinh thẻ; học sinh có thể thêm thủ công sau đó.
+        verify(repository, never()).insertReviewCardSnapshot(anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -132,6 +184,7 @@ class StudentPortalQuizServiceTest {
         when(repository.insertAnswer(anyLong(), anyLong(), anyString(), anyBoolean(), anyInt(), anyInt(), anyInt()))
                 .thenReturn(1);
         when(repository.countAnswers(QUIZ_ID, STUDENT_ID)).thenReturn(2);
+        when(repository.findDefaultDeckId(STUDENT_ID)).thenReturn(Optional.of(DECK_ID));
 
         AnswerResultResponse result = service.answer(QUIZ_ID, QUESTION_ID, "A");
 
@@ -240,14 +293,14 @@ class StudentPortalQuizServiceTest {
 
     @Test
     void answerReview_dueCardCreatesPendingAttemptWithoutChangingElo() {
-        when(repository.findPendingReviewAttempt(STUDENT_ID, QUESTION_ID)).thenReturn(Optional.empty());
-        when(repository.findReviewCard(STUDENT_ID, QUESTION_ID))
+        when(repository.findPendingReviewAttempt(STUDENT_ID, CARD_ID)).thenReturn(Optional.empty());
+        when(repository.findReviewCard(STUDENT_ID, CARD_ID))
                 .thenReturn(Optional.of(new ReviewCardStateRow(
-                        55L, QUESTION_ID, "C", "Giải thích", OffsetDateTime.now().minusMinutes(1))));
-        when(repository.insertReviewAttempt(55L, STUDENT_ID, QUESTION_ID, "B", false))
+                        CARD_ID, "C", "Giải thích", OffsetDateTime.now().minusMinutes(1))));
+        when(repository.insertReviewAttempt(CARD_ID, STUDENT_ID, "B", false))
                 .thenReturn(Optional.of(77L));
 
-        ReviewFeedback result = service.answerReview(QUESTION_ID, "b");
+        ReviewFeedback result = service.answerReview(CARD_ID, "b");
 
         assertEquals(77L, result.reviewAttemptId());
         assertFalse(result.isCorrect());
@@ -257,27 +310,27 @@ class StudentPortalQuizServiceTest {
 
     @Test
     void answerReview_notDueIsRejected() {
-        when(repository.findPendingReviewAttempt(STUDENT_ID, QUESTION_ID)).thenReturn(Optional.empty());
-        when(repository.findReviewCard(STUDENT_ID, QUESTION_ID))
+        when(repository.findPendingReviewAttempt(STUDENT_ID, CARD_ID)).thenReturn(Optional.empty());
+        when(repository.findReviewCard(STUDENT_ID, CARD_ID))
                 .thenReturn(Optional.of(new ReviewCardStateRow(
-                        55L, QUESTION_ID, "C", null, OffsetDateTime.now().plusMinutes(1))));
+                        CARD_ID, "C", null, OffsetDateTime.now().plusMinutes(1))));
 
-        AppException ex = assertThrows(AppException.class, () -> service.answerReview(QUESTION_ID, "A"));
+        AppException ex = assertThrows(AppException.class, () -> service.answerReview(CARD_ID, "A"));
 
         assertEquals(ErrorCode.REVIEW_NOT_DUE, ex.getErrorCode());
-        verify(repository, never()).insertReviewAttempt(anyLong(), anyLong(), anyLong(), anyString(), anyBoolean());
+        verify(repository, never()).insertReviewAttempt(anyLong(), anyLong(), anyString(), anyBoolean());
     }
 
     @Test
     void rateReview_easySchedulesFiveDaysAndIncrementsCard() {
         var attempt = new ReviewAttemptRow(
-                77L, 55L, QUESTION_ID, "B", false, "C", "Giải thích", null, null, null, 2);
-        when(repository.lockReviewAttempt(STUDENT_ID, QUESTION_ID, 77L)).thenReturn(Optional.of(attempt));
+                77L, CARD_ID, "B", false, "C", "Giải thích", null, null, null, 2);
+        when(repository.lockReviewAttempt(STUDENT_ID, CARD_ID, 77L)).thenReturn(Optional.of(attempt));
         when(repository.updateReviewCardSchedule(
-                        eq(55L), eq("EASY"), any(OffsetDateTime.class), any(OffsetDateTime.class), eq(432_000)))
+                        eq(CARD_ID), eq("EASY"), any(OffsetDateTime.class), any(OffsetDateTime.class), eq(432_000)))
                 .thenReturn(3);
 
-        var result = service.rateReview(QUESTION_ID, new ReviewRateRequest(77L, ReviewRating.EASY));
+        var result = service.rateReview(CARD_ID, new ReviewRateRequest(77L, ReviewRating.EASY));
 
         assertEquals(432_000, result.intervalSeconds());
         assertEquals(3, result.reviewCount());
@@ -290,14 +343,216 @@ class StudentPortalQuizServiceTest {
     void rateReview_alreadyRatedReplaysStoredSchedule() {
         OffsetDateTime next = OffsetDateTime.now().plusMinutes(10);
         var attempt = new ReviewAttemptRow(
-                77L, 55L, QUESTION_ID, "C", true, "C", null, "GOOD", next, 600, 4);
-        when(repository.lockReviewAttempt(STUDENT_ID, QUESTION_ID, 77L)).thenReturn(Optional.of(attempt));
+                77L, CARD_ID, "C", true, "C", null, "GOOD", next, 600, 4);
+        when(repository.lockReviewAttempt(STUDENT_ID, CARD_ID, 77L)).thenReturn(Optional.of(attempt));
 
-        var result = service.rateReview(QUESTION_ID, new ReviewRateRequest(77L, ReviewRating.AGAIN));
+        var result = service.rateReview(CARD_ID, new ReviewRateRequest(77L, ReviewRating.AGAIN));
 
         assertEquals("GOOD", result.rating());
         assertEquals(next, result.nextReview());
         verify(repository, never()).rateReviewAttempt(anyLong(), anyString(), any(), any(), anyInt());
         verify(repository, never()).updateReviewCardSchedule(anyLong(), anyString(), any(), any(), anyInt());
+    }
+
+    @Test
+    void reviewSettings_defaultsToAutoWhenNoRow() {
+        when(repository.findAutoReviewWrongSetting(STUDENT_ID)).thenReturn(true);
+
+        assertTrue(service.getReviewSettings().autoReviewWrong());
+    }
+
+    @Test
+    void updateReviewSettings_persistsToggle() {
+        var result = service.updateReviewSettings(new ReviewSettingsRequest(false));
+
+        assertFalse(result.autoReviewWrong());
+        verify(repository).upsertReviewSetting(STUDENT_ID, false);
+    }
+
+    // ----------------------------------------------------------- DECK ÔN TẬP
+
+    @Test
+    void createReviewDeck_blankName_isRejected() {
+        AppException ex = assertThrows(
+                AppException.class,
+                () -> service.createReviewDeck(new CreateReviewDeckRequest("   ")));
+
+        assertEquals(ErrorCode.REVIEW_DECK_NAME_INVALID, ex.getErrorCode());
+    }
+
+    @Test
+    void createReviewDeck_duplicateName_isRejected() {
+        when(repository.countReviewDecks(STUDENT_ID)).thenReturn(1);
+        when(repository.reviewDeckNameTaken(STUDENT_ID, "Từ vựng")).thenReturn(true);
+
+        AppException ex = assertThrows(
+                AppException.class,
+                () -> service.createReviewDeck(new CreateReviewDeckRequest("Từ vựng")));
+
+        assertEquals(ErrorCode.REVIEW_DECK_NAME_TAKEN, ex.getErrorCode());
+    }
+
+    @Test
+    void createReviewDeck_limitReached_isRejected() {
+        when(repository.countReviewDecks(STUDENT_ID)).thenReturn(50);
+        when(repository.reviewDeckNameTaken(STUDENT_ID, "Mới")).thenReturn(false);
+
+        AppException ex = assertThrows(
+                AppException.class, () -> service.createReviewDeck(new CreateReviewDeckRequest("Mới")));
+
+        assertEquals(ErrorCode.REVIEW_DECK_LIMIT_REACHED, ex.getErrorCode());
+    }
+
+    @Test
+    void createReviewDeck_valid_insertsAndReturnsRow() {
+        when(repository.countReviewDecks(STUDENT_ID)).thenReturn(1);
+        when(repository.reviewDeckNameTaken(STUDENT_ID, "Mới")).thenReturn(false);
+        when(repository.insertReviewDeck(STUDENT_ID, "Mới")).thenReturn(Optional.of(OTHER_DECK_ID));
+        when(repository.findReviewDeck(STUDENT_ID, OTHER_DECK_ID))
+                .thenReturn(Optional.of(new ReviewDeckRow(OTHER_DECK_ID, "Mới", false, 0, 0)));
+
+        var result = service.createReviewDeck(new CreateReviewDeckRequest("Mới"));
+
+        assertEquals(OTHER_DECK_ID, result.id());
+        assertEquals("Mới", result.name());
+        assertFalse(result.isDefault());
+        verify(repository).insertReviewDeck(STUDENT_ID, "Mới");
+    }
+
+    @Test
+    void renameReviewDeck_defaultDeck_isAllowed() {
+        when(repository.findReviewDeck(STUDENT_ID, DECK_ID))
+                .thenReturn(
+                        Optional.of(new ReviewDeckRow(DECK_ID, "Câu sai tự động", true, 3, 1)),
+                        Optional.of(new ReviewDeckRow(DECK_ID, "Sai & khó", true, 3, 1)));
+        when(repository.reviewDeckNameTaken(STUDENT_ID, "Sai & khó")).thenReturn(false);
+
+        var result = service.renameReviewDeck(DECK_ID, new RenameReviewDeckRequest("Sai & khó"));
+
+        assertEquals("Sai & khó", result.name());
+        assertTrue(result.isDefault());
+        verify(repository).updateReviewDeckName(STUDENT_ID, DECK_ID, "Sai & khó");
+    }
+
+    @Test
+    void renameReviewDeck_foreignDeck_isRejected() {
+        when(repository.findReviewDeck(STUDENT_ID, OTHER_DECK_ID)).thenReturn(Optional.empty());
+
+        AppException ex = assertThrows(
+                AppException.class,
+                () -> service.renameReviewDeck(OTHER_DECK_ID, new RenameReviewDeckRequest("X")));
+
+        assertEquals(ErrorCode.REVIEW_DECK_NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
+    void deleteReviewDeck_defaultDeck_isForbidden() {
+        when(repository.findReviewDeck(STUDENT_ID, DECK_ID))
+                .thenReturn(Optional.of(new ReviewDeckRow(DECK_ID, "Câu sai tự động", true, 5, 2)));
+        when(repository.deleteReviewDeck(STUDENT_ID, DECK_ID)).thenReturn(0);
+
+        AppException ex = assertThrows(
+                AppException.class, () -> service.deleteReviewDeck(DECK_ID));
+
+        assertEquals(ErrorCode.REVIEW_DECK_DELETE_FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    void deleteReviewDeck_regularDeck_deletes() {
+        when(repository.findReviewDeck(STUDENT_ID, OTHER_DECK_ID))
+                .thenReturn(Optional.of(new ReviewDeckRow(OTHER_DECK_ID, "Mới", false, 0, 0)));
+        when(repository.deleteReviewDeck(STUDENT_ID, OTHER_DECK_ID)).thenReturn(1);
+
+        service.deleteReviewDeck(OTHER_DECK_ID);
+
+        verify(repository).deleteReviewDeck(STUDENT_ID, OTHER_DECK_ID);
+    }
+
+    @Test
+    void addReviewCard_answeredQuestionCreatesSnapshot() {
+        when(repository.findStoredAnswer(STUDENT_ID, QUESTION_ID))
+                .thenReturn(Optional.of(new StoredAnswerRow("C", true, 1000, 1016, 16)));
+        when(repository.findDefaultDeckId(STUDENT_ID)).thenReturn(Optional.of(DECK_ID));
+        when(repository.existsReviewCardInDeck(STUDENT_ID, QUESTION_ID, DECK_ID)).thenReturn(false);
+        when(repository.insertReviewCardSnapshot(STUDENT_ID, QUESTION_ID, DECK_ID)).thenReturn(CARD_ID);
+
+        AddReviewCardResponse result =
+                service.addReviewCard(new AddReviewCardRequest(QUIZ_ID, QUESTION_ID, null));
+
+        assertTrue(result.created());
+        assertEquals(CARD_ID, result.cardId());
+    }
+
+    @Test
+    void addReviewCard_explicitDeck_usesThatDeck() {
+        when(repository.findStoredAnswer(STUDENT_ID, QUESTION_ID))
+                .thenReturn(Optional.of(new StoredAnswerRow("C", true, 1000, 1016, 16)));
+        when(repository.findReviewDeck(STUDENT_ID, OTHER_DECK_ID))
+                .thenReturn(Optional.of(new ReviewDeckRow(OTHER_DECK_ID, "Từ vựng", false, 0, 0)));
+        when(repository.existsReviewCardInDeck(STUDENT_ID, QUESTION_ID, OTHER_DECK_ID)).thenReturn(false);
+        when(repository.insertReviewCardSnapshot(STUDENT_ID, QUESTION_ID, OTHER_DECK_ID))
+                .thenReturn(CARD_ID);
+
+        AddReviewCardResponse result =
+                service.addReviewCard(new AddReviewCardRequest(QUIZ_ID, QUESTION_ID, OTHER_DECK_ID));
+
+        assertTrue(result.created());
+        assertEquals(CARD_ID, result.cardId());
+        verify(repository).insertReviewCardSnapshot(STUDENT_ID, QUESTION_ID, OTHER_DECK_ID);
+    }
+
+    @Test
+    void addReviewCard_sameQuestionInOtherDeck_isAllowed() {
+        // Cùng câu đã có thẻ ở deck mặc định nhưng thêm vào deck khác → vẫn tạo thẻ mới (lịch riêng).
+        when(repository.findStoredAnswer(STUDENT_ID, QUESTION_ID))
+                .thenReturn(Optional.of(new StoredAnswerRow("C", false, 1000, 984, -16)));
+        when(repository.findReviewDeck(STUDENT_ID, OTHER_DECK_ID))
+                .thenReturn(Optional.of(new ReviewDeckRow(OTHER_DECK_ID, "Từ vựng", false, 1, 0)));
+        when(repository.existsReviewCardInDeck(STUDENT_ID, QUESTION_ID, OTHER_DECK_ID)).thenReturn(false);
+        when(repository.insertReviewCardSnapshot(STUDENT_ID, QUESTION_ID, OTHER_DECK_ID))
+                .thenReturn(CARD_ID);
+
+        AddReviewCardResponse result =
+                service.addReviewCard(new AddReviewCardRequest(QUIZ_ID, QUESTION_ID, OTHER_DECK_ID));
+
+        assertTrue(result.created());
+    }
+
+    @Test
+    void addReviewCard_existingCardInDeckIsNoOpWithoutTouchingSchedule() {
+        when(repository.findStoredAnswer(STUDENT_ID, QUESTION_ID))
+                .thenReturn(Optional.of(new StoredAnswerRow("C", false, 1000, 984, -16)));
+        when(repository.findDefaultDeckId(STUDENT_ID)).thenReturn(Optional.of(DECK_ID));
+        when(repository.existsReviewCardInDeck(STUDENT_ID, QUESTION_ID, DECK_ID)).thenReturn(true);
+
+        AddReviewCardResponse result =
+                service.addReviewCard(new AddReviewCardRequest(QUIZ_ID, QUESTION_ID, null));
+
+        assertFalse(result.created());
+        verify(repository, never()).insertReviewCardSnapshot(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void addReviewCard_notAnsweredYet_isRejected() {
+        when(repository.findStoredAnswer(STUDENT_ID, QUESTION_ID)).thenReturn(Optional.empty());
+
+        AppException ex = assertThrows(
+                AppException.class,
+                () -> service.addReviewCard(new AddReviewCardRequest(QUIZ_ID, QUESTION_ID, null)));
+
+        assertEquals(ErrorCode.REVIEW_CARD_ANSWER_REQUIRED, ex.getErrorCode());
+        verify(repository, never()).insertReviewCardSnapshot(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    void addReviewCard_otherStudentQuiz_isRejected() {
+        when(repository.findQuizAccess(QUIZ_ID)).thenReturn(Optional.of(quiz("ASSIGNED", 99L, 1)));
+
+        AppException ex = assertThrows(
+                AppException.class,
+                () -> service.addReviewCard(new AddReviewCardRequest(QUIZ_ID, QUESTION_ID, null)));
+
+        assertEquals(ErrorCode.QUIZ_NOT_AVAILABLE, ex.getErrorCode());
+        verify(repository, never()).insertReviewCardSnapshot(anyLong(), anyLong(), anyLong());
     }
 }

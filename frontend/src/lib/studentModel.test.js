@@ -137,6 +137,25 @@ test("normalizeQuestion: nhận cả options object và optionA..D", () => {
   assert.equal(normalizeQuestion(null), null);
 });
 
+test("normalizeQuestion: thẻ ôn tập snapshot (review_cards) đọc cardId + nội dung đóng băng", () => {
+  const card = normalizeQuestion({
+    cardId: 9,
+    questionText: "Which one is correct?",
+    optionA: "a",
+    optionB: "b",
+    optionC: "c",
+    optionD: "d",
+    skillName: "Vocabulary",
+    cefrLevel: "A2",
+  });
+  assert.equal(card.id, 9);
+  assert.equal(card.cardId, 9);
+  assert.equal(card.content, "Which one is correct?");
+  assert.deepEqual(card.options.map((o) => o.key), ["A", "B", "C", "D"]);
+  assert.equal(card.skillName, "Vocabulary");
+  assert.equal(card.cefrLevel, "A2");
+});
+
 test("dashboardArea: lỗi một khu vực không ảnh hưởng khu khác", () => {
   const dashboard = {
     elo: { current: 1032 },

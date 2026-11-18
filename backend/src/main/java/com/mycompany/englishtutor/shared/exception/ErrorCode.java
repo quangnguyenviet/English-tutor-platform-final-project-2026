@@ -212,6 +212,18 @@ public enum ErrorCode {
     REVIEW_NOT_AVAILABLE(1419, "Câu hỏi này không có trong danh sách ôn tập của bạn", HttpStatus.NOT_FOUND),
     REVIEW_NOT_DUE(1420, "Câu hỏi này chưa đến thời điểm ôn lại", HttpStatus.CONFLICT),
     REVIEW_ATTEMPT_NOT_FOUND(1421, "Lượt ôn tập không tồn tại hoặc không thuộc về bạn", HttpStatus.NOT_FOUND),
+    REVIEW_CARD_ANSWER_REQUIRED(
+            1422, "Bạn cần trả lời câu hỏi này trước khi thêm vào danh sách ôn tập", HttpStatus.BAD_REQUEST),
+    REVIEW_DECK_NOT_FOUND(
+            1423, "Bộ thẻ ôn tập không tồn tại hoặc không thuộc về bạn", HttpStatus.NOT_FOUND),
+    REVIEW_DECK_NAME_INVALID(
+            1424, "Tên bộ thẻ ôn tập phải từ 1 đến 60 ký tự", HttpStatus.BAD_REQUEST),
+    REVIEW_DECK_NAME_TAKEN(
+            1425, "Đã có bộ thẻ ôn tập cùng tên", HttpStatus.CONFLICT),
+    REVIEW_DECK_DELETE_FORBIDDEN(
+            1426, "Không thể xóa bộ thẻ mặc định của hệ thống", HttpStatus.BAD_REQUEST),
+    REVIEW_DECK_LIMIT_REACHED(
+            1427, "Tối đa 50 bộ thẻ ôn tập", HttpStatus.BAD_REQUEST),
     // --- Quản lý nhân sự (Lễ tân / Kế toán) - module staff (UC-ADM-11, UC-ADM-12) ---
     PHONE_EXISTED(1300, "Số điện thoại đã được đăng ký trong hệ thống", HttpStatus.BAD_REQUEST),
     EMPLOYEE_NOT_FOUND(1301, "Nhân sự không tồn tại", HttpStatus.NOT_FOUND),
