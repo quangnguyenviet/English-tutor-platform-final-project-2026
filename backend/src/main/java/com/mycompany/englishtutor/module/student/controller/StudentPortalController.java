@@ -12,12 +12,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AnswerResultResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AddReviewCardResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AttemptStateResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.DashboardResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.DueReviewItem;
@@ -25,9 +27,12 @@ import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.Quiz
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewFeedback;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewScheduleResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewSettingsResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewStatsResponse;
+import com.mycompany.englishtutor.module.student.api.AddReviewCardRequest;
 import com.mycompany.englishtutor.module.student.api.ReviewAnswerRequest;
 import com.mycompany.englishtutor.module.student.api.ReviewRateRequest;
+import com.mycompany.englishtutor.module.student.api.ReviewSettingsRequest;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassDetail;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassMaterialItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassSummary;
@@ -214,5 +219,28 @@ public class StudentPortalController {
     public ResponseEntity<ApiResponse<ReviewScheduleResponse>> rateReview(
             @PathVariable Long cardId, @Valid @RequestBody ReviewRateRequest request) {
         return ok(service.rateReview(cardId, request));
+    }
+
+    @GetMapping("/students/me/review-settings")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(summary = "Cấu hình ôn tập (tự động thêm câu sai)", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<ReviewSettingsResponse>> reviewSettings() {
+        return ok(service.getReviewSettings());
+    }
+
+    @PutMapping("/students/me/review-settings")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(summary = "Cập nhật cấu hình ôn tập", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<ReviewSettingsResponse>> updateReviewSettings(
+            @Valid @RequestBody ReviewSettingsRequest request) {
+        return ok(service.updateReviewSettings(request));
+    }
+
+    @PostMapping("/students/me/review-cards")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(summary = "Thêm thủ công một câu đã trả lời vào danh sách ôn", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<AddReviewCardResponse>> addReviewCard(
+            @Valid @RequestBody AddReviewCardRequest request) {
+        return ok(service.addReviewCard(request));
     }
 }
