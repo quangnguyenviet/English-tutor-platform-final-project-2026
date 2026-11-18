@@ -83,7 +83,6 @@ services:
       context: ./ai
       dockerfile: Dockerfile
     container_name: tutor-ai
-    restart: always
     ports:
       - "${AI_PORT:-8000}:8000"
     environment:
