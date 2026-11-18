@@ -1,11 +1,30 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, CheckCircle2, XCircle, Wifi, Loader2 } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  XCircle,
+  Wifi,
+  Loader2,
+  Plus,
+  Pencil,
+  Trash2,
+  Layers,
+} from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
-import { apiGetReviewSettings, apiUpdateReviewSettings } from "../lib/studentApi";
+import {
+  apiGetReviewSettings,
+  apiUpdateReviewSettings,
+  apiGetReviewDecks,
+  apiCreateReviewDeck,
+  apiRenameReviewDeck,
+  apiDeleteReviewDeck,
+} from "../lib/studentApi";
 import PageHeader from "../components/ui/PageHeader";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
+import ConfirmModal from "../components/ui/ConfirmModal";
 
 const themePreviews = {
   dark: {
@@ -50,6 +69,16 @@ export default function SettingsPage() {
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewSaved, setReviewSaved] = useState(false);
 
+  const [reviewDecks, setReviewDecks] = useState(null);
+  const [newDeckName, setNewDeckName] = useState("");
+  const [deckBusy, setDeckBusy] = useState("");
+  const [deckError, setDeckError] = useState("");
+  const [renamingDeckId, setRenamingDeckId] = useState(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [deleteDeck, setDeleteDeck] = useState(null);
+
+  const isStudentReview = session?.role === "student" && activeTab === "review";
+
   useEffect(() => {
     if (session?.role === "student" && activeTab === "review" && autoReviewWrong === null && token) {
       apiGetReviewSettings(token)
@@ -57,6 +86,76 @@ export default function SettingsPage() {
         .catch(() => setAutoReviewWrong(true));
     }
   }, [activeTab, session?.role, autoReviewWrong, token]);
+
+  useEffect(() => {
+    if (!isStudentReview || !token || reviewDecks !== null) return;
+    apiGetReviewDecks(token)
+      .then((decks) => setReviewDecks(Array.isArray(decks) ? decks : []))
+      .catch(() => setReviewDecks([]));
+  }, [isStudentReview, token, reviewDecks]);
+
+  function refreshDecks() {
+    if (!token) return;
+    apiGetReviewDecks(token)
+      .then((decks) => setReviewDecks(Array.isArray(decks) ? decks : []))
+      .catch(() => {});
+  }
+
+  async function createDeck() {
+    const name = newDeckName.trim();
+    if (!name || deckBusy !== "") return;
+    setDeckBusy("create");
+    setDeckError("");
+    try {
+      await apiCreateReviewDeck(token, name);
+      setNewDeckName("");
+      refreshDecks();
+    } catch (err) {
+      setDeckError(err.message || "Không thể tạo bộ thẻ.");
+    } finally {
+      setDeckBusy("");
+    }
+  }
+
+  async function saveRename() {
+    if (deckBusy !== "" || !renamingDeckId) return;
+    const name = renameValue.trim();
+    if (!name) return;
+    setDeckBusy(`rename:${renamingDeckId}`);
+    setDeckError("");
+    try {
+      await apiRenameReviewDeck(token, renamingDeckId, name);
+      setRenamingDeckId(null);
+      setRenameValue("");
+      refreshDecks();
+    } catch (err) {
+      setDeckError(err.message || "Không thể đổi tên bộ thẻ.");
+    } finally {
+      setDeckBusy("");
+    }
+  }
+
+  function startRename(deck) {
+    setRenamingDeckId(deck.id);
+    setRenameValue(deck.name);
+    setDeckError("");
+  }
+
+  async function confirmDeleteDeck() {
+    if (!deleteDeck || deckBusy !== "") return;
+    setDeckBusy(`delete:${deleteDeck.id}`);
+    setDeckError("");
+    try {
+      await apiDeleteReviewDeck(token, deleteDeck.id);
+      setDeleteDeck(null);
+      refreshDecks();
+    } catch (err) {
+      setDeleteDeck(null);
+      setDeckError(err.message || "Không thể xóa bộ thẻ.");
+    } finally {
+      setDeckBusy("");
+    }
+  }
 
   async function saveReviewSettings() {
     setReviewSaving(true);
@@ -221,7 +320,7 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      {activeTab === "review" && (
+      {activeTab === "review" && (<>
         <Card>
           <h2 className="mb-1 text-sm font-semibold text-slate-900 dark:text-slate-50">Ôn tập ngắt quãng</h2>
           <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
@@ -268,7 +367,129 @@ export default function SettingsPage() {
             )}
           </div>
         </Card>
-      )}
+
+        <Card className="mt-4">
+          <h2 className="mb-1 text-sm font-semibold text-slate-900 dark:text-slate-50">Bộ thẻ ôn tập</h2>
+          <p className="mb-4 text-xs text-slate-500 dark:text-slate-400">
+            Câu sai tự động luôn vào bộ thẻ mặc định. Tạo thêm bộ thẻ để chia nhóm câu hỏi
+            khi ôn tập. Bộ thẻ mặc định được đổi tên nhưng không xóa được.
+          </p>
+
+          <div className="mb-3 flex gap-2">
+            <input
+              value={newDeckName}
+              onChange={(e) => setNewDeckName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && createDeck()}
+              placeholder="Tên bộ thẻ mới (tối đa 60 ký tự)"
+              maxLength={60}
+              className={inputClass}
+            />
+            <Button size="sm" variant="secondary" onClick={createDeck} disabled={deckBusy !== "" || !newDeckName.trim()}>
+              {deckBusy === "create" ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              Thêm
+            </Button>
+          </div>
+
+          {deckError && (
+            <p className="mb-3 flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
+              <XCircle size={14} /> {deckError}
+            </p>
+          )}
+
+          {reviewDecks === null ? (
+            <div className="flex items-center gap-2 text-sm text-slate-400">
+              <Loader2 size={15} className="animate-spin" /> Đang tải bộ thẻ...
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {reviewDecks.map((deck) => (
+                <div
+                  key={deck.id}
+                  className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2.5 dark:border-slate-800"
+                >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
+                    <Layers size={14} />
+                  </span>
+                  {renamingDeckId === deck.id ? (
+                    <input
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && saveRename()}
+                      maxLength={60}
+                      autoFocus
+                      className={inputClass + " flex-1"}
+                    />
+                  ) : (
+                    <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                      {deck.name}
+                    </p>
+                  )}
+                  {deck.isDefault && (
+                    <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-400">
+                      Mặc định
+                    </span>
+                  )}
+                  <span className="shrink-0 font-mono text-xs text-slate-400">{deck.cardCount ?? 0} thẻ</span>
+                  {renamingDeckId === deck.id ? (
+                    <>
+                      <Button size="sm" variant="secondary" onClick={saveRename} disabled={deckBusy !== "" || !renameValue.trim()}>
+                        Lưu
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setRenamingDeckId(null);
+                          setRenameValue("");
+                        }}
+                      >
+                        Hủy
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => startRename(deck)}
+                        aria-label={`Đổi tên ${deck.name}`}
+                        className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      {!deck.isDefault && (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteDeck(deck)}
+                          aria-label={`Xóa ${deck.name}`}
+                          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <ConfirmModal
+          open={deleteDeck !== null}
+          title="Xóa bộ thẻ ôn tập"
+          icon={Trash2}
+          confirmTone="rose"
+          confirmLabel="Xóa bộ thẻ"
+          message={
+            <p>
+              Xóa bộ thẻ <span className="font-semibold">{deleteDeck?.name}</span>? Toàn bộ{" "}
+              {deleteDeck?.cardCount ?? 0} thẻ ôn tập và lịch sử ôn của bộ này sẽ bị xóa vĩnh viễn.
+            </p>
+          }
+          onConfirm={confirmDeleteDeck}
+          onCancel={() => setDeleteDeck(null)}
+        />
+      </>)}
 
       {activeTab === "account" && (
         <Card>

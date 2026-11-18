@@ -5,6 +5,7 @@ import {
   ArrowRight,
   BookmarkPlus,
   CheckCircle2,
+  Layers,
   ListChecks,
   Loader2,
   RotateCcw,
@@ -17,6 +18,7 @@ import {
   apiAnswerQuestion,
   apiGetQuizDetail,
   apiGetQuizResult,
+  apiGetReviewDecks,
   apiStartAttempt,
 } from "../../lib/studentApi";
 import {
@@ -136,7 +138,19 @@ export default function ExerciseTaking() {
   const [pendingSelection, setPendingSelection] = useState(null);
   const [result, setResult] = useState(null);
   const [addingReviewQuestionId, setAddingReviewQuestionId] = useState(null);
-  const [manuallyAddedReview, setManuallyAddedReview] = useState(() => new Set());
+  const [manuallyAddedReview, setManuallyAddedReview] = useState(() => new Map());
+  const [reviewDecks, setReviewDecks] = useState([]);
+  const [deckPickerQuestionId, setDeckPickerQuestionId] = useState(null);
+
+  useEffect(() => {
+    if (!token) return;
+    apiGetReviewDecks(token)
+      .then((decks) => setReviewDecks(Array.isArray(decks) ? decks : []))
+      .catch(() => setReviewDecks([]));
+  }, [token]);
+
+  // Câu nào đã có thẻ trong deck nào (bất kể do auto hay thêm thủ công).
+  const decksOf = (questionId) => manuallyAddedReview.get(questionId) ?? new Set();
 
   const loadResult = useCallback(async () => {
     const summary = await apiGetQuizResult(token, quizId);
@@ -206,7 +220,17 @@ export default function ExerciseTaking() {
             : item,
         ),
       );
-      if (feedback.inReview) setManuallyAddedReview((prev) => new Set(prev).add(current.id));
+      // inReview (bất kỳ deck nào): coi như câu đã nằm trong deck mặc định.
+      if (feedback.inReview) {
+        const defaultDeck = reviewDecks.find((d) => d.isDefault);
+        setManuallyAddedReview((prev) => {
+          const next = new Map(prev);
+          const set = new Set(prev.get(current.id));
+          if (defaultDeck) set.add(defaultDeck.id);
+          next.set(current.id, set);
+          return next;
+        });
+      }
       setAttempt((previous) => ({
         ...previous,
         answeredCount:
@@ -235,18 +259,36 @@ export default function ExerciseTaking() {
     setPendingSelection(null);
   }
 
-  async function addReview(questionId) {
-    if (addingReviewQuestionId != null || manuallyAddedReview.has(questionId)) return;
+  async function addReview(questionId, deckId) {
+    if (addingReviewQuestionId != null) return;
     setAddingReviewQuestionId(questionId);
     setAnswerError("");
+    setDeckPickerQuestionId(null);
     try {
-      await apiAddReviewCard(token, quizId, questionId);
-      setManuallyAddedReview((prev) => new Set(prev).add(questionId));
+      await apiAddReviewCard(token, quizId, questionId, deckId ?? undefined);
+      setManuallyAddedReview((prev) => {
+        const next = new Map(prev);
+        const set = new Set(prev.get(questionId));
+        set.add(deckId ?? null); // null = đã thêm (deck mặc định, không rõ id)
+        next.set(questionId, set);
+        return next;
+      });
     } catch (err) {
       setAnswerError(err.message || "Không thể thêm câu vào danh sách ôn.");
     } finally {
       setAddingReviewQuestionId(null);
     }
+  }
+
+  /** Mở bộ chọn deck; chỉ 1 deck thì thêm thẳng (về deck mặc định). */
+  function openDeckPicker(questionId) {
+    const available = reviewDecks.filter((deck) => !decksOf(questionId).has(deck.id));
+    if (available.length === 0) return;
+    setDeckPickerQuestionId(questionId);
+  }
+
+  function onPickDeck(questionId, deckId) {
+    addReview(questionId, deckId);
   }
 
   async function showSummary() {
@@ -381,26 +423,71 @@ export default function ExerciseTaking() {
                 </p>
               )}
               {(() => {
+                const addedDecks = decksOf(question.id);
                 const inReview = feedback.inReview || manuallyAddedReview.has(question.id);
-                return inReview ? (
-                  <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                    <CheckCircle2 size={14} /> Đã trong danh sách ôn tập
-                  </p>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={addingReviewQuestionId !== null}
-                    onClick={() => addReview(question.id)}
-                  >
-                    {addingReviewQuestionId === question.id ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <BookmarkPlus size={14} />
+                const availableDecks = reviewDecks.filter((deck) => {
+                  if (addedDecks.has(deck.id)) return false;
+                  // null trong Set = đã thêm (deck mặc định) nhưng không rõ id
+                  return !(deck.isDefault && addedDecks.has(null));
+                });
+                const pickerOpen = deckPickerQuestionId === question.id;
+                return (
+                  <div className="space-y-2">
+                    {inReview && (
+                      <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                        <CheckCircle2 size={14} /> Đã trong danh sách ôn tập
+                      </p>
                     )}
-                    Thêm vào danh sách ôn
-                  </Button>
+                    {pickerOpen ? (
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/60">
+                        <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          <Layers size={14} /> Thêm câu này vào bộ thẻ nào?
+                        </p>
+                        <div className="space-y-1.5">
+                          {availableDecks.map((deck) => (
+                            <button
+                              key={deck.id}
+                              type="button"
+                              onClick={() => onPickDeck(question.id, deck.id)}
+                              className="flex w-full cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 transition-all active:scale-[0.98] hover:border-blue-300 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200 dark:hover:border-blue-700"
+                            >
+                              <span className="flex items-center gap-1.5">
+                                <BookmarkPlus size={14} />
+                                {deck.name}
+                              </span>
+                              {deck.isDefault && <Badge tone="blue">Mặc định</Badge>}
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDeckPickerQuestionId(null)}
+                          className="mt-2 text-xs font-medium text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                        >
+                          Hủy
+                        </button>
+                      </div>
+                    ) : !(inReview && availableDecks.length === 0) ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={addingReviewQuestionId !== null}
+                        onClick={() => {
+                          if (availableDecks.length === 0) return;
+                          if (availableDecks.length === 1) onPickDeck(question.id, availableDecks[0].id);
+                          else openDeckPicker(question.id);
+                        }}
+                      >
+                        {addingReviewQuestionId === question.id ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <BookmarkPlus size={14} />
+                        )}
+                        {inReview ? "Thêm vào bộ thẻ khác" : "Thêm vào danh sách ôn"}
+                      </Button>
+                    ) : null}
+                  </div>
                 );
               })()}
             </Card>

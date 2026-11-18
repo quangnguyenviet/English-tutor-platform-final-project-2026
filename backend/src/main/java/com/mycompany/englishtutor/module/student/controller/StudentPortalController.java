@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,7 +30,10 @@ import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.Revi
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewScheduleResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewSettingsResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewStatsResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewDeckResponse;
 import com.mycompany.englishtutor.module.student.api.AddReviewCardRequest;
+import com.mycompany.englishtutor.module.student.api.CreateReviewDeckRequest;
+import com.mycompany.englishtutor.module.student.api.RenameReviewDeckRequest;
 import com.mycompany.englishtutor.module.student.api.ReviewAnswerRequest;
 import com.mycompany.englishtutor.module.student.api.ReviewRateRequest;
 import com.mycompany.englishtutor.module.student.api.ReviewSettingsRequest;
@@ -186,23 +190,26 @@ public class StudentPortalController {
     @GetMapping("/students/me/review-list")
     @PreAuthorize("hasRole('STUDENT')")
     @Operation(summary = "Danh sách ôn tập: các câu đã trả lời sai", security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<List<ReviewItem>>> reviewList() {
-        return ok(service.getReviewList());
+    public ResponseEntity<ApiResponse<List<ReviewItem>>> reviewList(
+            @RequestParam(required = false) Long deckId) {
+        return ok(service.getReviewList(deckId));
     }
 
     @GetMapping("/students/me/reviews/due")
     @PreAuthorize("hasRole('STUDENT')")
     @Operation(summary = "Các câu sai đã đến hạn ôn", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<List<DueReviewItem>>> dueReviews(
-            @RequestParam(required = false) Integer limit) {
-        return ok(service.getDueReviews(limit));
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) Long deckId) {
+        return ok(service.getDueReviews(limit, deckId));
     }
 
     @GetMapping("/students/me/reviews/stats")
     @PreAuthorize("hasRole('STUDENT')")
     @Operation(summary = "Thống kê phiên ôn tập", security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<ReviewStatsResponse>> reviewStats() {
-        return ok(service.getReviewStats());
+    public ResponseEntity<ApiResponse<ReviewStatsResponse>> reviewStats(
+            @RequestParam(required = false) Long deckId) {
+        return ok(service.getReviewStats(deckId));
     }
 
     @PostMapping("/students/me/reviews/{cardId}/answer")
@@ -242,5 +249,36 @@ public class StudentPortalController {
     public ResponseEntity<ApiResponse<AddReviewCardResponse>> addReviewCard(
             @Valid @RequestBody AddReviewCardRequest request) {
         return ok(service.addReviewCard(request));
+    }
+
+    @GetMapping("/students/me/review-decks")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(summary = "Danh sách bộ thẻ ôn tập (deck) của học sinh", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<List<ReviewDeckResponse>>> reviewDecks() {
+        return ok(service.getReviewDecks());
+    }
+
+    @PostMapping("/students/me/review-decks")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(summary = "Tạo bộ thẻ ôn tập mới", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<ReviewDeckResponse>> createReviewDeck(
+            @Valid @RequestBody CreateReviewDeckRequest request) {
+        return ok(service.createReviewDeck(request));
+    }
+
+    @PutMapping("/students/me/review-decks/{deckId}")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(summary = "Đổi tên bộ thẻ ôn tập (kể cả deck mặc định)", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<ReviewDeckResponse>> renameReviewDeck(
+            @PathVariable Long deckId, @Valid @RequestBody RenameReviewDeckRequest request) {
+        return ok(service.renameReviewDeck(deckId, request));
+    }
+
+    @DeleteMapping("/students/me/review-decks/{deckId}")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(summary = "Xóa bộ thẻ ôn tập (không áp dụng cho deck mặc định)", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<Void> deleteReviewDeck(@PathVariable Long deckId) {
+        service.deleteReviewDeck(deckId);
+        return ResponseEntity.noContent().build();
     }
 }

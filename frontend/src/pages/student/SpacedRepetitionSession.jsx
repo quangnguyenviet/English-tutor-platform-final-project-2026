@@ -14,6 +14,7 @@ import { useAuth } from "../../context/AuthContext";
 import {
   apiAnswerReview,
   apiGetDueReviews,
+  apiGetReviewDecks,
   apiGetReviewStats,
   apiRateReview,
 } from "../../lib/studentApi";
@@ -99,36 +100,48 @@ export default function SpacedRepetitionSession() {
   const [submitting, setSubmitting] = useState(false);
   const [ratingBusy, setRatingBusy] = useState("");
   const [error, setError] = useState("");
+  const [decks, setDecks] = useState([]);
+  const [activeDeckId, setActiveDeckId] = useState(null); // null = Tất cả
+
+  useEffect(() => {
+    if (!token) return;
+    apiGetReviewDecks(token)
+      .then((list) => setDecks(Array.isArray(list) ? list : []))
+      .catch(() => setDecks([]));
+  }, [token]);
 
   const current = items[0] ?? null;
   const question = useMemo(() => (current ? normalizeQuestion(current) : null), [current]);
   const completed = Math.max(0, sessionTotal - items.length);
 
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setError("");
-    try {
-      const [due, reviewStats] = await Promise.all([
-        apiGetDueReviews(token, 50),
-        apiGetReviewStats(token),
-      ]);
-      const nextItems = Array.isArray(due) ? due : [];
-      setItems(nextItems);
-      setSessionTotal(nextItems.length);
-      setStats(reviewStats);
-      setSelected(nextItems[0]?.pendingFeedback?.selectedAnswer ?? "");
-      setFeedback(nextItems[0]?.pendingFeedback ?? null);
-    } catch (err) {
-      setError(err.message || "Không tải được phiên ôn tập");
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+  const load = useCallback(
+    async (deckId) => {
+      if (!token) return;
+      setLoading(true);
+      setError("");
+      try {
+        const [due, reviewStats] = await Promise.all([
+          apiGetDueReviews(token, 50, deckId ?? undefined),
+          apiGetReviewStats(token, deckId ?? undefined),
+        ]);
+        const nextItems = Array.isArray(due) ? due : [];
+        setItems(nextItems);
+        setSessionTotal(nextItems.length);
+        setStats(reviewStats);
+        setSelected(nextItems[0]?.pendingFeedback?.selectedAnswer ?? "");
+        setFeedback(nextItems[0]?.pendingFeedback ?? null);
+      } catch (err) {
+        setError(err.message || "Không tải được phiên ôn tập");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [token]
+  );
 
   useEffect(() => {
-    load();
-  }, [load]);
+    load(activeDeckId);
+  }, [load, activeDeckId]);
 
   useEffect(() => {
     setSelected(current?.pendingFeedback?.selectedAnswer ?? "");
@@ -209,6 +222,9 @@ export default function SpacedRepetitionSession() {
             Câu hỏi cần ôn hôm nay
           </h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            {activeDeckId !== null
+              ? `Đang ôn bộ thẻ "${decks.find((d) => d.id === activeDeckId)?.name ?? ""}". `
+              : ""}
             Trả lời trước, sau đó đánh giá mức độ ghi nhớ để hệ thống lên lịch phù hợp.
           </p>
         </div>
@@ -220,10 +236,43 @@ export default function SpacedRepetitionSession() {
         )}
       </div>
 
+      {decks.length > 1 && (
+        <div className="flex flex-wrap gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-1.5 dark:border-slate-800 dark:bg-slate-900/60">
+          <button
+            type="button"
+            onClick={() => setActiveDeckId(null)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+              activeDeckId === null
+                ? "accent-bg text-white shadow-sm"
+                : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            }`}
+          >
+            Tất cả
+          </button>
+          {decks.map((deck) => (
+            <button
+              key={deck.id}
+              type="button"
+              onClick={() => setActiveDeckId(deck.id)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                activeDeckId === deck.id
+                  ? "accent-bg text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              }`}
+            >
+              {deck.name}
+              {(deck.dueCount ?? 0) > 0 && (
+                <span className="ml-1.5 font-mono opacity-80">{deck.dueCount}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <SkeletonRows rows={3} className="h-24" />
       ) : error && !current ? (
-        <ErrorBox message={error} onRetry={load} />
+        <ErrorBox message={error} onRetry={() => load(activeDeckId)} />
       ) : !current ? (
         <Card className="space-y-5 p-7 text-center">
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300">

@@ -81,6 +81,15 @@ public class StudentPortalRepository {
             Integer intervalSeconds,
             Integer reviewCount) {}
 
+    /** Một bộ thẻ ôn tập kèm số thẻ và số câu đến hạn (đến hạn = next_review <= NOW hoặc
+     *  còn lượt trả lời chưa đánh giá). */
+    public record ReviewDeckRow(
+            Long id,
+            String name,
+            boolean isDefault,
+            int cardCount,
+            int dueCount) {}
+
     /** Lớp đang mở (dạy thử / chính thức) của học sinh — nguồn để dựng lịch cố định. */
     public record ClassBrief(Long id, String className, String tutorName, String teachingMode, String status) {}
 
@@ -803,14 +812,141 @@ public class StudentPortalRepository {
      * + câu + CEFR) thì bỏ qua — thẻ đã có lịch riêng.
      * @return id thẻ nếu chèn mới, null nếu thẻ đã tồn tại.
      */
-    public Long insertReviewCardSnapshot(Long studentId, Long questionId) {
+    // ---------------------------------------------------------------- DECKS (V26)
+
+    /** Toàn bộ deck của học sinh: deck mặc định trước, rồi theo ngày tạo. */
+    public List<ReviewDeckRow> findReviewDecks(Long studentId) {
+        return jdbc.query(
+                        """
+                        SELECT d.id, d.name, d.is_default,
+                               (SELECT COUNT(*) FROM review_cards c
+                                 WHERE c.student_id = ? AND c.deck_id = d.id) AS card_count,
+                               (SELECT COUNT(*) FROM review_cards c
+                                  LEFT JOIN spaced_repetition_reviews rr
+                                     ON rr.student_id = c.student_id
+                                    AND rr.card_id = c.id
+                                    AND rr.rating IS NULL
+                                 WHERE c.student_id = ? AND c.deck_id = d.id
+                                   AND c.next_review IS NOT NULL
+                                   AND (c.next_review <= NOW() OR rr.id IS NOT NULL)) AS due_count
+                        FROM review_decks d
+                        WHERE d.student_id = ?
+                        ORDER BY d.is_default DESC, d.created_at, d.id
+                        """,
+                        (rs, i) -> new ReviewDeckRow(
+                                rs.getLong("id"),
+                                rs.getString("name"),
+                                rs.getBoolean("is_default"),
+                                rs.getInt("card_count"),
+                                rs.getInt("due_count")),
+                        studentId,
+                        studentId,
+                        studentId);
+    }
+
+    /** Ownership guard: deck phải tồn tại và thuộc chính học sinh; kèm số thẻ / số câu đến hạn. */
+    public Optional<ReviewDeckRow> findReviewDeck(Long studentId, Long deckId) {
+        return jdbc.query(
+                        """
+                        SELECT d.id, d.name, d.is_default,
+                               (SELECT COUNT(*) FROM review_cards c
+                                 WHERE c.student_id = ? AND c.deck_id = d.id) AS card_count,
+                               (SELECT COUNT(*) FROM review_cards c
+                                  LEFT JOIN spaced_repetition_reviews rr
+                                     ON rr.student_id = c.student_id
+                                    AND rr.card_id = c.id
+                                    AND rr.rating IS NULL
+                                 WHERE c.student_id = ? AND c.deck_id = d.id
+                                   AND c.next_review IS NOT NULL
+                                   AND (c.next_review <= NOW() OR rr.id IS NOT NULL)) AS due_count
+                        FROM review_decks d
+                        WHERE d.student_id = ? AND d.id = ?
+                        """,
+                        (rs, i) -> new ReviewDeckRow(
+                                rs.getLong("id"),
+                                rs.getString("name"),
+                                rs.getBoolean("is_default"),
+                                rs.getInt("card_count"),
+                                rs.getInt("due_count")),
+                        studentId,
+                        studentId,
+                        studentId,
+                        deckId)
+                .stream()
+                .findFirst();
+    }
+
+    public Optional<Long> findDefaultDeckId(Long studentId) {
+        return jdbc.query(
+                        "SELECT id FROM review_decks WHERE student_id = ? AND is_default",
+                        (rs, i) -> rs.getLong(1),
+                        studentId)
+                .stream()
+                .findFirst();
+    }
+
+    public Optional<Long> insertReviewDeck(Long studentId, String name) {
+        return jdbc.query(
+                        "INSERT INTO review_decks (student_id, name) VALUES (?, ?) RETURNING id",
+                        (rs, i) -> rs.getLong(1),
+                        studentId,
+                        name.trim())
+                .stream()
+                .findFirst();
+    }
+
+    public int countReviewDecks(Long studentId) {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM review_decks WHERE student_id = ?",
+                Integer.class,
+                studentId);
+        return count == null ? 0 : count;
+    }
+
+    public void updateReviewDeckName(Long studentId, Long deckId, String name) {
+        jdbc.update(
+                "UPDATE review_decks SET name = ? WHERE student_id = ? AND id = ?",
+                name.trim(),
+                studentId,
+                deckId);
+    }
+
+    /** Chỉ xóa được deck thường; {@code is_default} chặn → 0 dòng xóa. */
+    public int deleteReviewDeck(Long studentId, Long deckId) {
+        return jdbc.update(
+                "DELETE FROM review_decks WHERE student_id = ? AND id = ? AND is_default = FALSE",
+                studentId,
+                deckId);
+    }
+
+    public boolean reviewDeckNameTaken(Long studentId, String name) {
+        Long id = jdbc.query(
+                        "SELECT id FROM review_decks WHERE student_id = ? AND name = ?",
+                        (rs, i) -> rs.getLong(1),
+                        studentId,
+                        name.trim())
+                .stream()
+                .findFirst()
+                .orElse(null);
+        return id != null;
+    }
+
+    /**
+     * Sinh thẻ ôn tập: snapshot nội dung câu hỏi vào review_cards (không giữ FK
+     * với quiz) và lên lịch ôn đầu tiên ngay bây giờ. Dùng khi học sinh trả lời
+     * sai (auto, vào deck mặc định) hoặc chủ động thêm câu (thủ công, chọn deck).
+     * Trùng nội dung trong cùng deck (cùng học sinh + câu + CEFR) thì bỏ qua —
+     * thẻ đã có lịch riêng; cùng nội dung trong deck khác được phép, lịch độc lập.
+     * @return id thẻ nếu chèn mới, null nếu thẻ đã tồn tại trong deck.
+     */
+    public Long insertReviewCardSnapshot(Long studentId, Long questionId, Long deckId) {
         return jdbc.query(
                         """
                         INSERT INTO review_cards (
-                            student_id, question_text, option_a, option_b, option_c, option_d,
+                            student_id, deck_id, question_text, option_a, option_b, option_c, option_d,
                             correct_answer, explanation, skill_name, cefr_level, next_review
                         )
-                        SELECT ? AS student_id,
+                        SELECT ? AS student_id, ? AS deck_id,
                                qq.question_text, qq.option_a, qq.option_b, qq.option_c, qq.option_d,
                                qq.correct_answer, qq.explanation, sk.skill_name, qq.cefr_level,
                                NOW()
@@ -820,6 +956,7 @@ public class StudentPortalRepository {
                           AND NOT EXISTS (
                               SELECT 1 FROM review_cards c
                               WHERE c.student_id = ?
+                                AND c.deck_id = ?
                                 AND c.question_text = qq.question_text
                                 -- IS NOT DISTINCT FROM: cefr_level có thể NULL (không có câu
                                 -- nào cả hai NULL vẫn là cùng nội dung, khớp unique index).
@@ -828,14 +965,16 @@ public class StudentPortalRepository {
                         """,
                         (rs, i) -> rs.getLong(1),
                         studentId,
+                        deckId,
                         questionId,
-                        studentId)
+                        studentId,
+                        deckId)
                 .stream()
                 .findFirst()
                 .orElse(null);
     }
 
-    /** Thẻ ôn tập đã tồn tại cho câu hỏi này của học sinh (khớp unique key nội dung). */
+    /** Thẻ ôn tập đã tồn tại cho câu hỏi này của học sinh ở BẤT KỲ deck nào. */
     public boolean existsReviewCardForQuestion(Long studentId, Long questionId) {
         Boolean found = jdbc.query(
                         """
@@ -849,6 +988,25 @@ public class StudentPortalRepository {
                         rs -> rs.next() && rs.getBoolean(1),
                         questionId,
                         studentId);
+        return found != null && found;
+    }
+
+    /** Câu hỏi đã có thẻ trong đúng deck này (khớp unique key (học sinh, deck, nội dung)). */
+    public boolean existsReviewCardInDeck(Long studentId, Long questionId, Long deckId) {
+        Boolean found = jdbc.query(
+                        """
+                        SELECT EXISTS (
+                            SELECT 1 FROM review_cards c
+                            JOIN quiz_questions qq ON qq.id = ?
+                            WHERE c.student_id = ?
+                              AND c.deck_id = ?
+                              AND c.question_text = qq.question_text
+                              AND c.cefr_level IS NOT DISTINCT FROM qq.cefr_level)
+                        """,
+                        rs -> rs.next() && rs.getBoolean(1),
+                        questionId,
+                        studentId,
+                        deckId);
         return found != null && found;
     }
 
@@ -900,9 +1058,10 @@ public class StudentPortalRepository {
                 studentId);
     }
 
-    public List<DueReviewItem> findDueReviews(Long studentId, int limit) {
+    /** Thẻ đến hạn (next_review <= NOW hoặc còn lượt chưa đánh giá); {@code deckId} null = tất cả deck. */
+    public List<DueReviewItem> findDueReviews(Long studentId, Long deckId, int limit) {
         return jdbc.query(
-                """
+                        """
                 SELECT c.id AS card_id, c.student_id, c.question_text,
                        c.option_a, c.option_b, c.option_c, c.option_d,
                        c.correct_answer, c.explanation, c.skill_name, c.cefr_level,
@@ -917,59 +1076,74 @@ public class StudentPortalRepository {
                       AND rr.card_id = c.id
                       AND rr.rating IS NULL
                 WHERE c.student_id = ?
+                  AND (?::bigint IS NULL OR c.deck_id = ?)
                   AND c.next_review IS NOT NULL
                   AND (c.next_review <= NOW() OR rr.id IS NOT NULL)
                 ORDER BY CASE WHEN rr.id IS NOT NULL THEN 0 ELSE 1 END,
                          c.next_review NULLS FIRST, c.id
                 LIMIT ?
                 """,
-                (rs, i) -> {
-                    Long attemptId = rs.getObject("review_attempt_id", Long.class);
-                    ReviewFeedback feedback = attemptId == null
-                            ? null
-                            : new ReviewFeedback(
-                                    attemptId,
-                                    rs.getString("review_selected_answer").trim(),
-                                    rs.getBoolean("review_is_correct"),
-                                    rs.getString("review_correct_answer").trim(),
-                                    rs.getString("review_explanation"));
-                    return new DueReviewItem(
-                            rs.getLong("card_id"),
-                            rs.getString("question_text"),
-                            rs.getString("option_a"),
-                            rs.getString("option_b"),
-                            rs.getString("option_c"),
-                            rs.getString("option_d"),
-                            rs.getString("skill_name"),
-                            rs.getString("cefr_level"),
-                            rs.getObject("next_review", OffsetDateTime.class),
-                            rs.getInt("review_count"),
-                            rs.getString("last_rating"),
-                            feedback);
-                },
-                studentId,
-                limit);
+                        (rs, i) -> {
+                            Long attemptId = rs.getObject("review_attempt_id", Long.class);
+                            ReviewFeedback feedback = attemptId == null
+                                    ? null
+                                    : new ReviewFeedback(
+                                            attemptId,
+                                            rs.getString("review_selected_answer").trim(),
+                                            rs.getBoolean("review_is_correct"),
+                                            rs.getString("review_correct_answer").trim(),
+                                            rs.getString("review_explanation"));
+                            return new DueReviewItem(
+                                    rs.getLong("card_id"),
+                                    rs.getString("question_text"),
+                                    rs.getString("option_a"),
+                                    rs.getString("option_b"),
+                                    rs.getString("option_c"),
+                                    rs.getString("option_d"),
+                                    rs.getString("skill_name"),
+                                    rs.getString("cefr_level"),
+                                    rs.getObject("next_review", OffsetDateTime.class),
+                                    rs.getInt("review_count"),
+                                    rs.getString("last_rating"),
+                                    feedback);
+                        },
+                        studentId,
+                        deckId,
+                        deckId,
+                        limit);
     }
 
-    public ReviewStatsResponse findReviewStats(Long studentId) {
+    public ReviewStatsResponse findReviewStats(Long studentId, Long deckId) {
         return jdbc.queryForObject(
-                """
+                        """
                 SELECT
                     (SELECT COUNT(*) FROM review_cards c
-                      WHERE c.student_id = ? AND c.next_review <= NOW()) AS due_count,
+                      WHERE c.student_id = ? AND (?::bigint IS NULL OR c.deck_id = ?)
+                        AND c.next_review <= NOW()) AS due_count,
                     (SELECT COUNT(*) FROM spaced_repetition_reviews rr
-                      WHERE rr.student_id = ?
+                      WHERE rr.student_id = ? AND (?::bigint IS NULL OR rr.card_id IN
+                        (SELECT c2.id FROM review_cards c2
+                          WHERE c2.student_id = ? AND (?::bigint IS NULL OR c2.deck_id = ?)))
                         AND rr.rated_at >= date_trunc('day', NOW())) AS reviewed_today,
                     (SELECT MIN(c.next_review) FROM review_cards c
-                      WHERE c.student_id = ? AND c.next_review > NOW()) AS next_review
+                      WHERE c.student_id = ? AND (?::bigint IS NULL OR c.deck_id = ?)
+                        AND c.next_review > NOW()) AS next_review
                 """,
-                (rs, i) -> new ReviewStatsResponse(
-                        rs.getInt("due_count"),
-                        rs.getInt("reviewed_today"),
-                        rs.getObject("next_review", OffsetDateTime.class)),
-                studentId,
-                studentId,
-                studentId);
+                        (rs, i) -> new ReviewStatsResponse(
+                                rs.getInt("due_count"),
+                                rs.getInt("reviewed_today"),
+                                rs.getObject("next_review", OffsetDateTime.class)),
+                        studentId,
+                        deckId,
+                        deckId,
+                        studentId,
+                        deckId,
+                        studentId,
+                        deckId,
+                        deckId,
+                        studentId,
+                        deckId,
+                        deckId);
     }
 
     public Optional<ReviewCardStateRow> findReviewCard(Long studentId, Long cardId) {
@@ -1092,17 +1266,21 @@ public class StudentPortalRepository {
                 rs.getInt("review_count"));
     }
 
-    public List<ReviewItem> findReviewList(Long studentId) {
+    /** Toàn bộ thẻ (mới nhất trước); {@code deckId} null = tất cả deck. */
+    public List<ReviewItem> findReviewList(Long studentId, Long deckId) {
         return jdbc.query(
-                """
+                        """
                 SELECT c.id AS card_id, c.question_text, c.option_a, c.option_b, c.option_c, c.option_d,
                        c.last_rating, c.correct_answer, c.explanation, c.skill_name, c.created_at
                 FROM review_cards c
                 WHERE c.student_id = ?
+                  AND (?::bigint IS NULL OR c.deck_id = ?)
                 ORDER BY c.created_at DESC, c.id
                 """,
-                (rs, i) -> mapReview(rs),
-                studentId);
+                        (rs, i) -> mapReview(rs),
+                        studentId,
+                        deckId,
+                        deckId);
     }
 
     private static ReviewItem mapReview(ResultSet rs) throws SQLException {

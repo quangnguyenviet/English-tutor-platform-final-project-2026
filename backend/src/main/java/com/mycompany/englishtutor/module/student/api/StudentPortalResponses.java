@@ -234,6 +234,14 @@ public final class StudentPortalResponses {
     /** Kết quả thêm thủ công câu hỏi vào danh sách ôn tập; {@code created=false} khi thẻ đã tồn tại. */
     public record AddReviewCardResponse(Long cardId, Boolean created) {}
 
+    /** Bộ thẻ ôn tập (deck) của học sinh; cardCount/dueCount phục vụ quản lý và chọn phiên ôn. */
+    public record ReviewDeckResponse(
+            Long id,
+            String name,
+            Boolean isDefault,
+            Integer cardCount,
+            Integer dueCount) {}
+
     /** Câu trong chi tiết quiz của học sinh: đáp án đúng và giải thích chỉ có khi đã trả lời câu đó. */
     public record StudentQuizQuestion(
             Long id,
