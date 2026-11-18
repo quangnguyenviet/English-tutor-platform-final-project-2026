@@ -378,6 +378,10 @@ public class StudentPortalService {
                     repository.countAnswers(quizId, studentId), total);
         }
         repository.updateElo(studentId, elo.after());
+        if (!correct) {
+            // Sinh thẻ ôn tập (snapshot nội dung) độc lập với vòng đời quiz.
+            repository.insertReviewCardOnWrong(studentId, questionId);
+        }
 
         int answered = repository.countAnswers(quizId, studentId);
         boolean completed = total > 0 && answered >= total;
@@ -424,19 +428,19 @@ public class StudentPortalService {
 
     /** Trả lời lại một thẻ đến hạn. Không tác động kết quả quiz hoặc Elo. */
     @Transactional
-    public ReviewFeedback answerReview(Long questionId, String selectedAnswer) {
+    public ReviewFeedback answerReview(Long cardId, String selectedAnswer) {
         Long studentId = currentUserId();
         String selected = selectedAnswer == null ? "" : selectedAnswer.trim().toUpperCase();
         if (!selected.matches("[A-D]")) {
             throw new AppException(ErrorCode.QUIZ_ANSWER_INVALID);
         }
 
-        var existing = repository.findPendingReviewAttempt(studentId, questionId);
+        var existing = repository.findPendingReviewAttempt(studentId, cardId);
         if (existing.isPresent()) {
             return toFeedback(existing.get());
         }
 
-        var card = repository.findReviewCard(studentId, questionId)
+        var card = repository.findReviewCard(studentId, cardId)
                 .orElseThrow(() -> new AppException(ErrorCode.REVIEW_NOT_AVAILABLE));
         OffsetDateTime now = OffsetDateTime.now();
         if (card.nextReview() == null || card.nextReview().isAfter(now)) {
@@ -445,9 +449,9 @@ public class StudentPortalService {
 
         boolean correct = selected.equals(card.correctAnswer());
         var attemptId = repository.insertReviewAttempt(
-                card.answerId(), studentId, questionId, selected, correct);
+                card.cardId(), studentId, selected, correct);
         if (attemptId.isEmpty()) {
-            return repository.findPendingReviewAttempt(studentId, questionId)
+            return repository.findPendingReviewAttempt(studentId, cardId)
                     .map(StudentPortalService::toFeedback)
                     .orElseThrow(() -> new AppException(ErrorCode.REVIEW_ATTEMPT_NOT_FOUND));
         }
@@ -457,10 +461,10 @@ public class StudentPortalService {
 
     /** Lưu tự đánh giá và lên lịch lượt tiếp theo bằng giờ server; gọi lại an toàn. */
     @Transactional
-    public ReviewScheduleResponse rateReview(Long questionId, ReviewRateRequest request) {
+    public ReviewScheduleResponse rateReview(Long cardId, ReviewRateRequest request) {
         Long studentId = currentUserId();
         ReviewAttemptRow attempt = repository
-                .lockReviewAttempt(studentId, questionId, request.reviewAttemptId())
+                .lockReviewAttempt(studentId, cardId, request.reviewAttemptId())
                 .orElseThrow(() -> new AppException(ErrorCode.REVIEW_ATTEMPT_NOT_FOUND));
 
         if (attempt.rating() != null) {
@@ -478,7 +482,7 @@ public class StudentPortalService {
         repository.rateReviewAttempt(
                 attempt.id(), rating.name(), now, schedule.nextReview(), schedule.intervalSeconds());
         int reviewCount = repository.updateReviewCardSchedule(
-                attempt.answerId(), rating.name(), now, schedule.nextReview(), schedule.intervalSeconds());
+                attempt.cardId(), rating.name(), now, schedule.nextReview(), schedule.intervalSeconds());
         return new ReviewScheduleResponse(
                 attempt.id(), rating.name(), schedule.nextReview(), schedule.intervalSeconds(), reviewCount);
     }
