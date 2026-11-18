@@ -809,7 +809,7 @@ public class StudentPortalRepository {
                             student_id, question_text, option_a, option_b, option_c, option_d,
                             correct_answer, explanation, skill_name, cefr_level, next_review
                         )
-                        SELECT a.student_id,
+                        SELECT ? AS student_id,
                                qq.question_text, qq.option_a, qq.option_b, qq.option_c, qq.option_d,
                                qq.correct_answer, qq.explanation, sk.skill_name, qq.cefr_level,
                                NOW()
@@ -820,10 +820,13 @@ public class StudentPortalRepository {
                               SELECT 1 FROM review_cards c
                               WHERE c.student_id = ?
                                 AND c.question_text = qq.question_text
-                                AND c.cefr_level = qq.cefr_level)
+                                -- IS NOT DISTINCT FROM: cefr_level có thể NULL (không có câu
+                                -- nào cả hai NULL vẫn là cùng nội dung, khớp unique index).
+                                AND c.cefr_level IS NOT DISTINCT FROM qq.cefr_level)
                         RETURNING id
                         """,
                         (rs, i) -> rs.getLong(1),
+                        studentId,
                         questionId,
                         studentId)
                 .stream()
