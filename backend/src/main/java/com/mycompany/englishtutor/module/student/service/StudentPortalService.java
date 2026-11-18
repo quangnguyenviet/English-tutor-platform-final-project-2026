@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.mycompany.englishtutor.module.classroom.api.response.OccurrenceResponse;
 import com.mycompany.englishtutor.module.classroom.service.ClassOccurrenceService;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AnswerResultResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AddReviewCardResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.AttemptStateResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.DashboardResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.DueReviewItem;
@@ -26,9 +27,12 @@ import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.Quiz
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewFeedback;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewItem;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewScheduleResponse;
+import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewSettingsResponse;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.ReviewStatsResponse;
+import com.mycompany.englishtutor.module.student.api.AddReviewCardRequest;
 import com.mycompany.englishtutor.module.student.api.ReviewRateRequest;
 import com.mycompany.englishtutor.module.student.api.ReviewRating;
+import com.mycompany.englishtutor.module.student.api.ReviewSettingsRequest;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentInfo;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassDetail;
 import com.mycompany.englishtutor.module.student.api.StudentPortalResponses.StudentClassMaterialItem;
@@ -361,7 +365,7 @@ public class StudentPortalService {
         var stored = repository.findStoredAnswer(studentId, questionId);
         if (stored.isPresent()) {
             return replay(stored.get(), question.correctAnswer(), question.explanation(),
-                    repository.countAnswers(quizId, studentId), total);
+                    repository.countAnswers(quizId, studentId), total, studentId, questionId);
         }
         requireNotExpired(quiz);
 
@@ -375,12 +379,12 @@ public class StudentPortalService {
             // Hai request đồng thời: giữ kết quả của request ghi trước
             var again = repository.findStoredAnswer(studentId, questionId).orElseThrow();
             return replay(again, question.correctAnswer(), question.explanation(),
-                    repository.countAnswers(quizId, studentId), total);
+                    repository.countAnswers(quizId, studentId), total, studentId, questionId);
         }
         repository.updateElo(studentId, elo.after());
-        if (!correct) {
-            // Sinh thẻ ôn tập (snapshot nội dung) độc lập với vòng đời quiz.
-            repository.insertReviewCardOnWrong(studentId, questionId);
+        if (!correct && repository.findAutoReviewWrongSetting(studentId)) {
+            // Sinh thẻ ôn (snapshot) khi học sinh bật tính năng; tắt thì chỉ lưu quiz_answers.
+            repository.insertReviewCardSnapshot(studentId, questionId);
         }
 
         int answered = repository.countAnswers(quizId, studentId);
@@ -388,9 +392,10 @@ public class StudentPortalService {
         if (completed) {
             repository.markQuizCompleted(quizId);
         }
+        boolean inReview = repository.existsReviewCardForQuestion(studentId, questionId);
         return new AnswerResultResponse(
                 correct, selected, question.correctAnswer(), question.explanation(),
-                elo.before(), elo.after(), elo.change(), answered, total, completed);
+                elo.before(), elo.after(), elo.change(), answered, total, completed, inReview);
     }
 
     /** Tổng kết: học sinh làm bài hoặc gia sư sở hữu lớp. */
@@ -424,6 +429,40 @@ public class StudentPortalService {
     @Transactional(readOnly = true)
     public ReviewStatsResponse getReviewStats() {
         return repository.findReviewStats(currentUserId());
+    }
+
+    /** Cấu hình ôn tập; chưa có row = tự động thêm câu sai (mặc định true). */
+    @Transactional(readOnly = true)
+    public ReviewSettingsResponse getReviewSettings() {
+        Long studentId = currentUserId();
+        return new ReviewSettingsResponse(repository.findAutoReviewWrongSetting(studentId));
+    }
+
+    @Transactional
+    public ReviewSettingsResponse updateReviewSettings(ReviewSettingsRequest request) {
+        Long studentId = currentUserId();
+        repository.upsertReviewSetting(studentId, request.autoReviewWrong());
+        return new ReviewSettingsResponse(request.autoReviewWrong());
+    }
+
+    /**
+     * Thêm thủ công một câu đã trả lời vào danh sách ôn (đặc biệt câu đúng vì
+     * đoán). Thẻ đã tồn tại (do sai trước đó) thì không đụng lại lịch ôn.
+     */
+    @Transactional
+    public AddReviewCardResponse addReviewCard(AddReviewCardRequest request) {
+        Long studentId = currentUserId();
+        requireOwnedQuiz(request.quizId(), studentId);
+        repository.findQuestion(request.quizId(), request.questionId())
+                .orElseThrow(() -> new AppException(ErrorCode.QUESTION_NOT_FOUND));
+        repository.findStoredAnswer(studentId, request.questionId())
+                .orElseThrow(() -> new AppException(ErrorCode.REVIEW_CARD_ANSWER_REQUIRED));
+
+        if (repository.existsReviewCardForQuestion(studentId, request.questionId())) {
+            return new AddReviewCardResponse(null, false);
+        }
+        Long cardId = repository.insertReviewCardSnapshot(studentId, request.questionId());
+        return new AddReviewCardResponse(cardId, true);
     }
 
     /** Trả lời lại một thẻ đến hạn. Không tác động kết quả quiz hoặc Elo. */
@@ -512,12 +551,14 @@ public class StudentPortalService {
         }
     }
 
-    private static AnswerResultResponse replay(
-            StoredAnswerRow stored, String correctAnswer, String explanation, int answered, int total) {
+    private AnswerResultResponse replay(
+            StoredAnswerRow stored, String correctAnswer, String explanation, int answered, int total,
+            Long studentId, Long questionId) {
+        boolean inReview = repository.existsReviewCardForQuestion(studentId, questionId);
         return new AnswerResultResponse(
                 stored.correct(), stored.selectedAnswer(), correctAnswer, explanation,
                 stored.eloBefore(), stored.eloAfter(), stored.eloChange(), answered, total,
-                total > 0 && answered >= total);
+                total > 0 && answered >= total, inReview);
     }
 
     private static ReviewFeedback toFeedback(ReviewAttemptRow attempt) {

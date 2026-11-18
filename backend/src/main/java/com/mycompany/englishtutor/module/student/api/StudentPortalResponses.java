@@ -168,7 +168,8 @@ public final class StudentPortalResponses {
             Integer eloChange,
             Integer answeredCount,
             Integer totalQuestions,
-            Boolean completed) {}
+            Boolean completed,
+            Boolean inReview) {}
 
     public record QuizResultResponse(
             Long quizId,
@@ -226,6 +227,12 @@ public final class StudentPortalResponses {
             Integer dueCount,
             Integer reviewedToday,
             OffsetDateTime nextReview) {}
+
+    /** Cấu hình ôn tập của học sinh (mặc định: tự động thêm câu sai = true). */
+    public record ReviewSettingsResponse(Boolean autoReviewWrong) {}
+
+    /** Kết quả thêm thủ công câu hỏi vào danh sách ôn tập; {@code created=false} khi thẻ đã tồn tại. */
+    public record AddReviewCardResponse(Long cardId, Boolean created) {}
 
     /** Câu trong chi tiết quiz của học sinh: đáp án đúng và giải thích chỉ có khi đã trả lời câu đó. */
     public record StudentQuizQuestion(
