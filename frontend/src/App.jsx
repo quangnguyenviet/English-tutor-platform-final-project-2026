@@ -16,6 +16,7 @@ import StudentClassExercises from "./pages/student/StudentClassExercises";
 import StudentClassMaterials from "./pages/student/StudentClassMaterials";
 import AppShell from "./components/layout/AppShell";
 import LoginPage from "./pages/LoginPage";
+import GoogleOAuthCallbackPage from "./pages/GoogleOAuthCallbackPage";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import TutorManagement from "./pages/admin/TutorManagement";
@@ -50,6 +51,10 @@ import TutorProfile from "./pages/tutor/TutorProfile";
 import TutorProfileEditPage from "./pages/tutor/TutorProfileEditPage";
 import TutorSchedule from "./pages/tutor/TutorSchedule";
 import ParentLearningProgress from "./pages/parent/ParentLearningProgress";
+import ParentTutorExplore from "./pages/parent/ParentTutorExplore";
+import MessagesPage from "./pages/messaging/MessagesPage";
+import ParentPostings from "./pages/messaging/ParentPostings";
+import StaffChatPage from "./pages/messaging/StaffChatPage";
 import LessonOperations from "./pages/operations/LessonOperations";
 
 import StudentMarketplace from "./pages/student/StudentMarketplace";
@@ -85,7 +90,7 @@ import TutorRegisterPage from "./pages/tutor/TutorRegisterPage";
 
 function RequireRole({ role, children }) {
   const { session, authLoading } = useAuth();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   // Đang kiểm tra token lúc khởi động — chưa biết có session hay không, đợi thêm
   if (authLoading) {
     return (
@@ -97,7 +102,7 @@ function RequireRole({ role, children }) {
       </div>
     );
   }
-  if (!session) return <Navigate to="/login" replace />;
+  if (!session) return <Navigate to={`/login?returnTo=${encodeURIComponent(pathname + search)}`} replace />;
   if (![].concat(role).includes(session.role)) return <Navigate to={`/${session.role}`} replace />;
   // Học sinh và nhân sự đăng nhập lần đầu phải đổi mật khẩu trước khi dùng các trang khác
   const forcePasswordPath = FORCE_PASSWORD_PATHS[session.role];
@@ -143,19 +148,29 @@ export default function App() {
 
           {/* Trang Đăng nhập */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/auth/google/callback" element={<GoogleOAuthCallbackPage />} />
 
           {/* Tutor Registration Route (Public - onboarding flow) */}
           <Route path="/tutor/register" element={<TutorRegisterPage />} />
 
-          {/* Admin Routes */}
+          {/* Parent Routes (đăng nhập Google) */}
           <Route
             path="/parent"
             element={
               <RequireRole role="parent">
-                <ParentLearningProgress />
+                <AppShell />
               </RequireRole>
             }
-          />
+          >
+            <Route index element={<Navigate to="messages" replace />} />
+            <Route path="messages" element={<MessagesPage viewer="PARENT" basePath="/parent/messages" />} />
+            <Route path="messages/:roomId" element={<MessagesPage viewer="PARENT" basePath="/parent/messages" />} />
+            <Route path="postings" element={<ParentPostings />} />
+            <Route path="explore" element={<ParentTutorExplore />} />
+            <Route path="progress" element={<ParentLearningProgress />} />
+          </Route>
+
+          {/* Admin Routes */}
 
           <Route
             path="/admin"
@@ -170,6 +185,7 @@ export default function App() {
             <Route path="students" element={<StudentManagement />} />
             <Route path="match-requests" element={<Navigate to="../class-requests" replace />} />
             <Route path="class-requests" element={<ClassRequestManagement />} />
+            <Route path="chat" element={<StaffChatPage />} />
             <Route path="payments" element={<AccountantPayments />} />
             <Route path="staff" element={<StaffManagement />} />
             {/* Giữ đường dẫn cũ để không vỡ link đã lưu */}
@@ -193,6 +209,8 @@ export default function App() {
             }
           >
             <Route index element={<TutorDashboard />} />
+            <Route path="messages" element={<MessagesPage viewer="TUTOR" basePath="/tutor/messages" />} />
+            <Route path="messages/:roomId" element={<MessagesPage viewer="TUTOR" basePath="/tutor/messages" />} />
             <Route path="schedule" element={<TutorSchedule />} />
             <Route path="payments" element={<TutorPayments />} />
             <Route path="payments/:id" element={<TutorPaymentDetail />} />
@@ -288,6 +306,7 @@ export default function App() {
             <Route index element={<ReceptionistDashboard />} />
             <Route path="match-requests" element={<Navigate to="../class-requests" replace />} />
             <Route path="class-requests" element={<ReceptionistClassRequests />} />
+            <Route path="chat" element={<StaffChatPage />} />
             <Route path="payments" element={<ReceptionistPaymentApproval />} />
             <Route path="tutors" element={<ReceptionistTutorList />} />
             <Route path="students" element={<ReceptionistStudentList />} />

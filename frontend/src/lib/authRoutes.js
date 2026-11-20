@@ -3,6 +3,7 @@ export const ROLE_ROUTES = {
   admin: "/admin",
   tutor: "/tutor",
   student: "/student",
+  parent: "/parent",
   receptionist: "/receptionist",
   accountant: "/accountant",
 };

@@ -1,9 +1,16 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { GraduationCap, Lock, User, ArrowLeft, LogIn, Loader2 } from "lucide-react";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import { GraduationCap, Lock, User, Users, ArrowLeft, LogIn, Loader2, ShieldCheck, BookOpen, Briefcase } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "../components/theme-toggle";
 import { FORCE_PASSWORD_PATHS, ROLE_ROUTES } from "../lib/authRoutes";
+
+const ACCOUNT_TYPES = [
+  { key: "parent", label: "Phụ huynh", icon: Users, roles: ["parent"] },
+  { key: "student", label: "Học sinh", icon: BookOpen, roles: ["student"] },
+  { key: "tutor", label: "Gia sư", icon: GraduationCap, roles: ["tutor"] },
+  { key: "staff", label: "Nhân viên", icon: Briefcase, roles: ["admin", "receptionist", "accountant"] },
+];
 
 const TUTOR_PROFILE_ACTIONABLE = ["INCOMPLETE", "REJECTED"];
 
@@ -12,8 +19,22 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [accountType, setAccountType] = useState("parent");
+  const { login, logout, loginParentWithGoogle } = useAuth();
+  const selectedType = ACCOUNT_TYPES.find((t) => t.key === accountType);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      await loginParentWithGoogle(searchParams.get("returnTo") || "/");
+    } catch (exception) {
+      setError(exception.message || "Không thể bắt đầu đăng nhập Google.");
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -25,6 +46,11 @@ export default function LoginPage() {
     setError("");
     try {
       const { role, profileStatus, mustChangePassword } = await login(username.trim(), password);
+      if (!selectedType.roles.includes(role)) {
+        await logout?.();
+        setError(`Tài khoản này không phải tài khoản ${selectedType.label.toLowerCase()}. Hãy chọn đúng loại tài khoản ở trên.`);
+        return;
+      }
       if (FORCE_PASSWORD_PATHS[role] && mustChangePassword) {
         navigate(FORCE_PASSWORD_PATHS[role], { replace: true });
         return;
@@ -59,7 +85,26 @@ export default function LoginPage() {
               <GraduationCap className="w-6 h-6" />
             </div>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">Đăng nhập EnglishPath</h1>
-            <p className="text-sm text-muted-foreground">Nhập tài khoản được cấp để tiếp tục</p>
+            <p className="text-sm text-muted-foreground">Chọn bạn đăng nhập với tư cách nào</p>
+          </div>
+
+          <div role="tablist" aria-label="Loại tài khoản" className="grid grid-cols-4 gap-1 rounded-xl bg-muted p-1">
+            {ACCOUNT_TYPES.map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={accountType === key}
+                disabled={loading}
+                onClick={() => { setAccountType(key); setError(""); }}
+                className={"flex cursor-pointer flex-col items-center gap-1 rounded-lg px-1 py-2 text-[11px] font-semibold transition-colors " + (accountType === key
+                  ? "bg-card text-primary shadow-sm"
+                  : "text-muted-foreground hover:text-foreground")}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </button>
+            ))}
           </div>
 
           {error && (
@@ -69,6 +114,7 @@ export default function LoginPage() {
           )}
 
           {/* Form */}
+          {accountType !== "parent" && (
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -125,17 +171,33 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+          )}
 
-          {/* Đăng ký gia sư */}
-          <div className="mt-4 text-center text-sm text-muted-foreground">
-            Chưa có tài khoản gia sư?{" "}
-            <Link
-              to="/tutor/register"
-              className="text-primary font-semibold hover:underline"
-            >
-              Đăng ký làm gia sư
-            </Link>
-          </div>
+          {accountType === "parent" && (
+            <>
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="w-full py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white font-semibold text-sm hover:border-blue-300 dark:hover:border-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4 text-blue-600" />}
+            <span>Đăng nhập bằng Google</span>
+          </button>
+          <p className="text-xs text-center text-muted-foreground">
+            Phụ huynh chỉ đăng nhập qua Google, không cần tạo mật khẩu riêng.
+          </p>
+            </>
+          )}
+
+          {accountType === "tutor" && (
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              Chưa có tài khoản gia sư?{" "}
+              <Link to="/tutor/register" className="text-primary font-semibold hover:underline">
+                Đăng ký làm gia sư
+              </Link>
+            </div>
+          )}
         </div>
       </main>
 
