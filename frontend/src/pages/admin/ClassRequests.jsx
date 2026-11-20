@@ -19,7 +19,6 @@ import {
   MapPin,
   Percent,
   UserCheck,
-  UserCog,
   Pencil,
   Calendar,
   MessageSquare,
@@ -41,7 +40,7 @@ import {
   CredentialImagePreview,
   TutorDetailSections,
 } from "../../components/tutor/TutorDetailSections";
-import { apiGetPublicTutors, apiGetTutorDetail } from "../../lib/tutorApi";
+import { apiGetTutorDetail } from "../../lib/tutorApi";
 import {
   apiGetClassRequests,
   apiGetClassRequestCounts,
@@ -50,8 +49,6 @@ import {
   apiCreateClassRequest,
   apiUpdateClassRequest,
   apiPublishClassRequest,
-  apiChangeDesignatedTutor,
-  apiConfirmClassRequest,
   apiSelectTutor,
   apiCompleteClassRequest,
   apiRematchClassRequest,
@@ -71,11 +68,8 @@ const statusMeta = {
 const EMPTY_COUNTS = { new: 0, open: 0, trial: 0, matched: 0, rematch: 0, cancelled: 0, total: 0 };
 const TAB_KEYS = ["all", "new", "open", "trial", "matched", "rematch", "cancelled"];
 
-// Lớp đang nhận ứng tuyển: đã đăng, hoặc đang ghép lại mà chưa có gia sư chỉ định.
-const isRecruiting = (req) => req.status === "OPEN" || (req.status === "REMATCH" && !req.tutorId);
-// Lớp xác nhận được theo gia sư chỉ định để chuyển dạy thử.
-const canConfirm = (req) => (req.status === "NEW" || req.status === "REMATCH") && !!req.tutorId;
-const canChangeTutor = (req) => req.status === "NEW" || req.status === "REMATCH";
+// Lớp đang nhận ứng tuyển: đã đăng hoặc đang ghép lại.
+const isRecruiting = (req) => req.status === "OPEN" || req.status === "REMATCH";
 
 /** Badge trạng thái lượt ứng tuyển trong modal / chi tiết. */
 function ApplicationStatusBadge({ status }) {
@@ -143,7 +137,6 @@ const INITIAL_FORM = {
   grade: "Lớp 10",
   school: "",
   learningGoal: "",
-  tutorId: "",
   classRequirement: "",
   sessionsPerWeek: 2,
   teachingMode: "ONLINE",
@@ -159,9 +152,6 @@ const inputClass =
 const PHONE_PATTERN = /^(0|\+84|84)(3|5|7|8|9)\d{8}$/;
 const cleanPhone = (phone) => phone.replace(/[\s.\-()]/g, "");
 
-const tutorKey = (t) => t.tutorId ?? t.id;
-const tutorLabel = (t) => t.fullName || t.name || `Gia sư #${tutorKey(t)}`;
-
 export function ClassRequestManagement() {
   const { token, session } = useAuth();
   const currentToken = token || session?.token;
@@ -170,7 +160,6 @@ export function ClassRequestManagement() {
 
   const [requests, setRequests] = useState([]);
   const [counts, setCounts] = useState(EMPTY_COUNTS);
-  const [activeTutors, setActiveTutors] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -186,10 +175,6 @@ export function ClassRequestManagement() {
   const [formError, setFormError] = useState("");
   // Tên phụ huynh đang giữ SĐT vừa nhập, khi khác họ tên trong form
   const [phoneOwner, setPhoneOwner] = useState(null);
-
-  // Modal gia sư chỉ định
-  const [tutorModal, setTutorModal] = useState(null); // { item, tutorId }
-  const [tutorError, setTutorError] = useState("");
 
   // Modal chi tiết
   const [detailModalItem, setDetailModalItem] = useState(null);
@@ -228,12 +213,6 @@ export function ClassRequestManagement() {
     setTimeout(() => setToastMessage(null), 3500);
   };
   const closeConfirmModal = () => setConfirmModal((prev) => ({ ...prev, open: false, onConfirm: null }));
-
-  useEffect(() => {
-    apiGetPublicTutors({ page: 0, size: 100 })
-      .then((res) => setActiveTutors(res?.items || []))
-      .catch(() => setActiveTutors([]));
-  }, []);
 
   // Chờ ngừng gõ rồi mới kiểm tra, kết quả cũ bị bỏ khi người dùng đã nhập tiếp.
   useEffect(() => {
@@ -315,7 +294,6 @@ export function ClassRequestManagement() {
       grade: item.grade || "",
       school: item.school || "",
       learningGoal: item.learningGoal || "",
-      tutorId: item.tutorId ? String(item.tutorId) : "",
       classRequirement: item.classRequirement || "",
       sessionsPerWeek: item.sessionsPerWeek || "",
       teachingMode: item.teachingMode || "",
@@ -358,10 +336,10 @@ export function ClassRequestManagement() {
     return payload;
   };
 
-  /** Bước tiếp theo sau khi lưu form bổ sung: có gia sư chỉ định thì xác nhận, không có thì đăng lớp. */
+  /** Bước tiếp theo sau khi lưu form bổ sung: đăng lớp lên trang gia sư. */
   const nextActionOf = (mode, saveOnly) => {
     if (mode !== "edit" || saveOnly || !formModal?.next) return null;
-    return formData.tutorId ? "confirm" : "publish";
+    return "publish";
   };
 
   const handleFormSubmit = (e, saveOnly = false) => {
@@ -406,7 +384,6 @@ export function ClassRequestManagement() {
                   "teachingMode", "preferredSchedule", "tutorRequirement",
                 ]),
                 phone: cleanPhone(formData.phone),
-                tutorId: formData.tutorId ? Number(formData.tutorId) : null,
                 sessionsPerWeek: Number(formData.sessionsPerWeek) || null,
                 pricePerSession: Number(formData.pricePerSession),
                 feePercentage: Number(formData.feePercentage) || 40,
@@ -428,23 +405,9 @@ export function ClassRequestManagement() {
             if (formData.sessionsPerWeek) payload.sessionsPerWeek = Number(formData.sessionsPerWeek);
             if (formData.feePercentage !== "") payload.feePercentage = Number(formData.feePercentage);
             await apiUpdateClassRequest(formModal.item.id, payload, currentToken);
-            if (formData.tutorId !== String(formModal.item.tutorId ?? "")) {
-              await apiChangeDesignatedTutor(
-                formModal.item.id,
-                formData.tutorId ? Number(formData.tutorId) : null,
-                currentToken
-              );
-            }
             if (next === "publish") {
               await apiPublishClassRequest(formModal.item.id, currentToken);
               showToast("Đã lưu thông tin và đăng lớp lên trang gia sư.");
-            } else if (next === "confirm") {
-              const confirmed = await apiConfirmClassRequest(formModal.item.id, currentToken);
-              const tutor = activeTutors.find((t) => String(tutorKey(t)) === formData.tutorId);
-              const tutorName = tutor ? tutorLabel(tutor) : formModal.item.tutorName || "chỉ định";
-              setSuccessPopup(
-                `Lớp của học sinh ${formData.studentName} đã chuyển sang "Đang dạy thử" và đã gửi thông báo tới gia sư ${tutorName}.${accountNote(confirmed)}`
-              );
             } else {
               showToast("Đã lưu thông tin lớp.");
             }
@@ -460,32 +423,6 @@ export function ClassRequestManagement() {
     });
   };
 
-  // ── Gia sư chỉ định ───────────────────────────────────────────────────────
-  const handleOpenTutorModal = (req) => {
-    setTutorError("");
-    setTutorModal({ item: req, tutorId: req.tutorId ? String(req.tutorId) : "" });
-  };
-
-  const handleTutorSubmit = async (e) => {
-    e.preventDefault();
-    setTutorError("");
-    setIsSubmitting(true);
-    try {
-      await apiChangeDesignatedTutor(
-        tutorModal.item.id,
-        tutorModal.tutorId ? Number(tutorModal.tutorId) : null,
-        currentToken
-      );
-      setTutorModal(null);
-      showToast(tutorModal.tutorId ? "Đã cập nhật gia sư chỉ định." : "Đã bỏ gia sư chỉ định.");
-      loadData();
-    } catch (err) {
-      setTutorError(err.message || "Không thể đổi gia sư chỉ định.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   // ── Đăng lớp (Chờ xử lý → Đã đăng): mở form bổ sung thông tin, lưu xong đăng luôn ──
   const handlePublish = (req) => handleOpenEdit(req, "publish");
 
@@ -497,7 +434,6 @@ export function ClassRequestManagement() {
         : "";
 
   // ── Xác nhận lớp có gia sư chỉ định → Đang dạy thử: bổ sung thông tin rồi xác nhận ──
-  const handleConfirmRequest = (req) => handleOpenEdit(req, "confirm");
 
   // ── Danh sách gia sư ứng tuyển + Chọn gia sư (UC-REC-03) ──────────────────
   const handleOpenApplications = async (req) => {
@@ -744,30 +680,7 @@ export function ClassRequestManagement() {
             <span>Sửa thông tin</span>
           </Button>
         )}
-        {canChangeTutor(req) && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={run(handleOpenTutorModal)}
-            disabled={isSubmitting}
-            className={`${widthClass} justify-center cursor-pointer text-xs active:scale-[0.98]`}
-          >
-            <UserCog size={15} />
-            <span>Gia sư chỉ định</span>
-          </Button>
-        )}
-        {canConfirm(req) && (
-          <Button
-            size="sm"
-            onClick={run(handleConfirmRequest)}
-            disabled={isSubmitting}
-            className={`${widthClass} justify-center bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer shadow-xs active:scale-[0.98]`}
-          >
-            <CheckCircle2 size={15} />
-            <span>Xác nhận đơn</span>
-          </Button>
-        )}
-        {req.status === "NEW" && !req.tutorId && (
+        {req.status === "NEW" && (
           <Button
             size="sm"
             onClick={run(handlePublish)}
@@ -1311,27 +1224,6 @@ export function ClassRequestManagement() {
                     />
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground">Gia sư chỉ định</label>
-                    <select
-                      value={formData.tutorId}
-                      onChange={(e) => setFormData({ ...formData, tutorId: e.target.value })}
-                      className={inputClass}
-                    >
-                      <option value="">Không chỉ định, trung tâm đăng tuyển</option>
-                      {/* Gia sư đã chọn nhưng không còn trong danh sách đang hoạt động vẫn phải hiện đúng */}
-                      {formData.tutorId && !activeTutors.some((t) => String(tutorKey(t)) === formData.tutorId) && (
-                        <option value={formData.tutorId}>
-                          {formModal.item?.tutorName || "Gia sư"} (ID: #{formData.tutorId})
-                        </option>
-                      )}
-                      {activeTutors.map((t) => (
-                        <option key={tutorKey(t)} value={tutorKey(t)}>
-                          {tutorLabel(t)} (ID: #{tutorKey(t)})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
                 </>
               )}
 
@@ -1481,73 +1373,6 @@ export function ClassRequestManagement() {
               </div>
             </form>
           </div>
-        </div>
-      )}
-
-      {/* ── MODAL: GIA SƯ CHỈ ĐỊNH ─────────────────────────────────────────── */}
-      {tutorModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <form
-            onSubmit={handleTutorSubmit}
-            className="relative w-full max-w-md rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-2xl space-y-5 text-card-foreground"
-          >
-            <button
-              type="button"
-              onClick={() => setTutorModal(null)}
-              className="absolute top-4 right-4 p-2 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-              aria-label="Đóng"
-            >
-              <X size={18} />
-            </button>
-            <div className="pr-8">
-              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                <UserCog className="text-primary w-5 h-5" />
-                <span>Gia sư chỉ định</span>
-              </h2>
-              <p className="text-xs text-muted-foreground mt-1">
-                Lớp <strong>{tutorModal.item.requestCode}</strong> — {tutorModal.item.classRequirement || "Lớp cần gia sư"}
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">Chọn gia sư</label>
-              <select
-                value={tutorModal.tutorId}
-                onChange={(e) => setTutorModal({ ...tutorModal, tutorId: e.target.value })}
-                className={inputClass}
-              >
-                <option value="">Không</option>
-                {activeTutors
-                  .filter((t) => String(tutorKey(t)) !== String(tutorModal.item.lastTutorId) || tutorModal.item.status !== "REMATCH")
-                  .map((t) => (
-                    <option key={tutorKey(t)} value={tutorKey(t)}>
-                      {tutorLabel(t)} (ID: #{tutorKey(t)})
-                    </option>
-                  ))}
-              </select>
-            </div>
-            <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/40 text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2">
-              <Info size={14} className="mt-0.5 shrink-0" />
-              <span>
-                {tutorModal.item.status === "REMATCH"
-                  ? "Chọn gia sư thì lớp tạm ẩn khỏi trang gia sư. Chọn Không thì lớp hiển thị lại để gia sư ứng tuyển."
-                  : "Chọn gia sư để xác nhận chuyển dạy thử. Chọn Không để đăng lớp cho gia sư ứng tuyển."}
-              </span>
-            </div>
-            {tutorError && (
-              <p role="alert" className="text-xs text-rose-600 dark:text-rose-400 font-semibold">
-                {tutorError}
-              </p>
-            )}
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <Button type="button" variant="outline" onClick={() => setTutorModal(null)} disabled={isSubmitting} className="cursor-pointer">
-                Hủy thao tác
-              </Button>
-              <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold cursor-pointer">
-                {isSubmitting ? <Loader2 size={15} className="animate-spin mr-1.5" /> : null}
-                <span>Lưu</span>
-              </Button>
-            </div>
-          </form>
         </div>
       )}
 

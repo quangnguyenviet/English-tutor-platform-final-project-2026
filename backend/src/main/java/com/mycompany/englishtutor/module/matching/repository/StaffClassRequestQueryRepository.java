@@ -55,7 +55,7 @@ public class StaffClassRequestQueryRepository {
 
     private static final String SELECT_BASE = """
             SELECT cr.id,
-                   cr.requested_tutor_id,
+                   CASE WHEN c.status IN ('TRIAL', 'ACTIVE') THEN c.tutor_id END AS requested_tutor_id,
                    cr.student_id,
                    cr.class_requirement,
                    cr.teaching_mode,
@@ -97,9 +97,9 @@ public class StaffClassRequestQueryRepository {
             JOIN parents p ON p.id = cr.parent_id
             LEFT JOIN students s ON s.id = cr.student_id
             LEFT JOIN users su ON su.id = s.id
-            LEFT JOIN users tu ON tu.id = cr.requested_tutor_id
             LEFT JOIN users hu ON hu.id = cr.handled_by
             """ + LATEST_CLASS_JOIN + """
+            LEFT JOIN users tu ON tu.id = CASE WHEN c.status IN ('TRIAL', 'ACTIVE') THEN c.tutor_id END
             LEFT JOIN users lu ON lu.id = c.tutor_id
             """;
 
@@ -135,8 +135,8 @@ public class StaffClassRequestQueryRepository {
                 + " JOIN parents p ON p.id = cr.parent_id "
                 + " LEFT JOIN students s ON s.id = cr.student_id "
                 + " LEFT JOIN users su ON su.id = s.id "
-                + " LEFT JOIN users tu ON tu.id = cr.requested_tutor_id "
                 + LATEST_CLASS_JOIN
+                + " LEFT JOIN users tu ON tu.id = CASE WHEN c.status IN ('TRIAL', 'ACTIVE') THEN c.tutor_id END "
                 + where;
         Long total = jdbcTemplate.queryForObject(countSql, Long.class, params.toArray());
         long totalItems = total == null ? 0 : total;

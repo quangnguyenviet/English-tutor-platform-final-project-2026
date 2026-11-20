@@ -16,6 +16,7 @@ import {
   Video,
   ExternalLink,
   Clock,
+  MessageCircle,
 } from "lucide-react";
 import HireTutorModal from "../../components/guest/HireTutorModal";
 import { apiGetPublicTutor } from "../../lib/tutorApi";
@@ -520,13 +521,13 @@ export function GuestTutorDetailPage() {
             <div className="sticky top-32 rounded-3xl border border-border bg-card p-6 shadow-sm space-y-6">
               <div>
                 <span className="text-xs font-semibold uppercase tracking-wider text-primary">
-                  Đăng ký nhận tư vấn
+                  Trao đổi trực tiếp
                 </span>
                 <h3 className="text-xl font-extrabold text-foreground mt-1">
-                  Đăng ký học với gia sư {currentTutor.name}
+                  Nhắn tin với gia sư {currentTutor.name}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                  EnglishPath hỗ trợ tư vấn lộ trình học phù hợp và sắp xếp 1 buổi học thử miễn phí.
+                  Trao đổi về lộ trình, lịch học và học phí; gia sư sẽ gửi đề xuất lớp để bạn xem xét.
                 </p>
               </div>
 
@@ -568,9 +569,10 @@ export function GuestTutorDetailPage() {
                 <button
                   type="button"
                   onClick={handleOpenHireModal}
-                  className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all shadow-md cursor-pointer text-center active:scale-[0.98]"
+                  className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all shadow-md cursor-pointer inline-flex items-center justify-center gap-2 active:scale-[0.98]"
                 >
-                  Đăng ký học thử 1 kèm 1
+                  <MessageCircle size={16} />
+                  Nhắn tin trao đổi với gia sư
                 </button>
                 <Link
                   to="/tutors"

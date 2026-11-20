@@ -23,13 +23,13 @@ public class User {
     @Column(nullable = false, unique = true, length = 50)
     String username;
 
-    @Column(name = "password_hash", nullable = false, length = 255)
+    @Column(name = "password_hash", length = 255)
     String passwordHash;
 
     @Column(name = "full_name", nullable = false, length = 100)
     String fullName;
 
-    @Column(length = 100, unique = true)
+    @Column(length = 255, unique = true)
     String email;
 
     @Column(length = 15, unique = true)

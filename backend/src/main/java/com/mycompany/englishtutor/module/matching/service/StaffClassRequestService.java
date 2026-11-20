@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.mycompany.englishtutor.module.audit.service.AuditLogService;
 import com.mycompany.englishtutor.module.matching.api.request.CancelClassRequest;
-import com.mycompany.englishtutor.module.matching.api.request.ChangeDesignatedTutorRequest;
 import com.mycompany.englishtutor.module.matching.api.request.CompleteMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.request.CreateClassRequest;
 import com.mycompany.englishtutor.module.matching.api.request.ParentCheckRequest;
@@ -59,7 +58,7 @@ import lombok.extern.slf4j.Slf4j;
 public class StaffClassRequestService {
 
     /** Mật khẩu mặc định cấp cho học sinh mới, học sinh bị ép đổi ở lần đăng nhập đầu. */
-    static final String DEFAULT_STUDENT_PASSWORD = "EnglishPath@123";
+    static final String DEFAULT_STUDENT_PASSWORD = StudentAccountService.DEFAULT_STUDENT_PASSWORD;
 
     JdbcTemplate jdbcTemplate;
     StaffClassRequestQueryRepository queryRepository;
@@ -70,6 +69,7 @@ public class StaffClassRequestService {
     PaymentService paymentService;
     MatchingLifecycleSupport lifecycle;
     ParentResolver parentResolver;
+    StudentAccountService studentAccountService;
 
     // ------------------------------------------------------------------ READ
 
@@ -113,11 +113,6 @@ public class StaffClassRequestService {
 
     @Transactional
     public ClassRequestDetailResponse create(CreateClassRequest request, HttpServletRequest httpRequest) {
-        Long tutorId = request.getTutorId();
-        if (tutorId != null) {
-            requireActiveTutor(tutorId);
-        }
-
         String parentName = request.getParentName().trim();
         ParentResolver.Parent parent =
                 parentResolver.resolve(parentName, PhoneNumbers.normalize(request.getPhone()));
@@ -130,15 +125,14 @@ public class StaffClassRequestService {
         Long classRequestId = jdbcTemplate.queryForObject(
                 """
                 INSERT INTO class_requests (
-                    parent_id, requested_tutor_id, class_requirement, teaching_mode, price_per_session,
+                    parent_id, class_requirement, teaching_mode, price_per_session,
                     sessions_per_week, preferred_schedule, tutor_requirement, fee_percentage,
                     student_name, student_grade, student_school, student_learning_goal,
                     status, created_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, 40), ?, ?, ?, ?, 'NEW', ?) RETURNING id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, 40), ?, ?, ?, ?, 'NEW', ?) RETURNING id
                 """,
                 Long.class,
                 parentId,
-                tutorId,
                 request.getClassRequirement().trim(),
                 request.getTeachingMode(),
                 request.getPricePerSession(),
@@ -156,12 +150,7 @@ public class StaffClassRequestService {
         details.put("parentName", request.getParentName());
         details.put("studentName", request.getStudentName());
         details.put("classRequirement", request.getClassRequirement());
-        details.put("tutorId", tutorId);
         auditLogService.log(currentUserId, "CREATE_CLASS_REQUEST", "CLASS_REQUEST", classRequestId, details, httpRequest);
-
-        if (tutorId != null) {
-            notifyReceptionists(classRequestId, request.getParentName().trim());
-        }
         return getClassRequest(classRequestId);
     }
 
@@ -212,50 +201,11 @@ public class StaffClassRequestService {
         return getClassRequest(id);
     }
 
-    /**
-     * Đổi gia sư chỉ định khi lớp đang chờ xử lý hoặc đang ghép lại: A → B, A → không chỉ định, không → A.
-     * Lớp đang ghép lại có gia sư chỉ định sẽ tạm ẩn khỏi trang gia sư cho tới khi đổi về không chỉ định.
-     */
-    @Transactional
-    public ClassRequestDetailResponse changeDesignatedTutor(
-            Long id, ChangeDesignatedTutorRequest request, HttpServletRequest httpRequest) {
-        Map<String, Object> row = lockRequest(id);
-        String status = (String) row.get("status");
-        if (!"NEW".equalsIgnoreCase(status) && !"REMATCH".equalsIgnoreCase(status)) {
-            throw new AppException(ErrorCode.CLASS_REQUEST_TUTOR_NOT_CHANGEABLE);
-        }
-
-        Long tutorId = request.getTutorId();
-        if (tutorId != null) {
-            requireActiveTutor(tutorId);
-            Integer terminated = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(*) FROM class_applications WHERE class_request_id = ? AND tutor_id = ? AND status = 'TERMINATED'",
-                    Integer.class, id, tutorId);
-            if (terminated != null && terminated > 0) {
-                throw new AppException(ErrorCode.CLASS_REQUEST_TUTOR_TERMINATED);
-            }
-        }
-
-        Long currentUserId = getCurrentUserId();
-        jdbcTemplate.update(
-                "UPDATE class_requests SET requested_tutor_id = ?, handled_by = ?, updated_at = NOW() WHERE id = ?",
-                tutorId, currentUserId, id);
-
-        Map<String, Object> details = new HashMap<>();
-        details.put("oldTutorId", row.get("requested_tutor_id"));
-        details.put("tutorId", tutorId);
-        auditLogService.log(currentUserId, "CHANGE_DESIGNATED_TUTOR", "CLASS_REQUEST", id, details, httpRequest);
-        return getClassRequest(id);
-    }
-
     @Transactional
     public ClassRequestDetailResponse publish(Long id, HttpServletRequest httpRequest) {
         Map<String, Object> row = lockRequest(id);
         if (!"NEW".equalsIgnoreCase((String) row.get("status"))) {
             throw new AppException(ErrorCode.CLASS_REQUEST_NOT_NEW);
-        }
-        if (row.get("requested_tutor_id") != null) {
-            throw new AppException(ErrorCode.CLASS_REQUEST_HAS_TUTOR);
         }
         boolean ready = (row.get("student_id") != null || notBlank(row.get("student_name")))
                 && notBlank(row.get("class_requirement"))
@@ -275,21 +225,6 @@ public class StaffClassRequestService {
         return getClassRequest(id);
     }
 
-    /** Lớp có gia sư chỉ định: Lễ tân đã trao đổi, hai bên đồng ý thì chuyển dạy thử. */
-    @Transactional
-    public ClassRequestDetailResponse confirm(Long id, HttpServletRequest httpRequest) {
-        Map<String, Object> row = lockRequest(id);
-        String status = (String) row.get("status");
-        if (!"NEW".equalsIgnoreCase(status) && !"REMATCH".equalsIgnoreCase(status)) {
-            throw new AppException(ErrorCode.MATCH_REQUEST_NOT_PENDING);
-        }
-        if (row.get("requested_tutor_id") == null) {
-            throw new AppException(ErrorCode.CLASS_REQUEST_NO_TUTOR);
-        }
-        Long tutorId = ((Number) row.get("requested_tutor_id")).longValue();
-        return startTrial(id, row, tutorId, "APPROVE_CLASS_REQUEST", httpRequest);
-    }
-
     /** Lớp đăng tuyển hoặc đang ghép lại: chọn một gia sư trong danh sách ứng tuyển. */
     @Transactional
     public ClassRequestDetailResponse selectTutor(Long id, SelectTutorRequest request, HttpServletRequest httpRequest) {
@@ -297,9 +232,6 @@ public class StaffClassRequestService {
         String requestStatus = (String) row.get("status");
         if (!"OPEN".equalsIgnoreCase(requestStatus) && !"REMATCH".equalsIgnoreCase(requestStatus)) {
             throw new AppException(ErrorCode.CLASS_REQUEST_NOT_SELECTABLE);
-        }
-        if (row.get("requested_tutor_id") != null) {
-            throw new AppException(ErrorCode.CLASS_REQUEST_HAS_TUTOR);
         }
 
         List<Map<String, Object>> apps = jdbcTemplate.queryForList(
@@ -342,7 +274,7 @@ public class StaffClassRequestService {
             }
             String parentPhone = jdbcTemplate.queryForObject(
                     "SELECT phone FROM parents WHERE id = ?", String.class, parentId);
-            StudentAccount account = ensureStudent(
+            StudentAccountService.StudentAccount account = studentAccountService.ensureStudent(
                     parentId,
                     pendingName,
                     parentPhone,
@@ -384,11 +316,11 @@ public class StaffClassRequestService {
         jdbcTemplate.update(
                 """
                 UPDATE class_requests SET
-                    status = 'MATCHED', requested_tutor_id = ?, student_id = ?,
+                    status = 'MATCHED', student_id = ?,
                     class_requirement = ?, teaching_mode = ?, handled_by = ?, updated_at = NOW()
                 WHERE id = ?
                 """,
-                tutorId, studentId, className, teachingMode, currentUserId, id);
+                studentId, className, teachingMode, currentUserId, id);
 
         Long classId = jdbcTemplate.queryForObject(
                 """
@@ -441,8 +373,53 @@ public class StaffClassRequestService {
             throw new AppException(ErrorCode.MATCH_REQUEST_NOT_TRIAL);
         }
 
-        Map<String, Object> cl = classRows.get(0);
-        Long classId = ((Number) cl.get("id")).longValue();
+        activateTrialClass(classRows.get(0), row.get("fee_percentage"), body, id, httpRequest);
+
+        return getClassRequest(id);
+    }
+
+    /** Lớp tạo từ đề xuất (không có đơn): Lễ tân xác nhận sau dạy thử thành công. */
+    @Transactional
+    public void completeDirectClass(Long classId, CompleteMatchRequest body, HttpServletRequest httpRequest) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                """
+                SELECT id, tutor_id, student_id, class_name, status, sessions_per_week, price_per_session, class_request_id
+                FROM classes WHERE id = ? FOR UPDATE
+                """,
+                classId);
+        if (rows.isEmpty() || !"TRIAL".equalsIgnoreCase((String) rows.get(0).get("status"))
+                || rows.get(0).get("class_request_id") != null) {
+            throw new AppException(ErrorCode.MATCH_REQUEST_NOT_TRIAL);
+        }
+        activateTrialClass(rows.get(0), null, body, null, httpRequest);
+    }
+
+    /** Dạy thử thất bại với lớp tạo từ đề xuất: hủy lớp và phí nháp, phụ huynh nhắn lại gia sư khác. */
+    @Transactional
+    public void cancelDirectTrialClass(Long classId, String reason, HttpServletRequest httpRequest) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT id, tutor_id, student_id, class_name, status, class_request_id FROM classes WHERE id = ? FOR UPDATE",
+                classId);
+        if (rows.isEmpty() || !"TRIAL".equalsIgnoreCase((String) rows.get(0).get("status"))
+                || rows.get(0).get("class_request_id") != null) {
+            throw new AppException(ErrorCode.MATCH_REQUEST_NOT_TRIAL);
+        }
+        paymentService.cancelDraftPayment(classId);
+        jdbcTemplate.update(
+                "UPDATE lessons SET status = 'HIDDEN', updated_at = NOW() WHERE class_id = ? AND status = 'PUBLISHED'", classId);
+        jdbcTemplate.update("UPDATE classes SET status = 'CANCELLED', updated_at = NOW() WHERE id = ?", classId);
+        Long currentUserId = getCurrentUserId();
+        auditLogService.log(currentUserId, "CANCEL_DIRECT_TRIAL_CLASS", "CLASS", classId, Map.of("reason", reason), httpRequest);
+        Long tutorId = ((Number) rows.get(0).get("tutor_id")).longValue();
+        lifecycle.notifyUser(tutorId, "Kết quả dạy thử không thành công",
+                "Lớp " + safe((String) rows.get(0).get("class_name")) + " không tiếp tục sau dạy thử. Lý do: " + reason,
+                "CLASS", classId);
+    }
+
+    /** Chuyển lớp {@code TRIAL} sang {@code ACTIVE} và kích hoạt phí; dùng cho lớp có đơn và lớp tạo từ đề xuất. */
+    private void activateTrialClass(
+            Map<String, Object> cl, Object requestFee, CompleteMatchRequest body, Long id, HttpServletRequest httpRequest) {
+                Long classId = ((Number) cl.get("id")).longValue();
         Long tutorId = ((Number) cl.get("tutor_id")).longValue();
         Long studentId = ((Number) cl.get("student_id")).longValue();
         String className = (String) cl.get("class_name");
@@ -461,8 +438,8 @@ public class StaffClassRequestService {
                 ? bodyFee
                 : draftFee != null
                         ? draftFee
-                        : row.get("fee_percentage") != null
-                                ? new BigDecimal(row.get("fee_percentage").toString())
+                        : requestFee != null
+                                ? new BigDecimal(requestFee.toString())
                                 : null;
 
         if (sessionsPerWeek <= 0 || pricePerSession == null) {
@@ -476,16 +453,25 @@ public class StaffClassRequestService {
 
         Long currentUserId = getCurrentUserId();
         jdbcTemplate.update(
-                "UPDATE classes SET status = 'ACTIVE', active_from = COALESCE(active_from, CURRENT_DATE), updated_at = NOW() WHERE id = ?",
+                """
+                UPDATE classes SET status = 'ACTIVE', active_from = COALESCE(active_from, CURRENT_DATE),
+                    end_date = CASE WHEN class_type = 'SHORT_TERM'
+                                    THEN (COALESCE(active_from, CURRENT_DATE) + INTERVAL '1 month')::date END,
+                    updated_at = NOW()
+                WHERE id = ?
+                """,
                 classId);
-        jdbcTemplate.update(
-                "UPDATE class_requests SET updated_at = NOW(), handled_by = COALESCE(handled_by, ?) WHERE id = ?",
-                currentUserId, id);
+        if (id != null) {
+            jdbcTemplate.update(
+                    "UPDATE class_requests SET updated_at = NOW(), handled_by = COALESCE(handled_by, ?) WHERE id = ?",
+                    currentUserId, id);
+        }
 
         // Kích hoạt payment NEW -> NOT_SUBMITTED (tính amount, ghi đè fee nếu body có).
         paymentService.createForClassWithFeeInfo(classId, feePercentage, sessionsPerWeek, pricePerSession);
 
-        auditLogService.log(currentUserId, "COMPLETE_CLASS_REQUEST", "CLASS_REQUEST", id,
+        auditLogService.log(currentUserId, "COMPLETE_CLASS_REQUEST", id != null ? "CLASS_REQUEST" : "CLASS",
+                id != null ? id : classId,
                 Map.of("classId", classId, "tutorId", tutorId, "status", "ACTIVE"), httpRequest);
 
         String safeName = safe(className);
@@ -494,8 +480,6 @@ public class StaffClassRequestService {
         lifecycle.notifyUser(studentId, "Lớp học chính thức",
                 "Lớp học " + safeName + " đã chuyển sang trạng thái chính thức. Giáo viên sẽ sắp xếp lịch học cố định trong thời gian tới.",
                 "CLASS", classId);
-
-        return getClassRequest(id);
     }
 
     /**
@@ -542,7 +526,7 @@ public class StaffClassRequestService {
         jdbcTemplate.update(
                 """
                 UPDATE class_requests
-                SET status = 'REMATCH', requested_tutor_id = NULL, handled_by = ?, updated_at = NOW()
+                SET status = 'REMATCH', handled_by = ?, updated_at = NOW()
                 WHERE id = ?
                 """,
                 currentUserId, id);
@@ -624,7 +608,7 @@ public class StaffClassRequestService {
     private Map<String, Object> lockRequest(Long id) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 """
-                SELECT id, parent_id, requested_tutor_id, student_id, class_requirement, teaching_mode,
+                SELECT id, parent_id, student_id, class_requirement, teaching_mode,
                        price_per_session, fee_percentage, status,
                        student_name, student_grade, student_school, student_learning_goal
                 FROM class_requests
@@ -712,51 +696,6 @@ public class StaffClassRequestService {
     }
 
     /** Kết quả tìm/tạo học sinh: {@code created} = true khi vừa tạo tài khoản mới. */
-    private record StudentAccount(Long id, boolean created) {}
-
-    private StudentAccount ensureStudent(
-            Long parentId, String studentName, String phone, String grade, String school, String learningGoal) {
-        List<Long> existing = jdbcTemplate.queryForList(
-                """
-                SELECT s.id FROM students s
-                JOIN users u ON u.id = s.id
-                WHERE s.parent_id = ? AND LOWER(u.full_name) = LOWER(?)
-                ORDER BY s.id LIMIT 1
-                """,
-                Long.class, parentId, studentName);
-        if (!existing.isEmpty()) {
-            return new StudentAccount(existing.get(0), false);
-        }
-
-        String baseUsername = "hs_" + phone.replaceAll("[^0-9]", "");
-        String username = baseUsername;
-        int suffix = 1;
-        while (userRepository.existsByUsername(username)) {
-            username = baseUsername + "_" + suffix++;
-        }
-
-        // Không lưu SĐT vào users.phone: cột này UNIQUE, trong khi anh chị em dùng chung SĐT phụ huynh
-        // và số đó có thể trùng tài khoản khác. SĐT liên hệ của học sinh nằm ở parents.phone.
-        User user = User.builder()
-                .username(username)
-                .fullName(studentName)
-                .passwordHash(passwordEncoder.encode(DEFAULT_STUDENT_PASSWORD))
-                .role(UserRole.STUDENT.name())
-                .status("ACTIVE")
-                .mustChangePassword(true)
-                .build();
-        user = userRepository.save(user);
-
-        jdbcTemplate.update(
-                """
-                INSERT INTO students (id, parent_id, school, grade, learning_goal, elo)
-                VALUES (?, ?, ?, ?, ?, 1000)
-                """,
-                user.getId(), parentId, school, grade, learningGoal);
-
-        return new StudentAccount(user.getId(), true);
-    }
-
     /**
      * Mật khẩu mặc định của học sinh, chỉ khi học sinh chưa đổi mật khẩu.
      * Cho Lễ tân xem lại khi lỡ đóng popup lúc tạo tài khoản.
@@ -802,17 +741,6 @@ public class StaffClassRequestService {
                 """,
                 BigDecimal.class, classId);
         return fees.isEmpty() ? null : fees.get(0);
-    }
-
-    private void notifyReceptionists(long classRequestId, String parentName) {
-        jdbcTemplate.update(
-                """
-                INSERT INTO notifications (user_id, title, content, link_entity_type, link_entity_id)
-                SELECT id, ?, ?, 'CLASS_REQUEST', ? FROM users WHERE role = 'RECEPTIONIST' AND status = 'ACTIVE'
-                """,
-                "Yêu cầu đăng ký học với gia sư chỉ định mới",
-                "Phụ huynh " + parentName + " vừa đăng ký học với gia sư, cần liên hệ xác nhận trong 12 giờ.",
-                classRequestId);
     }
 
     /** Thông báo cho các gia sư đang ứng tuyển lớp. */

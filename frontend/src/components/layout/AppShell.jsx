@@ -46,7 +46,7 @@ const tutorLibraryNav = [
   { to: "/tutor/library/materials", label: "Kho video & tài liệu", icon: Video },
 ];
 
-const roleLabel = { admin: "Quản trị viên", tutor: "Gia sư", student: "Học sinh", receptionist: "Lễ tân", accountant: "Kế toán" };
+const roleLabel = { admin: "Quản trị viên", tutor: "Gia sư", student: "Học sinh", parent: "Phụ huynh", receptionist: "Lễ tân", accountant: "Kế toán" };
 
 export default function AppShell() {
   return (
@@ -79,6 +79,7 @@ function AppShellInner() {
 
   const isTutor = session?.role === "tutor";
   const isStudent = session?.role === "student";
+  const isParent = session?.role === "parent";
   const isAdmin = session?.role === "admin";
   const isReceptionist = session?.role === "receptionist";
   const isAccountant = session?.role === "accountant";
@@ -176,6 +177,7 @@ function AppShellInner() {
         label: "Phí nhận lớp",
         icon: Banknote,
       },
+      { to: "/admin/chat", label: "Tin nhắn & tin đăng", icon: MessageCircle },
       { to: "/admin/tutors", label: "Quản lý gia sư", icon: UserCog },
       { to: "/admin/students", label: "Quản lý học sinh", icon: Users },
       { to: "/admin/lessons", label: "Theo dõi buổi học", icon: BookOpenCheck },
@@ -211,6 +213,7 @@ function AppShellInner() {
         label: "Phí nhận lớp",
         icon: Banknote,
       },
+      { to: "/receptionist/chat", label: "Tin nhắn & tin đăng", icon: MessageCircle },
       { to: "/receptionist/tutors", label: "Quản lý gia sư", icon: UserCog },
       { to: "/receptionist/students", label: "Quản lý học sinh", icon: Users },
       { to: "/receptionist/lessons", label: "Theo dõi buổi học", icon: BookOpenCheck },
@@ -238,12 +241,20 @@ function AppShellInner() {
   } else if (isTutor) {
     items = [
       { to: "/tutor", label: "Tổng quan", icon: LayoutDashboard, end: true },
+      { to: "/tutor/messages", label: "Tin nhắn", icon: MessageCircle },
       { to: "/tutor/available-classes", label: "Lớp cần gia sư", icon: Search },
       { to: "/tutor/classes", label: "Lớp học của tôi", icon: Users },
       { to: "/tutor/schedule", label: "Lịch dạy", icon: CalendarDays },
       { to: "/tutor/payments", label: "Phí nhận lớp", icon: Banknote },
       { to: "/tutor/profile", label: "Hồ sơ", icon: IdCard },
       { to: "/tutor/settings", label: "Cài đặt", icon: Settings },
+    ];
+  } else if (isParent) {
+    items = [
+      { to: "/parent/messages", label: "Tin nhắn", icon: MessageCircle },
+      { to: "/parent/postings", label: "Tin tìm gia sư", icon: Megaphone },
+      { to: "/parent/explore", label: "Khám phá gia sư", icon: Search },
+      { to: "/parent/progress", label: "Tiến độ của con", icon: LineChart },
     ];
   } else if (isStudent) {
     const isMatched = studentMatching?.studentStatus === "MATCHED";

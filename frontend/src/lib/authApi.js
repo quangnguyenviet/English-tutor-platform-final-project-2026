@@ -35,6 +35,29 @@ export async function apiLogin(username, password) {
   return data.result; // { token, authenticated, mustChangePassword? }
 }
 
+export async function apiGetGoogleAuthorizationUrl({ redirectUri, state, codeChallenge, nonce }) {
+  const query = new URLSearchParams({ redirectUri, state, codeChallenge, nonce });
+  const res = await fetch(`${BASE}/api/v1/auth/google/authorization-url?${query}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.result?.authorizationUrl) {
+    throw new Error(data.message || "Không thể bắt đầu đăng nhập Google");
+  }
+  return data.result.authorizationUrl;
+}
+
+export async function apiGoogleCallback(body) {
+  const res = await fetch(`${BASE}/api/v1/auth/google/callback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.result?.authenticated) {
+    throw new Error(data.message || "Đăng nhập Google thất bại");
+  }
+  return data.result;
+}
+
 /**
  * Đổi mật khẩu — POST /api/v1/auth/change-password (API_DESIGN 3.1).
  * Bắt buộc ở lần đăng nhập đầu của học sinh.

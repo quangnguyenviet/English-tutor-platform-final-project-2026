@@ -89,7 +89,7 @@ public class TutorClassRequestService {
             throw new AppException(ErrorCode.CLASS_REQUEST_NOT_FOUND);
         }
         String requestStatus = statuses.getFirst();
-        if (!isRecruiting(requestStatus) || applicationRepository.hasDesignatedTutor(classRequestId)) {
+        if (!isRecruiting(requestStatus)) {
             throw new AppException(ErrorCode.CLASS_REQUEST_NOT_OPEN);
         }
 

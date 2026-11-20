@@ -45,9 +45,6 @@ public class CreateClassRequest {
     @Schema(description = "Mục tiêu học tập", example = "Đạt IELTS 6.5 trong 6 tháng")
     String learningGoal;
 
-    @Schema(description = "ID gia sư chỉ định. Để trống khi trung tâm đăng tuyển hộ", example = "2")
-    Long tutorId;
-
     @NotBlank(message = "Yêu cầu lớp học không được để trống")
     @Schema(description = "Yêu cầu lớp học / môn học", example = "Luyện IELTS từ 5.0 lên 6.5, tập trung Speaking và Grammar")
     String classRequirement;

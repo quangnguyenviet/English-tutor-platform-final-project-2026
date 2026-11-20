@@ -126,7 +126,6 @@ class StaffClassRequestControllerTest {
                 .studentName("Lê Bé")
                 .grade("Lớp 8")
                 .school("THCS Đoàn Thị Điểm")
-                .tutorId(10L)
                 .classRequirement("Luyện nói tiếng Anh lớp 8")
                 .sessionsPerWeek(3)
                 .teachingMode("ONLINE")
@@ -145,15 +144,6 @@ class StaffClassRequestControllerTest {
                 .andExpect(jsonPath("$.result.requestCode").value("REQ-20261024-0001"));
     }
 
-    @Test
-    void confirm_shouldReturn200() throws Exception {
-        when(service.confirm(eq(1L), any())).thenReturn(detailItem());
-
-        mockMvc.perform(post("/api/v1/class-requests/1/confirm")
-                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_RECEPTIONIST"))))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Đã xác nhận và chuyển lớp sang đang dạy thử"));
-    }
 
     @Test
     void complete_shouldReturn200() throws Exception {
@@ -213,18 +203,6 @@ class StaffClassRequestControllerTest {
                 .andExpect(jsonPath("$.message").value("Đã hủy lớp cần gia sư"));
     }
 
-    @Test
-    void changeDesignatedTutor_nullTutor_shouldReturn200() throws Exception {
-        when(service.changeDesignatedTutor(eq(1L), any(), any())).thenReturn(detailItem());
-
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                        .patch("/api/v1/class-requests/1/designated-tutor")
-                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_RECEPTIONIST")))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"tutorId\":null}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Đã cập nhật gia sư chỉ định"));
-    }
 
     @Test
     void rematch_withoutReason_shouldReturn400() throws Exception {

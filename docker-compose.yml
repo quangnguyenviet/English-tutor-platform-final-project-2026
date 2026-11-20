@@ -41,6 +41,117 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Rocket.Chat messaging engine — chỉ chạy khi bật profile "messaging".
+  # Rocket.Chat 8.9 LTS yêu cầu MongoDB replica set 8.x.
+  rocketchat-mongodb-fix-permissions:
+    image: mongodb/mongodb-community-server:${ROCKETCHAT_MONGODB_VERSION:-8.0}-ubi8
+    profiles: ["messaging"]
+    user: "0"
+    restart: "no"
+    volumes:
+      - rocketchat_mongodb_data:/data/db
+    environment:
+      MONGODB_USER_ID: 1001
+    entrypoint:
+      - sh
+      - -ec
+      - |
+        owner="$$(stat -c %u /data/db)"
+        if [ "$$owner" != "$$MONGODB_USER_ID" ]; then
+          chown -R "$$MONGODB_USER_ID" /data/db
+        fi
+
+  rocketchat-mongodb:
+    image: mongodb/mongodb-community-server:${ROCKETCHAT_MONGODB_VERSION:-8.0}-ubi8
+    container_name: tutor-rocketchat-mongodb
+    profiles: ["messaging"]
+    user: "1001"
+    restart: unless-stopped
+    depends_on:
+      rocketchat-mongodb-fix-permissions:
+        condition: service_completed_successfully
+    command: mongod --replSet rs0 --bind_ip_all
+    ports:
+      - "${ROCKETCHAT_MONGODB_PORT:-27018}:27017"
+    volumes:
+      - rocketchat_mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "mongodb://localhost:27017/?directConnection=true", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  rocketchat-mongodb-init:
+    image: mongodb/mongodb-community-server:${ROCKETCHAT_MONGODB_VERSION:-8.0}-ubi8
+    profiles: ["messaging"]
+    restart: "no"
+    depends_on:
+      rocketchat-mongodb:
+        condition: service_healthy
+    entrypoint:
+      - sh
+      - -ec
+      - |
+        mongosh "mongodb://rocketchat-mongodb:27017/?directConnection=true" --quiet --eval '
+          try {
+            rs.status();
+          } catch (error) {
+            rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "rocketchat-mongodb:27017" }] });
+          }
+        '
+        until mongosh "mongodb://rocketchat-mongodb:27017/?replicaSet=rs0" --quiet --eval "db.hello().isWritablePrimary" | grep -q true; do
+          sleep 2
+        done
+
+  rocketchat-nats:
+    image: nats:${ROCKETCHAT_NATS_VERSION:-2.11-alpine}
+    container_name: tutor-rocketchat-nats
+    profiles: ["messaging"]
+    restart: unless-stopped
+    command: --http_port 8222
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  rocketchat:
+    image: registry.rocket.chat/rocketchat/rocket.chat:${ROCKETCHAT_VERSION:-8.9.1}
+    container_name: tutor-rocketchat
+    profiles: ["messaging"]
+    restart: unless-stopped
+    depends_on:
+      rocketchat-mongodb-init:
+        condition: service_completed_successfully
+      rocketchat-nats:
+        condition: service_healthy
+    ports:
+      - "${ROCKETCHAT_PORT:-3001}:3000"
+    environment:
+      ROOT_URL: ${ROCKETCHAT_ROOT_URL:-http://localhost:3001}
+      PORT: 3000
+      DEPLOY_METHOD: docker
+      DEPLOY_PLATFORM: compose
+      RC_DISABLE_STATISTICS_REPORTING: ${ROCKETCHAT_DISABLE_STATISTICS_REPORTING:-false}
+      MONGO_URL: mongodb://rocketchat-mongodb:27017/rocketchat?replicaSet=rs0
+      TRANSPORTER: monolith+nats://rocketchat-nats:4222
+      CREATE_TOKENS_FOR_USERS_SECRET: ${ROCKETCHAT_CREATE_TOKENS_SECRET:-dev-only-change-me}
+      ADMIN_USERNAME: ${ROCKETCHAT_ADMIN_USERNAME:-ep_admin}
+      ADMIN_PASS: ${ROCKETCHAT_ADMIN_PASSWORD:-ChangeMe123!}
+      ADMIN_NAME: ${ROCKETCHAT_ADMIN_NAME:-EnglishPath Admin}
+      ADMIN_EMAIL: ${ROCKETCHAT_ADMIN_EMAIL:-admin@englishpath.local}
+      OVERWRITE_SETTING_Accounts_RegistrationForm: Disabled
+      OVERWRITE_SETTING_Accounts_TwoFactorAuthentication_Enabled: "false"
+      OVERWRITE_SETTING_FileUpload_Enabled: "false"
+      OVERWRITE_SETTING_Show_Setup_Wizard: completed
+    healthcheck:
+      test: ["CMD", "nc", "-zv", "-w", "10", "127.0.0.1", "3000"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
   #   networks:
   #     - app-network
 
@@ -83,7 +194,6 @@ services:
       context: ./ai
       dockerfile: Dockerfile
     container_name: tutor-ai
-    restart: always
     ports:
       - "${AI_PORT:-8000}:8000"
     environment:
@@ -117,6 +227,7 @@ services:
 volumes:
   postgres_data:
   minio_data:
+  rocketchat_mongodb_data:
 
 # networks:
 #   app-network:

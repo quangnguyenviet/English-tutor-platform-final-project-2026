@@ -58,7 +58,7 @@ public class TutorClassRequestQueryRepository {
             LEFT JOIN users u ON u.id = cr.student_id
             JOIN parents p ON p.id = cr.parent_id
             LEFT JOIN class_applications ca ON ca.class_request_id = cr.id AND ca.tutor_id = ?
-            WHERE cr.status IN ('OPEN', 'REMATCH') AND cr.requested_tutor_id IS NULL
+            WHERE cr.status IN ('OPEN', 'REMATCH')
             """;
 
     private static final String COUNT_QUERY = """
@@ -66,7 +66,7 @@ public class TutorClassRequestQueryRepository {
             FROM class_requests cr
             LEFT JOIN students s ON s.id = cr.student_id
             JOIN parents p ON p.id = cr.parent_id
-            WHERE cr.status IN ('OPEN', 'REMATCH') AND cr.requested_tutor_id IS NULL
+            WHERE cr.status IN ('OPEN', 'REMATCH')
             """;
 
     private static final String APPLICATIONS_QUERY = """

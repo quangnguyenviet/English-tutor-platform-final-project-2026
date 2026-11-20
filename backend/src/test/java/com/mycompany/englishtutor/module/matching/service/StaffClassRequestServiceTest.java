@@ -36,7 +36,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.mycompany.englishtutor.module.audit.service.AuditLogService;
 import com.mycompany.englishtutor.module.matching.api.request.CancelClassRequest;
-import com.mycompany.englishtutor.module.matching.api.request.ChangeDesignatedTutorRequest;
 import com.mycompany.englishtutor.module.matching.api.request.CreateClassRequest;
 import com.mycompany.englishtutor.module.matching.api.request.ParentCheckRequest;
 import com.mycompany.englishtutor.module.matching.api.request.RematchMatchRequest;
@@ -110,7 +109,7 @@ class StaffClassRequestServiceTest {
         order.verify(lifecycle).closeOpenClasses(REQUEST_ID);
         order.verify(lifecycle).terminateTutor(REQUEST_ID, TUTOR_ID);
         order.verify(lifecycle).reopenRejectedApplications(REQUEST_ID);
-        order.verify(jdbcTemplate).update(contains("status = 'REMATCH', requested_tutor_id = NULL"), any(), eq(REQUEST_ID));
+        order.verify(jdbcTemplate).update(contains("SET status = 'REMATCH'"), any(), eq(REQUEST_ID));
         verify(auditLogService).log(any(), eq("REMATCH_CLASS_REQUEST"), eq("CLASS_REQUEST"), eq(REQUEST_ID), any(), any());
         verify(lifecycle).notifyUser(eq(TUTOR_ID), anyString(), contains("Học sinh chưa hợp phương pháp"), eq("CLASS"), eq(CLASS_ID));
         verify(lifecycle).notifyUser(eq(STUDENT_ID), anyString(), anyString(), eq("CLASS"), eq(CLASS_ID));
@@ -140,7 +139,7 @@ class StaffClassRequestServiceTest {
 
         verify(lifecycle).closeOpenClasses(REQUEST_ID);
         verify(lifecycle).terminateTutor(REQUEST_ID, TUTOR_ID);
-        verify(jdbcTemplate).update(contains("status = 'REMATCH', requested_tutor_id = NULL"), any(), eq(REQUEST_ID));
+        verify(jdbcTemplate).update(contains("SET status = 'REMATCH'"), any(), eq(REQUEST_ID));
         verify(lifecycle).notifyUser(eq(TUTOR_ID), eq("Lớp học đã kết thúc theo khiếu nại"), anyString(),
                 eq("CLASS"), eq(CLASS_ID));
     }
@@ -240,138 +239,17 @@ class StaffClassRequestServiceTest {
 
     // ---------------------------------------------------------------- confirm
 
-    @Test
-    void confirm_withoutStudentAccountAndName_throwsStudentInfoRequired() {
-        givenRequest("NEW", TUTOR_ID, null, "   ");
-        givenActiveTutor(TUTOR_ID);
 
-        AppException ex = assertThrows(AppException.class, () -> service.confirm(REQUEST_ID, null));
 
-        assertEquals(ErrorCode.STUDENT_INFO_REQUIRED, ex.getErrorCode());
-        verify(userRepository, never()).save(any());
-    }
 
-    @Test
-    void confirm_withoutPrice_throwsPriceRequiredAndCreatesNothing() {
-        Map<String, Object> row = givenRequest("NEW", TUTOR_ID, null, "Lê Hoàng Nam");
-        row.remove("price_per_session");
-        givenActiveTutor(TUTOR_ID);
 
-        AppException ex = assertThrows(AppException.class, () -> service.confirm(REQUEST_ID, null));
 
-        assertEquals(ErrorCode.CLASS_REQUEST_PRICE_REQUIRED, ex.getErrorCode());
-        verify(userRepository, never()).save(any());
-        verify(paymentService, never()).createDraftForClass(any(), any(), any());
-    }
-
-    @Test
-    void confirm_withoutDesignatedTutor_throwsNoTutor() {
-        givenRequest("NEW", null, null, "Lê Hoàng Nam");
-
-        AppException ex = assertThrows(AppException.class, () -> service.confirm(REQUEST_ID, null));
-
-        assertEquals(ErrorCode.CLASS_REQUEST_NO_TUTOR, ex.getErrorCode());
-    }
-
-    @Test
-    void confirm_openRequest_throwsNotPending() {
-        givenRequest("OPEN", TUTOR_ID, STUDENT_ID, null);
-
-        AppException ex = assertThrows(AppException.class, () -> service.confirm(REQUEST_ID, null));
-
-        assertEquals(ErrorCode.MATCH_REQUEST_NOT_PENDING, ex.getErrorCode());
-    }
-
-    @Test
-    void confirm_rematchWithDesignatedTutor_createsTrialAndRejectsApplicants() {
-        givenRequest("REMATCH", TUTOR_ID, STUDENT_ID, null);
-        givenActiveTutor(TUTOR_ID);
-        givenDetail();
-        when(jdbcTemplate.queryForList(contains("RETURNING tutor_id"), eq(Long.class), eq(REQUEST_ID), eq(TUTOR_ID)))
-                .thenReturn(List.of(OTHER_TUTOR_ID));
-        when(jdbcTemplate.queryForObject(contains("INSERT INTO classes"), eq(Long.class),
-                any(), any(), any(), any(), any(), any())).thenReturn(CLASS_ID);
-
-        service.confirm(REQUEST_ID, null);
-
-        verify(jdbcTemplate).update(contains("status = 'MATCHED'"),
-                eq(TUTOR_ID), eq(STUDENT_ID), any(), any(), any(), eq(REQUEST_ID));
-        verify(paymentService).createDraftForClass(eq(CLASS_ID), any(), any());
-        verify(lifecycle).notifyUser(eq(OTHER_TUTOR_ID), anyString(), anyString(), eq("CLASS_REQUEST"), eq(REQUEST_ID));
-        verify(userRepository, never()).save(any());
-    }
-
-    @Test
-    void confirm_newStudent_savesAccountWithoutParentPhone() {
-        givenRequest("NEW", TUTOR_ID, null, "Lê Hoàng Nam");
-        givenActiveTutor(TUTOR_ID);
-        givenDetail();
-        when(jdbcTemplate.queryForObject(contains("SELECT phone FROM parents"), eq(String.class), eq(PARENT_ID)))
-                .thenReturn("0368171004");
-        when(userRepository.save(any())).thenAnswer(call -> {
-            User user = call.getArgument(0);
-            user.setId(STUDENT_ID);
-            return user;
-        });
-        when(jdbcTemplate.queryForObject(contains("INSERT INTO classes"), eq(Long.class),
-                any(), any(), any(), any(), any(), any())).thenReturn(CLASS_ID);
-
-        service.confirm(REQUEST_ID, null);
-
-        ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(saved.capture());
-        assertEquals("hs_0368171004", saved.getValue().getUsername());
-        assertNull(saved.getValue().getPhone());
-    }
 
     // -------------------------------------------------------- designated tutor
 
-    @Test
-    void changeDesignatedTutor_toNone_clearsTutor() {
-        givenRequest("NEW", TUTOR_ID, null, "Lê Hoàng Nam");
-        givenDetail();
 
-        service.changeDesignatedTutor(REQUEST_ID, new ChangeDesignatedTutorRequest(null), null);
 
-        verify(jdbcTemplate).update(contains("requested_tutor_id = ?"), isNull(), any(), eq(REQUEST_ID));
-        verify(tutorRepository, never()).findPublicByIdAndProfileStatus(anyLong(), anyString());
-    }
 
-    @Test
-    void changeDesignatedTutor_onRematchToOtherTutor_updatesTutor() {
-        givenRequest("REMATCH", null, STUDENT_ID, null);
-        givenActiveTutor(OTHER_TUTOR_ID);
-        givenDetail();
-        when(jdbcTemplate.queryForObject(contains("TERMINATED"), eq(Integer.class), eq(REQUEST_ID), eq(OTHER_TUTOR_ID)))
-                .thenReturn(0);
-
-        service.changeDesignatedTutor(REQUEST_ID, new ChangeDesignatedTutorRequest(OTHER_TUTOR_ID), null);
-
-        verify(jdbcTemplate).update(contains("requested_tutor_id = ?"), eq(OTHER_TUTOR_ID), any(), eq(REQUEST_ID));
-    }
-
-    @Test
-    void changeDesignatedTutor_terminatedTutor_throwsConflict() {
-        givenRequest("REMATCH", null, STUDENT_ID, null);
-        givenActiveTutor(TUTOR_ID);
-        when(jdbcTemplate.queryForObject(contains("TERMINATED"), eq(Integer.class), eq(REQUEST_ID), eq(TUTOR_ID)))
-                .thenReturn(1);
-
-        AppException ex = assertThrows(AppException.class,
-                () -> service.changeDesignatedTutor(REQUEST_ID, new ChangeDesignatedTutorRequest(TUTOR_ID), null));
-
-        assertEquals(ErrorCode.CLASS_REQUEST_TUTOR_TERMINATED, ex.getErrorCode());
-    }
-
-    @Test
-    void changeDesignatedTutor_onOpen_throwsNotChangeable() {
-        givenRequest("OPEN", null, null, "Lê Hoàng Nam");
-
-        AppException ex = assertThrows(AppException.class,
-                () -> service.changeDesignatedTutor(REQUEST_ID, new ChangeDesignatedTutorRequest(TUTOR_ID), null));
-
-        assertEquals(ErrorCode.CLASS_REQUEST_TUTOR_NOT_CHANGEABLE, ex.getErrorCode());
-    }
 
     // ---------------------------------------------------------------- publish
 
@@ -389,14 +267,6 @@ class StaffClassRequestServiceTest {
         verify(userRepository, never()).save(any());
     }
 
-    @Test
-    void publish_withDesignatedTutor_throwsHasTutor() {
-        givenRequest("NEW", TUTOR_ID, null, "Lê Hoàng Nam");
-
-        AppException ex = assertThrows(AppException.class, () -> service.publish(REQUEST_ID, null));
-
-        assertEquals(ErrorCode.CLASS_REQUEST_HAS_TUTOR, ex.getErrorCode());
-    }
 
     @Test
     void publish_missingStudentInfo_throwsNotReady() {
@@ -412,15 +282,6 @@ class StaffClassRequestServiceTest {
 
     // ----------------------------------------------------------------- select
 
-    @Test
-    void selectTutor_whenDesignatedTutorSet_throwsHasTutor() {
-        givenRequest("REMATCH", TUTOR_ID, STUDENT_ID, null);
-
-        AppException ex = assertThrows(AppException.class,
-                () -> service.selectTutor(REQUEST_ID, new SelectTutorRequest(1L), null));
-
-        assertEquals(ErrorCode.CLASS_REQUEST_HAS_TUTOR, ex.getErrorCode());
-    }
 
     @Test
     void selectTutor_onNewRequest_throwsNotSelectable() {

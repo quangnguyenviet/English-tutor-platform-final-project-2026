@@ -88,20 +88,6 @@ export async function apiPublishClassRequest(id, token) {
   return request(`/api/v1/class-requests/${id}/publish`, { method: "POST", token }, "Không thể đăng tuyển lớp");
 }
 
-/** Đổi gia sư chỉ định, tutorId null là không chỉ định — PATCH /api/v1/class-requests/{id}/designated-tutor */
-export async function apiChangeDesignatedTutor(id, tutorId, token) {
-  return request(
-    `/api/v1/class-requests/${id}/designated-tutor`,
-    { method: "PATCH", body: { tutorId }, token },
-    "Không thể đổi gia sư chỉ định"
-  );
-}
-
-/** Xác nhận lớp có gia sư chỉ định, chuyển dạy thử — POST /api/v1/class-requests/{id}/confirm */
-export async function apiConfirmClassRequest(id, token) {
-  return request(`/api/v1/class-requests/${id}/confirm`, { method: "POST", token }, "Không thể xác nhận lớp");
-}
-
 /** Xác nhận ghép thành công — POST /api/v1/class-requests/{id}/complete-match */
 export async function apiCompleteClassRequest(id, token, body) {
   return request(

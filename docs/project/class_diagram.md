@@ -36,9 +36,9 @@ Các danh từ liên quan đến vật:
 \- Bảng giá → lớp **tutor_prices**: tutor_id, teaching_mode, price_per_session, program — Mỗi hình thức dạy (Online/Tại nhà) có mức giá riêng  
 \- Lịch rảnh → lớp **tutor_availabilities**: tutor_id, day_of_week, time_slot — Lịch rảnh tham khảo, khác với class_schedules là lịch dạy cố định thực tế  
 \- Khu vực dạy → lớp **tutor_service_areas**: tutor_id, province, district — Khu vực địa lý gia sư nhận dạy tại nhà, phục vụ bộ lọc tỉnh/quận  
-\- Đơn yêu cầu lớp → lớp **class_requests**: parent_id, requested_tutor_id, student_id, class_requirement, teaching_mode, price_per_session, preferred_schedule, tutor_requirement, status, cancel_reason, created_by, handled_by — Có vòng đời trạng thái riêng (NEW → OPEN → MATCHED hoặc CANCELLED)  
+\- Đơn yêu cầu lớp → lớp **class_requests**: parent_id, student_id, source (STAFF/POSTING), purpose, province, district, class_requirement, teaching_mode, price_per_session, preferred_schedule, tutor_requirement, status, cancel_reason, created_by, handled_by — Có vòng đời trạng thái riêng (NEW → OPEN → MATCHED hoặc CANCELLED)  
 \- Lượt ứng tuyển → lớp **class_applications**: class_request_id, tutor_id, message, status, applied_at — Bảng nối N-N giữa gia sư và đơn yêu cầu, có thuộc tính riêng (lời nhắn, trạng thái). UNIQUE (class_request_id, tutor_id)  
-\- Lớp học → lớp **classes**: class_request_id, tutor_id, student_id, class_name, status, teaching_mode, active_from, price_per_session, sessions_per_week, tutor_note, các cột ca thử `trial_date`, `trial_start_time`, `trial_end_time`, `trial_teaching_mode`, `trial_meeting_url`, `trial_location` (V16: ca dạy thử lưu trên chính dòng lớp — R-TRIAL) — Quan hệ dạy học 1 gia sư — 1 học sinh  
+\- Lớp học → lớp **classes**: class_request_id (nullable), proposal_id, class_type, fee_percentage, end_date, tutor_id, student_id, class_name, status, teaching_mode, active_from, price_per_session, sessions_per_week, tutor_note, các cột ca thử `trial_date`, `trial_start_time`, `trial_end_time`, `trial_teaching_mode`, `trial_meeting_url`, `trial_location` (V16: ca dạy thử lưu trên chính dòng lớp — R-TRIAL) — Quan hệ dạy học 1 gia sư — 1 học sinh  
 \- Lịch dạy cố định → lớp **class_schedules**: class_id, day_of_week, start_time, end_time, valid_from, valid_to — Mẫu lịch dạy hằng tuần kèm khoảng hiệu lực từng ca (V16: không còn "sinh session on-demand", bỏ R9)  
 \- Bài giảng → lớp **lessons** (V16, thay `sessions`): class_id, title, status (PUBLISHED/HIDDEN), created_at, updated_at — "driver" nhúng vào lớp, CHỈ quan hệ với `classes`, không mang ngày/giờ, không lên lịch (D-02)  
 \- Nhật ký dạy học → lớp **teaching_logs** (V16, bảng mới — tách hoàn toàn khỏi lesson, D-01): class_id, log_date, start_time, end_time, knowledge, homework — Nội dung buổi dạy khớp ô ca theo `(class_id, log_date, start_time)` (C-15'), công khai cho HS và PH  
@@ -104,7 +104,10 @@ Quan hệ 1-n (một-nhiều):
 \- users có nhiều tutors (thông qua reviewed_by) → users \- tutors là 1-n (một Lễ tân duyệt nhiều hồ sơ gia sư)  
 \- parents có nhiều class_requests → parents \- class_requests là 1-n (một phụ huynh gửi nhiều đơn)  
 \- students có nhiều class_requests → students \- class_requests là 1-n (một học sinh có thể có nhiều đơn, FK nullable)  
-\- tutors có nhiều class_requests (thông qua requested_tutor_id) → tutors \- class_requests là 1-n (gia sư được chỉ đích danh, NULL \= đơn đăng tuyển)  
+\- tutors có nhiều classes (thông qua tutor_id) → tutors \- classes là 1-n  
+\- chat_rooms tham chiếu đến parents (parent_id), tutors (tutor_id) và class_applications (class_application_id, nullable: room DIRECT không có)  
+\- proposal_messages thuộc chat_rooms (room_id) và được classes tham chiếu (classes.proposal_id, UNIQUE)  
+\- platform_fee_policies lưu tỷ lệ phí theo class_type (SHORT_TERM 25%, REGULAR 35%); rocket_chat_accounts, chat_pii_events, chat_outbox, oauth_accounts là bảng phụ trợ của MSG  
 \- users có nhiều class_requests (thông qua created_by, handled_by) → users \- class_requests là 1-n (Lễ tân tạo hoặc xử lý nhiều đơn)  
 \- class_requests có nhiều class_applications → class_requests \- class_applications là 1-n (một đơn OPEN nhận nhiều lượt ứng tuyển)  
 \- tutors có nhiều class_applications → tutors \- class_applications là 1-n (một gia sư ứng tuyển nhiều đơn)  
@@ -161,7 +164,7 @@ Quan hệ tham chiếu (Reference):
 \- tutors tham chiếu đến users (reviewed_by — Lễ tân duyệt hồ sơ)  
 \- tutor_credentials tham chiếu đến users (verified_by — Lễ tân xác thực)  
 \- tutor_specialties tham chiếu đến users (verified_by) và tutor_credentials (credential_id — chứng chỉ minh chứng cho chuyên môn)  
-\- class_requests tham chiếu đến parents (parent_id), students (student_id, nullable), tutors (requested_tutor_id, nullable), users (created_by, handled_by)  
+\- class_requests tham chiếu đến parents (parent_id), students (student_id, nullable), users (created_by, handled_by)  
 \- class_applications tham chiếu đến class_requests (class_request_id) và tutors (tutor_id)  
 \- classes tham chiếu đến class_requests (class_request_id), tutors (tutor_id), students (student_id)  
 \- lessons tham chiếu đến classes (class_id) (V16, thay sessions)  

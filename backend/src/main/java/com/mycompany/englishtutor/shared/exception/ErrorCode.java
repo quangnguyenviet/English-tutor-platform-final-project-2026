@@ -18,6 +18,12 @@ public enum ErrorCode {
     INVALID_DOB(1008, "Your age must be at least {min}", HttpStatus.BAD_REQUEST),
     EMAIL_EXISTED(1009, "Email đã được sử dụng", HttpStatus.BAD_REQUEST),
     TUTOR_REGISTRATION_FAILED(1010, "Đăng ký tài khoản gia sư thất bại", HttpStatus.INTERNAL_SERVER_ERROR),
+    GOOGLE_OAUTH_NOT_CONFIGURED(1015, "Đăng nhập Google chưa được cấu hình", HttpStatus.SERVICE_UNAVAILABLE),
+    GOOGLE_OAUTH_INVALID(1016, "Phiên đăng nhập Google không hợp lệ hoặc đã hết hạn", HttpStatus.UNAUTHORIZED),
+    GOOGLE_OAUTH_ACCOUNT_CONFLICT(
+            1017,
+            "Email Google đã thuộc tài khoản khác. Vui lòng liên hệ hỗ trợ để xác minh.",
+            HttpStatus.CONFLICT),
     TUTOR_PROFILE_NOT_FOUND(1011, "Tutor profile not found", HttpStatus.NOT_FOUND),
     TUTOR_PROFILE_ALREADY_SUBMITTED(1012, "Hồ sơ đã được gửi duyệt", HttpStatus.CONFLICT),
     FILE_TOO_LARGE(1013, "Tệp vượt quá dung lượng cho phép", HttpStatus.BAD_REQUEST),
@@ -260,6 +266,44 @@ public enum ErrorCode {
     PASSWORD_CHANGE_REQUIRED(1600, "Bạn cần đổi mật khẩu trước khi tiếp tục sử dụng hệ thống", HttpStatus.FORBIDDEN),
     EMPLOYEE_STATUS_VALUE_INVALID(1601, "Giá trị trạng thái nhân sự không hợp lệ", HttpStatus.BAD_REQUEST),
     EMPLOYEE_CONTACT_EXISTED(1602, "Email hoặc Số điện thoại đã được đăng ký trong hệ thống", HttpStatus.BAD_REQUEST),
+    // --- Nhắn tin & đề xuất lớp học MSG (1700 – 1799) ---
+    CHAT_UNAVAILABLE(1700, "Dịch vụ nhắn tin tạm thời không khả dụng, vui lòng thử lại sau", HttpStatus.SERVICE_UNAVAILABLE),
+    CHAT_PARENT_PROFILE_INCOMPLETE(
+            1701, "Vui lòng hoàn tất thông tin phụ huynh (số điện thoại, mục đích, khu vực) trước khi tiếp tục", HttpStatus.CONFLICT),
+    CHAT_PARENT_ONLY(1702, "Chỉ phụ huynh mới thực hiện được thao tác này", HttpStatus.FORBIDDEN),
+    CHAT_TUTOR_ONLY(1703, "Chỉ gia sư mới thực hiện được thao tác này", HttpStatus.FORBIDDEN),
+    CHAT_ROOM_NOT_FOUND(1704, "Phòng chat không tồn tại hoặc bạn không có quyền truy cập", HttpStatus.NOT_FOUND),
+    CHAT_ROOM_CLOSED(1705, "Phòng chat đang bị khóa, bạn chỉ có thể xem lại nội dung", HttpStatus.CONFLICT),
+    CHAT_TUTOR_NOT_ACTIVE(1706, "Gia sư hiện không nhận trò chuyện", HttpStatus.CONFLICT),
+    CHAT_APPLICATION_NOT_AVAILABLE(
+            1707, "Ứng viên này không còn khả dụng hoặc tin đăng không còn nhận ứng tuyển", HttpStatus.CONFLICT),
+    CHAT_MESSAGE_EMPTY(1708, "Nội dung tin nhắn không được để trống", HttpStatus.BAD_REQUEST),
+    CHAT_MESSAGE_TOO_LONG(1709, "Tin nhắn tối đa 2.000 ký tự", HttpStatus.BAD_REQUEST),
+    CHAT_RATE_LIMITED(1710, "Bạn gửi quá nhanh, vui lòng chờ vài giây rồi thử lại", HttpStatus.TOO_MANY_REQUESTS),
+    CHAT_PII_BLOCKED(
+            1711,
+            "Hệ thống không cho phép chia sẻ thông tin liên hệ. Hãy thống nhất nội dung học rồi để gia sư tạo đề xuất.",
+            HttpStatus.UNPROCESSABLE_ENTITY),
+    CHAT_INVALID_PHONE(1712, "Số điện thoại không hợp lệ", HttpStatus.BAD_REQUEST),
+    PROPOSAL_NOT_FOUND(1720, "Đề xuất không tồn tại", HttpStatus.NOT_FOUND),
+    PROPOSAL_NOT_PENDING(1721, "Đề xuất không còn ở trạng thái chờ phản hồi", HttpStatus.CONFLICT),
+    PROPOSAL_NEEDS_CONVERSATION(
+            1722, "Cần trao đổi ít nhất một tin nhắn hai chiều trước khi tạo đề xuất", HttpStatus.CONFLICT),
+    PROPOSAL_STUDENT_REQUIRED(1723, "Vui lòng chọn học sinh có sẵn hoặc nhập họ tên học sinh mới", HttpStatus.BAD_REQUEST),
+    PROPOSAL_STUDENT_NOT_OF_PARENT(1724, "Học sinh không thuộc phụ huynh trong phòng chat này", HttpStatus.BAD_REQUEST),
+    PROPOSAL_DUPLICATE_PENDING(1725, "Học sinh này đã có một đề xuất đang chờ phản hồi", HttpStatus.CONFLICT),
+    PROPOSAL_INVALID_SCHEDULE(1726, "Lịch học hoặc lịch dạy thử không hợp lệ", HttpStatus.BAD_REQUEST),
+    PROPOSAL_TUTOR_BUSY(1727, "Khung giờ trong đề xuất trùng lớp khác của gia sư", HttpStatus.CONFLICT),
+    PROPOSAL_STUDENT_ALREADY_WITH_TUTOR(
+            1728, "Học sinh đang có lớp với gia sư này, không thể tạo thêm lớp", HttpStatus.CONFLICT),
+    PROPOSAL_REQUEST_CLOSED(1729, "Tin đăng đã đóng nên không thể đồng ý thêm đề xuất", HttpStatus.CONFLICT),
+    PROPOSAL_WITHDRAW_REASON_REQUIRED(1730, "Vui lòng nhập lý do rút đề xuất (ít nhất 5 ký tự)", HttpStatus.BAD_REQUEST),
+    FEE_POLICY_NOT_FOUND(1740, "Chưa cấu hình tỷ lệ phí cho loại lớp này", HttpStatus.INTERNAL_SERVER_ERROR),
+    POSTING_LIMIT_REACHED(1750, "Bạn đang có một tin đăng chưa kết thúc, vui lòng đóng tin cũ trước khi tạo tin mới", HttpStatus.CONFLICT),
+    POSTING_NOT_FOUND(1751, "Tin đăng không tồn tại", HttpStatus.NOT_FOUND),
+    POSTING_INVALID_STATE(1752, "Tin đăng không ở trạng thái cho phép thao tác này", HttpStatus.CONFLICT),
+    PII_REVIEW_NOT_FOUND(1760, "Không tìm thấy bản ghi kiểm duyệt", HttpStatus.NOT_FOUND),
+    INTERNAL_SIGNATURE_INVALID(1761, "Chữ ký yêu cầu nội bộ không hợp lệ", HttpStatus.UNAUTHORIZED),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

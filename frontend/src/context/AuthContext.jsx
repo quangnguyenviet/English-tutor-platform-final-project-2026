@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { tutors, tutor, students, matchRequests, paymentProofs, receptionists, receptionist as receptionistData, studentNotifications as studentNotificationsData } from "../data/mockData";
 import { apiLogin, apiChangePassword, apiLogout, apiIntrospect, apiRegisterTutor } from "../lib/authApi";
 import { decodeJwt, scopeToRole, isTokenExpired } from "../lib/jwtDecode";
+import { beginGoogleOAuth, completeGoogleOAuth } from "../lib/googleOAuth";
 
 const AuthContext = createContext(null);
 const STORAGE_KEY = "gsa_session";
@@ -187,6 +188,44 @@ export function AuthProvider({ children }) {
     setSession(newSession);
 
     return { role, profileStatus: profileStatus ?? null, mustChangePassword: newSession.mustChangePassword };
+  }
+
+  async function loginParentWithGoogle(returnTo) {
+    await beginGoogleOAuth(returnTo);
+  }
+
+  async function completeParentGoogleLogin(code, state) {
+    const { result, returnTo } = await completeGoogleOAuth(code, state);
+    const payload = decodeJwt(result.token);
+    const role = scopeToRole(payload?.scope);
+    if (role !== "parent") {
+      throw new Error("Tài khoản Google không có quyền phụ huynh.");
+    }
+
+    const initials = result.fullName
+      .trim()
+      .split(/\s+/)
+      .slice(-2)
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase();
+    const newSession = {
+      role,
+      username: result.username,
+      name: result.fullName,
+      email: result.email,
+      avatarUrl: result.avatarUrl,
+      initials,
+      exp: payload.exp,
+      userId: result.userId,
+      mustChangePassword: false,
+    };
+
+    localStorage.setItem(TOKEN_KEY, result.token);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
+    setToken(result.token);
+    setSession(newSession);
+    return { returnTo, newUser: result.newUser };
   }
 
   /** Đổi mật khẩu rồi gỡ cờ bắt buộc đổi khỏi session. */
@@ -539,6 +578,8 @@ export function AuthProvider({ children }) {
         token,
         authLoading,
         login,
+        loginParentWithGoogle,
+        completeParentGoogleLogin,
         changePassword,
         logout,
         registerAsTutor,

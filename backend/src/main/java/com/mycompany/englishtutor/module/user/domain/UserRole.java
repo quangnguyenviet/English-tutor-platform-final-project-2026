@@ -5,5 +5,6 @@ public enum UserRole {
     RECEPTIONIST,
     ACCOUNTANT,
     TUTOR,
-    STUDENT
+    STUDENT,
+    PARENT
 }

@@ -1,8 +1,12 @@
-import { Link } from "react-router-dom";
-import { GraduationCap } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { GraduationCap, LogOut, MessageCircle } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 import ThemeToggle from "../theme-toggle";
 
 export function SiteHeader() {
+  const { session, logout } = useAuth();
+  const navigate = useNavigate();
+  const isParent = session?.role === "parent";
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -33,6 +37,16 @@ export function SiteHeader() {
           <Link to="/faq" className="hover:text-foreground transition-colors">
             Hỏi đáp
           </Link>
+          {isParent && (
+            <>
+              <Link to="/parent/messages" className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors">
+                <MessageCircle className="w-4 h-4" /> Phòng chat
+              </Link>
+              <Link to="/parent/postings" className="hover:text-foreground transition-colors">
+                Tin của tôi
+              </Link>
+            </>
+          )}
           {/* UC-P05 & UC-P06: Tạm ẩn tab Phụ huynh theo dõi, triển khai sau
           <Link to="/parent-view" className="hover:text-foreground transition-colors text-emerald-600 dark:text-emerald-400 font-semibold">
             Phụ huynh theo dõi
@@ -43,18 +57,39 @@ export function SiteHeader() {
         {/* Action Controls */}
         <div className="flex items-center gap-3">
           <ThemeToggle />
-          <Link
-            to="/login"
-            className="hidden sm:inline-flex px-4 py-2 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
-          >
-            Đăng nhập
-          </Link>
-          <Link
-            to="/tutor/register"
-            className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm cursor-pointer"
-          >
-            Đăng ký
-          </Link>
+          {isParent ? (
+            <>
+              <Link
+                to="/parent/messages"
+                className="md:hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                <MessageCircle className="w-4 h-4" /> Chat
+              </Link>
+              <span className="hidden sm:inline text-sm font-medium text-foreground max-w-[10rem] truncate">{session.name}</span>
+              <button
+                type="button"
+                onClick={() => { logout(); navigate("/"); }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" /> Đăng xuất
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="hidden sm:inline-flex px-4 py-2 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                Đăng nhập
+              </Link>
+              <Link
+                to="/tutor/register"
+                className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 active:scale-[0.98] transition-all shadow-sm cursor-pointer"
+              >
+                Đăng ký
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

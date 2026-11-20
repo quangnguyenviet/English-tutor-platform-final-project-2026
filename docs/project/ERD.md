@@ -18,6 +18,7 @@
    - 2.5 [Nhóm 5: Quiz, Elo & Student Knowledge Profile](#25-nhóm-5-quiz-elo--student-knowledge-profile)
    - 2.6 [Nhóm 6: Tài chính & Khiếu nại](#26-nhóm-6-tài-chính--khiếu-nại)
    - 2.7 [Nhóm 7: Hệ thống](#27-nhóm-7-hệ-thống)
+   - 2.7b [Nhóm 8: Nhắn tin & Đề xuất lớp học (MSG)](#27b-nhóm-8-nhắn-tin--đề-xuất-lớp-học-msg)
    - 2.8 [MongoDB Collection](#28-mongodb-collection)
 3. [Sơ đồ ERD (Mermaid)](#3-sơ-đồ-erd)
 4. [Giải thích mối quan hệ giữa các bảng](#4-giải-thích-mối-quan-hệ-giữa-các-bảng)
@@ -58,20 +59,20 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `users`
 
-> Bảng đăng nhập chung cho cả 5 vai trò (ADMIN, RECEPTIONIST, ACCOUNTANT, TUTOR, STUDENT). Chỉ chứa thông tin xác thực và thông tin chung. Thông tin riêng từng vai trò nằm ở các bảng con kế thừa từ `users` (khóa chính dùng chung): `employees` (Admin, Lễ tân, Kế toán), `tutors`, `students`.
+> Bảng đăng nhập chung cho cả 6 vai trò (ADMIN, RECEPTIONIST, ACCOUNTANT, TUTOR, STUDENT, PARENT). Chỉ chứa thông tin xác thực và thông tin chung. Thông tin riêng từng vai trò nằm ở các bảng con kế thừa từ `users` (khóa chính dùng chung): `employees` (Admin, Lễ tân, Kế toán), `tutors`, `students`.
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
 | `id` | `BIGSERIAL` | PK | Khóa chính tự tăng, định danh duy nhất cho mỗi tài khoản |
 | `username` | `VARCHAR(50)` | UQ, NN | Tên đăng nhập duy nhất, dùng để xác thực khi login (UC-ST-01) |
-| `password_hash` | `VARCHAR(255)` | NN | Mật khẩu đã băm (bcrypt/argon2), bảo mật thông tin đăng nhập |
+| `password_hash` | `VARCHAR(255)` | | Mật khẩu đã băm (bcrypt/argon2). **NULL** với tài khoản `PARENT` vì phụ huynh chỉ đăng nhập bằng Google (V23) |
 | `full_name` | `VARCHAR(100)` | NN | Họ và tên đầy đủ, hiển thị trên giao diện và trong báo cáo |
 | `email` | `VARCHAR(100)` | UQ | Email liên hệ, dùng để gửi thông báo và khôi phục mật khẩu |
 | `phone` | `VARCHAR(15)` | UQ | Số điện thoại liên hệ, dùng trong tư vấn và xác thực. Tài khoản học sinh để NULL, SĐT liên hệ nằm ở `parents.phone` vì anh chị em dùng chung một số |
 | `date_of_birth` | `DATE` | | Ngày sinh, hiển thị trong hồ sơ học sinh (UC-REC-10, UC-ST-02) và hồ sơ gia sư (UC-T01 bước 1) |
 | `gender` | `VARCHAR(10)` | | Giới tính: `MALE`, `FEMALE`, `OTHER`. Phụ huynh có thể lọc gia sư theo giới tính (UC-PA-01) |
 | `avatar_url` | `VARCHAR(500)` | | Đường dẫn ảnh đại diện (lưu trên S3), học sinh có thể tự cập nhật (UC-ST-02) |
-| `role` | `VARCHAR(20)` | NN | Vai trò người dùng: `ADMIN`, `RECEPTIONIST`, `ACCOUNTANT`, `TUTOR`, `STUDENT`. Quyết định phân quyền truy cập API và giao diện |
+| `role` | `VARCHAR(20)` | NN | Vai trò người dùng: `ADMIN`, `RECEPTIONIST`, `ACCOUNTANT`, `TUTOR`, `STUDENT`, `PARENT`. Quyết định phân quyền truy cập API và giao diện |
 | `status` | `VARCHAR(20)` | NN | Trạng thái tài khoản: `ACTIVE` (Đang hoạt động), `INACTIVE` (Ngưng hoạt động). Lễ tân/Admin có thể thay đổi (UC-REC-08, UC-REC-09) |
 | `must_change_password` | `BOOLEAN` | NN, DEFAULT TRUE | Cờ bắt buộc đổi mật khẩu lần đăng nhập đầu: tài khoản mới được tạo bởi Admin sẽ yêu cầu đổi mật khẩu (UC-ST-01 bước 5, UC-REC-14) |
 | `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm tạo tài khoản, dùng cho báo cáo và audit |
@@ -94,17 +95,37 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `parents`
 
-> Lưu thông tin liên hệ phụ huynh. **Phụ huynh KHÔNG có tài khoản** trên hệ thống (Quy định nền tảng: phụ huynh xem thông tin qua tài khoản học sinh). Cần bảng riêng vì phụ huynh gửi yêu cầu khi chưa có học sinh nào trong hệ thống (UC-PA-03, UC-PA-04).
+> Hồ sơ phụ huynh. Từ MSG (V23, V27) phụ huynh **có tài khoản** `users` role `PARENT`, đăng nhập duy nhất bằng Google; `user_id` NULL chỉ với hồ sơ cũ tạo từ form công khai trước đây (không có tài khoản, vẫn giữ để dữ liệu `class_requests` cũ không mất). SĐT, mục đích và khu vực được nhập ở wizard 4 bước trước khi nhắn tin hoặc đăng tin.
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
 | `id` | `BIGSERIAL` | PK | Khóa chính tự tăng |
-| `full_name` | `VARCHAR(100)` | NN | Họ tên phụ huynh, nhập khi gửi yêu cầu tìm gia sư (UC-PA-03, UC-PA-04) |
-| `phone` | `VARCHAR(15)` | NN, UQ | SĐT phụ huynh, luôn lưu dạng `0xxxxxxxxx`; mỗi SĐT là một phụ huynh, một phụ huynh có nhiều lớp (V20) — kênh liên lạc chính giữa trung tâm và phụ huynh. Cũng dùng để gia sư liên hệ sau khi nhận lớp (Quy định nền tảng mục I.3) |
-| `email` | `VARCHAR(100)` | | Email phụ huynh (tùy chọn), dùng để gửi thông tin bổ sung |
+| `user_id` | `BIGINT` | FK → users.id, UQ, NULL | Tài khoản Google của phụ huynh (V23). NULL với hồ sơ cũ chưa có tài khoản; không tự gộp theo email/SĐT |
+| `full_name` | `VARCHAR(100)` | NN | Họ tên phụ huynh, prefill từ Google và sửa được ở wizard |
+| `phone` | `VARCHAR(15)` | UQ, NULL | SĐT dạng `0xxxxxxxxx`. NULL cho tới khi phụ huynh hoàn tất wizard (V23). Gia sư chỉ thấy SĐT sau khi một đề xuất trong phòng chat được đồng ý (Phone Gate) |
+| `purpose` | `VARCHAR(20)` | CHECK | Mục đích học: `PHU_THONG`, `THI_CHUAN`, `GIAO_TIEP`, `THI_HOC_KY` (V27) |
+| `province` | `VARCHAR(100)` | | Tỉnh/Thành phố (V27) |
+| `district` | `VARCHAR(100)` | | Quận/Huyện (V27) |
+| `email` | `VARCHAR(100)` | | Email phụ huynh (tùy chọn) |
 | `address` | `VARCHAR(500)` | | Địa chỉ phụ huynh, dùng cho lớp dạy tại nhà |
 | `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm tạo bản ghi phụ huynh |
 | `updated_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm cập nhật gần nhất |
+
+> Hồ sơ phụ huynh được coi là **đầy đủ** khi có `phone`, `purpose`, `province`, `district`; chưa đầy đủ thì không mở được phòng chat hay đăng tin.
+
+#### Bảng `oauth_accounts`
+
+> Liên kết tài khoản OAuth (Google) với `users` (V23). Mỗi người dùng PARENT có đúng một tài khoản Google.
+
+| Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
+|---|---|---|---|
+| `id` | `BIGSERIAL` | PK | Khóa chính |
+| `user_id` | `BIGINT` | FK → users.id, NN, UQ | Người dùng sở hữu |
+| `provider` | `VARCHAR(20)` | NN, CHECK | `GOOGLE` |
+| `provider_user_id` | `VARCHAR(255)` | NN | `sub` của Google; UNIQUE cùng `provider` |
+| `email` | `VARCHAR(255)` | | Email Google |
+| `avatar_url` | `VARCHAR(500)` | | Ảnh đại diện Google |
+| `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm liên kết |
 
 ---
 
@@ -230,13 +251,12 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `class_requests`
 
-> **Lớp cần gia sư** — đối tượng duy nhất lưu nhu cầu học của phụ huynh và trạng thái ghép với gia sư, tên gọi thống nhất ở mọi vai trò. Có 2 trường hợp: (1) phụ huynh **chỉ đích danh** gia sư (`requested_tutor_id` có giá trị); (2) phụ huynh chưa chọn gia sư, Lễ tân đăng lớp cho gia sư ứng tuyển (`requested_tutor_id` = NULL). Lễ tân đổi được giữa hai trường hợp khi lớp ở `NEW` hoặc `REMATCH`. Đơn được tạo ngay khi phụ huynh để lại tên + SĐT, thông tin học sinh được bổ sung dần sau khi Lễ tân gọi lại.
+> **Lớp cần gia sư** — đối tượng lưu nhu cầu học của phụ huynh và trạng thái ghép với gia sư. Từ MSG (V27) cột `requested_tutor_id` **đã bị bỏ**: gia sư của lớp nằm ở `classes.tutor_id`, gia sư ứng tuyển ở `class_applications`. Nguồn đơn (`source`): `POSTING` (tin phụ huynh tự đăng sau khi đăng nhập Google, mỗi phụ huynh tối đa một tin `NEW`/`OPEN`) hoặc `STAFF` (Lễ tân tạo hộ). Lớp tạo từ nhắn tin trực tiếp **không** qua bảng này.
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
 | `id` | `BIGSERIAL` | PK | Khóa chính tự tăng |
 | `parent_id` | `BIGINT` | FK → parents.id, NN | FK tới phụ huynh gửi yêu cầu. Tên + SĐT lấy từ `parents`, không snapshot lại |
-| `requested_tutor_id` | `BIGINT` | FK → tutors.id | Gia sư chỉ định. NULL = không chỉ định, lớp đăng tuyển. Lễ tân đổi được khi lớp ở `NEW`/`REMATCH`. Khi vào dạy thử, cột này là gia sư đang dạy. Khi chuyển `REMATCH` đặt về NULL |
 | `student_id` | `BIGINT` | FK → students.id | Học sinh của lớp. **NULL** cho đến khi lớp vào dạy thử; trước đó thông tin học sinh nằm ở `student_name`, `student_grade`, `student_school`, `student_learning_goal` (V15). Bắt buộc từ `MATCHED` trở đi (V19) |
 | `class_requirement` | `TEXT` | | Yêu cầu lớp học: mục tiêu, trình độ hiện tại... Lễ tân điền sau cuộc gọi. Bắt buộc trước khi đăng (`OPEN`). Sửa được khi lớp `NEW`/`REMATCH` |
 | `teaching_mode` | `VARCHAR(20)` | | Hình thức học: `ONLINE`, `AT_HOME` |
@@ -245,18 +265,23 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `fee_percentage` | `DECIMAL(5,2)` | NN, DEFAULT 40 | Tỷ lệ phí nhận lớp (0–50%, mặc định 40% — cùng chuẩn với `payments.fee_percentage`, migration V9/V10). Lễ tân/Admin chỉnh trước khi có minh chứng |
 | `preferred_schedule` | `TEXT` | | Số buổi/tuần và thời gian mong muốn, ghi tự do (ví dụ: "2 buổi/tuần, tối T3-T5 19h-21h"). Chỉ là nguyện vọng ban đầu; số buổi/tuần thực tế suy ra từ số dòng `class_schedules` của lớp |
 | `tutor_requirement` | `TEXT` | | Yêu cầu về gia sư (giới tính, kinh nghiệm, chuyên môn...) |
+| `source` | `VARCHAR(20)` | NN, DEFAULT 'STAFF' | `STAFF` hoặc `POSTING` (V27). Partial UNIQUE (`parent_id`) WHERE `source = 'POSTING'` AND `status IN ('NEW','OPEN')` |
+| `purpose` | `VARCHAR(20)` | CHECK | Mục đích học của tin đăng (V27), mặc định lấy từ hồ sơ phụ huynh |
+| `province` / `district` | `VARCHAR(100)` | | Khu vực của tin đăng (V27) |
+| `no_applicant_reminded_at` | `TIMESTAMPTZ` | | Thời điểm đã nhắc phụ huynh vì 14 ngày chưa có ứng viên (V27), tránh nhắc lặp |
 | `status` | `VARCHAR(20)` | NN | `NEW` (Mới tiếp nhận, chờ gọi lại), `OPEN` (Đã đăng cho gia sư ứng tuyển), `MATCHED` (Đã ghép, đã có lớp), `REMATCH` (Đang ghép lại — lớp đang dạy thử thất bại và phụ huynh muốn trung tâm tìm gia sư khác; ở trạng thái này đơn chờ ghép lại với gia sư mới, khi ghép xong chuyển `MATCHED`; migration V10), `CANCELLED` (Đã hủy — hủy đơn, hoặc khi dạy thử thất bại phụ huynh không muốn nhờ trung tâm tìm gia sư nữa; trạng thái cuối) |
 | `cancel_reason` | `TEXT` | | Lý do hủy, nhập khi Lễ tân hủy (UC-REC-04) |
-| `created_by` | `BIGINT` | FK → users.id | Lễ tân tạo đơn. NULL nếu đơn do phụ huynh tự gửi qua form |
+| `created_by` | `BIGINT` | FK → users.id | Lễ tân tạo đơn, hoặc tài khoản phụ huynh với tin `POSTING` |
 | `handled_by` | `BIGINT` | FK → users.id | Lễ tân phụ trách xử lý lớp |
 | `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm tạo đơn |
 | `updated_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm cập nhật gần nhất |
 
-> **Form công khai (khách chưa đăng nhập):** "Nhận tư vấn tìm gia sư" và "Liên hệ gia sư" chỉ thu **họ tên + SĐT phụ huynh** (và id gia sư với form liên hệ). Backend `POST /api/v1/public/class-requests` tìm `parents` theo SĐT (chưa có thì tạo), SĐT đã có mà họ tên khác thì từ chối, rồi tạo `class_requests` `status = NEW`, `requested_tutor_id` = id gia sư hoặc NULL, `created_by` = NULL. Gửi lặp cùng một yêu cầu đang `NEW` không tạo thêm đơn. Không có bảng riêng cho yêu cầu tư vấn.
+> **Luồng đăng tin (POSTING):** phụ huynh đăng nhập Google → hoàn tất wizard → đăng tin `NEW` → Lễ tân duyệt `OPEN` (hoặc hủy kèm lý do `CANCELLED`) → gia sư ứng tuyển (`class_applications`) → phụ huynh chọn một ứng viên để nhắn tin (`chat_rooms` loại `APPLICATION`) → gia sư gửi đề xuất → phụ huynh đồng ý: tạo `classes` `TRIAL` có `class_request_id` + `proposal_id`, tin chuyển `MATCHED` (đóng tin), ứng viên được chọn `SELECTED`, các ứng viên còn lại `REJECTED`.
 >
-> **Luồng 1 (chỉ đích danh):** `NEW` (có `requested_tutor_id`) → Lễ tân gọi, bổ sung thông tin, hai bên đồng ý → tạo tài khoản học sinh nếu chưa có, tạo `classes` (`TRIAL`) → `MATCHED`. Gia sư từ chối thì Lễ tân đổi gia sư khác, hoặc đổi về không chỉ định để đăng tuyển.
-> **Luồng 2 (đăng tuyển):** `NEW` → Lễ tân gọi, bổ sung thông tin → `OPEN` → gia sư ứng tuyển (`class_applications`) → Lễ tân chọn → tạo tài khoản học sinh nếu chưa có, tạo `classes` (`TRIAL`) → `MATCHED`.
-> **Ghép lại (dạy thử thất bại):** khi lớp đang `TRIAL` thất bại, đơn (đang `MATCHED`) đi theo một trong hai hướng: (1) phụ huynh không muốn tìm gia sư nữa → `CANCELLED`; (2) phụ huynh muốn tìm gia sư khác → `REMATCH`: gia sư cũ bị loại (`TERMINATED`), `requested_tutor_id` về NULL, các lượt `REJECTED` quay về `APPLIED`. Sau đó Lễ tân chọn gia sư ứng tuyển hoặc đặt gia sư chỉ định rồi xác nhận → `MATCHED`. Gia sư và khách thấy lớp `REMATCH` như lớp đăng tuyển bình thường; lớp đang có gia sư chỉ định thì tạm ẩn.
+> **Luồng nhắn tin trực tiếp:** phụ huynh nhắn gia sư (`chat_rooms` loại `DIRECT`) → đề xuất → đồng ý: tạo `classes` `TRIAL` **không có** `class_request_id`, chỉ có `proposal_id`.
+>
+> **Ghép lại (dạy thử thất bại, lớp có đơn):** đơn (đang `MATCHED`) đi theo một trong hai hướng: (1) `CANCELLED`; (2) `REMATCH`: gia sư cũ bị loại (`TERMINATED`), các lượt `REJECTED` quay về `APPLIED`; Lễ tân chọn ứng viên rồi xác nhận → `MATCHED`. Lớp từ nhắn tin trực tiếp không có đơn: dạy thử thất bại thì lớp `CANCELLED` và phụ huynh nhắn gia sư khác.
+>
 > **Hủy lớp:** hủy được ở mọi trạng thái. Lớp đã ghép thành công chỉ hủy trong 7 ngày kể từ `classes.active_from` (Quy định website I.3), quá hạn hệ thống từ chối.
 > **Khiếu nại không hoàn tiền:** Lễ tân giải quyết bằng Hủy lớp (`CANCELLED`) hoặc Ghép lại (`REMATCH`, chỉ khi lớp đã có gia sư). Ghép lại áp dụng cả lớp `ACTIVE` trong 7 ngày đầu: lớp học `CANCELLED`, gia sư cũ `TERMINATED`. Lớp đã ghép thành công quá 7 ngày không nhận khiếu nại loại này. `OPEN` chỉ dành cho lớp đăng lần đầu.
 
@@ -283,12 +308,18 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `classes`
 
+> **Cập nhật MSG (18/11/2026):** `class_request_id` chuyển **nullable** (lớp tạo từ nhắn tin trực tiếp không có đơn); thêm `proposal_id` (FK, UNIQUE, đề xuất đã được đồng ý), `class_type` (`SHORT_TERM`/`REGULAR`), `fee_percentage` (chụp từ bảng `platform_fee_policies`: 25%/35%), `end_date` (lớp `SHORT_TERM`, tự `COMPLETED`); CHECK `class_request_id IS NOT NULL OR proposal_id IS NOT NULL`. Bảng mới: `platform_fee_policies`, `chat_rooms`, `proposal_messages`, `chat_pii_events`, `rocket_chat_accounts`, `oauth_accounts` (xem usecase MSG mục 13).
+
 > Quan hệ dạy học 1 gia sư — 1 học sinh. Mỗi cặp là 1 lớp riêng. **Ca dạy thử** lưu trực tiếp trên chính dòng lớp qua 6 cột `trial_*` (V16, R-TRIAL) — chỉ có giá trị khi `status = TRIAL` (enforce ở backend): 1 lớp = đúng 1 ca thử, không còn dòng `sessions` riêng với `is_trial = TRUE` (UC-T05).
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
 | `id` | `BIGSERIAL` | PK | Khóa chính tự tăng |
-| `class_request_id` | `BIGINT` | FK → class_requests.id, NN | FK tới đơn yêu cầu lớp đã sinh ra lớp này. Một đơn có thể có nhiều lớp theo thời gian (ghép lại khi lớp cũ bị hủy), nhưng tối đa 1 lớp đang `TRIAL`/`ACTIVE` (partial unique index) |
+| `class_request_id` | `BIGINT` | FK → class_requests.id, NULL | FK tới đơn yêu cầu lớp đã sinh ra lớp này. **NULL** với lớp tạo từ nhắn tin trực tiếp (V27); CHECK `class_request_id IS NOT NULL OR proposal_id IS NOT NULL`. Một đơn có thể có nhiều lớp theo thời gian (ghép lại khi lớp cũ bị hủy), nhưng tối đa 1 lớp đang `TRIAL`/`ACTIVE` (partial unique index) |
+| `proposal_id` | `BIGINT` | FK → proposal_messages.id, UQ | Đề xuất đã được phụ huynh đồng ý và sinh ra lớp (V27) |
+| `class_type` | `VARCHAR(20)` | CHECK | `SHORT_TERM` (1 tháng) hoặc `REGULAR` (không giới hạn) (V27) |
+| `fee_percentage` | `DECIMAL(5,2)` | | Tỷ lệ phí nhận lớp chụp từ `platform_fee_policies` khi tạo đề xuất (V27) |
+| `end_date` | `DATE` | | Ngày kết thúc lớp `SHORT_TERM`: tính khi chuyển `ACTIVE` (+1 tháng); job đặt `COMPLETED` khi quá hạn (V27) |
 | `tutor_id` | `BIGINT` | FK → tutors.id, NN | FK tới gia sư phụ trách lớp |
 | `student_id` | `BIGINT` | FK → students.id, NN | FK tới học sinh tham gia lớp |
 | `class_name` | `VARCHAR(200)` | | Tên hiển thị của lớp |
@@ -643,6 +674,98 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 ---
 
+### 2.7b Nhóm 8: Nhắn tin & Đề xuất lớp học (MSG)
+
+> Tin nhắn thường lưu ở Rocket.Chat/MongoDB, **không** sao chép vào PostgreSQL. PostgreSQL giữ ánh xạ tài khoản và phòng, đề xuất, log kiểm duyệt, cấu hình phí và outbox. Trình duyệt chỉ gọi backend Spring Boot, không nhận token Rocket.Chat.
+
+#### Bảng `rocket_chat_accounts`
+
+| Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
+|---|---|---|---|
+| `user_id` | `BIGINT` | PK, FK → users.id | Người dùng hệ thống |
+| `rocket_user_id` | `VARCHAR(64)` | NN, UQ | Id tài khoản Rocket.Chat |
+| `rocket_username` | `VARCHAR(100)` | NN, UQ | Username ổn định `ep_u{user_id}` (không dùng email làm khóa) |
+| `provisioned_at` | `TIMESTAMPTZ` | NN | Thời điểm tạo lười khi mở chat lần đầu |
+
+#### Bảng `chat_rooms`
+
+| Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
+|---|---|---|---|
+| `id` | `BIGSERIAL` | PK | Khóa chính |
+| `room_type` | `VARCHAR(20)` | NN, CHECK | `DIRECT` (phụ huynh - gia sư) hoặc `APPLICATION` (phụ huynh - một lượt ứng tuyển) |
+| `parent_id` | `BIGINT` | FK → parents.id, NN | Phụ huynh |
+| `tutor_id` | `BIGINT` | FK → tutors.id, NN | Gia sư |
+| `class_application_id` | `BIGINT` | FK → class_applications.id, UQ, NULL | Lượt ứng tuyển của room `APPLICATION`; NULL với `DIRECT` (và khi application bị xóa, room chuyển chỉ đọc) |
+| `rocket_room_id` | `VARCHAR(64)` | NN, UQ | Phòng private (group) trên Rocket.Chat, gồm phụ huynh, gia sư và tài khoản hệ thống |
+| `status` | `VARCHAR(20)` | NN | `ACTIVE`, `CLOSED`. Quyền ghi còn phụ thuộc: gia sư `ACTIVE`; room `APPLICATION` cần application `APPLIED`/`SELECTED` và tin `OPEN`/`REMATCH`/`MATCHED` |
+| `last_message_at` | `TIMESTAMPTZ` | | Thời điểm tin cuối, dùng sắp xếp danh sách |
+| `created_at` / `updated_at` | `TIMESTAMPTZ` | NN | |
+
+> Partial UNIQUE (`parent_id`, `tutor_id`) WHERE `room_type = 'DIRECT'`; phụ huynh có thể có đồng thời room `DIRECT` và room `APPLICATION` với cùng một gia sư (hai room độc lập).
+
+#### Bảng `proposal_messages`
+
+| Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
+|---|---|---|---|
+| `id` | `BIGSERIAL` | PK | Khóa chính |
+| `room_id` | `BIGINT` | FK → chat_rooms.id, NN | Phòng chứa đề xuất; UNIQUE (`room_id`, `version`) |
+| `tutor_id` | `BIGINT` | FK → tutors.id, NN | Gia sư tạo đề xuất |
+| `version` | `SMALLINT` | NN | Số phiên bản trong phòng (#1, #2...) |
+| `student_id` | `BIGINT` | FK → students.id | Con đã có hồ sơ; NULL khi học sinh mới. CHECK `student_id` hoặc `student_name` có giá trị |
+| `student_name` / `student_grade` / `student_school` / `student_learning_goal` | | | Thông tin học sinh mới; hồ sơ được tạo khi phụ huynh đồng ý |
+| `class_type` | `VARCHAR(20)` | NN | `SHORT_TERM`, `REGULAR` |
+| `fee_percentage` | `DECIMAL(5,2)` | NN | Tỷ lệ phí chụp từ `platform_fee_policies` lúc tạo |
+| `price_per_session` | `DECIMAL(12,0)` | NN, > 0 | Học phí mỗi buổi |
+| `schedule_days` | `INT[]` | NN | Thứ trong tuần (1 = T2 ... 7 = CN) |
+| `schedule_time_from/to` | `TIME` | NN | Giờ bắt đầu - kết thúc mỗi buổi |
+| `trial_date`, `trial_time_from/to` | `DATE`, `TIME` | NN | Buổi dạy thử do gia sư đặt |
+| `class_mode` | `VARCHAR(20)` | NN | `AT_HOME`, `ONLINE` |
+| `note` | `TEXT` | | Ghi chú (quét PII như tin nhắn) |
+| `status` | `VARCHAR(20)` | NN | `PENDING`, `ACCEPTED`, `REJECTED`, `CANCELLED`, `EXPIRED` |
+| `rejection_reason`, `decided_at` | | | Lý do từ chối/rút và thời điểm quyết định |
+| `rocket_message_id` | `VARCHAR(64)` | UQ | Tin thẻ đề xuất trong Rocket.Chat |
+| `created_at`, `expires_at` | `TIMESTAMPTZ` | NN | Hết hạn sau 7 ngày nếu `PENDING` |
+
+> Partial UNIQUE: mỗi học sinh tối đa một đề xuất `PENDING` trong một room (theo `student_id`, hoặc theo `LOWER(student_name)` với học sinh mới).
+
+#### Bảng `platform_fee_policies`
+
+| Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
+|---|---|---|---|
+| `id` | `BIGSERIAL` | PK | |
+| `class_type` | `VARCHAR(20)` | NN, CHECK | `SHORT_TERM`, `REGULAR` |
+| `fee_percentage` | `DECIMAL(5,2)` | NN, 0-50 | Seed: `SHORT_TERM` = 25, `REGULAR` = 35 |
+| `effective_from` | `TIMESTAMPTZ` | NN | Dòng mới nhất có `effective_from <= NOW()` và `active` là tỷ lệ hiện hành |
+| `active` | `BOOLEAN` | NN | |
+| `created_by` | `BIGINT` | FK → users.id | Admin thay đổi; đổi tỷ lệ = thêm dòng mới, không sửa dòng cũ |
+
+#### Bảng `chat_pii_events`
+
+| Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
+|---|---|---|---|
+| `id` | `BIGSERIAL` | PK | |
+| `room_id` | `BIGINT` | FK → chat_rooms.id, NN | |
+| `user_id` | `BIGINT` | FK → users.id | Người gửi (hoặc người đồng ý với `PHONE_UNLOCKED`) |
+| `type` | `VARCHAR(20)` | NN | `PII_BLOCKED`, `PHONE_UNLOCKED`, `REVIEW_REINSTATED` |
+| `detail` | `JSONB` | | Loại vi phạm, nguồn (`ROCKETCHAT_APP`), `proposalId` khi mở khóa SĐT |
+| `blocked_text` | `TEXT` | | Nội dung bị chặn, chỉ Lễ tân/Admin xem, không tự công khai lại |
+| `reviewed_by`, `reviewed_at`, `review_note` | | | Lễ tân đã xem xét |
+| `created_at` | `TIMESTAMPTZ` | NN | |
+
+#### Bảng `chat_outbox`
+
+| Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
+|---|---|---|---|
+| `id` | `BIGSERIAL` | PK | |
+| `event_type` | `VARCHAR(40)` | NN | `PROPOSAL_ACCEPTED`, `PROPOSAL_REJECTED`, `PROPOSAL_WITHDRAWN`, `PROPOSAL_EXPIRED` |
+| `room_id` | `BIGINT` | FK → chat_rooms.id, NN | |
+| `payload` | `JSONB` | NN | Nội dung tin hệ thống |
+| `status` | `VARCHAR(20)` | NN | `PENDING`, `SENT`, `FAILED` |
+| `attempts`, `next_attempt_at`, `last_error` | | | Backoff khi Rocket.Chat tạm lỗi |
+| `created_at`, `sent_at` | `TIMESTAMPTZ` | | |
+
+---
+
 ### 2.8 MongoDB Collection
 
 #### Collection `ai_chat_messages`
@@ -696,8 +819,12 @@ erDiagram
 
     parents {
         BIGSERIAL id PK
+        BIGINT user_id FK
         VARCHAR full_name
         VARCHAR phone
+        VARCHAR purpose
+        VARCHAR province
+        VARCHAR district
         VARCHAR email
         VARCHAR address
         TIMESTAMPTZ created_at
@@ -781,12 +908,71 @@ erDiagram
         VARCHAR district
     }
 
+    %% ====== NHOM 8 - NHAN TIN VA DE XUAT (MSG) ======
+    oauth_accounts {
+        BIGSERIAL id PK
+        BIGINT user_id FK
+        VARCHAR provider
+        VARCHAR provider_user_id
+    }
+
+    rocket_chat_accounts {
+        BIGINT user_id PK
+        VARCHAR rocket_user_id
+        VARCHAR rocket_username
+    }
+
+    chat_rooms {
+        BIGSERIAL id PK
+        VARCHAR room_type
+        BIGINT parent_id FK
+        BIGINT tutor_id FK
+        BIGINT class_application_id FK
+        VARCHAR rocket_room_id
+        VARCHAR status
+    }
+
+    proposal_messages {
+        BIGSERIAL id PK
+        BIGINT room_id FK
+        BIGINT tutor_id FK
+        SMALLINT version
+        BIGINT student_id FK
+        VARCHAR student_name
+        VARCHAR class_type
+        DECIMAL fee_percentage
+        DECIMAL price_per_session
+        VARCHAR status
+    }
+
+    platform_fee_policies {
+        BIGSERIAL id PK
+        VARCHAR class_type
+        DECIMAL fee_percentage
+        TIMESTAMPTZ effective_from
+    }
+
+    chat_pii_events {
+        BIGSERIAL id PK
+        BIGINT room_id FK
+        VARCHAR type
+    }
+
+    chat_outbox {
+        BIGSERIAL id PK
+        BIGINT room_id FK
+        VARCHAR status
+    }
+
     %% ====== NHOM 3 - YEU CAU VA GHEP LOP ======
     class_requests {
         BIGSERIAL id PK
         BIGINT parent_id FK
-        BIGINT requested_tutor_id FK
         BIGINT student_id FK
+        VARCHAR source
+        VARCHAR purpose
+        VARCHAR province
+        VARCHAR district
         TEXT class_requirement
         VARCHAR teaching_mode
         DECIMAL price_per_session
@@ -815,6 +1001,10 @@ erDiagram
     classes {
         BIGSERIAL id PK
         BIGINT class_request_id FK
+        BIGINT proposal_id FK
+        VARCHAR class_type
+        DECIMAL fee_percentage
+        DATE end_date
         BIGINT tutor_id FK
         BIGINT student_id FK
         VARCHAR class_name
@@ -1047,8 +1237,17 @@ erDiagram
     users ||--o{ tutors : "reviews"
 
     parents ||--o{ class_requests : "submits"
+    users ||--o| parents : "logs in as"
+    users ||--o| oauth_accounts : "links Google"
+    users ||--o| rocket_chat_accounts : "chat account"
+    parents ||--o{ chat_rooms : "chats in"
+    tutors ||--o{ chat_rooms : "chats in"
+    class_applications ||--o| chat_rooms : "opens"
+    chat_rooms ||--o{ proposal_messages : "contains"
+    proposal_messages ||--o| classes : "creates"
+    chat_rooms ||--o{ chat_pii_events : "logs"
+    chat_rooms ||--o{ chat_outbox : "syncs"
     students ||--o{ class_requests : "for student"
-    tutors ||--o{ class_requests : "requested"
     users ||--o{ class_requests : "creates or handles"
     class_requests ||--o{ class_applications : "receives"
     tutors ||--o{ class_applications : "applies"
@@ -1120,7 +1319,7 @@ erDiagram
 |---|---|---|---|---|
 | R-11 | `parents` | `class_requests` | 1 : 0..* | Một phụ huynh có thể gửi nhiều đơn yêu cầu lớp (cho nhiều con hoặc nhiều lần). Phụ huynh chỉ cần để lại tên + SĐT là tạo được đơn. |
 | R-12 | `students` | `class_requests` | 1 : 0..* | Học sinh của đơn. FK `student_id` **nullable**: để trống cho tới khi Lễ tân gọi lại, tạo hồ sơ học sinh rồi gán vào. |
-| R-13 | `tutors` | `class_requests` | 1 : 0..* | Gia sư được phụ huynh chỉ đích danh (`requested_tutor_id`). NULL = đơn đăng tuyển. |
+| R-13 | `tutors` | `classes` | 1 : 0..* | Gia sư phụ trách lớp (`classes.tutor_id`). Thay cho `requested_tutor_id` đã bỏ ở V24. |
 | R-14 | `users` | `class_requests` | 1 : 0..* | Lễ tân tạo đơn (`created_by`) và phụ trách xử lý (`handled_by`). |
 | R-15 | `class_requests` | `class_applications` | 1 : 0..* | Một đơn `OPEN` nhận nhiều lượt ứng tuyển từ gia sư. |
 | R-16 | `tutors` | `class_applications` | 1 : 0..* | Một gia sư ứng tuyển nhiều đơn. Cặp (`class_request_id`, `tutor_id`) duy nhất → **bảng nối N-N**. |
@@ -1176,6 +1375,19 @@ erDiagram
 | R-38 | `users` | `notifications` | 1 : 0..* | Mỗi thông báo thuộc về 1 người dùng (người nhận). |
 | R-39 | `users` | `audit_logs` | 1 : 0..* | Mỗi dòng nhật ký ghi nhận 1 người thực hiện thao tác. Dùng `entity_type` + `entity_id` thay FK cứng để ghi cho mọi loại đối tượng. |
 
+### 4.7b Nhóm Nhắn tin và Đề xuất (MSG)
+
+| Mã | Bảng trái | Bảng phải | Kiểu | Giải thích chi tiết |
+|---|---|---|---|---|
+| R-41 | `users` | `parents` | 1 : 0..1 | Tài khoản Google của phụ huynh (`parents.user_id`); hồ sơ cũ không có tài khoản. |
+| R-42 | `users` | `oauth_accounts` | 1 : 0..1 | Một người dùng PARENT có đúng một tài khoản Google. |
+| R-43 | `users` | `rocket_chat_accounts` | 1 : 0..1 | Ánh xạ tài khoản Rocket.Chat tạo lười. |
+| R-44 | `parents`, `tutors` | `chat_rooms` | 1 : 0..* | Room `DIRECT` duy nhất cho mỗi cặp; room `APPLICATION` duy nhất cho mỗi lượt ứng tuyển. |
+| R-45 | `class_applications` | `chat_rooms` | 1 : 0..1 | Phụ huynh chọn ứng viên để nhắn tin. |
+| R-46 | `chat_rooms` | `proposal_messages` | 1 : 0..* | Học sinh gắn ở đề xuất, không gắn ở room. |
+| R-47 | `proposal_messages` | `classes` | 1 : 0..1 | Đề xuất `ACCEPTED` sinh đúng một lớp `TRIAL` (`classes.proposal_id` UNIQUE). |
+| R-48 | `chat_rooms` | `chat_pii_events`, `chat_outbox` | 1 : 0..* | Log kiểm duyệt/mở khóa SĐT và hàng đợi tin hệ thống. |
+
 ### 4.8 Liên kết MongoDB
 
 | Mã | Bảng trái | Collection phải | Kiểu | Giải thích chi tiết |
@@ -1194,8 +1406,8 @@ erDiagram
 | C-05 | `employees.employee_code` UNIQUE, NOT NULL; `employees.id` chỉ tồn tại khi `users.role IN ('ADMIN','RECEPTIONIST','ACCOUNTANT')` | `employees` | Mã nhân viên chỉ dùng cho nhân sự nội bộ trung tâm. Tương tự: `tutors.id` chỉ khi role=TUTOR, `students.id` chỉ khi role=STUDENT (kiểm tra ở backend hoặc trigger) |
 | C-06 | `profile_status` transitions | `tutors` | INCOMPLETE -> PENDING -> ACTIVE hoặc REJECTED; ACTIVE <-> INACTIVE. Không được quay lại INCOMPLETE |
 | C-07 | `class status` transitions | `classes` | TRIAL -> ACTIVE -> COMPLETED hoặc CANCELLED. Không nhảy trạng thái |
-| C-08 | `class_requests.student_id`, `requested_tutor_id` nullable | `class_requests` | `requested_tutor_id` NULL = luồng đăng tuyển. `student_id` NULL cho tới khi có hồ sơ học sinh; bắt buộc NOT NULL trước khi chuyển `OPEN` hoặc tạo `classes` (kiểm tra ở backend) |
-| C-09 | Partial UNIQUE (`class_request_id`) WHERE `status IN ('TRIAL','ACTIVE')` | `classes` | Mỗi đơn chỉ có tối đa 1 lớp đang hoạt động |
+| C-08 | `class_requests.student_id` nullable | `class_requests` | `student_id` NULL cho tới khi có hồ sơ học sinh (tin `POSTING` được gán khi chốt đề xuất); bắt buộc NOT NULL trước khi chuyển `OPEN` hoặc tạo `classes` (kiểm tra ở backend) |
+| C-09 | Partial UNIQUE (`class_request_id`) WHERE `status IN ('TRIAL','ACTIVE')` | `classes` | Mỗi đơn chỉ có tối đa 1 lớp đang hoạt động (tin `POSTING` đóng `MATCHED` ngay khi có lớp). CHECK `class_request_id IS NOT NULL OR proposal_id IS NOT NULL`; `classes.proposal_id` UNIQUE |
 | C-10 | `SUM(approved_amount)` của các `refunds` `PAID` cùng `payment_id` ≤ `payments.received_amount` | `refunds` | Không hoàn quá số tiền trung tâm đã thực nhận, kiểm tra ở backend khi Kế toán chốt hoàn |
 | C-11 | `processed_by != requested_by`; `processed_by` có role `ACCOUNTANT` hoặc `ADMIN`; `proof_url` NOT NULL khi `status = 'PAID'` | `refunds` | Lễ tân đề xuất, Kế toán chi tiền — kiểm soát chéo |
 | C-12 | Partial UNIQUE (`complaint_id`) WHERE `status IN ('PENDING','PAID')` | `refunds` | Mỗi khiếu nại chỉ có 1 yêu cầu hoàn tiền đang chờ hoặc đã chi. `refunds` `PAID` thì khiếu nại chuyển `RESOLVED`; `REJECTED` thì khiếu nại quay về `PENDING` |
@@ -1204,6 +1416,9 @@ erDiagram
 | C-15 | UNIQUE (`class_id`, `log_date`, `start_time`) (V16, thay C-15 cũ của `sessions` — bỏ luồng tạo buổi on-demand) | `teaching_logs` | 1 ca diễn ra 1 ngày = tối đa 1 log; ghi đè bằng upsert (idempotent). **R-LOG:** không ghi/sửa log ở ô có exception `CANCELLED`/`RESCHEDULED` (buổi không diễn ra đúng ca đó) — kiểm tra ở backend |
 | C-16 | UNIQUE (`schedule_id`, `exception_date`) (V16: bảng đổi tên `schedule_exceptions`) | `schedule_exceptions` | Mỗi ca chỉ có 1 ngoại lệ cho 1 ngày; ghi đè bằng `INSERT ... ON CONFLICT DO UPDATE` (idempotent). `class_id`/`schedule_id` đều `ON DELETE CASCADE` — xóa ca cố định tự dọn ngoại lệ |
 | C-17 | `complaints` (V22): `complaint_type` IN (`REFUND`, `NON_REFUND`); `REFUND` thì `class_id` NOT NULL; `request_outcome` IN (`REMATCH`, `CANCELLED`) và chỉ có khi `NON_REFUND` + `RESOLVED`. Backend enforce: lớp của khiếu nại `REFUND` phải `ONLINE`; `REMATCH` chỉ khi lớp đã có gia sư; lớp đã ghép thành công quá 7 ngày không nhận khiếu nại `NON_REFUND`; lớp đã được xử lý thủ công thì bắt buộc có tệp minh chứng | `complaints` | Bảo đảm khiếu nại đúng đối tượng và lưu đúng kết quả xử lý |
+| C-18 | Phone Gate | `parents.phone` | SĐT phụ huynh chỉ có trong payload phía gia sư khi room có đề xuất `ACCEPTED`; backend enforce, không lưu ở Rocket.Chat |
+| C-19 | Partial UNIQUE (`room_id`, `student_id`) WHERE `status = 'PENDING'` | `proposal_messages` | Mỗi học sinh tối đa một đề xuất đang chờ trong một room |
+| C-20 | Accept idempotent | `proposal_messages` → `classes` | Khóa dòng đề xuất + `classes.proposal_id` UNIQUE: đồng ý nhiều lần chỉ tạo một lớp |
 | R-TRIAL | 1 lớp TRIAL = đúng 1 ca thử, lưu trên 6 cột `trial_*` của chính dòng `classes` (V16, thay dòng `sessions` có `is_trial = TRUE`); chỉ có giá trị khi `status = TRIAL` (enforce backend); ca thử `ONLINE` bắt buộc đủ bộ `trial_date` + `trial_end_time` + `trial_meeting_url` (CHECK). Log thử là 1 dòng `teaching_logs` thường tại ca thử, không có cờ/trạng thái riêng | `classes` | Kế hoạch refactor V16 (R-TRIAL) |
 | C-LESSON | CHECK `status IN ('PUBLISHED','HIDDEN')` (V16, thay C-15/C-16 status của `sessions`) | `lessons` | Bài giảng "driver" nhúng vào lớp — chỉ ẩn/hiện, không có trạng thái dạy. Lớp TRIAL bị hủy → bài giảng `HIDDEN` (matching `closeOpenClasses`) |
 
@@ -1212,34 +1427,21 @@ erDiagram
 ### Chuỗi quan hệ chính — Luồng nghiệp vụ End-to-End
 
 ```
-                      ┌──────────────────────────────────────────────────────────────┐
-                      │                    LUỒNG "ĐĂNG TUYỂN"                       │
-                      │   parents ──→ class_requests ──→ class_applications         │
-                      │   (requested_tutor_id = NULL)        │ Lễ tân chọn 1        │
-                      └──────────────────────────────────────┼──────────────────────┘
-                      ┌──────────────────────────────────────┼──────────────────────┐
-                      │          LUỒNG "CHỈ ĐÍCH DANH GIA SƯ"│                      │
-                      │   parents ──→ class_requests ────────┤                      │
-                      │   (requested_tutor_id có giá trị)    │                      │
-                      └──────────────────────────────────────┼──────────────────────┘
-                                                                     ▼
-                                                              ┌─── classes ───┐
-                                                              │      │        │
-                                                    class_schedules  │   payments ──┐ (Kế toán xác nhận)
-                                                    lessons + teaching_logs  complaints ─┴─→ refunds (Kế toán hoàn tiền)
-                                                      │        │         └── complaint_attachments
-                                                    lesson_materials
-                                                    schedule_exceptions (overlay ô ảo)
-                                                    │
-                                                    quizzes
-                                                              │
-                                                      quiz_questions
-                                                              │
-                                                       quiz_answers
-                                                              │
-                                                              │
-                                                    v_student_skill_stats (SKP, view)
-                                                    [Spaced Repetition + AI Sinh bài]
+ LUỒNG "ĐĂNG TIN" (POSTING)                          LUỒNG "NHẮN TIN TRỰC TIẾP"
+ parents ──→ class_requests (NEW → Lễ tân duyệt → OPEN)      parents ──→ chat_rooms (DIRECT)
+        └─→ class_applications (gia sư ứng tuyển)                        │
+                 └─→ chat_rooms (APPLICATION)                            │
+                          │                                              │
+                          └────────────→ proposal_messages ←─────────────┘
+                                         (gia sư đề xuất, phụ huynh đồng ý)
+                                                   │
+                                                   ▼
+                              ┌────────────── classes (TRIAL) ──────────────┐
+                              │  (có class_request_id nếu từ tin đăng;      │
+                              │   luôn có proposal_id)                      │
+                      class_schedules   payments ──→ refunds        lessons + teaching_logs
+                      schedule_exceptions  complaints               quizzes → quiz_questions → quiz_answers
+                                                                     v_student_skill_stats (SKP, view)
 ```
 
-> **Đọc từ trên xuống:** Phụ huynh gửi yêu cầu → Lễ tân gọi lại, hoàn thiện đơn yêu cầu lớp (đề xuất `sessions_per_week` ở đơn) → chọn/chỉ định gia sư và tạo lớp `TRIAL` → **hệ thống tạo `payments` `NEW`** (snapshot `fee_percentage`) → Dạy thử → Lễ tân kích hoạt lớp (`TRIAL → ACTIVE`, ghi `classes.sessions_per_week` + `price_per_session` vào lớp — nguồn tính phí V11) → **payment `NEW → NOT_SUBMITTED`** (tính `amount` từ `classes`) → gia sư nộp hoặc Lễ tân thu hộ minh chứng → Kế toán đối chiếu và xác nhận; khiếu nại `REFUND` → Lễ tân tạo `refunds` → Kế toán hoàn tiền → khiếu nại tự đóng. Nếu dạy thử thất bại → lớp `CANCELLED` → payment `NEW → CANCELLED`.
+> **Đọc từ trên xuống:** Phụ huynh đăng nhập Google, đăng tin (Lễ tân duyệt) hoặc nhắn tin trực tiếp → gia sư gửi đề xuất → phụ huynh đồng ý và tạo lớp `TRIAL` (`sessions_per_week` lấy từ số thứ trong tuần của đề xuất) → **hệ thống tạo `payments` `NEW`** (snapshot `fee_percentage`) → Dạy thử → Lễ tân kích hoạt lớp (`TRIAL → ACTIVE`, ghi `classes.sessions_per_week` + `price_per_session` vào lớp — nguồn tính phí V11) → **payment `NEW → NOT_SUBMITTED`** (tính `amount` từ `classes`) → gia sư nộp hoặc Lễ tân thu hộ minh chứng → Kế toán đối chiếu và xác nhận; khiếu nại `REFUND` → Lễ tân tạo `refunds` → Kế toán hoàn tiền → khiếu nại tự đóng. Nếu dạy thử thất bại → lớp `CANCELLED` → payment `NEW → CANCELLED`.

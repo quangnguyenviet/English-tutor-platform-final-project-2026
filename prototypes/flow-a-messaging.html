@@ -1,0 +1,1042 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EnglishPath — Luồng A: Nhắn tin Phụ huynh ⇄ Gia sư (Prototype)</title>
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ["Inter", "system-ui", "sans-serif"],
+          mono: ["'Geist Mono'", "'JetBrains Mono'", "ui-monospace", "monospace"],
+        },
+        colors: {
+          canvas: { light: "#F8FAFC", dark: "#0A0A2E" },
+        },
+      },
+    },
+  };
+</script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: Inter, system-ui, sans-serif; }
+  html[data-theme="dark"] body { background: radial-gradient(1200px 600px at 70% -10%, rgba(0,191,255,0.07), transparent 60%), linear-gradient(160deg, #0A0A2E 0%, #1A1A4E 55%, #0D1B3E 100%); background-attachment: fixed; min-height: 100dvh; }
+  html[data-theme="light"] body { background: #F8FAFC; }
+  @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .msg-enter { animation: fadeSlideIn .3s ease-out both; }
+  @keyframes pulseDot { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .live-dot { animation: pulseDot 1.6s ease-in-out infinite; }
+  .scroll-slim::-webkit-scrollbar { width: 6px; }
+  .scroll-slim::-webkit-scrollbar-thumb { background: rgba(100,116,139,.4); border-radius: 999px; }
+  .toast-enter { animation: fadeSlideIn .25s ease-out both; }
+  .step-hidden { display: none !important; }
+  .violation { background: rgba(244,63,94,.15); border-radius: 4px; padding: 0 2px; }
+</style>
+</head>
+<body class="antialiased text-slate-900 dark:text-white">
+
+<!-- ============================================================
+     PROTOTYPE BÀU: Luồng A (MSG) — Nhắn tin trực tiếp
+     Màn hình: 1) Hồ sơ gia sư  2) Đăng nhập Google
+     3) Wizard 4 bước  4) Phòng chat (parent view + tutor view)
+     5) Xem hội thoại read-only (Lễ tân)
+     Chỉ dùng để xem/rượt qua UI, không có backend.
+     ============================================================ -->
+
+<!-- Topbar điều hướng prototype -->
+<div class="fixed top-0 inset-x-0 z-50 border-b border-slate-200 dark:border-white/10 bg-white/85 dark:bg-[#0d1435]/85 backdrop-blur">
+  <div class="max-w-6xl mx-auto px-4 lg:px-8 h-14 flex items-center gap-3">
+    <div class="flex items-center gap-2">
+      <div class="w-7 h-7 rounded-lg bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      </div>
+      <span class="text-sm font-semibold">EnglishPath</span>
+      <span class="hidden sm:inline text-[11px] uppercase tracking-wide text-slate-400 dark:text-slate-500 ml-1">Prototype · Luồng A (MSG)</span>
+    </div>
+    <nav id="proto-nav" class="ml-2 flex items-center gap-1 overflow-x-auto scroll-slim flex-1"></nav>
+    <button id="theme-toggle" class="ml-auto flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 active:scale-[0.98] transition-all">
+      <span id="theme-icon">Đen</span>
+    </button>
+  </div>
+</div>
+
+<main class="max-w-6xl mx-auto px-4 lg:px-8 pt-24 pb-16 min-h-[100dvh]">
+
+<!-- ============================================================
+     MÀN 0: HỒ SƠ GIA SƯ (guest) — điểm bắt đầu Luồng A
+     ============================================================ -->
+<section id="screen-tutor" class="space-y-6">
+  <div class="flex items-center gap-2 text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">
+    <button data-goto="screen-tutor" class="hover:text-blue-500">← Tìm gia sư</button>
+    <span>/</span><span>Trần Hải Vy</span>
+  </div>
+  <div class="grid lg:grid-cols-3 gap-6">
+    <!-- Cột chính 2/3 -->
+    <div class="lg:col-span-2 space-y-6">
+      <div class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-5 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-start gap-4">
+          <div class="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 text-lg font-bold shrink-0">TV</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <h1 class="text-2xl font-bold">Trần Hải Vy</h1>
+              <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 live-dot"></span> Đang hoạt động
+              </span>
+            </div>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">IELTS 8.0 · Đại học Ngoại Thương · 3 năm kinh nghiệm gia sư 1-1</p>
+            <div class="mt-3 flex flex-wrap gap-2 text-xs">
+              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800/40"><span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Luyện IELTS</span>
+              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">Tăng tốc lớp 10</span>
+              <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">Giao tiếp</span>
+            </div>
+          </div>
+          <div class="hidden md:flex flex-col items-center gap-1">
+            <p class="font-mono text-2xl font-semibold">250k</p>
+            <p class="text-xs text-slate-400 dark:text-slate-500">đ / buổi (tham khảo)</p>
+          </div>
+        </div>
+
+        <div class="mt-6 grid sm:grid-cols-2 gap-4">
+          <div class="rounded-xl border border-slate-200 dark:border-white/10 p-4">
+            <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">Khung giờ có thể</p>
+            <div class="space-y-1.5 text-sm">
+              <div class="flex items-center justify-between"><span>Thứ 2, 4, 6</span><span class="font-mono text-xs text-slate-500 dark:text-slate-400">18:00 – 21:00</span></div>
+              <div class="flex items-center justify-between"><span>Thứ 7</span><span class="font-mono text-xs text-slate-500 dark:text-slate-400">08:00 – 12:00</span></div>
+            </div>
+          </div>
+          <div class="rounded-xl border border-slate-200 dark:border-white/10 p-4">
+            <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">Hình thức</p>
+            <div class="flex gap-2 text-sm">
+              <span class="rounded-full px-2.5 py-1 bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 text-xs font-medium">Tại nhà / Online</span>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Khu vực: Thủ Đức, TP. Hồ Chí Minh</p>
+          </div>
+        </div>
+
+        <!-- NÚT "NHẮN TIN" — điểm kích hoạt Luồng A -->
+        <div class="mt-6 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/40 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-blue-800 dark:text-blue-200">Quan tâm gia sư này?</p>
+            <p class="text-xs text-blue-700/80 dark:text-blue-300/80 mt-0.5">Nhắn tin trực tiếp để thống nhất học phí, lịch học và buổi thử. Trung tâm chỉ xác nhận 1 lần cuối — mọi trao đổi giữ trong hệ thống.</p>
+          </div>
+          <button data-goto="screen-login" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold active:scale-[0.98] transition-all shrink-0">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Nhắn tin
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-5 sm:p-6">
+        <h2 class="text-base font-bold">Giới thiệu</h2>
+        <p class="text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed max-w-[65ch]">
+          Từng đồng hành cùng 12 học sinh khối 10–12, trong đó 4 em đạt mục tiêu IELTS 7.0. Phương pháp: chia nhỏ kỹ năng, phản xạ theo chủ đề, ôn lại lỗi sai ngay trong buổi. Chuẩn bị đề thi thử sát cấu trúc mới.
+        </p>
+      </div>
+    </div>
+
+    <!-- Cột phụ 1/3 -->
+    <div class="space-y-6">
+      <div class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-5">
+        <h3 class="text-sm font-bold mb-3">Cam kết từ Trung tâm</h3>
+        <ul class="space-y-3 text-sm">
+          <li class="flex gap-2.5">
+            <span class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0 text-emerald-600 dark:text-emerald-400"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <div><p class="font-medium">Buổi thử 1 buổi trước khi chốt</p><p class="text-xs text-slate-500 dark:text-slate-400">Lịch thử do gia sư đề xuất, gia sư và phụ huynh thống nhất trong chat.</p></div>
+          </li>
+          <li class="flex gap-2.5">
+            <span class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center shrink-0 text-blue-600 dark:text-blue-400"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <div><p class="font-medium">Thông tin liên hệ được bảo vệ</p><p class="text-xs text-slate-500 dark:text-slate-400">SĐT phụ huynh chỉ mở khi đồng ý đề xuất của gia sư.</p></div>
+          </li>
+        </ul>
+      </div>
+      <div class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-5">
+        <h3 class="text-sm font-bold mb-3">Đánh giá gần đây</h3>
+        <div class="space-y-3">
+          <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400"><span class="font-medium text-slate-700 dark:text-slate-300">Lê Hoàng Nam (khối 10)</span><span>· 2 tuần trước</span></div>
+            <p class="text-xs text-slate-600 dark:text-slate-300 mt-1">Cô Vy ôn rất kỹ lỗi phát âm, em tự tin hơn hẳn khi trả lời Speaking.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ============================================================
+     MÀN 1: ĐĂNG NHẬP GOOGLE (chưa đăng nhập)
+     ============================================================ -->
+<section id="screen-login" class="step-hidden flex flex-col items-center justify-center min-h-[70dvh]">
+  <div class="w-full max-w-md bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-6 sm:p-8 text-center">
+    <div class="mx-auto w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-4">
+      <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </div>
+    <h1 class="text-lg font-bold">Đăng nhập để tiếp tục</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1.5">Bạn đang bắt đầu trò chuyện với <span class="font-medium text-slate-700 dark:text-slate-200">Trần Hải Vy</span>. Phụ huynh chỉ đăng nhập bằng Google — không cần đặt mật khẩu.</p>
+
+    <button data-goto="screen-wizard" class="mt-6 w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold active:scale-[0.98] transition-all">
+      <svg class="w-5 h-5" viewBox="0 0 48 48" aria-hidden="true">
+        <path fill="#FFC107" d="M43.9 24.5c0-1.8-.2-3.6-.5-5.2H24v9.7h11c-.5 2.7-2.1 4.9-4.5 6.4v4.3h7.3c4.3-3.3 6.1-8 6.1-15.2z"/>
+        <path fill="#FFD54F" d="M24 44c5.9 0 9.7-1.9 12.4-5.1l-7.3-4.3c-1.2.8-2.9 1.4-5.1 1.4-4 0-7.3-2.7-8.5-6.4H4.1v4.4C6.7 40.7 15 44 24 44z"/>
+        <path fill="#4CAF50" d="M15.5 28.6c-.4-1.1-.6-2.4-.6-3.7s.2-2.5.6-3.7v-4.4H4.1C2.7 16.9 2 19.4 2 24s.7 7.1 2.1 11.2l11.4-6.6z"/>
+        <path fill="#1976D2" d="M24 10.9c2.7 0 5 .9 6.9 2.8l5.7-5.7C33.8 4.7 29.3 3 24 3c-9 0-17.3 3.3-20 11.5l11.5 4.4C17.7 12.6 20.9 10.9 24 10.9z"/>
+      </svg>
+      Đăng nhập bằng Google
+    </button>
+
+    <p class="mt-4 text-xs text-slate-400 dark:text-slate-500">Lần đầu: hệ thống tạo tài khoản phụ huynh, liên kết tài khoản Google của bạn.</p>
+    <button data-goto="screen-tutor" class="mt-4 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-500">← Quay lại hồ sơ gia sư</button>
+  </div>
+</section>
+<!-- ============================================================
+     MÀN 2: WIZARD 4 BƯỚC (lần đầu vào chat với gia sư — không chọn con)
+     ============================================================ -->
+<section id="screen-wizard" class="step-hidden space-y-6">
+  <div>
+    <p class="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Nhắn tin với Trần Hải Vy</p>
+    <h1 class="text-2xl font-bold">Thông tin để bắt đầu cuộc trò chuyện</h1>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">4 bước · không chọn con — chiều "cho con nào" do gia sư khai trong đề xuất · lần sau vào lại mở thẳng phòng chat (cùng gia sư).</p>
+  </div>
+
+  <!-- Stepper -->
+  <div class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-5 sm:p-6">
+    <ol id="wiz-steps" class="flex items-center gap-2 sm:gap-3 text-xs font-medium">
+      <li data-step-label="1" class="flex items-center gap-1.5 text-slate-400 dark:text-slate-500"><span class="w-6 h-6 rounded-full bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center font-mono text-xs step-num">1</span> SĐT</li>
+      <li aria-hidden="true" class="flex-1 border-t border-dashed border-slate-200 dark:border-slate-700 min-w-3"></li>
+      <li data-step-label="2" class="text-slate-400 dark:text-slate-500 flex items-center gap-1.5"><span class="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-mono text-xs step-num">2</span> Họ tên</li>
+      <li aria-hidden="true" class="flex-1 border-t border-dashed border-slate-200 dark:border-slate-700 min-w-3"></li>
+      <li data-step-label="3" class="text-slate-400 dark:text-slate-500 flex items-center gap-1.5"><span class="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-mono text-xs step-num">3</span> Mục đích</li>
+      <li aria-hidden="true" class="flex-1 border-t border-dashed border-slate-200 dark:border-slate-700 min-w-3"></li>
+      <li data-step-label="4" class="text-slate-400 dark:text-slate-500 flex items-center gap-1.5"><span class="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-mono text-xs step-num">4</span> Khu vực</li>
+    </ol>
+
+    <!-- Bước 1: SĐT -->
+    <div data-wiz-pane="1" class="wiz-pane mt-6">
+      <label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="wiz-phone">Số điện thoại của phụ huynh</label>
+      <input id="wiz-phone" inputmode="tel" maxlength="12" placeholder="09xx xxx xxx (hoặc +84...)" class="mt-1.5 w-full sm:max-w-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:border-blue-500 dark:focus:border-cyan-400 font-mono" />
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">Gia sư chỉ thấy số này <strong>sau khi</strong> bạn đồng ý 1 đề xuất (mục "Cổng SĐT").</p>
+      <div id="wiz-phone-error" class="hidden mt-2 text-sm text-rose-600 dark:text-rose-400">Số này đã thuộc về tài khoản phụ huynh khác — vui lòng liên hệ hotline 1900.0000.</div>
+      <div class="mt-6 flex items-center justify-between">
+        <button data-goto="screen-login" class="text-sm text-slate-500 dark:text-slate-400 hover:text-blue-500">← Đã đăng nhập</button>
+        <button data-wiz-next="2" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 text-white text-sm font-semibold active:scale-[0.98] transition-all">Tiếp tục</button>
+      </div>
+    </div>
+
+    <!-- Bước 2: Họ tên -->
+    <div data-wiz-pane="2" class="wiz-pane step-hidden mt-6">
+      <label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="wiz-name">Họ tên phụ huynh</label>
+      <input id="wiz-name" value="Phạm Thu Hà" class="mt-1.5 w-full sm:max-w-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:border-blue-500 dark:focus:border-cyan-400" />
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">Lấy từ hồ sơ Google — có thể sửa.</p>
+      <div class="mt-6 flex items-center justify-between">
+        <button data-wiz-prev="1" class="text-sm text-slate-500 dark:text-slate-400 hover:text-blue-500">← Quay lại</button>
+        <button data-wiz-next="3" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 text-white text-sm font-semibold active:scale-[0.98] transition-all">Tiếp tục</button>
+      </div>
+    </div>
+
+    <!-- Bước 3: Mục đích -->
+    <div data-wiz-pane="3" class="wiz-pane step-hidden mt-6">
+      <p class="text-sm font-medium text-slate-700 dark:text-slate-300">Mục đích học của con</p>
+      <div id="wiz-purpose" class="mt-2 grid sm:grid-cols-2 gap-2 max-w-xl">
+        <button data-purpose="PHU_THONG" class="wiz-opt text-left px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-blue-800 transition-colors text-sm font-medium">Củng cố học phổ thông</button>
+        <button data-purpose="THI_CHUAN" class="wiz-opt text-left px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-blue-800 transition-colors text-sm font-medium">Luyện thi chuẩn (IELTS / TOEIC / VSTEP)</button>
+        <button data-purpose="GIAO_TIEP" class="wiz-opt text-left px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-blue-800 transition-colors text-sm font-medium">Giao tiếp tiếng Anh</button>
+        <button data-purpose="THI_HOC_KY" class="wiz-opt text-left px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-blue-800 transition-colors text-sm font-medium">Luyện thi học kỳ</button>
+      </div>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Chọn 1 mục đích — gia sư sẽ thấy ngay (không phải dữ liệu cá nhân nhạy cảm).</p>
+      <div class="mt-6 flex items-center justify-between">
+        <button data-wiz-prev="2" class="text-sm text-slate-500 dark:text-slate-400 hover:text-blue-500">← Quay lại</button>
+        <button data-wiz-next="4" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 text-white text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50" disabled id="wiz-purpose-next">Tiếp tục</button>
+      </div>
+    </div>
+
+    <!-- Bước 4: Khu vực (bước cuối wizard) -->
+    <div data-wiz-pane="4" class="wiz-pane step-hidden mt-6">
+      <p class="text-sm font-medium text-slate-700 dark:text-slate-300">Khu vực học</p>
+      <div class="grid sm:grid-cols-2 gap-3 mt-2 max-w-xl">
+        <div>
+          <label class="text-xs text-slate-500 dark:text-slate-400" for="wiz-province">Tỉnh / Thành phố</label>
+          <select id="wiz-province" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-sm">
+            <option>TP. Hồ Chí Minh</option><option>Hà Nội</option><option>Đà Nẵng</option><option>Khánh Hòa</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500 dark:text-slate-400" for="wiz-district">Quận / Huyện</label>
+          <select id="wiz-district" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-sm">
+            <option>Thủ Đức</option><option>Quận 1</option><option>Quận 3</option><option>Tân Phú</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt-6 flex items-center justify-between">
+        <button data-wiz-prev="3" class="text-sm text-slate-500 dark:text-slate-400 hover:text-blue-500">← Quay lại</button>
+        <button id="wiz-finish" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 text-white text-sm font-semibold active:scale-[0.98] transition-all">Hoàn tất & mở phòng chat</button>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- ============================================================
+     MÀN 3: PHÒNG CHAT (view Phụ huynh / view Gia sư)
+     ============================================================ -->
+<section id="screen-chat" class="step-hidden space-y-4">
+  <div class="flex flex-wrap items-center gap-3">
+    <div class="flex-1 min-w-0">
+      <p class="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Phòng chat · Luồng A</p>
+      <h1 class="text-2xl font-bold">Trần Hải Vy</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Mục đích: Luyện thi chuẩn (IELTS) · Khu vực: Thủ Đức, TP. HCM · Phòng chung của phụ huynh — học sinh do gia sư khai trong mỗi đề xuất</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <div id="view-toggle" class="inline-flex rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 p-1 text-xs font-medium active:scale-[0.98] transition-all">
+        <button id="view-parent" class="px-3 py-1.5 rounded-lg bg-blue-600 dark:bg-blue-500 text-white">Xem như Phụ huynh</button>
+        <button id="view-tutor" class="px-3 py-1.5 rounded-lg text-slate-500 dark:text-slate-400">Xem như Gia sư</button>
+      </div>
+      <button data-goto="screen-reception" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-xs font-medium text-slate-600 dark:text-slate-300 active:scale-[0.98] transition-all">Xem như Lễ tân</button>
+    </div>
+  </div>
+
+  <div class="grid lg:grid-cols-3 gap-6">
+    <!-- Cột chính: khung chat -->
+    <div class="lg:col-span-2 space-y-4">
+      <div id="info-block-tutor" class="hidden bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-4">
+        <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">Phụ huynh (bạn thấy)</p>
+        <div class="grid sm:grid-cols-3 gap-3 text-sm">
+          <div>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Con có sẵn (dùng cho mục "Học sinh" trong đề xuất)</p>
+            <div class="flex flex-wrap gap-1.5 mt-1">
+              <span class="rounded-full px-2.5 py-1 text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-white/10">Nguyễn Minh Khôi · Lớp 10</span>
+              <span class="rounded-full px-2.5 py-1 text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-white/10">Nguyễn Thanh Trúc · Lớp 7</span>
+            </div>
+          </div>
+          <div><p class="text-xs text-slate-500 dark:text-slate-400">Mục đích · Khu vực</p><p class="font-medium">IELTS · Thủ Đức, TP. HCM</p></div>
+          <div id="phone-block">
+            <p class="text-xs text-slate-500 dark:text-slate-400">SĐT phụ huynh</p>
+            <p class="font-mono font-medium text-slate-400 dark:text-slate-500" id="phone-value">— (chờ đồng ý đề xuất)</p>
+            <p id="phone-note" class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 hidden"></p>
+          </div>
+        </div>
+      </div>
+
+      <div id="info-block-parent" class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-4">
+        <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">Bạn đang thấy</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Gia sư chỉ nhìn thấy mục đích, khu vực và danh sách con có sẵn (họ tên + khối lớp nếu có) của bạn. Số điện thoại của bạn được giữ kín cho tới khi bạn đồng ý 1 đề xuất. "Cho con nào" do gia sư khai trong từng đề xuất, không nằm ở phòng chat.</p>
+      </div>
+
+      <!-- Khung hội thoại -->
+      <div class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col" style="height: 460px;">
+        <div class="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-semibold truncate" id="chat-room-title">Trần Hải Vy</p>
+            <p class="text-xs text-slate-400 dark:text-slate-500" id="chat-room-sub">Phụ huynh: Phạm Thu Hà</p>
+          </div>
+        </div>
+
+        <div id="chat-messages" class="flex-1 overflow-y-auto scroll-slim p-4 space-y-3"></div>
+
+        <div id="compose-wrap" class="border-t border-slate-200 dark:border-white/10 p-3">
+          <div id="pii-warn" class="hidden mb-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 p-3 text-xs text-rose-700 dark:text-rose-400">
+            <p class="font-semibold mb-1">Hệ thống không cho phép chia sẻ số điện thoại, email hay link liên lạc</p>
+            <p id="pii-warn-preview" class="font-mono text-[11px] opacity-90"></p>
+            <p class="mt-1">Hãy thống nhất nội dung học rồi để gia sư tạo đề xuất.</p>
+          </div>
+          <div class="flex items-end gap-2">
+            <textarea id="chat-input" rows="1" placeholder="Nhắn tin…" class="flex-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-sm outline-none focus:border-blue-500 dark:focus:border-cyan-400 resize-none max-h-28"></textarea>
+            <button id="chat-send" class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 text-white text-sm font-semibold active:scale-[0.98] transition-all shrink-0">Gửi</button>
+          </div>
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Tin nhắn tối đa 2000 ký tự · tối đa 10 tin/phút · số điện thoại, email, link Zalo/FB bị chặn tự động.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cột phụ: đề xuất (gia sư thấy form tạo; phụ huynh thấy thẻ + nút quyết định trong luồng tin) -->
+    <div class="space-y-4">
+      <div id="proposal-action" class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-4">
+        <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-2">Đề xuất lớp học</p>
+        <button id="btn-create-proposal" class="w-full px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 text-white text-sm font-semibold active:scale-[0.98] transition-all">Tạo đề xuất</button>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">Chỉ gia sư tạo được, sau khi trao đổi ít nhất 1 tin hai chiều. Mỗi học sinh tối đa 1 đề xuất đang chờ trong phòng — 2 con khác nhau có thể chờ song song.</p>
+      </div>
+
+      <div class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-4 text-xs text-slate-500 dark:text-slate-400 space-y-1.5">
+        <p class="font-semibold text-slate-700 dark:text-slate-300 text-sm">Tiến trình chốt lớp</p>
+        <p>1. Thống nhất trong chat (học sinh do gia sư khai trong đề xuất)</p>
+        <p>2. Gia sư tạo đề xuất · phụ huynh Đồng ý (ghi rõ con nào)</p>
+        <p>3. Hệ thống tạo đơn CHAT (mã <span class="font-mono">REQ-CHAT-0412</span>)</p>
+        <p>4. Lễ tân xác nhận 1 lần + xác định học sinh → lớp TRIAL</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Modal tạo đề xuất (gia sư) -->
+<div id="proposal-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
+  <div class="absolute inset-0 bg-slate-950/50 dark:bg-black/60" id="proposal-modal-backdrop"></div>
+  <div class="relative w-full sm:max-w-lg bg-white dark:bg-[#10173f] dark:border dark:border-white/10 rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 max-h-[90dvh] overflow-y-auto scroll-slim">
+    <h2 class="text-base font-bold">Đề xuất lớp học</h2>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Gửi cho phụ huynh Phạm Thu Hà · thẻ sẽ ghi rõ học sinh và số phiên bản</p>
+    <div class="grid sm:grid-cols-2 gap-3 mt-4 text-sm">
+      <!-- Mục "Học sinh" (8.1.1): nhánh con có sẵn + nhánh con mới, hiện đầu form -->
+      <div class="sm:col-span-2 rounded-xl border border-blue-200 dark:border-blue-800/40 bg-blue-50/50 dark:bg-blue-950/20 p-3.5">
+        <label class="text-xs font-medium text-blue-800 dark:text-blue-300 block mb-2">Học sinh (bắt buộc · mỗi học sinh tối đa 1 đề xuất đang chờ trong phòng)</label>
+        <div id="prop-stu-existing" class="flex flex-col sm:flex-row sm:items-center gap-2">
+          <select id="prop-student-select" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-sm outline-none focus:border-blue-500 dark:focus:border-cyan-400">
+            <option value="minh-khoi" selected>Nguyễn Minh Khôi · Lớp 10</option>
+            <option value="thanh-truc">Nguyễn Thanh Trúc · Lớp 7</option>
+          </select>
+          <button id="btn-student-new" class="shrink-0 px-3 py-2 rounded-lg border border-dashed border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400 text-xs font-medium hover:bg-blue-100/50 dark:hover:bg-blue-900/30 active:scale-[0.98] transition-all">+ Thêm học sinh mới</button>
+        </div>
+        <div id="prop-stu-new" class="step-hidden">
+          <label class="text-xs text-slate-500 dark:text-slate-400 block mb-1" for="prop-student-name">Họ tên học sinh mới (không khai khối lớp — bạn bổ sung khi vào ca thử)</label>
+          <div class="flex gap-2">
+            <input id="prop-student-name" type="text" maxlength="50" placeholder="VD: Nguyễn Gia Bảo" class="flex-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:border-blue-500 dark:focus:border-cyan-400" />
+            <button id="btn-student-existing" class="shrink-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 text-xs font-medium hover:bg-slate-50 dark:hover:bg-white/5 active:scale-[0.98] transition-all">← Dùng con có sẵn</button>
+          </div>
+          <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Lễ tân sẽ đối chiếu hồ sơ có sẵn / tạo học sinh mới (khối lớp để rỗng) khi xác nhận đơn.</p>
+        </div>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="text-xs font-medium text-slate-500 dark:text-slate-400">Học phí (VND / buổi)</label>
+        <input type="number" value="250000" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-mono text-sm outline-none focus:border-blue-500 dark:focus:border-cyan-400" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-500 dark:text-slate-400">Số buổi / tuần</label>
+        <input type="number" value="2" min="1" max="5" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-mono text-sm outline-none focus:border-blue-500 dark:focus:border-cyan-400" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-500 dark:text-slate-400">Hình thức</label>
+        <select class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 text-sm">
+          <option>Tại nhà</option><option>Online</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-500 dark:text-slate-400">Ngày dạy thử</label>
+        <input type="date" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-mono text-sm outline-none focus:border-blue-500 dark:focus:border-cyan-400" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-500 dark:text-slate-400">Khung giờ buổi thử</label>
+        <div class="mt-1 flex gap-2">
+          <input type="time" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-mono text-sm" />
+          <input type="time" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 font-mono text-sm" />
+        </div>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="text-xs font-medium text-slate-500 dark:text-slate-400">Lịch cố định (chọn ngày trong tuần)</label>
+        <div class="flex flex-wrap gap-1.5 mt-1.5">
+          <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">T2</span>
+          <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800/40">T4</span>
+          <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800/40">T6</span>
+        </div>
+        <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Cảnh báo trùng giờ với ca khác (không chặn — mới là đề xuất).</p>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="text-xs font-medium text-slate-500 dark:text-slate-400">Ghi chú (tuỳ chọn)</label>
+        <textarea rows="2" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm outline-none focus:border-blue-500 dark:focus:border-cyan-400"></textarea>
+      </div>
+    </div>
+    <div class="flex items-center justify-between mt-5">
+      <button id="btn-cancel-proposal" class="text-sm text-slate-500 dark:text-slate-400 hover:text-rose-500">Rút đề xuất này (nếu đã gửi)</button>
+      <button id="btn-send-proposal" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 text-white text-sm font-semibold active:scale-[0.98] transition-all">Gửi đề xuất</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MÀN 4: XEM HỘI THOẠI (Lễ tân / Admin, read-only)
+     ============================================================ -->
+<section id="screen-reception" class="step-hidden space-y-6">
+  <div class="flex flex-wrap items-center gap-3">
+    <div class="flex-1 min-w-0">
+      <p class="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Dashboard Lễ tân · Tab "Yêu cầu từ chat"</p>
+      <h1 class="text-2xl font-bold">Quan sát & kiểm soát hội thoại</h1>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Xem hội thoại read-only · log kiểm duyệt PII · log mở khóa SĐT. Điểm dừng: duyệt đăng tin (Luồng B) và xác nhận 1 lần đơn CHAT.</p>
+    </div>
+    <button data-goto="screen-chat" class="text-sm text-slate-500 dark:text-slate-400 hover:text-blue-500">← Quay lại phòng chat</button>
+  </div>
+
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-xl p-4">
+      <p class="text-xs text-slate-500 dark:text-slate-400">Đơn CHAT chờ xác nhận</p>
+      <p class="font-mono text-2xl font-semibold mt-1">3</p>
+      <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">NEW · trong 24 giờ</p>
+    </div>
+    <div class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-xl p-4">
+      <p class="text-xs text-slate-500 dark:text-slate-400">Tin bị kiểm duyệt hôm nay</p>
+      <p class="font-mono text-2xl font-semibold mt-1">5</p>
+      <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">4 số ĐT · 1 email</p>
+    </div>
+    <div class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-xl p-4">
+      <p class="text-xs text-slate-500 dark:text-slate-400">SĐT đã mở khóa (tuần)</p>
+      <p class="font-mono text-2xl font-semibold mt-1">12</p>
+      <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">theo đề xuất đồng ý</p>
+    </div>
+    <div class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-xl p-4">
+      <p class="text-xs text-slate-500 dark:text-slate-400">Phòng chat hoạt động</p>
+      <p class="font-mono text-2xl font-semibold mt-1">18</p>
+      <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">đang có đề xuất PENDING: 7</p>
+    </div>
+  </div>
+
+  <div class="grid lg:grid-cols-3 gap-6">
+    <!-- Hội thoại read-only -->
+    <div class="lg:col-span-2 bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-5">
+      <div class="flex flex-wrap items-center gap-2 mb-4">
+        <h2 class="text-base font-bold flex-1">Trần Hải Vy ⇄ Phạm Thu Hà · con Nguyễn Minh Khôi</h2>
+        <span class="rounded-full px-2.5 py-1 text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/40">Đơn CHAT NEW · chờ xác nhận</span>
+      </div>
+      <div class="space-y-2.5 text-sm max-h-[300px] overflow-y-auto scroll-slim pr-1" id="reception-transcript"></div>
+
+      <!-- Xác định học sinh (mục 10) trước khi tạo lớp TRIAL -->
+      <div class="mt-4 rounded-xl border border-blue-200 dark:border-blue-800/40 bg-blue-50/50 dark:bg-blue-950/20 p-4">
+        <p class="text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wide mb-2">Bước xác nhận · xác định học sinh</p>
+        <p class="text-sm">Đơn CHAT <span class="font-mono text-xs">REQ-CHAT-0412</span> (từ Đề xuất #2, học sinh do gia sư khai) cho <strong>Nguyễn Minh Khôi</strong> — học sinh có sẵn (đã khớp hồ sơ <span class="font-mono text-xs">students#18 · Lớp 10</span>). Kiểm tra: <span class="text-emerald-700 dark:text-emerald-400">E-4 OK</span> (chưa có lớp TRIAL/ACTIVE cùng mục đích IELTS) · khung cố định trùng 1 ca thứ 6 của gia sư → <span class="text-amber-700 dark:text-amber-400">cảnh báo mềm, lễ tân đối chiếu</span>.</p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-slate-200 dark:border-white/10">
+        <p class="text-sm text-slate-500 dark:text-slate-400 flex-1 min-w-[200px]">Xác nhận → <span class="font-mono text-xs">MATCHED</span> + tạo lớp TRIAL (ca thử + học phí chụp từ đề xuất; chỉnh được — hệ thống log thay đổi so với đề xuất gốc).</p>
+        <button id="btn-reception-adjust" class="px-3 py-2 rounded-xl border border-amber-300 dark:border-amber-700/40 text-amber-700 dark:text-amber-400 text-xs font-semibold hover:bg-amber-50 dark:hover:bg-amber-950/30 active:scale-[0.98] transition-all">Chỉnh khung & log</button>
+        <button id="btn-reception-reject" class="px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-800/40 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-50 dark:hover:bg-rose-950/30 active:scale-[0.98] transition-all">Từ chối → REMATCH</button>
+        <button id="btn-reception-confirm" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold active:scale-[0.98] transition-all">Xác nhận & tạo lớp TRIAL</button>
+      </div>
+    </div>
+
+    <!-- Log kiểm duyệt + log SĐT -->
+    <div class="space-y-4">
+      <div class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-5">
+        <h3 class="text-sm font-bold mb-3">Log kiểm duyệt (chat_pii_events)</h3>
+        <ul class="space-y-2.5 text-xs">
+          <li class="flex gap-2">
+            <span class="rounded-full px-2 py-0.5 font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40 shrink-0">PHONE</span>
+            <div class="min-w-0">
+              <p class="text-slate-700 dark:text-slate-300">Phụ huynh gõ SĐT của mình → chặn, không lưu tin</p>
+              <p class="font-mono text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">09:41 · 11/07/2026</p>
+            </div>
+          </li>
+          <li class="flex gap-2">
+            <span class="rounded-full px-2 py-0.5 font-medium bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40 shrink-0">EMAIL</span>
+            <div class="min-w-0">
+              <p class="text-slate-700 dark:text-slate-300">Gia sư đưa email liên lạc → chặn</p>
+              <p class="font-mono text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">09:44 · 11/07/2026</p>
+            </div>
+          </li>
+          <li class="flex gap-2">
+            <span class="rounded-full px-2 py-0.5 font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40 shrink-0">PHONE_UNLOCKED</span>
+            <div class="min-w-0">
+              <p class="text-slate-700 dark:text-slate-300">SĐT mở khóa cho Trần Hải Vy (đề xuất #2 đồng ý)</p>
+              <p class="font-mono text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">09:58 · 11/07/2026 · hệ thống</p>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class="bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-5">
+        <h3 class="text-sm font-bold mb-2">Ranh giới (mục 11)</h3>
+        <ul class="text-xs text-slate-500 dark:text-slate-400 space-y-1.5">
+          <li>· E-3: 7 ngày không xác nhận → đơn CHAT EXPIRED, SĐT giữ mở</li>
+          <li>· E-5: gia sư INACTIVE → phòng khóa, PENDING EXPIRED sau 7 ngày</li>
+          <li>· E-8: Lễ tân có thể duyệt lại tin bị chặn (nội bộ)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<!-- ============================================================
+     Toasts
+     ============================================================ -->
+<div id="toast-root" class="fixed bottom-4 inset-x-0 z-[70] flex flex-col items-center gap-2 px-4 pointer-events-none"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- Theme ---------- */
+  var root = document.documentElement;
+  var theme = localStorage.getItem("proto-theme") || "dark";
+  function applyTheme(t) {
+    root.setAttribute("data-theme", t);
+    root.classList.toggle("dark", t === "dark");
+    document.getElementById("theme-icon").textContent = t === "dark" ? "Sáng" : "Đen";
+    localStorage.setItem("proto-theme", t);
+  }
+  applyTheme(theme);
+  document.getElementById("theme-toggle").addEventListener("click", function () {
+    theme = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    applyTheme(theme);
+  });
+
+  /* ---------- Toast ---------- */
+  function toast(msg, tone) {
+    var el = document.createElement("div");
+    var border = tone === "error" ? "border-rose-200 dark:border-rose-800/40" :
+                 tone === "success" ? "border-emerald-200 dark:border-emerald-800/40" :
+                 "border-slate-200 dark:border-white/10";
+    el.className = "toast-enter pointer-events-auto max-w-sm w-full sm:w-auto sm:max-w-md text-left bg-white dark:bg-[#10173f] border " + border + " rounded-xl px-4 py-3 text-xs sm:text-sm shadow-lg";
+    el.textContent = msg;
+    document.getElementById("toast-root").appendChild(el);
+    setTimeout(function () { el.style.opacity = "0"; el.style.transition = "opacity .3s"; }, 4200);
+    setTimeout(function () { el.remove(); }, 4700);
+  }
+
+  /* ---------- Navigation giữa các màn ---------- */
+  var screens = [
+    { id: "screen-tutor", label: "Hồ sơ gia sư" },
+    { id: "screen-login", label: "Đăng nhập Google" },
+    { id: "screen-wizard", label: "Wizard 4 bước" },
+    { id: "screen-chat", label: "Phòng chat" },
+    { id: "screen-reception", label: "Lễ tân (read-only)" },
+  ];
+  var nav = document.getElementById("proto-nav");
+  var activeId = "screen-tutor";
+
+  function showScreen(id, pushToast) {
+    if (id === "screen-wizard" && !window.__wizardVisited) {
+      setWizStep(1);
+      window.__wizardVisited = true;
+    }
+    screens.forEach(function (s) {
+      document.getElementById(s.id).classList.toggle("step-hidden", s.id !== id);
+    });
+    activeId = id;
+    renderNav();
+    window.scrollTo({ top: 0 });
+    if (pushToast) toast("Màn hình: " + screens.filter(function (s) { return s.id === id; })[0].label);
+  }
+
+  function renderNav() {
+    nav.innerHTML = "";
+    screens.forEach(function (s) {
+      var b = document.createElement("button");
+      b.textContent = s.label;
+      b.className = "shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all " +
+        (s.id === activeId
+          ? "bg-blue-600 dark:bg-blue-500 text-white"
+          : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5");
+      b.addEventListener("click", function () { showScreen(s.id, true); });
+      nav.appendChild(b);
+    });
+  }
+
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest("[data-goto]");
+    if (t) { showScreen(t.getAttribute("data-goto")); }
+  });
+  renderNav();
+
+  /* ---------- Wizard ---------- */
+  var wizStep = 1;
+  var wizPurpose = null;
+
+  function setWizStep(n) {
+    wizStep = n;
+    document.querySelectorAll("[data-wiz-pane]").forEach(function (p) {
+      p.classList.toggle("step-hidden", p.getAttribute("data-wiz-pane") !== String(n));
+    });
+    document.querySelectorAll("#wiz-steps [data-step-label]").forEach(function (li) {
+      var step = parseInt(li.getAttribute("data-step-label"), 10);
+      var num = li.querySelector(".step-num");
+      if (step === n) {
+        li.classList.remove("text-slate-400", "dark:text-slate-500");
+        li.classList.add("text-slate-900", "dark:text-white");
+        num.className = "w-6 h-6 rounded-full bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center font-mono text-xs step-num";
+      } else if (step < n) {
+        li.classList.remove("text-slate-400", "dark:text-slate-500");
+        li.classList.add("text-slate-500", "dark:text-slate-400");
+        num.className = "w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center font-mono text-xs step-num";
+        num.textContent = "✓";
+      } else {
+        li.classList.add("text-slate-400", "dark:text-slate-500");
+        li.classList.remove("text-slate-900", "dark:text-white", "text-slate-500", "dark:text-slate-400");
+        num.className = "w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-mono text-xs step-num text-slate-500 dark:text-slate-400";
+        num.textContent = String(step);
+      }
+    });
+  }
+
+  document.addEventListener("click", function (e) {
+    var nxt = e.target.closest("[data-wiz-next]");
+    if (nxt) { setWizStep(parseInt(nxt.getAttribute("data-wiz-next"), 10)); return; }
+    var prv = e.target.closest("[data-wiz-prev]");
+    if (prv) { setWizStep(parseInt(prv.getAttribute("data-wiz-prev"), 10)); return; }
+
+    var opt = e.target.closest("[data-purpose]");
+    if (opt) {
+      wizPurpose = opt.getAttribute("data-purpose");
+      document.querySelectorAll("[data-purpose]").forEach(function (o) {
+        o.classList.remove("bg-blue-50", "dark:bg-blue-950/40", "border-blue-400", "dark:border-blue-700", "text-blue-800", "dark:text-blue-300");
+        o.classList.add("border-slate-200", "dark:border-white/10");
+      });
+      opt.classList.add("bg-blue-50", "dark:bg-blue-950/40", "border-blue-400", "dark:border-blue-700", "text-blue-800", "dark:text-blue-300");
+      document.getElementById("wiz-purpose-next").disabled = false;
+      return;
+    }
+
+    if (e.target.closest("#wiz-finish")) {
+      setWizStep(4);
+      showScreen("screen-chat");
+      toast("Phòng chat tạo thành công · phòng gắn (phụ huynh, gia sư) — chiều \"cho con nào\" do gia sư khai trong đề xuất");
+      setTimeout(function () { seedProposal(); }, 600);
+    }
+  });
+
+  /* PII demo ở bước 1 */
+  document.getElementById("wiz-phone").addEventListener("input", function (e) {
+    var v = e.target.value;
+    var occupied = v.indexOf("0900") === 0;
+    document.getElementById("wiz-phone-error").classList.toggle("hidden", !occupied);
+  });
+
+  /* ---------- Phòng chat ---------- */
+  var state = {
+    view: "parent", // 'parent' | 'tutor'
+    phoneUnlocked: false,
+    twoWayDone: false,
+    proposals: [], // [{version, student, studentLabel, status, ...}] — 1 PENDING / học sinh
+    messages: [],
+  };
+  var PARENT_CHILDREN = [
+    { id: "minh-khoi", label: "Nguyễn Minh Khôi · Lớp 10" },
+    { id: "thanh-truc", label: "Nguyễn Thanh Trúc · Lớp 7" },
+  ];
+
+  function el(tag, attrs, html) {
+    var n = document.createElement(tag);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (html) n.innerHTML = html;
+    return n;
+  }
+
+  function sysLine(text) {
+    var div = el("div", { class: "text-center text-xs text-slate-500 dark:text-slate-400 msg-enter" }, text);
+    document.getElementById("chat-messages").appendChild(div);
+  }
+
+  function bubble(who, text, cls) {
+    var wrap = el("div", { class: (who === "parent" ? "flex justify-start" : "flex justify-end") + " msg-enter" });
+    var card = el("div", {
+      class: "max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed " +
+        (who === "parent"
+          ? "bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10"
+          : "bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/40") + (cls || ""),
+    });
+    card.textContent = text;
+    var meta = el("div", { class: "text-[11px] text-slate-400 dark:text-slate-500 mt-1 " + (who === "parent" ? "" : "text-right") },
+      who === "parent" ? "Phụ huynh · 09:3" + Math.floor(Math.random() * 9) : "Gia sư · 09:3" + Math.floor(Math.random() * 9));
+    wrap.appendChild(card); wrap.appendChild(meta);
+    document.getElementById("chat-messages").appendChild(wrap);
+    wrap.scrollIntoView({ behavior: "smooth", block: "end" });
+  }
+
+  /* Thẻ đề xuất render trong luồng tin (ghi rõ học sinh — checkpoint trước Đồng ý, mục 8.2) */
+  function proposalCard(p) {
+    var box = el("div", { class: "max-w-[90%] mx-auto w-full rounded-2xl border border-blue-200 dark:border-blue-800/40 bg-white dark:bg-white/[0.04] overflow-hidden msg-enter" });
+    var badgeTone = { PENDING: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/40",
+                      ACCEPTED: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40",
+                      REJECTED: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40",
+                      CANCELLED: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/40" };
+    var badgeLabel = { PENDING: "Đang chờ quyết định", ACCEPTED: "Đã đồng ý", REJECTED: "Đã từ chối", CANCELLED: "Đã rút" };
+
+    // Dòng học sinh nổi bật (mục 8.2): con có sẵn kèm khối lớp, con mới không có khối
+    var stuLine = el("p", { class: "px-4 pt-3.5 text-sm" });
+    var stuLabel = el("span", { class: "text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide" }, "Cho học sinh: ");
+    var stuName = el("strong", { class: "text-sm font-bold" }, p.student.name);
+    stuLine.appendChild(stuLabel); stuLine.appendChild(stuName);
+    if (p.student.isNew) {
+      stuLine.appendChild(el("span", { class: "text-xs text-amber-700 dark:text-amber-400 font-medium" }, " · học sinh mới (khối lớp do gia sư bổ sung khi vào ca thử)"));
+    } else {
+      stuLine.appendChild(el("span", { class: "text-xs text-slate-500 dark:text-slate-400" }, " · " + p.student.grade));
+    }
+    box.appendChild(stuLine);
+
+    var head = el("div", { class: "flex items-center justify-between gap-2 px-4 pt-1.5" });
+    head.appendChild(el("p", { class: "text-sm font-bold" }, "Đề xuất lớp học #" + p.version));
+    head.appendChild(el("span", { class: "rounded-full px-2.5 py-1 text-[11px] font-medium border " + badgeTone[p.status] }, badgeLabel[p.status]));
+    box.appendChild(head);
+
+    var grid = el("div", { class: "grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3 text-sm" });
+    [
+      ["Học phí / buổi", p.price + " ₫"],
+      ["Số buổi / tuần", p.week + " buổi"],
+      ["Buổi thử", p.trial],
+      ["Lịch cố định", p.schedule],
+      ["Hình thức", p.mode],
+    ].forEach(function (row) {
+      var c = el("div", {});
+      c.appendChild(el("p", { class: "text-[11px] text-slate-400 dark:text-slate-500" }, row[0]));
+      var val = el("p", { class: "font-medium" });
+      val.textContent = row[1];
+      if (row[0] === "Học phí / buổi") val.className = "font-mono font-semibold text-base";
+      c.appendChild(val);
+      grid.appendChild(c);
+    });
+    box.appendChild(grid);
+
+    var foot = el("div", { class: "px-4 pb-3.5" });
+    if (state.view === "parent" && p.status === "PENDING") {
+      var btns = el("div", { class: "flex gap-2" });
+      var accept = el("button", { class: "flex-1 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 text-white text-xs font-semibold active:scale-[0.98] transition-all" }, "Đồng ý");
+      var reject = el("button", { class: "flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-white/15 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 active:scale-[0.98] transition-all" }, "Từ chối");
+      accept.addEventListener("click", function () { resolveProposal(p, "ACCEPTED"); });
+      reject.addEventListener("click", function () {
+        var reason = prompt("Lý do từ chối (tuỳ chọn, ≤500 ký tự):");
+        resolveProposal(p, "REJECTED", reason || "Muốn điều chỉnh mức học phí và khung giờ tối.");
+      });
+      btns.appendChild(accept); btns.appendChild(reject);
+      foot.appendChild(btns);
+    } else if (state.view === "tutor") {
+      var status = el("p", { class: "text-xs text-slate-500 dark:text-slate-400" },
+        p.status === "PENDING" ? "Đang chờ phụ huynh phản hồi · bạn có thể rút đề xuất (lý do ≥5 ký tự)."
+        : p.status === "ACCEPTED" ? "Phụ huynh đã đồng ý đề xuất cho " + p.student.name + " · đơn CHAT đã tạo, trung tâm xác nhận trong 24 giờ."
+        : "Đề xuất không còn hiệu lực · bạn có thể tạo đề xuất mới.");
+      foot.appendChild(status);
+      if (p.status === "PENDING") {
+        var cancel = el("button", { class: "mt-2 px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-800/40 text-rose-600 dark:text-rose-400 text-xs font-medium active:scale-[0.98] transition-all" }, "Rút đề xuất");
+        cancel.addEventListener("click", function () {
+          var reason = prompt("Lý do rút đề xuất (≥5 ký tự):");
+          if (reason && reason.length >= 5) resolveProposal(p, "CANCELLED", reason);
+          else toast("Lý do rút phải ≥ 5 ký tự", "error");
+        });
+        foot.appendChild(cancel);
+      }
+    } else if (state.view === "parent") {
+      foot.appendChild(el("p", { class: "text-xs text-slate-500 dark:text-slate-400" },
+        p.status === "ACCEPTED" ? "Đã đồng ý — trung tâm sẽ xác nhận lớp học cho " + p.student.name + " (đơn REQ-CHAT-0412)."
+        : "Đề xuất đã " + badgeLabel[p.status].toLowerCase() + "."));
+    }
+    box.appendChild(foot);
+    return box;
+  }
+
+  function resolveProposal(p, status, reason) {
+    p.status = status;
+    if (status === "ACCEPTED") {
+      state.phoneUnlocked = true;
+      updatePhoneBlock();
+      sysLine("Phụ huynh đã đồng ý đề xuất #" + p.version + " cho " + p.student.name + " · SĐT phụ huynh được mở khóa cho gia sư · đơn CHAT REQ-CHAT-0412 (" + (p.student.isNew ? "học sinh mới — lễ tân sẽ đối chiếu/gán hồ sơ, khối lớp để rỗng" : "học sinh có sẵn") + ") đã tạo, chờ trung tâm xác nhận trong 24 giờ.");
+      if (state.view === "parent")
+        toast("SĐT của bạn (09xx...) đã được chia sẻ với gia sư để xác nhận lớp cho " + p.student.name + ".");
+      renderProposalCards();
+    } else {
+      sysLine("Đề xuất #" + p.version + " (cho " + p.student.name + ") " + (status === "REJECTED" ? "bị từ chối" : "bị rút") + (reason ? " · lý do: " + reason : ""));
+      syncCreateProposalBtn();
+      renderProposalCards();
+    }
+  }
+
+  function renderProposalCards() {
+    document.querySelectorAll("[data-proposal-card]").forEach(function (n) { n.remove(); });
+    state.proposals.forEach(function (p) {
+      var c = proposalCard(p);
+      c.setAttribute("data-proposal-card", String(p.version));
+      document.getElementById("chat-messages").appendChild(c);
+    });
+    var last = document.querySelector("[data-proposal-card]");
+    if (last) last.scrollIntoView({ behavior: "smooth", block: "end" });
+  }
+
+  function seedProposal() {
+    if (state.proposals.length) return;
+    state.proposals.push({
+      version: 2, status: "PENDING",
+      student: { name: "Nguyễn Minh Khôi", grade: "Lớp 10", isNew: false },
+      price: "250.000", week: 2, trial: "T4 11/07 · 18:00–19:30", schedule: "T4, T6 · 18:00–21:00", mode: "Tại nhà"
+    });
+    state.twoWayDone = true;
+    state.messages.push({ who: "tutor", text: "Em chào mẹ Thu Hà ạ. Con Khôi mục tiêu IELTS 7.0 đúng không ạ? Em đề xuất khung thử thứ 4 tuần sau để em đánh giá đầu vào trước khi lên lộ trình nhé." });
+    renderLastMessage();
+    renderProposalCards();
+    syncTutorOnlyUI();
+    syncCreateProposalBtn();
+    toast("Gia sư đã tạo Đề xuất #2 cho Nguyễn Minh Khôi — bạn phản hồi trong chat.", "success");
+  }
+
+  function renderLastMessage() {
+    var m = state.messages[state.messages.length - 1];
+    if (m) bubble(m.who, m.text);
+  }
+
+  /* Nút tạo đề xuất: chỉ hiện khi view = tutor; chặn PENDING trùng học sinh (mục 7.2) */
+  function syncCreateProposalBtn() {
+    var b = document.getElementById("btn-create-proposal");
+    var anyPending = state.proposals.some(function (p) { return p.status === "PENDING"; });
+    var next = state.proposals.length + 1;
+    b.disabled = false;
+    b.textContent = "Tạo đề xuất #" + next + " (mỗi học sinh tối đa 1 PENDING)";
+  }
+
+  function syncTutorOnlyUI() {
+    var tutorOnly = state.view === "tutor";
+    document.getElementById("info-block-tutor").classList.toggle("hidden", !tutorOnly);
+    document.getElementById("info-block-parent").classList.toggle("hidden", tutorOnly);
+    document.getElementById("proposal-action").style.display = tutorOnly ? "" : "none";
+    var input = document.getElementById("chat-input");
+    input.placeholder = tutorOnly ? "Nhắn tin với phụ huynh…" : "Nhắn tin với Trần Hải Vy…";
+    var acceptedStudent = null;
+    for (var i = 0; i < state.proposals.length; i++) { if (state.proposals[i].status === "ACCEPTED") acceptedStudent = state.proposals[i].student.name; }
+    document.getElementById("chat-room-title").textContent = tutorOnly ? "Phạm Thu Hà" : "Trần Hải Vy";
+    document.getElementById("chat-room-sub").textContent = tutorOnly
+      ? "Phòng chat · học sinh do gia sư khai trong đề xuất" + (acceptedStudent ? " · đã chốt: " + acceptedStudent : "")
+      : "Phụ huynh: Phạm Thu Hà";
+    updatePhoneBlock();
+  }
+
+  function updatePhoneBlock() {
+    var v = document.getElementById("phone-value");
+    var note = document.getElementById("phone-note");
+    if (state.phoneUnlocked) {
+      v.textContent = "0981 234 567";
+      v.className = "font-mono font-medium text-slate-900 dark:text-white";
+      note.textContent = "Đã chia sẻ theo đề xuất #2 đồng ý · 09:58 11/07/2026";
+      note.classList.remove("hidden");
+    } else {
+      v.textContent = "— (chờ đồng ý đề xuất)";
+      v.className = "font-mono font-medium text-slate-400 dark:text-slate-500";
+      note.classList.add("hidden");
+    }
+  }
+
+  document.getElementById("view-parent").addEventListener("click", function () {
+    state.view = "parent";
+    syncViews();
+    renderProposalCards();
+  });
+  document.getElementById("view-tutor").addEventListener("click", function () {
+    state.view = "tutor";
+    syncViews();
+    renderProposalCards();
+  });
+  function syncViews() {
+    var p = state.view === "parent";
+    document.getElementById("view-parent").className = "px-3 py-1.5 rounded-lg " + (p ? "bg-blue-600 dark:bg-blue-500 text-white" : "text-slate-500 dark:text-slate-400");
+    document.getElementById("view-tutor").className = "px-3 py-1.5 rounded-lg " + (!p ? "bg-blue-600 dark:bg-blue-500 text-white" : "text-slate-500 dark:text-slate-400");
+    syncTutorOnlyUI();
+  }
+
+  /* Gửi tin nhắn + PII block demo */
+  function detectPII(text) {
+    var t = text.toLowerCase();
+    var phone = /(?:\+?84|0)(?:3|5|7|8|9)(?:\d[\s-]?){8,10}\d/.test(t) || /sđt|so dien thoai|number/.test(t);
+    var email = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/.test(t);
+    var social = /zalo|facebook|messenger|telegram|whatsapp|instagram|z\.n|linktr\.ee|fb\.com/.test(t);
+    return { phone: phone, email: email, social: social, any: phone || email || social };
+  }
+
+  document.getElementById("chat-send").addEventListener("click", send);
+  document.getElementById("chat-input").addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  function send() {
+    var input = document.getElementById("chat-input");
+    var text = input.value.trim();
+    if (!text) return;
+    var pii = detectPII(text);
+    if (pii.any) {
+      input.value = text;
+      input.classList.add("border-rose-300 dark:border-rose-800/40", "ring-1", "ring-rose-200 dark:ring-rose-900/40");
+      document.getElementById("pii-warn").classList.remove("hidden");
+      document.getElementById("pii-warn-preview").textContent =
+        "Phát hiện: " + [pii.phone && "số điện thoại", pii.email && "email", pii.social && "link/kênh liên lạc"].filter(Boolean).join(", ");
+      toast("Tin không được gửi · đã ghi log kiểm duyệt (chat_pii_events).", "error");
+      return;
+    }
+    input.value = "";
+    input.classList.remove("border-rose-300", "dark:border-rose-800/40", "ring-1", "ring-rose-200", "dark:ring-rose-900/40");
+    document.getElementById("pii-warn").classList.add("hidden");
+    var who = state.view === "parent" ? "parent" : "tutor";
+    state.messages.push({ who: who, text: text });
+    bubble(who, text);
+    state.twoWayDone = true;
+    if (state.view === "tutor") {
+      setTimeout(function () {
+        sysLine("Phụ huynh đã phản hồi trong phòng chat.");
+      }, 400);
+    }
+  }
+
+  /* Modal tạo đề xuất (gia sư) */
+  var modal = document.getElementById("proposal-modal");
+  document.getElementById("btn-create-proposal").addEventListener("click", function () {
+    modal.classList.remove("hidden");
+  });
+  /* Toggles nhánh "Học sinh" (8.1.1): con có sẵn vs học sinh mới */
+  function showStuBranch(which) {
+    var existing = document.getElementById("prop-stu-existing");
+    var isNew = document.getElementById("prop-stu-new");
+    if (which === "new") {
+      existing.classList.add("hidden");
+      isNew.classList.remove("step-hidden");
+      document.getElementById("prop-student-name").focus();
+    } else {
+      existing.classList.remove("hidden");
+      isNew.classList.add("step-hidden");
+      document.getElementById("prop-student-name").value = "";
+    }
+  }
+  document.getElementById("btn-student-new").addEventListener("click", function () { showStuBranch("new"); });
+  document.getElementById("btn-student-existing").addEventListener("click", function () { showStuBranch("existing"); });
+  document.getElementById("proposal-modal-backdrop").addEventListener("click", function () { modal.classList.add("hidden"); });
+  document.getElementById("btn-send-proposal").addEventListener("click", function () {
+    var isNew = !document.getElementById("prop-stu-new").classList.contains("step-hidden");
+    var student;
+    if (isNew) {
+      var nm = document.getElementById("prop-student-name").value.trim();
+      if (nm.length < 2) { toast("Họ tên học sinh mới cần ≥ 2 ký tự (mục 8.1.1).", "error"); return; }
+      student = { name: nm, grade: null, isNew: true };
+    } else {
+      var picked = document.getElementById("prop-student-select").value;
+      var ch = PARENT_CHILDREN.filter(function (c) { return c.id === picked; })[0];
+      student = { name: ch.label.split(" · ")[0], grade: ch.label.split(" · ")[1], isNew: false };
+    }
+    var alreadyPending = state.proposals.some(function (p) { return p.status === "PENDING" && p.student.name === student.name; });
+    if (alreadyPending) {
+      toast("Đã có đề xuất PENDING cho " + student.name + " — mỗi học sinh tối đa 1 PENDING trong phòng (mục 7.2).", "error");
+      return;
+    }
+    modal.classList.add("hidden");
+    showStuBranch("existing");
+    var version = state.proposals.length + 1;
+    var p = {
+      version: version, status: "PENDING", student: student,
+      price: "250.000", week: 2, trial: "T4 11/07 · 18:00–19:30",
+      schedule: "T4, T6 · 18:00–21:00", mode: "Tại nhà"
+    };
+    state.proposals.push(p);
+    renderProposalCards();
+    sysLine("Gia sư đã gửi Đề xuất #" + version + " cho " + student.name + (student.isNew ? " (học sinh mới)" : "") + " · phụ huynh phản hồi trong 24 giờ.");
+    toast("Đề xuất #" + version + " đã gửi cho phụ huynh.");
+    syncCreateProposalBtn();
+  });
+  document.getElementById("btn-cancel-proposal").addEventListener("click", function () { modal.classList.add("hidden"); });
+
+  /* Lễ tân: xác nhận đơn CHAT (mục 10 — kèm xác định học sinh) */
+  document.getElementById("btn-reception-confirm").addEventListener("click", function () {
+    toast("Đơn REQ-CHAT-0412 → MATCHED · học sinh xác định: Nguyễn Minh Khôi (hồ sơ students#18, khớp tên) · lớp TRIAL đã tạo (ca thử thứ 4 18:00–19:30, 250.000đ/buổi) · gia sư tiếp tục UC-T08/T09, nudge bổ sung khối lớp nếu học sinh mới.", "success");
+  });
+  document.getElementById("btn-reception-adjust").addEventListener("click", function () {
+    toast("Chỉnh khung cố định: bỏ ca thứ 6, giữ thứ 4 18:00–21:00 · log thay đổi so với đề xuất gốc (chat_pii_events) · vẫn chờ xác nhận.", "success");
+  });
+  document.getElementById("btn-reception-reject").addEventListener("click", function () {
+    toast("Đơn REQ-CHAT-0412 → REMATCH · mở lại cho gia sư khác ứng tuyển · tin POSTING (nếu có) vẫn giữ OPEN.", "success");
+  });
+
+  /* Transcript read-only cho Lễ tân */
+  var TRANSCRIPT = [
+    ["parent", "Mẹ chào cô Vy ạ, con nhà mình cần luyện IELTS trong 4 tháng ạ."],
+    ["tutor", "Em chào mẹ ạ. Mục tiêu của con là 7.0 đúng không ạ? Em đề xuất 2 buổi/tuần, khung tối thứ 4 và thứ 6."],
+    ["parent", "Vâng ạ, em gửi đề xuất cụ thể đi ạ, mình chốt luôn trong chat."],
+    ["system", "Gia sư tạo Đề xuất #1 (cho Nguyễn Minh Khôi, 220.000đ/buổi) → phụ huynh từ chối: muốn khung tối 18h, phí 250k."],
+    ["tutor", "Em chỉnh lại khung 18:00–21:00 và 250.000đ/buổi ạ. Em gửi đề xuất mới nhé."],
+    ["system", "Gia sư tạo Đề xuất #2 cho Nguyễn Minh Khôi (PENDING)."],
+    ["system", "Phụ huynh ĐỒNG Ý Đề xuất #2 · SĐT mở khóa · đơn CHAT REQ-CHAT-0412 tạo (cho Nguyễn Minh Khôi)."],
+  ];
+  var rt = document.getElementById("reception-transcript");
+  TRANSCRIPT.forEach(function (row) {
+    if (row[0] === "system") { rt.appendChild(el("p", { class: "text-center text-xs text-slate-400 dark:text-slate-500 py-1" }, row[1])); return; }
+    rt.appendChild(el("p", { class: "px-3 py-2 rounded-xl text-sm " + (row[0] === "parent" ? "bg-slate-50 dark:bg-white/[0.04]" : "bg-blue-50 dark:bg-blue-950/30") },
+      "<span class='text-[11px] font-semibold " + (row[0] === "parent" ? "text-slate-400" : "text-blue-600 dark:text-blue-400") + "'>" + (row[0] === "parent" ? "PHỤ HUYNH" : "GIA SƯ") + "</span> " + row[1]));
+  });
+
+  showScreen("screen-tutor", false);
+})();
+</script>
+</body>
+</html>
