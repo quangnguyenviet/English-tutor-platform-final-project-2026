@@ -150,8 +150,8 @@ Hai yêu cầu FR-08 (gia sư ứng tuyển lớp) và FR-15 (gia sư nộp minh
 | --- | --- | --- | --- |
 | FR-01 | Tìm gia sư đang hoạt động theo tỉnh/quận, chuyên môn tiếng Anh, cấp lớp, hình thức học, giới tính, thành tích; có phân trang. Kết quả hiện ảnh, họ tên, trường và chuyên ngành, khu vực, chuyên môn, thành tích. Không công khai học phí | UC-PA-01 | M |
 | FR-02 | Xem hồ sơ công khai của gia sư (giới thiệu, bằng cấp và chứng chỉ đã xác thực, kinh nghiệm, khu vực, hình thức dạy, video, lịch rảnh). Mục chưa có thì ẩn, không hiện trường rỗng. Gia sư ngừng hoạt động thì báo hồ sơ không khả dụng | UC-PA-02 | M |
-| FR-03 | Đăng ký gia sư chỉ định bằng họ tên và SĐT. Kiểm tra SĐT 10 số đầu 03/05/07/08/09 hoặc +84/84. Tạo lớp cần gia sư "Chờ xử lý" có gia sư chỉ định, kèm mã yêu cầu, thông báo trung tâm. SĐT đã thuộc về phụ huynh khác tên thì không cho gửi, không hiện tên phụ huynh đó | UC-PA-03 | M |
-| FR-04 | Gửi yêu cầu tìm gia sư (chỉ họ tên và SĐT phụ huynh; thông tin của con do Lễ tân hỏi khi gọi lại). Tạo lớp cần gia sư "Chờ xử lý", báo "liên hệ trong 12 giờ", thông báo lễ tân. SĐT đã thuộc về phụ huynh khác tên thì không cho gửi, không hiện tên phụ huynh đó | UC-PA-04 | M |
+| FR-03 | **[Đã thay thế bởi MSG — `Usecase_Messaging_Parent_Tutor.md`]** Đăng ký gia sư chỉ định bằng họ tên và SĐT. Kiểm tra SĐT 10 số đầu 03/05/07/08/09 hoặc +84/84. Tạo lớp cần gia sư "Chờ xử lý" có gia sư chỉ định, kèm mã yêu cầu, thông báo trung tâm. SĐT đã thuộc về phụ huynh khác tên thì không cho gửi, không hiện tên phụ huynh đó | UC-PA-03 | M |
+| FR-04 | **[Đã thay thế bởi MSG]** Gửi yêu cầu tìm gia sư (chỉ họ tên và SĐT phụ huynh; thông tin của con do Lễ tân hỏi khi gọi lại). Tạo lớp cần gia sư "Chờ xử lý", báo "liên hệ trong 12 giờ", thông báo lễ tân. SĐT đã thuộc về phụ huynh khác tên thì không cho gửi, không hiện tên phụ huynh đó | UC-PA-04 | M |
 
 ### 4.2. Đăng nhập
 
@@ -230,7 +230,7 @@ Admin có toàn bộ FR-24 đến FR-37 của Lễ tân và FR-40 đến FR-44 c
 - **QT-1.** Mọi thao tác thay đổi dữ liệu của lễ tân, kế toán và admin đều có hộp thoại xác nhận trước khi thực hiện; hủy thì quay về màn hình trước, không đổi gì.
 - **QT-2.** Hủy lớp hoặc hủy đơn luôn bắt buộc nhập lý do và thông báo cho bên liên quan.
 - **QT-3.** Thông tin liên hệ của phụ huynh chỉ mở cho gia sư sau khi trung tâm chọn gia sư. Thông tin phụ huynh và học sinh trong lớp cần gia sư đã đăng thì ẩn.
-- **QT-4.** Gia sư xem được thông tin liên hệ phụ huynh **ngay khi ghép lớp thành công** (`class_requests` chuyển `MATCHED`); không phụ thuộc trạng thái phí. Phí nhận lớp (mặc định **40% học phí tháng đầu**, Lễ tân hoặc Admin chỉnh được trong 0 - 50%) thu về sau, Kế toán xác nhận minh chứng — không ảnh hưởng việc hiển thị liên hệ.
+- **QT-4.** Gia sư xem được thông tin liên hệ phụ huynh **ngay khi ghép lớp thành công** (`class_requests` chuyển `MATCHED`); không phụ thuộc trạng thái phí. Phí nhận lớp (mặc định **40% học phí tháng đầu**; với lớp tạo từ MSG: **25% lớp ngắn hạn / 35% lớp thông thường** theo bảng `platform_fee_policies`, Lễ tân hoặc Admin chỉnh được trong 0 - 50%) thu về sau, Kế toán xác nhận minh chứng — không ảnh hưởng việc hiển thị liên hệ.
 - **QT-5.** Bản ghi buổi học chỉ tạo khi gia sư chủ động khởi tạo, không sinh tự động từ lịch cố định.
 - **QT-6.** Một gia sư không được có hai ca trùng giờ: kiểm tra khi đặt lịch dạy thử và khi chốt lịch cố định.
 - **QT-7.** Quiz chỉ mở cho học sinh khi ở trạng thái `assigned` và còn hạn. Mỗi câu chỉ chọn một lần.
