@@ -95,7 +95,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `parents`
 
-> Hồ sơ phụ huynh. Từ MSG (V23, V24) phụ huynh **có tài khoản** `users` role `PARENT`, đăng nhập duy nhất bằng Google; `user_id` NULL chỉ với hồ sơ cũ tạo từ form công khai trước đây (không có tài khoản, vẫn giữ để dữ liệu `class_requests` cũ không mất). SĐT, mục đích và khu vực được nhập ở wizard 4 bước trước khi nhắn tin hoặc đăng tin.
+> Hồ sơ phụ huynh. Từ MSG (V23, V27) phụ huynh **có tài khoản** `users` role `PARENT`, đăng nhập duy nhất bằng Google; `user_id` NULL chỉ với hồ sơ cũ tạo từ form công khai trước đây (không có tài khoản, vẫn giữ để dữ liệu `class_requests` cũ không mất). SĐT, mục đích và khu vực được nhập ở wizard 4 bước trước khi nhắn tin hoặc đăng tin.
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -103,9 +103,9 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `user_id` | `BIGINT` | FK → users.id, UQ, NULL | Tài khoản Google của phụ huynh (V23). NULL với hồ sơ cũ chưa có tài khoản; không tự gộp theo email/SĐT |
 | `full_name` | `VARCHAR(100)` | NN | Họ tên phụ huynh, prefill từ Google và sửa được ở wizard |
 | `phone` | `VARCHAR(15)` | UQ, NULL | SĐT dạng `0xxxxxxxxx`. NULL cho tới khi phụ huynh hoàn tất wizard (V23). Gia sư chỉ thấy SĐT sau khi một đề xuất trong phòng chat được đồng ý (Phone Gate) |
-| `purpose` | `VARCHAR(20)` | CHECK | Mục đích học: `PHU_THONG`, `THI_CHUAN`, `GIAO_TIEP`, `THI_HOC_KY` (V24) |
-| `province` | `VARCHAR(100)` | | Tỉnh/Thành phố (V24) |
-| `district` | `VARCHAR(100)` | | Quận/Huyện (V24) |
+| `purpose` | `VARCHAR(20)` | CHECK | Mục đích học: `PHU_THONG`, `THI_CHUAN`, `GIAO_TIEP`, `THI_HOC_KY` (V27) |
+| `province` | `VARCHAR(100)` | | Tỉnh/Thành phố (V27) |
+| `district` | `VARCHAR(100)` | | Quận/Huyện (V27) |
 | `email` | `VARCHAR(100)` | | Email phụ huynh (tùy chọn) |
 | `address` | `VARCHAR(500)` | | Địa chỉ phụ huynh, dùng cho lớp dạy tại nhà |
 | `created_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm tạo bản ghi phụ huynh |
@@ -251,7 +251,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 #### Bảng `class_requests`
 
-> **Lớp cần gia sư** — đối tượng lưu nhu cầu học của phụ huynh và trạng thái ghép với gia sư. Từ MSG (V24) cột `requested_tutor_id` **đã bị bỏ**: gia sư của lớp nằm ở `classes.tutor_id`, gia sư ứng tuyển ở `class_applications`. Nguồn đơn (`source`): `POSTING` (tin phụ huynh tự đăng sau khi đăng nhập Google, mỗi phụ huynh tối đa một tin `NEW`/`OPEN`) hoặc `STAFF` (Lễ tân tạo hộ). Lớp tạo từ nhắn tin trực tiếp **không** qua bảng này.
+> **Lớp cần gia sư** — đối tượng lưu nhu cầu học của phụ huynh và trạng thái ghép với gia sư. Từ MSG (V27) cột `requested_tutor_id` **đã bị bỏ**: gia sư của lớp nằm ở `classes.tutor_id`, gia sư ứng tuyển ở `class_applications`. Nguồn đơn (`source`): `POSTING` (tin phụ huynh tự đăng sau khi đăng nhập Google, mỗi phụ huynh tối đa một tin `NEW`/`OPEN`) hoặc `STAFF` (Lễ tân tạo hộ). Lớp tạo từ nhắn tin trực tiếp **không** qua bảng này.
 
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
@@ -265,10 +265,10 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `fee_percentage` | `DECIMAL(5,2)` | NN, DEFAULT 40 | Tỷ lệ phí nhận lớp (0–50%, mặc định 40% — cùng chuẩn với `payments.fee_percentage`, migration V9/V10). Lễ tân/Admin chỉnh trước khi có minh chứng |
 | `preferred_schedule` | `TEXT` | | Số buổi/tuần và thời gian mong muốn, ghi tự do (ví dụ: "2 buổi/tuần, tối T3-T5 19h-21h"). Chỉ là nguyện vọng ban đầu; số buổi/tuần thực tế suy ra từ số dòng `class_schedules` của lớp |
 | `tutor_requirement` | `TEXT` | | Yêu cầu về gia sư (giới tính, kinh nghiệm, chuyên môn...) |
-| `source` | `VARCHAR(20)` | NN, DEFAULT 'STAFF' | `STAFF` hoặc `POSTING` (V24). Partial UNIQUE (`parent_id`) WHERE `source = 'POSTING'` AND `status IN ('NEW','OPEN')` |
-| `purpose` | `VARCHAR(20)` | CHECK | Mục đích học của tin đăng (V24), mặc định lấy từ hồ sơ phụ huynh |
-| `province` / `district` | `VARCHAR(100)` | | Khu vực của tin đăng (V24) |
-| `no_applicant_reminded_at` | `TIMESTAMPTZ` | | Thời điểm đã nhắc phụ huynh vì 14 ngày chưa có ứng viên (V24), tránh nhắc lặp |
+| `source` | `VARCHAR(20)` | NN, DEFAULT 'STAFF' | `STAFF` hoặc `POSTING` (V27). Partial UNIQUE (`parent_id`) WHERE `source = 'POSTING'` AND `status IN ('NEW','OPEN')` |
+| `purpose` | `VARCHAR(20)` | CHECK | Mục đích học của tin đăng (V27), mặc định lấy từ hồ sơ phụ huynh |
+| `province` / `district` | `VARCHAR(100)` | | Khu vực của tin đăng (V27) |
+| `no_applicant_reminded_at` | `TIMESTAMPTZ` | | Thời điểm đã nhắc phụ huynh vì 14 ngày chưa có ứng viên (V27), tránh nhắc lặp |
 | `status` | `VARCHAR(20)` | NN | `NEW` (Mới tiếp nhận, chờ gọi lại), `OPEN` (Đã đăng cho gia sư ứng tuyển), `MATCHED` (Đã ghép, đã có lớp), `REMATCH` (Đang ghép lại — lớp đang dạy thử thất bại và phụ huynh muốn trung tâm tìm gia sư khác; ở trạng thái này đơn chờ ghép lại với gia sư mới, khi ghép xong chuyển `MATCHED`; migration V10), `CANCELLED` (Đã hủy — hủy đơn, hoặc khi dạy thử thất bại phụ huynh không muốn nhờ trung tâm tìm gia sư nữa; trạng thái cuối) |
 | `cancel_reason` | `TEXT` | | Lý do hủy, nhập khi Lễ tân hủy (UC-REC-04) |
 | `created_by` | `BIGINT` | FK → users.id | Lễ tân tạo đơn, hoặc tài khoản phụ huynh với tin `POSTING` |
@@ -315,11 +315,11 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
 |---|---|---|---|
 | `id` | `BIGSERIAL` | PK | Khóa chính tự tăng |
-| `class_request_id` | `BIGINT` | FK → class_requests.id, NULL | FK tới đơn yêu cầu lớp đã sinh ra lớp này. **NULL** với lớp tạo từ nhắn tin trực tiếp (V24); CHECK `class_request_id IS NOT NULL OR proposal_id IS NOT NULL`. Một đơn có thể có nhiều lớp theo thời gian (ghép lại khi lớp cũ bị hủy), nhưng tối đa 1 lớp đang `TRIAL`/`ACTIVE` (partial unique index) |
-| `proposal_id` | `BIGINT` | FK → proposal_messages.id, UQ | Đề xuất đã được phụ huynh đồng ý và sinh ra lớp (V24) |
-| `class_type` | `VARCHAR(20)` | CHECK | `SHORT_TERM` (1 tháng) hoặc `REGULAR` (không giới hạn) (V24) |
-| `fee_percentage` | `DECIMAL(5,2)` | | Tỷ lệ phí nhận lớp chụp từ `platform_fee_policies` khi tạo đề xuất (V24) |
-| `end_date` | `DATE` | | Ngày kết thúc lớp `SHORT_TERM`: tính khi chuyển `ACTIVE` (+1 tháng); job đặt `COMPLETED` khi quá hạn (V24) |
+| `class_request_id` | `BIGINT` | FK → class_requests.id, NULL | FK tới đơn yêu cầu lớp đã sinh ra lớp này. **NULL** với lớp tạo từ nhắn tin trực tiếp (V27); CHECK `class_request_id IS NOT NULL OR proposal_id IS NOT NULL`. Một đơn có thể có nhiều lớp theo thời gian (ghép lại khi lớp cũ bị hủy), nhưng tối đa 1 lớp đang `TRIAL`/`ACTIVE` (partial unique index) |
+| `proposal_id` | `BIGINT` | FK → proposal_messages.id, UQ | Đề xuất đã được phụ huynh đồng ý và sinh ra lớp (V27) |
+| `class_type` | `VARCHAR(20)` | CHECK | `SHORT_TERM` (1 tháng) hoặc `REGULAR` (không giới hạn) (V27) |
+| `fee_percentage` | `DECIMAL(5,2)` | | Tỷ lệ phí nhận lớp chụp từ `platform_fee_policies` khi tạo đề xuất (V27) |
+| `end_date` | `DATE` | | Ngày kết thúc lớp `SHORT_TERM`: tính khi chuyển `ACTIVE` (+1 tháng); job đặt `COMPLETED` khi quá hạn (V27) |
 | `tutor_id` | `BIGINT` | FK → tutors.id, NN | FK tới gia sư phụ trách lớp |
 | `student_id` | `BIGINT` | FK → students.id, NN | FK tới học sinh tham gia lớp |
 | `class_name` | `VARCHAR(200)` | | Tên hiển thị của lớp |
