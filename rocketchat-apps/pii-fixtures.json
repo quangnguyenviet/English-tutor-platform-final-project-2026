@@ -1,0 +1,19 @@
+{
+  "blocked": [
+    { "type": "PHONE", "text": "SĐT của chị là 0981 234 567" },
+    { "type": "PHONE", "text": "Gọi em theo số +84 912-345-678 nhé" },
+    { "type": "PHONE", "text": "Số của cô là 09xx-xxx-xxx" },
+    { "type": "EMAIL", "text": "Gửi giúp cô tới tutor@example.com" },
+    { "type": "SOCIAL_LINK", "text": "Nhắn qua https://zalo.me/0981234567" },
+    { "type": "SOCIAL_LINK", "text": "Hồ sơ của em ở fb.com/minh.nguyen" },
+    { "type": "SOCIAL_LINK", "text": "Link tổng hợp linktr.ee/minhtutor" },
+    { "type": "SOCIAL_HANDLE", "text": "telegram: @minh_tutor" }
+  ],
+  "allowed": [
+    "Mình sẽ trao đổi tiếp trong hệ thống nhé.",
+    "Trước đây con từng học qua Facebook nhưng hiện đã nghỉ.",
+    "Cô có dùng Zalo không ạ?",
+    "Bài hôm nay có 10 câu và con làm đúng 8 câu.",
+    "Mục tiêu IELTS 7.0 trong 4 tháng."
+  ]
+}

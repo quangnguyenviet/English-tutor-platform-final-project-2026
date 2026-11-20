@@ -1,0 +1,26 @@
+{
+    "id": "822ff7a5-8632-4a90-a407-f40e673a41a6",
+    "version": "0.1.0",
+    "requiredApiVersion": "1.67.0",
+    "iconFile": "icon.png",
+    "author": {
+        "name": "EnglishPath",
+        "homepage": "https://github.com/quangnguyenviet/English-tutor-platform-final-project-2026",
+        "support": "https://github.com/quangnguyenviet/English-tutor-platform-final-project-2026/issues"
+    },
+    "name": "EnglishPath PII Guard",
+    "nameSlug": "englishpath-pii-guard",
+    "classFile": "EnglishPathPiiGuardApp.ts",
+    "description": "Chặn thông tin liên hệ cá nhân trong phòng chat phụ huynh - gia sư.",
+    "implements": [
+        "IPreMessageSentPrevent"
+    ],
+    "permissions": [
+        {
+            "name": "message.read"
+        },
+        {
+            "name": "networking"
+        }
+    ]
+}

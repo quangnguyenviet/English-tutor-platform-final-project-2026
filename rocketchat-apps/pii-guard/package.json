@@ -1,0 +1,17 @@
+{
+  "name": "englishpath-rocketchat-pii-guard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "tsx --test test/piiDetector.test.cts test/hmac.test.cts",
+    "package:app": "rc-apps package"
+  },
+  "devDependencies": {
+    "@rocket.chat/apps-cli": "1.14.0",
+    "@rocket.chat/apps-engine": "1.67.0",
+    "@rocket.chat/ui-kit": "2.0.0",
+    "@types/node": "24.10.1",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}
