@@ -38,6 +38,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 
 import lombok.AccessLevel;
+import com.mycompany.englishtutor.module.messaging.service.RocketChatAccountService;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
@@ -54,6 +55,7 @@ public class AuthenticationService {
     UserRepository userRepository;
     InvalidatedTokenRepository invalidatedTokenRepository;
     TutorRepository tutorRepository;
+    RocketChatAccountService rocketChatAccountService;
     @NonFinal
     @Value("${jwt.signerKey}")
     protected String SIGNER_KEY;
@@ -85,6 +87,10 @@ public class AuthenticationService {
                 .findByUsername(request.getUsername())
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
 
+        if (user.getPasswordHash() == null || UserRole.PARENT.name().equals(user.getRole())) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
         boolean authenticated = passwordEncoder.matches(request.getPassword(), user.getPasswordHash());
 
         if (!authenticated) throw new AppException(ErrorCode.UNAUTHENTICATED);
@@ -94,7 +100,7 @@ public class AuthenticationService {
             throw new AppException(ErrorCode.ACCOUNT_INACTIVE);
         }
 
-        var token = generateToken(user);
+        var token = issueToken(user);
 
         return AuthenticationResponse.builder()
                 .token(token)
@@ -113,6 +119,10 @@ public class AuthenticationService {
         var user = userRepository
                 .findByUsername(username)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
+
+        if (user.getPasswordHash() == null || UserRole.PARENT.name().equals(user.getRole())) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
 
         if (!passwordEncoder.matches(request.getOldPassword(), user.getPasswordHash())) {
             throw new AppException(ErrorCode.OLD_PASSWORD_INCORRECT);
@@ -188,7 +198,7 @@ public class AuthenticationService {
                 .build();
         tutorRepository.save(tutor);
 
-        String token = generateToken(user);
+        String token = issueToken(user);
 
         return TutorRegistrationResponse.builder()
                 .token(token)
@@ -229,8 +239,20 @@ public class AuthenticationService {
         try {
             var signedJWT = verifyToken(request.getToken(), true);
             invalidate(signedJWT);
+            revokeChatToken(signedJWT.getJWTClaimsSet().getSubject());
         } catch (AppException exception) {
             log.info("Token already expired");
+        }
+    }
+
+    /** Đăng xuất thì thu hồi token tạm Rocket.Chat của user (nếu có); lỗi không ảnh hưởng đăng xuất. */
+    private void revokeChatToken(String username) {
+        try {
+            if (rocketChatAccountService != null && username != null) {
+                userRepository.findByUsername(username).ifPresent(u -> rocketChatAccountService.evict(u.getId()));
+            }
+        } catch (RuntimeException e) {
+            log.debug("Không thu hồi được token chat: {}", e.getMessage());
         }
     }
 
@@ -249,7 +271,7 @@ public class AuthenticationService {
 
         invalidate(signedJWT);
 
-        var token = generateToken(user);
+        var token = issueToken(user);
 
         return AuthenticationResponse.builder().token(token).authenticated(true).build();
     }
@@ -261,7 +283,7 @@ public class AuthenticationService {
                 .build());
     }
 
-    private String generateToken(User user) {
+    public String issueToken(User user) {
         JWSHeader header = new JWSHeader(JWSAlgorithm.HS512);
 
         JWTClaimsSet jwtClaimsSet = new JWTClaimsSet.Builder()

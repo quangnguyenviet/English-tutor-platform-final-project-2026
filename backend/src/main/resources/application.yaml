@@ -47,6 +47,30 @@ app:
     # Chạy AI ngoài Docker (local): http://localhost:8000; full docker: http://ai:8000
     service-url: ${AI_SERVICE_URL:http://localhost:8000}
     timeout-seconds: ${AI_TIMEOUT_SECONDS:60}   # UC-T06: quá 60s → "Thử lại"
+  oauth:
+    google:
+      client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
+      client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
+      authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+      token-uri: https://oauth2.googleapis.com/token
+      issuer: https://accounts.google.com
+      redirect-uris: ${GOOGLE_OAUTH_REDIRECT_URIS:http://localhost:5173/auth/google/callback}
+
+  messaging:
+    # Rocket.Chat chỉ là kho tin nhắn; mọi thao tác ghi đi qua backend (không cấp token cho trình duyệt).
+    rocketchat:
+      base-url: ${ROCKETCHAT_URL:http://localhost:3001}
+      admin-username: ${ROCKETCHAT_ADMIN_USERNAME:ep_admin}
+      admin-password: ${ROCKETCHAT_ADMIN_PASSWORD:ChangeMe123!}
+      create-tokens-secret: ${ROCKETCHAT_CREATE_TOKENS_SECRET:dev-only-change-me}
+      connect-timeout-ms: 2000
+      read-timeout-ms: 15000
+      max-retries: 2
+    proposal-expire-days: 7
+    max-messages-per-minute: 10
+    max-message-length: 2000
+    internal-hmac-secret: ${MESSAGING_INTERNAL_HMAC_SECRET:dev-only-change-me-hmac}
+    jobs-enabled: ${MESSAGING_JOBS_ENABLED:true}
 
 s3:
   endpoint: ${S3_ENDPOINT:http://localhost:9000}

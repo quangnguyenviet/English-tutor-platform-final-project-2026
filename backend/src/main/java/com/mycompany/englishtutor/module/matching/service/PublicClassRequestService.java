@@ -43,7 +43,7 @@ public class PublicClassRequestService {
             LEFT JOIN students s ON s.id = cr.student_id
             LEFT JOIN users u ON u.id = cr.student_id
             JOIN parents p ON p.id = cr.parent_id
-            WHERE cr.status IN ('OPEN', 'REMATCH') AND cr.requested_tutor_id IS NULL
+            WHERE cr.status IN ('OPEN', 'REMATCH')
             """;
 
     JdbcTemplate jdbcTemplate;
@@ -52,7 +52,7 @@ public class PublicClassRequestService {
             SELECT COUNT(*)
             FROM class_requests cr
             LEFT JOIN students s ON s.id = cr.student_id
-            WHERE cr.status IN ('OPEN', 'REMATCH') AND cr.requested_tutor_id IS NULL
+            WHERE cr.status IN ('OPEN', 'REMATCH')
             """;
 
     /** Chỉ cho phép sắp xếp theo danh sách trắng để tránh SQL injection qua tham số sort. */

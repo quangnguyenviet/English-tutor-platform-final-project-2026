@@ -3,24 +3,33 @@ package com.mycompany.englishtutor.module.auth.controller;
 import java.text.ParseException;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 import org.springframework.security.core.Authentication;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mycompany.englishtutor.module.auth.api.request.AuthenticationRequest;
 import com.mycompany.englishtutor.module.auth.api.request.ChangePasswordRequest;
+import com.mycompany.englishtutor.module.auth.api.request.GoogleOAuthCallbackRequest;
 import com.mycompany.englishtutor.module.auth.api.request.IntrospectRequest;
 import com.mycompany.englishtutor.module.auth.api.request.LogoutRequest;
 import com.mycompany.englishtutor.module.auth.api.request.RefreshRequest;
 import com.mycompany.englishtutor.module.auth.api.request.TutorRegistrationRequest;
 import com.mycompany.englishtutor.shared.api.ApiResponse;
 import com.mycompany.englishtutor.module.auth.api.response.AuthenticationResponse;
+import com.mycompany.englishtutor.module.auth.api.response.GoogleAuthenticationResponse;
+import com.mycompany.englishtutor.module.auth.api.response.GoogleAuthorizationUrlResponse;
 import com.mycompany.englishtutor.module.auth.api.response.IntrospectResponse;
 import com.mycompany.englishtutor.module.auth.api.response.TutorRegistrationResponse;
 import com.mycompany.englishtutor.module.auth.service.AuthenticationService;
+import com.mycompany.englishtutor.module.auth.service.GoogleAuthenticationService;
 import com.nimbusds.jose.JOSEException;
 
 import lombok.AccessLevel;
@@ -28,11 +37,33 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 @RestController
+@Validated
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AuthenticationController {
     AuthenticationService authenticationService;
+    GoogleAuthenticationService googleAuthenticationService;
+
+    @GetMapping("/google/authorization-url")
+    ApiResponse<GoogleAuthorizationUrlResponse> googleAuthorizationUrl(
+            @RequestParam @NotBlank String redirectUri,
+            @RequestParam @NotBlank @Size(min = 32, max = 128) String state,
+            @RequestParam @NotBlank @Size(min = 43, max = 128) String codeChallenge,
+            @RequestParam @NotBlank @Size(min = 32, max = 128) String nonce) {
+        var result = GoogleAuthorizationUrlResponse.builder()
+                .authorizationUrl(googleAuthenticationService.authorizationUrl(redirectUri, state, codeChallenge, nonce))
+                .build();
+        return ApiResponse.<GoogleAuthorizationUrlResponse>builder().result(result).build();
+    }
+
+    @PostMapping("/google/callback")
+    ApiResponse<GoogleAuthenticationResponse> googleCallback(
+            @Valid @RequestBody GoogleOAuthCallbackRequest request) {
+        return ApiResponse.<GoogleAuthenticationResponse>builder()
+                .result(googleAuthenticationService.authenticate(request))
+                .build();
+    }
 
     @PostMapping("/token")
     ApiResponse<AuthenticationResponse> authenticate(@RequestBody AuthenticationRequest request) {

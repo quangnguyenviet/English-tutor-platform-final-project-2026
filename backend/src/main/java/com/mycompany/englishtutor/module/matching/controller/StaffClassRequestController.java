@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mycompany.englishtutor.module.matching.api.request.CancelClassRequest;
-import com.mycompany.englishtutor.module.matching.api.request.ChangeDesignatedTutorRequest;
 import com.mycompany.englishtutor.module.matching.api.request.CompleteMatchRequest;
 import com.mycompany.englishtutor.module.matching.api.request.CreateClassRequest;
 import com.mycompany.englishtutor.module.matching.api.request.ParentCheckRequest;
@@ -115,16 +114,6 @@ public class StaffClassRequestController {
                 .build());
     }
 
-    @PatchMapping("/{id}/designated-tutor")
-    @Operation(summary = "Đổi gia sư chỉ định khi lớp chờ xử lý hoặc đang ghép lại, tutorId null là không chỉ định", security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<ClassRequestDetailResponse>> changeDesignatedTutor(
-            @PathVariable Long id, @RequestBody ChangeDesignatedTutorRequest request, HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(ApiResponse.<ClassRequestDetailResponse>builder()
-                .message("Đã cập nhật gia sư chỉ định")
-                .result(classRequestService.changeDesignatedTutor(id, request, httpRequest))
-                .build());
-    }
-
     @PostMapping("/{id}/publish")
     @Operation(summary = "Đăng tuyển lớp lên trang gia sư (NEW → OPEN)", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<ClassRequestDetailResponse>> publish(
@@ -132,16 +121,6 @@ public class StaffClassRequestController {
         return ResponseEntity.ok(ApiResponse.<ClassRequestDetailResponse>builder()
                 .message("Đã đăng lớp cần gia sư, gia sư có thể ứng tuyển")
                 .result(classRequestService.publish(id, httpRequest))
-                .build());
-    }
-
-    @PostMapping("/{id}/confirm")
-    @Operation(summary = "Xác nhận lớp có gia sư chỉ định và chuyển sang dạy thử", security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<ApiResponse<ClassRequestDetailResponse>> confirm(
-            @PathVariable Long id, HttpServletRequest httpRequest) {
-        return ResponseEntity.ok(ApiResponse.<ClassRequestDetailResponse>builder()
-                .message("Đã xác nhận và chuyển lớp sang đang dạy thử")
-                .result(classRequestService.confirm(id, httpRequest))
                 .build());
     }
 

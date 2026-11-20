@@ -387,8 +387,10 @@ class ClassOccurrenceServiceTest {
         // V16 R-LOG: ô đã có log -> chặn CANCELLED/RESCHEDULED.
         when(classroomRepository.countTeachingLogAt(CLASS_ID, FRI, SLOT_START)).thenReturn(1);
 
+        // Ngày dời phải ở tương lai, nếu không bài test lỗi theo thời gian chạy (EXCEPTION_RESCHEDULE_IN_PAST).
         assertErrorCode(
-                () -> classOccurrenceService.createException(CLASS_ID, rescheduledRequest(SAT), httpRequest),
+                () -> classOccurrenceService.createException(
+                        CLASS_ID, rescheduledRequest(LocalDate.now().plusDays(30)), httpRequest),
                 ErrorCode.OCCURRENCE_HAS_SESSION);
     }
 

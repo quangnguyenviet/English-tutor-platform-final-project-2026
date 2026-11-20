@@ -21,6 +21,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByUsername(String username);
 
+    Optional<User> findByEmailIgnoreCase(String email);
+
     /**
      * Trạng thái hiện tại của tài khoản, đọc từ DB ở mỗi request vì JWT không phản ánh được
      * thay đổi giữa phiên (Admin khóa tài khoản, nhân sự vừa đổi mật khẩu).

@@ -18,8 +18,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.mycompany.englishtutor.module.matching.api.response.ClassRequestSubmitResponse;
-import com.mycompany.englishtutor.module.matching.service.ClassRequestSubmitService;
 import com.mycompany.englishtutor.module.matching.service.PublicClassRequestService;
 import com.mycompany.englishtutor.module.tutor.api.response.PublicTutorResponse;
 import com.mycompany.englishtutor.module.tutor.api.response.TutorProfileResponse;
@@ -38,75 +36,10 @@ class PublicPortalControllerTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private ClassRequestSubmitService classRequestSubmitService;
-
-    @MockBean
     private PublicTutorService publicTutorService;
 
     @MockBean
     private PublicClassRequestService publicClassRequestService;
-
-    private static String body(String phone, String tutorId) {
-        return """
-                {"parentName":"Nguyễn Lan Anh","phone":"%s"%s}
-                """
-                .formatted(phone, tutorId == null ? "" : ",\"tutorId\":" + tutorId);
-    }
-
-    @Test
-    void submit_validRequest_noToken_returnsRequestCode() throws Exception {
-        when(classRequestSubmitService.submit(any()))
-                .thenReturn(ClassRequestSubmitResponse.builder()
-                        .requestCode("REQ-20261023-12")
-                        .message("Trung tâm sẽ liên hệ trong vòng 12 giờ.")
-                        .build());
-
-        mockMvc.perform(post("/api/v1/public/class-requests")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body("0912345678", "3")))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.code").value(1000))
-                .andExpect(jsonPath("$.result.requestCode").value("REQ-20261023-12"));
-    }
-
-    @Test
-    void submit_invalidPhone_returns400WithVietnameseMessage() throws Exception {
-        mockMvc.perform(post("/api/v1/public/class-requests")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body("0212345678", null)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Số điện thoại không hợp lệ"));
-    }
-
-    @Test
-    void submit_blankName_returns400() throws Exception {
-        mockMvc.perform(post("/api/v1/public/class-requests")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"parentName\":\"  \",\"phone\":\"0912345678\"}"))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void submit_rateLimited_returns429() throws Exception {
-        when(classRequestSubmitService.submit(any())).thenThrow(new AppException(ErrorCode.TOO_MANY_REQUESTS));
-
-        mockMvc.perform(post("/api/v1/public/class-requests")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body("0912345678", null)))
-                .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.code").value(1102));
-    }
-
-    @Test
-    void submit_tutorUnavailable_returns404() throws Exception {
-        when(classRequestSubmitService.submit(any())).thenThrow(new AppException(ErrorCode.TUTOR_PROFILE_UNAVAILABLE));
-
-        mockMvc.perform(post("/api/v1/public/class-requests")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body("0912345678", "99")))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value(1101));
-    }
 
     @Test
     void getTutor_notActive_returns404Unavailable() throws Exception {
