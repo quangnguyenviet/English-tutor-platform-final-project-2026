@@ -8,6 +8,10 @@
 >   `storage_tier_expires_at` (NULL = FREE vô thời hạn). Lễ tân gán gói + thời hạn (1/3/12 tháng);
 >   quá hạn → gói trả phí bị coi như FREE, upload vượt 1GB bị chặn kèm CTA "liên hệ lễ tân để gia hạn".
 >   **Không** làm metered billing theo GB (model C — cần payment gateway, ngoài phạm vi đồ án).
+> - Chốt (bổ sung lần 2, model cuối): dùng **bảng `tutor_storage_subscriptions`** để giữ lịch sử
+>   các lần mua/gia hạn (mỗi lần lễ tân cấp gói trả phí = 1 dòng; chuẩn bị sẵn cho online billing
+>   về sau) + hành vi hết hạn là **tự hạ về FREE** (không khóa upload, không ân hạn) — chi tiết
+>   mục 3, 4.5, 4.7.
 > - Chốt: **Chỉ tính dung lượng từ `lesson_materials`** (credentials/avatars ngoài phạm vi).
 > - Chặn upload **trước** khi gọi MinIO nếu `used + newSize > quota`; widget tutor xem `used / quota`.
 
@@ -218,6 +222,12 @@ Không tạo endpoint mới — dùng PATCH tutor profile đang có (`AdminTutor
   action giữ `UPDATE_TUTOR_PROFILE`.
 - `module/tutor/api/response/TutorProfileResponse.java` + mapper — thêm `String storageTier;`
   `OffsetDateTime storageTierExpiresAt;` (admin đọc được gói + hạn hiện tại khi mở edit modal).
+- **Endpoint đọc lịch sử** (mới): `GET /api/v1/tutors/{tutorId}/storage-subscriptions`
+  (ở `AdminTutorController`, `@PreAuthorize RECEPTIONIST/ADMIN`) →
+  `List<StorageSubscriptionItem>` (record `StorageSubscriptionItem`: `id, tier, durationMonths,
+  grantedAt, expiresAt, grantedBy`) lấy từ `TutorStorageSubscriptionRepository
+  .findByTutorIdOrderByGrantedAtDesc`. `AdminTutorService.getStorageSubscriptions` đọc
+  + verify tutor tồn tại. Dùng cho khối "Lịch sử thuê bao" trong detail modal admin.
 
 ### 4.6 Endpoint widget: `GET /api/v1/tutors/me/storage` (mới)
 
@@ -251,7 +261,8 @@ Không tạo endpoint mới — dùng PATCH tutor profile đang có (`AdminTutor
 | 1 | Quota gate trong `uploadMaterial` | `tutors.storage_tier`+`storage_tier_expires_at` (+`id`); `lesson_materials.file_size` JOIN `lessons.lesson_id` JOIN `classes.class_id`+`classes.tutor_id` | — (chặn trước khi MinIO) |
 | 2 | Ghi material (không đổi, chỉ chạy khi quota PASS) | — | `lesson_materials(lesson_id, uploaded_by, file_name, file_url, file_type, file_size)` |
 | 3 | `GET /me/storage` (widget) | `users`(current), `tutors.storage_tier`+`storage_tier_expires_at`, SUM `lesson_materials.file_size` | — |
-| 4 | Admin đổi gói (`updateProfile`) | `tutors`, `users` | `tutors.storage_tier`+`storage_tier_expires_at` (+`updated_at` auto), `audit_logs`(INSERT, details old/new tier + expiresAt) |
+| 4 | Admin đổi gói (`updateProfile`) | `tutors`, `users` | `tutors.storage_tier`+`storage_tier_expires_at` (+`updated_at` auto), `audit_logs`(INSERT, details old/new tier + expiresAt), **`tutor_storage_subscriptions`(INSERT 1 dòng khi tier ≠ FREE)** |
+| 5 | `GET /{tutorId}/storage-subscriptions` (lịch sử, admin) | `tutor_storage_subscriptions(tutor_id, granted_at DESC)` + `tutors`(verify tồn tại) | — |
 
 **Không đụng:** `deleteMaterial` (xóa S3 + DB row → tự giảm quota), `tutor_credentials`,
 `credentials/` S3, avatar upload, trần `MATERIAL_MAX_BYTES`(20MB) & `multipart max-file-size`(50MB).
@@ -262,9 +273,9 @@ Không tạo endpoint mới — dùng PATCH tutor profile đang có (`AdminTutor
 
 | File | Thay đổi |
 |---|---|
-| `lib/tutorApi.js` | + `apiGetTutorStorage(token)` (mô phỏng `apiGetTutorProfile` L105: `GET /api/v1/tutors/me/storage`, `bearerHeader`/`readJson`/`extractErrorMessage`, gắn `err.status` + `err.code`). **Không** đổi `apiUpdateTutorProfile` — nó đã POST toàn bộ form, chỉ cần form thêm trường. Reuse `formatBytes` có sẵn trong `classroomApi.js` (L524). |
+| `lib/tutorApi.js` | + `apiGetTutorStorage(token)` (mô phỏng `apiGetTutorProfile` L105: `GET /api/v1/tutors/me/storage`, `bearerHeader`/`readJson`/`extractErrorMessage`, gắn `err.status` + `err.code`). + `apiGetTutorStorageSubscriptions(tutorId, token)` (`GET /api/v1/tutors/{id}/storage-subscriptions`, trả `Array<{id,tier,durationMonths,grantedAt,expiresAt,grantedBy}>`). **Không** đổi `apiUpdateTutorProfile` — nó đã POST toàn bộ form, chỉ cần form thêm trường. Reuse `formatBytes` có sẵn trong `classroomApi.js` (L524). |
 | `lib/classroomApi.js` | Trong `request` (L33) và `requestMultipart` (L214) thêm `error.code = data?.code;` để nhận diện quota error. |
-| `pages/admin/TutorManagement.jsx` | `handleOpenEdit`: `form.storageTier = detail.storageTier \|\| "FREE"` + `storageTierDurationMonths = 1`. Edit modal: khối "Gói lưu trữ" (blue box) với `<select>` gói + `<select>` thời hạn (1/3/12 tháng, chỉ hiện khi ≠ FREE). Detail modal: badge chỉ-đọc `Gói lưu trữ: {tier}` cạnh badge profile-status. |
+| `pages/admin/TutorManagement.jsx` | `handleOpenEdit`: `form.storageTier = detail.storageTier \|\| "FREE"` + `storageTierDurationMonths = 1`. Edit modal: khối "Gói lưu trữ" (blue box) với `<select>` gói + `<select>` thời hạn (1/3/12 tháng, chỉ hiện khi ≠ FREE). Detail modal: (1) badge chỉ-đọc `Gói lưu trữ: {tier}` cạnh badge profile-status; (2) khối "Gói lưu trữ tài liệu buổi học" (blue box) hiện hạn + **lịch sử thuê bao** (`storageSubs` từ `apiGetTutorStorageSubscriptions`, fetch trong `handleViewDetail` không block modal chính): mỗi dòng `{tier} · {n} tháng → đến dd/MM/yyyy`. |
 | `pages/tutor/TutorDashboard.jsx` | `const { token } = useAuth();` + `useEffect` fetch `apiGetTutorStorage(token)`. Thêm **widget "Dung lượng lưu trữ"** (dưới stats row, card `rounded-2xl`): icon `HardDrive` (lucide, KHÔNG emoji), value `formatBytes(used) / formatBytes(effectiveQuota)`, hint `Gói {label} · hết hạn dd/MM`, progress bar (blue <70%, amber <90%, rose ≥90%), `dark:` variants. Lỗi → hiện "—", không block dashboard. |
 | `pages/tutor/manage/ManageSessions.jsx` | Trong `handleFileUpload` catch: `if (err.code === 1603 \|\| err.code === 1604) setShowStorageUpgradeHint(true)`. Hiện dòng amber dưới dropzone: "Bạn đã dùng hết dung lượng của gói hiện tại. Vui lòng liên hệ lễ tân để nâng gói lưu trữ hoặc gia hạn thời hạn gói." (không có trang billing → text inline, không CTA chết). |
 
@@ -294,15 +305,17 @@ Không tạo endpoint mới — dùng PATCH tutor profile đang có (`AdminTutor
 
 ## 8. Trật tự thực hiện (mỗi bước 1 commit, kiểm tra sau mỗi bước)
 
-Trên nhánh `feature/tutor-storage-quota` (tách từ `dev`). **Trạng thái: đủ 5 commit (bước 1–5),
-đang ở bước 6 (rà soát cuối + gộp PR).**
+Trên nhánh `feature/tutor-storage-quota` (tách từ `dev`). **Trạng thái: đủ 7 commit (bước 1–5
++ refactor bảng subscription + UI lịch sử), đang ở bước 6 (rà soát cuối + gộp PR).**
 
 1. ✅ `4f2f07d` `feat(db): V29 thêm cột tutors.storage_tier (FREE/PRO/PREMIUM) + thời hạn gói` — chỉ migration.
 2. ✅ `4911df7` `feat(tutor): enum StorageTier + Tutor.storageTier/expiresAt + ErrorCode 1603/1604` — entity/enum/ErrorCode, chưa đổi hành vi.
 3. ✅ `fb43488` `feat(classroom): chặn upload tài liệu khi vượt quota lưu trữ gia sư (V29)` — `sumTutorMaterialBytes` + gate trong `uploadMaterial` + 3 test (1603/within-quota/1604).
 4. ✅ `d2def52` `feat(tutor): admin đổi gói lưu trữ + thời hạn tháng + endpoint widget /me/storage` — `TutorAdminUpdateRequest`(+`storageTierDurationMonths`)/`updateProfile`/`TutorProfileResponse` + `TutorStorageService`/`TutorStorageResponse`/endpoint + 6 test.
 5. ✅ `dd4ed27` `feat(ui): giao diện gói lưu trữ (admin, widget dashboard, CTA upload)` — 5 file frontend mục 5.
-6. ⏳ Build + test toàn bộ (backend `mvn test` xanh, frontend `vite build` + lint sạch), rà checklist AGENTS.md (dark mode, lucide icon, tiếng Việt, rounded), gộp PR vào `dev`.
+6. ✅ `92a5a22` `refactor(tutor): lịch sử thuê bao qua bảng tutor_storage_subscriptions (V29) + endpoint admin đọc` — model **bảng subscription** (chốt với user): thêm bảng lịch sử + entity/repo + ghi sự kiện khi cấp gói trả phí + `GET /{id}/storage-subscriptions`; `51a9e16` docs (plan mô hình theo tháng).
+7. ✅ `be23cc6` `feat(ui): lịch sử thuê bao gói lưu trữ trong detail modal admin (V29)` — khối "Lịch sử thuê bao" + `apiGetTutorStorageSubscriptions`.
+8. ⏳ Build + test toàn bộ (backend `mvn test` 480 test xanh, frontend `vite build` + lint sạch, các file đã sửa không có warning mới), rà checklist AGENTS.md (dark mode, lucide icon, tiếng Việt, rounded), gộp PR vào `dev`.
 
 ### Critical files
 
