@@ -36,8 +36,9 @@ import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepo
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.ScheduleSlotRow;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.TeachingLogRow;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.TrialSlotRow;
+import com.mycompany.englishtutor.module.tutor.domain.StorageTier;
 import com.mycompany.englishtutor.module.tutor.domain.Tutor;
-import com.mycompany.englishtutor.module.tutor.domain.enums.StorageTier;
+import com.mycompany.englishtutor.module.tutor.repository.StorageTierRepository;
 import com.mycompany.englishtutor.module.tutor.repository.TutorRepository;
 import com.mycompany.englishtutor.module.tutor.service.StorageService;
 import com.mycompany.englishtutor.module.user.domain.User;
@@ -94,6 +95,7 @@ public class ClassOccurrenceService {
     AuditLogService auditLogService;
     StorageService storageService;
     TutorRepository tutorRepository;
+    StorageTierRepository storageTierRepository;
 
     // ------------------------------------------------------------- LATTICE (đọc)
 
@@ -661,28 +663,39 @@ public class ClassOccurrenceService {
 
     /**
      * Gate quota lưu trữ theo gói gia sư (V29): chặn upload nếu {@code used + newSize} vượt dung
-     * lượng của gói hiệu lực (gói trả phí hết hạn tự hạ về FREE). Gọi TRƯỚC khi ghi MinIO.
-     * Phân biệt 2 mã lỗi để frontend hiện đúng CTA: 1603 (vượt quota gói còn hạn) vs
-     * 1604 (gói trả phí đã hết hạn).
+     * lượng của gói hiệu lực. Quota đọc từ catalog {@code storage_tiers} (dữ liệu DB); gói trả
+     * phí (is_paid) mà {@code storage_tier_expires_at} đã qua → tự hạ về gói mặc định (FREE).
+     * Gọi TRƯỚC khi ghi MinIO. Phân biệt 2 mã lỗi để frontend hiện đúng CTA:
+     * 1603 (vượt quota gói còn hạn) vs 1604 (gói trả phí đã hết hạn).
      */
     private void checkStorageQuota(Long tutorId, long newSize) {
         Tutor tutor =
                 tutorRepository
                         .findDetailById(tutorId)
                         .orElseThrow(() -> new AppException(ErrorCode.MATERIAL_NOT_FOUND));
-        long used = classroomRepository.sumTutorMaterialBytes(tutorId);
+        StorageTier tier =
+                storageTierRepository
+                        .findById(tutor.getStorageTierId())
+                        .orElseThrow(() -> new AppException(ErrorCode.TUTOR_STORAGE_TIER_NOT_FOUND));
         java.time.OffsetDateTime now = java.time.OffsetDateTime.now();
-        StorageTier tier = StorageTier.valueOf(tutor.getStorageTier());
-        StorageTier effective = StorageTier.effective(tutor.getStorageTier(),
-                tutor.getStorageTierExpiresAt(), now);
-        long quota = effective.quotaBytes();
+        boolean expired =
+                Boolean.TRUE.equals(tier.getIsPaid())
+                        && tutor.getStorageTierExpiresAt() != null
+                        && !now.isBefore(tutor.getStorageTierExpiresAt());
+        StorageTier effective =
+                expired
+                        ? storageTierRepository
+                                .findByIsDefaultTrue()
+                                .orElseThrow(() -> new AppException(ErrorCode.TUTOR_STORAGE_TIER_NOT_FOUND))
+                        : tier;
+        long used = classroomRepository.sumTutorMaterialBytes(tutorId);
+        long quota = effective.getQuotaBytes();
         if (used + newSize > quota) {
-            boolean expired = effective == StorageTier.FREE && tier != StorageTier.FREE;
             if (expired) {
                 throw new AppException(ErrorCode.TUTOR_STORAGE_TIER_EXPIRED,
                         String.format(
                                 "Gói %s đã hết hạn (hạn dùng %s), hiện áp dụng %s; tệp %s vượt dung lượng.",
-                                tier,
+                                tier.getName(),
                                 DATE_FMT.format(tutor.getStorageTierExpiresAt().toLocalDate()),
                                 formatBytes(quota),
                                 formatBytes(newSize)));
@@ -690,7 +703,8 @@ public class ClassOccurrenceService {
                 throw new AppException(ErrorCode.TUTOR_STORAGE_QUOTA_EXCEEDED,
                         String.format(
                                 "Gói %s đã dùng %s / %s; tệp %s sẽ vượt quá dung lượng.",
-                                tier, formatBytes(used), formatBytes(quota), formatBytes(newSize)));
+                                tier.getName(), formatBytes(used), formatBytes(quota),
+                                formatBytes(newSize)));
             }
         }
     }

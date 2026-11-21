@@ -25,8 +25,10 @@ import com.mycompany.englishtutor.module.tutor.api.response.TutorProfileResponse
 import com.mycompany.englishtutor.module.tutor.domain.Tutor;
 import com.mycompany.englishtutor.module.tutor.domain.TutorCredential;
 import com.mycompany.englishtutor.module.tutor.domain.TutorSpecialty;
+import com.mycompany.englishtutor.module.tutor.domain.TutorStorageSubscription;
+import com.mycompany.englishtutor.module.tutor.domain.StorageTier;
 import com.mycompany.englishtutor.module.tutor.domain.enums.ProfileStatus;
-import com.mycompany.englishtutor.module.tutor.domain.enums.StorageTier;
+import com.mycompany.englishtutor.module.tutor.repository.StorageTierRepository;
 import com.mycompany.englishtutor.module.tutor.repository.TutorCredentialRepository;
 import com.mycompany.englishtutor.module.tutor.repository.TutorRepository;
 import com.mycompany.englishtutor.module.tutor.repository.TutorSpecialtyRepository;
@@ -57,6 +59,7 @@ public class AdminTutorService {
     TutorSpecialtyRepository tutorSpecialtyRepository;
     TutorCredentialRepository tutorCredentialRepository;
     com.mycompany.englishtutor.module.tutor.repository.TutorStorageSubscriptionRepository tutorStorageSubscriptionRepository;
+    StorageTierRepository storageTierRepository;
     TutorProfileMapper tutorProfileMapper;
     AuditLogService auditLogService;
 
@@ -137,7 +140,7 @@ public class AdminTutorService {
         return tutorStorageSubscriptionRepository.findByTutorIdOrderByGrantedAtDesc(tutorId).stream()
                 .map(s -> new StorageSubscriptionItem(
                         s.getId(),
-                        s.getTier(),
+                        s.getTier() != null ? s.getTier().getCode() : null,
                         s.getDurationMonths() != null ? s.getDurationMonths().intValue() : null,
                         s.getGrantedAt(),
                         s.getExpiresAt(),
@@ -315,27 +318,31 @@ public class AdminTutorService {
         if (request.getBio() != null) tutor.setBio(request.getBio().trim());
         if (request.getVideoUrl() != null) tutor.setVideoUrl(request.getVideoUrl().trim());
 
-        // Gói lưu trữ tài liệu buổi học (V29): đổi gói + thời hạn theo tháng (lễ tân gán).
-        String oldTier = tutor.getStorageTier();
+        // Gói lưu trữ tài liệu buổi học (V29): đổi gói (catalog storage_tiers) + thời hạn theo
+        // tháng (lễ tân gán). Request truyền mã gói (FREE/PRO/PREMIUM) — tra catalog lấy quota/thuộc tính.
+        java.time.OffsetDateTime oldExpiresAt = tutor.getStorageTierExpiresAt();
+        String oldTier = storageTierRepository.findById(tutor.getStorageTierId())
+                .map(StorageTier::getCode)
+                .orElse("FREE");
         if (request.getStorageTier() != null) {
-            StorageTier tier = StorageTier.valueOf(request.getStorageTier().trim());
+            StorageTier tier = storageTierRepository.findByCode(request.getStorageTier().trim())
+                    .orElseThrow(() -> new AppException(ErrorCode.TUTOR_STORAGE_TIER_NOT_FOUND));
             int months = request.getStorageTierDurationMonths() != null
                     ? request.getStorageTierDurationMonths() : 1;
-            tutor.setStorageTier(tier.name());
-            java.time.OffsetDateTime expiresAt =
-                    tier == StorageTier.FREE ? null : java.time.OffsetDateTime.now().plusMonths(months);
+            java.time.OffsetDateTime expiresAt = Boolean.TRUE.equals(tier.getIsPaid())
+                    ? java.time.OffsetDateTime.now().plusMonths(months) : null;
+            tutor.setStorageTierId(tier.getId());
             tutor.setStorageTierExpiresAt(expiresAt);
-            // Gói trả phí: ghi 1 sự kiện vào bảng lịch sử thuê bao (V29).
-            if (tier != StorageTier.FREE) {
-                com.mycompany.englishtutor.module.tutor.domain.TutorStorageSubscription sub =
-                        com.mycompany.englishtutor.module.tutor.domain.TutorStorageSubscription.builder()
-                                .tutor(tutor)
-                                .tier(tier.name())
-                                .durationMonths((short) months)
-                                .grantedAt(java.time.OffsetDateTime.now())
-                                .expiresAt(expiresAt)
-                                .grantedBy(actorId)
-                                .build();
+            // Gói trả phí: ghi 1 sự kiện vào bảng lịch sử thuê bao (V29, FK tier_id trỏ catalog).
+            if (Boolean.TRUE.equals(tier.getIsPaid())) {
+                TutorStorageSubscription sub = TutorStorageSubscription.builder()
+                        .tutor(tutor)
+                        .tier(tier)
+                        .durationMonths((short) months)
+                        .grantedAt(java.time.OffsetDateTime.now())
+                        .expiresAt(expiresAt)
+                        .grantedBy(actorId)
+                        .build();
                 tutorStorageSubscriptionRepository.save(sub);
             }
         }
@@ -344,8 +351,11 @@ public class AdminTutorService {
 
         // Ghi Audit Log
         if (auditLogService != null) {
-            String newTier = tutor.getStorageTier();
-            boolean tierChanged = !oldTier.equals(newTier);
+            String newTier = storageTierRepository.findById(tutor.getStorageTierId())
+                    .map(StorageTier::getCode)
+                    .orElse("FREE");
+            boolean tierChanged = !oldTier.equals(newTier)
+                    || !java.util.Objects.equals(oldExpiresAt, tutor.getStorageTierExpiresAt());
             Map<String, Object> details = new java.util.HashMap<>();
             details.put("action", "Admin update tutor profile");
             details.put("updatedBy", actorId);

@@ -21,24 +21,29 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository;
 import com.mycompany.englishtutor.module.tutor.api.response.TutorStorageResponse;
+import com.mycompany.englishtutor.module.tutor.domain.StorageTier;
 import com.mycompany.englishtutor.module.tutor.domain.Tutor;
-import com.mycompany.englishtutor.module.tutor.domain.enums.StorageTier;
+import com.mycompany.englishtutor.module.tutor.repository.StorageTierRepository;
 import com.mycompany.englishtutor.module.tutor.repository.TutorRepository;
 import com.mycompany.englishtutor.module.user.domain.User;
 import com.mycompany.englishtutor.module.user.repository.UserRepository;
 
 /**
- * Widget gói lưu trữ (V29): đọc quota gói + dung lượng đã dùng thật.
+ * Widget gói lưu trữ (V29): đọc quota từ catalog {@code storage_tiers} + dung lượng đã dùng thật.
+ * Quota là dữ liệu DB (entity catalog), không hardcode — test mock repo catalog.
  */
 @ExtendWith(MockitoExtension.class)
 class TutorStorageServiceTest {
 
     private static final Long TUTOR_ID = 10L;
+    private static final long GB = 1024L * 1024 * 1024;
 
     @Mock
     UserRepository userRepository;
     @Mock
     TutorRepository tutorRepository;
+    @Mock
+    StorageTierRepository storageTierRepository;
     @Mock
     ClassroomQueryRepository classroomRepository;
     @InjectMocks
@@ -60,14 +65,15 @@ class TutorStorageServiceTest {
     @Test
     void getMyStorage_freeTier_reportsUsedAndQuota() {
         when(tutorRepository.findDetailById(TUTOR_ID))
-                .thenReturn(Optional.of(Tutor.builder().id(TUTOR_ID).build()));
+                .thenReturn(Optional.of(Tutor.builder().id(TUTOR_ID).build())); // storageTierId default = 1 (FREE)
+        when(storageTierRepository.findById(1L)).thenReturn(Optional.of(tier(1L, "FREE", 1L * GB, true, false)));
         when(classroomRepository.sumTutorMaterialBytes(TUTOR_ID)).thenReturn(500_000L);
 
         TutorStorageResponse response = tutorStorageService.getMyStorage();
 
         assertThat(response.tier()).isEqualTo("FREE");
-        assertThat(response.quotaBytes()).isEqualTo(StorageTier.FREE.quotaBytes());
-        assertThat(response.effectiveQuotaBytes()).isEqualTo(StorageTier.FREE.quotaBytes());
+        assertThat(response.quotaBytes()).isEqualTo(1L * GB);
+        assertThat(response.effectiveQuotaBytes()).isEqualTo(1L * GB);
         assertThat(response.usedBytes()).isEqualTo(500_000L);
         assertThat(response.tierExpiresAt()).isNull();
         verify(classroomRepository).sumTutorMaterialBytes(TUTOR_ID);
@@ -78,17 +84,20 @@ class TutorStorageServiceTest {
         when(tutorRepository.findDetailById(TUTOR_ID))
                 .thenReturn(Optional.of(Tutor.builder()
                         .id(TUTOR_ID)
-                        .storageTier("PRO")
+                        .storageTierId(2L)
                         .storageTierExpiresAt(OffsetDateTime.now().minusDays(1))
                         .build()));
+        when(storageTierRepository.findById(2L)).thenReturn(Optional.of(tier(2L, "PRO", 10L * GB, false, true)));
+        when(storageTierRepository.findByIsDefaultTrue())
+                .thenReturn(Optional.of(tier(1L, "FREE", 1L * GB, true, false)));
         when(classroomRepository.sumTutorMaterialBytes(TUTOR_ID)).thenReturn(0L);
 
         TutorStorageResponse response = tutorStorageService.getMyStorage();
 
-        // PRO hết hạn → quota hiệu lực hạ về FREE, quota gốc vẫn báo PRO.
+        // PRO hết hạn → quota hiệu lực hạ về FREE, quota gốc vẫn báo PRO (10 GB).
         assertThat(response.tier()).isEqualTo("PRO");
-        assertThat(response.quotaBytes()).isEqualTo(StorageTier.PRO.quotaBytes());
-        assertThat(response.effectiveQuotaBytes()).isEqualTo(StorageTier.FREE.quotaBytes());
+        assertThat(response.quotaBytes()).isEqualTo(10L * GB);
+        assertThat(response.effectiveQuotaBytes()).isEqualTo(1L * GB);
     }
 
     @Test
@@ -96,14 +105,28 @@ class TutorStorageServiceTest {
         when(tutorRepository.findDetailById(TUTOR_ID))
                 .thenReturn(Optional.of(Tutor.builder()
                         .id(TUTOR_ID)
-                        .storageTier("PREMIUM")
+                        .storageTierId(3L)
                         .storageTierExpiresAt(OffsetDateTime.now().plusMonths(2))
                         .build()));
+        when(storageTierRepository.findById(3L))
+                .thenReturn(Optional.of(tier(3L, "PREMIUM", 50L * GB, false, true)));
         when(classroomRepository.sumTutorMaterialBytes(TUTOR_ID)).thenReturn(1L);
 
         TutorStorageResponse response = tutorStorageService.getMyStorage();
 
         assertThat(response.tier()).isEqualTo("PREMIUM");
-        assertThat(response.effectiveQuotaBytes()).isEqualTo(StorageTier.PREMIUM.quotaBytes());
+        assertThat(response.effectiveQuotaBytes()).isEqualTo(50L * GB);
+    }
+
+    /** Entity catalog giả lập (quota là dữ liệu DB trong test). */
+    private static StorageTier tier(Long id, String code, long quotaBytes, boolean isDefault, boolean isPaid) {
+        return StorageTier.builder()
+                .id(id)
+                .code(code)
+                .name(code)
+                .quotaBytes(quotaBytes)
+                .isDefault(isDefault)
+                .isPaid(isPaid)
+                .build();
     }
 }

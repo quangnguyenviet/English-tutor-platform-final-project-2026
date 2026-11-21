@@ -2,7 +2,6 @@ package com.mycompany.englishtutor.module.tutor.domain;
 
 import jakarta.persistence.*;
 
-import com.mycompany.englishtutor.module.tutor.domain.enums.StorageTier;
 import org.hibernate.annotations.ColumnDefault;
 
 import lombok.*;
@@ -76,16 +75,18 @@ public class Tutor {
     Boolean openToTeaching = Boolean.TRUE;
 
     /**
-     * Gói lưu trữ tài liệu buổi học (V29): FREE / PRO / PREMIUM, quota theo {@code StorageTier}.
-     * Gói trả phí có thời hạn theo tháng qua {@link #storageTierExpiresAt}.
+     * Gói lưu trữ tài liệu buổi học hiện hành (V29) — FK {@code storage_tiers.id} (catalog,
+     * FREE seed id=1, default cho mọi tutor mới). Quota thật nằm ở
+     * {@code StorageTier.quotaBytes} (dữ liệu DB, không hardcode trong code).
+     * Gói trả phí (is_paid) có thời hạn theo tháng qua {@link #storageTierExpiresAt};
+     * hết hạn → tự hạ về gói mặc định (FREE) tại thời điểm upload/widget kế tiếp.
      */
     @Builder.Default
-    @Column(name = "storage_tier", nullable = false, length = 10)
-    String storageTier = StorageTier.FREE.name();
+    @Column(name = "storage_tier_id", nullable = false)
+    Long storageTierId = 1L;
 
     /**
-     * Thời điểm gói trả phí hết hạn (V29); NULL = gói FREE (vô thời hạn).
-     * Qua hạn → quota hạ về FREE khi kiểm tra upload kế tiếp.
+     * Thời điểm gói trả phí hết hạn (V29); NULL = gói vô thời hạn (FREE).
      */
     @Column(name = "storage_tier_expires_at")
     java.time.OffsetDateTime storageTierExpiresAt;
