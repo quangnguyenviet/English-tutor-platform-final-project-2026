@@ -125,6 +125,36 @@ export async function apiGetTutorProfile(token) {
 }
 
 /**
+ * Widget gói lưu trữ tài liệu buổi học (V29) — GET /api/v1/tutors/me/storage.
+ * Trả { tier, tierExpiresAt, quotaBytes, effectiveQuotaBytes, usedBytes }.
+ *
+ * @param {string} token - JWT token
+ * @returns {Promise<{tier: string, tierExpiresAt: string|null, quotaBytes: number, effectiveQuotaBytes: number, usedBytes: number}>}
+ */
+export async function apiGetTutorStorage(token) {
+  const res = await fetch(`${BASE}/api/v1/tutors/me/storage`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...bearerHeader(token),
+    },
+  });
+
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    const err = new Error(
+      extractErrorMessage(data, `Không thể lấy trạng thái lưu trữ (${res.status})`),
+    );
+    err.status = res.status;
+    err.code = data?.code;
+    throw err;
+  }
+
+  return data.result ?? data;
+}
+
+/**
  * Tải ảnh đại diện gia sư — POST /api/v1/tutors/me/profile/avatar
  * Chỉ upload file và trả URL; ảnh chưa được lưu vào hồ sơ cho đến khi gọi Lưu hồ sơ.
  *

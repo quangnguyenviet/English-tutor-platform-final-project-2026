@@ -1,10 +1,13 @@
 import { Link } from "react-router-dom";
-import { useState } from "react";
-import { CalendarDays, Users, ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CalendarDays, Users, ArrowRight, HardDrive } from "lucide-react";
 import { students } from "../../data/mockData";
 import clsx from "clsx";
 import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
+import { useAuth } from "../../context/AuthContext";
+import { apiGetTutorStorage } from "../../lib/tutorApi";
+import { formatBytes } from "../../lib/classroomApi";
 
 // --- Helpers ---
 function formatDate(date) {
@@ -116,7 +119,38 @@ const upcomingSessions = [
 
 export default function TutorDashboard() {
   const [today] = useState(new Date());
+  const [storage, setStorage] = useState(null); // V29: {tier, tierExpiresAt, effectiveQuotaBytes, usedBytes}
+  const [storageError, setStorageError] = useState(false);
   const activeClasses = 3; // TODO: compute from enrollment data
+  const { token } = useAuth();
+
+  // Widget gói lưu trữ thật (V29) — dùng hiệu lực (gói trả phí hết hạn tự về FREE).
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    apiGetTutorStorage(token)
+      .then((data) => {
+        if (!cancelled && data) setStorage(data);
+      })
+      .catch(() => {
+        if (!cancelled) setStorageError(true); // Không block dashboard khi widget lỗi.
+      });
+    return () => { cancelled = true; };
+  }, [token]);
+
+  const tierMeta = {
+    FREE: "Miễn phí",
+    PRO: "Pro",
+    PREMIUM: "Premium",
+  };
+  const storagePct = storage
+    ? Math.min(
+        100,
+        Math.round((storage.usedBytes / (storage.effectiveQuotaBytes || 1)) * 100),
+      )
+    : 0;
+  const storageTone =
+    storagePct >= 90 ? "rose" : storagePct >= 70 ? "amber" : "blue";
 
   return (
     <div className="px-4 lg:px-8 py-6 lg:py-8 space-y-6 max-w-6xl mx-auto">
@@ -175,6 +209,51 @@ export default function TutorDashboard() {
           <p className="text-2xl font-bold text-slate-900 dark:text-white leading-none">{activeClasses}</p>
           <p className="text-xs text-slate-500 mt-1 leading-tight">Lớp đang hoạt động</p>
         </div>
+      </div>
+
+      {/* --- Widget gói lưu trữ tài liệu buổi học (V29 — số liệu thật từ /me/storage) --- */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-950/40">
+              <HardDrive size={18} className="text-blue-600 dark:text-blue-400" strokeWidth={1.75} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">Dung lượng lưu trữ</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Tài liệu buổi học · Gói {tierMeta[storage?.tier] || "—"}
+                {storage?.tierExpiresAt && (
+                  <span> · hết hạn {new Date(storage.tierExpiresAt).toLocaleDateString("vi-VN")}</span>
+                )}
+              </p>
+            </div>
+          </div>
+          {storage ? (
+            <p className="font-mono text-sm font-semibold text-slate-900 dark:text-white">
+              {formatBytes(storage.usedBytes)}
+              <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                {" "}
+                / {formatBytes(storage.effectiveQuotaBytes)}
+              </span>
+            </p>
+          ) : (
+            <p className="text-sm text-slate-400">{storageError ? "—" : "Đang tải..."}</p>
+          )}
+        </div>
+        {storage && (
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+            <div
+              className={`h-full rounded-full ${
+                storageTone === "rose"
+                  ? "bg-rose-500"
+                  : storageTone === "amber"
+                    ? "bg-amber-500"
+                    : "bg-blue-500"
+              }`}
+              style={{ width: `${storagePct}%` }}
+            />
+          </div>
+        )}
       </div>
 
       {/* --- Quick Actions --- */}

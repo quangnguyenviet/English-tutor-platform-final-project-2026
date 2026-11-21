@@ -286,6 +286,8 @@ export function TutorManagement() {
           address: detail.address || "",
           bio: detail.bio || "",
           videoUrl: detail.videoUrl || "",
+          storageTier: detail.storageTier || "FREE",
+          storageTierDurationMonths: 1,
         },
       });
     } catch (err) {
@@ -631,6 +633,9 @@ export function TutorManagement() {
                     <Badge tone={statusMeta[viewingTutor.profileStatus]?.tone || "slate"}>
                       {statusMeta[viewingTutor.profileStatus]?.label || viewingTutor.profileStatus}
                     </Badge>
+                    <Badge tone={viewingTutor.storageTier === "FREE" ? "slate" : "blue"}>
+                      Gói lưu trữ: {viewingTutor.storageTier || "FREE"}
+                    </Badge>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Hồ sơ năng lực & chứng chỉ của gia sư (ID #{viewingTutor.tutorId})
@@ -886,6 +891,46 @@ export function TutorManagement() {
                     onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, bio: e.target.value } }))}
                     className="w-full rounded-xl border border-slate-200 p-2.5 outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-800 dark:text-white"
                   />
+                </div>
+              </div>
+
+              {/* Gói lưu trữ tài liệu buổi học (V29) */}
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-3.5 dark:border-blue-800 dark:bg-blue-950/40">
+                <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-2">
+                  Gói lưu trữ tài liệu buổi học
+                </p>
+                <div className="flex flex-wrap gap-3 items-end">
+                  <div>
+                    <label className="block text-slate-600 dark:text-slate-400 mb-1 text-sm">Gói (quota):</label>
+                    <select
+                      value={editModal.form.storageTier || "FREE"}
+                      onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, storageTier: e.target.value } }))}
+                      className="w-44 rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-800 dark:text-white"
+                    >
+                      <option value="FREE">Miễn phí (1 GB)</option>
+                      <option value="PRO">Pro (10 GB)</option>
+                      <option value="PREMIUM">Premium (50 GB)</option>
+                    </select>
+                  </div>
+                  {editModal.form.storageTier !== "FREE" && (
+                    <div>
+                      <label className="block text-slate-600 dark:text-slate-400 mb-1 text-sm">Thời hạn (số tháng):</label>
+                      <select
+                        value={editModal.form.storageTierDurationMonths ?? 1}
+                        onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, storageTierDurationMonths: Number(e.target.value) } }))}
+                        className="w-24 rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-800 dark:text-white"
+                      >
+                        <option value={1}>1 tháng</option>
+                        <option value={3}>3 tháng</option>
+                        <option value={12}>12 tháng</option>
+                      </select>
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {editModal.form.storageTier === "FREE"
+                      ? "Gói miễn phí, vô thời hạn."
+                      : "Gói trả phí có thời hạn theo tháng; qua hạn tự về gói Miễn phí."}
+                  </p>
                 </div>
               </div>
             </div>

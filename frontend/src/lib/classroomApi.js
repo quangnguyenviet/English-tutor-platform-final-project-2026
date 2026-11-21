@@ -50,6 +50,9 @@ async function request(token, path, options = {}) {
   if (!res.ok) {
     const error = new Error(extractErrorMessage(data, `Yêu cầu thất bại (${res.status})`));
     error.status = res.status;
+    // Mã lỗi nghiệp vụ của backend (ErrorCode.java) — để UI phân biệt lỗi quota
+    // (1603/1604, V29) với lỗi khác khi upload tài liệu.
+    error.code = data?.code;
     throw error;
   }
   return data.result ?? data;
@@ -227,6 +230,8 @@ async function requestMultipart(token, path, file, field = "file") {
   if (!res.ok) {
     const error = new Error(extractErrorMessage(data, `Lỗi ${res.status} khi tải tệp lên`));
     error.status = res.status;
+    // Mã lỗi nghiệp vụ (V29): 1603 = vượt quota gói, 1604 = gói trả phí hết hạn.
+    error.code = data?.code;
     throw error;
   }
   return data.result ?? data;

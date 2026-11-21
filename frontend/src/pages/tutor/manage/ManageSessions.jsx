@@ -298,6 +298,8 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
   // ---------------- Tài liệu bài giảng (upload / tải / gỡ)
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  // V29: gói lưu trữ hết hạn mức (1603) hoặc hết thời hạn tháng (1604) → hiện CTA liên hệ lễ tân.
+  const [showStorageUpgradeHint, setShowStorageUpgradeHint] = useState(false);
   const [confirmDeleteMaterial, setConfirmDeleteMaterial] = useState(null);
   const [deletingMaterialId, setDeletingMaterialId] = useState(null);
 
@@ -307,6 +309,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
     if (!file || !detail || !token) return;
 
     setUploadError("");
+    setShowStorageUpgradeHint(false);
     const ext = (file.name.split(".").pop() || "").toLowerCase();
     if (!MATERIAL_ALLOWED_EXT.includes(ext)) {
       setUploadError(
@@ -330,6 +333,10 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
       bumpRefresh();
     } catch (err) {
       setUploadError(err.message || "Không thể tải tệp lên hệ thống.");
+      // 1603: vượt quota gói; 1604: gói trả phí hết hạn (về gói Miễn phí).
+      if (err.code === 1603 || err.code === 1604) {
+        setShowStorageUpgradeHint(true);
+      }
     } finally {
       setIsUploading(false);
     }
@@ -688,6 +695,17 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                     </div>
                   )}
                 </div>
+
+                {/* V29: CTA khi vượt quota gói (1603) hoặc gói trả phí hết hạn (1604) */}
+                {showStorageUpgradeHint && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-300">
+                    <AlertCircle size={14} className="mt-0.5 shrink-0 text-amber-500" />
+                    <div className="flex-1">
+                      Bạn đã dùng hết dung lượng của gói hiện tại. Vui lòng liên hệ lễ tân để
+                      nâng gói lưu trữ hoặc gia hạn thời hạn gói.
+                    </div>
+                  </div>
+                )}
 
                 {materials.length === 0 ? (
                   <p className="py-1 text-center text-xs text-slate-400">
