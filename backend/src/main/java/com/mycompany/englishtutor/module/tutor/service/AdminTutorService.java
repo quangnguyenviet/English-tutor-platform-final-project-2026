@@ -19,6 +19,7 @@ import com.mycompany.englishtutor.module.audit.service.AuditLogService;
 import com.mycompany.englishtutor.module.tutor.api.request.TutorAdminUpdateRequest;
 import com.mycompany.englishtutor.module.tutor.api.request.TutorProfileRejectRequest;
 import com.mycompany.englishtutor.module.tutor.api.request.TutorStatusUpdateRequest;
+import com.mycompany.englishtutor.module.tutor.api.response.StorageSubscriptionItem;
 import com.mycompany.englishtutor.module.tutor.api.response.TutorPendingSummaryResponse;
 import com.mycompany.englishtutor.module.tutor.api.response.TutorProfileResponse;
 import com.mycompany.englishtutor.module.tutor.domain.Tutor;
@@ -55,6 +56,7 @@ public class AdminTutorService {
     TutorRepository tutorRepository;
     TutorSpecialtyRepository tutorSpecialtyRepository;
     TutorCredentialRepository tutorCredentialRepository;
+    com.mycompany.englishtutor.module.tutor.repository.TutorStorageSubscriptionRepository tutorStorageSubscriptionRepository;
     TutorProfileMapper tutorProfileMapper;
     AuditLogService auditLogService;
 
@@ -121,6 +123,26 @@ public class AdminTutorService {
         log.info("Fetched detail of tutor profile, tutorId: {}", tutorId);
 
         return tutorProfileMapper.mapToResponse(tutor.getUser(), tutor);
+    }
+
+    /**
+     * Lịch sử thuê bao gói lưu trữ (V29) của 1 gia sư, mới nhất trước.
+     * Dùng cho admin/lễ tân truy vết các lần cấp/gia hạn gói trả phí.
+     */
+    @Transactional(readOnly = true)
+    public List<StorageSubscriptionItem> getStorageSubscriptions(Long tutorId) {
+        tutorRepository.findById(tutorId)
+                .orElseThrow(() -> new AppException(ErrorCode.TUTOR_PROFILE_NOT_FOUND));
+
+        return tutorStorageSubscriptionRepository.findByTutorIdOrderByGrantedAtDesc(tutorId).stream()
+                .map(s -> new StorageSubscriptionItem(
+                        s.getId(),
+                        s.getTier(),
+                        s.getDurationMonths() != null ? s.getDurationMonths().intValue() : null,
+                        s.getGrantedAt(),
+                        s.getExpiresAt(),
+                        s.getGrantedBy()))
+                .toList();
     }
 
     /**
@@ -300,9 +322,22 @@ public class AdminTutorService {
             int months = request.getStorageTierDurationMonths() != null
                     ? request.getStorageTierDurationMonths() : 1;
             tutor.setStorageTier(tier.name());
-            tutor.setStorageTierExpiresAt(
-                    tier == StorageTier.FREE ? null
-                            : java.time.OffsetDateTime.now().plusMonths(months));
+            java.time.OffsetDateTime expiresAt =
+                    tier == StorageTier.FREE ? null : java.time.OffsetDateTime.now().plusMonths(months);
+            tutor.setStorageTierExpiresAt(expiresAt);
+            // Gói trả phí: ghi 1 sự kiện vào bảng lịch sử thuê bao (V29).
+            if (tier != StorageTier.FREE) {
+                com.mycompany.englishtutor.module.tutor.domain.TutorStorageSubscription sub =
+                        com.mycompany.englishtutor.module.tutor.domain.TutorStorageSubscription.builder()
+                                .tutor(tutor)
+                                .tier(tier.name())
+                                .durationMonths((short) months)
+                                .grantedAt(java.time.OffsetDateTime.now())
+                                .expiresAt(expiresAt)
+                                .grantedBy(actorId)
+                                .build();
+                tutorStorageSubscriptionRepository.save(sub);
+            }
         }
 
         tutorRepository.save(tutor);

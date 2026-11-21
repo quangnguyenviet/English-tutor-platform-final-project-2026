@@ -58,6 +58,10 @@ class AdminTutorServiceTest {
     TutorCredentialRepository tutorCredentialRepository;
 
     @Mock
+    com.mycompany.englishtutor.module.tutor.repository.TutorStorageSubscriptionRepository
+            tutorStorageSubscriptionRepository;
+
+    @Mock
     TutorProfileMapper tutorProfileMapper;
 
     @Mock
@@ -354,6 +358,11 @@ class AdminTutorServiceTest {
                 argThat((java.util.Map<String, Object> m) -> "PRO".equals(m.get("newTier"))
                         && "FREE".equals(m.get("oldTier"))),
                 any());
+        // V29: gói trả phí ghi 1 sự kiện vào bảng lịch sử thuê bao.
+        verify(tutorStorageSubscriptionRepository).save(
+                org.mockito.ArgumentMatchers.argThat(s -> "PRO".equals(s.getTier())
+                        && s.getDurationMonths() == 3
+                        && s.getGrantedBy().equals(REVIEWER_ID)));
     }
 
     @Test

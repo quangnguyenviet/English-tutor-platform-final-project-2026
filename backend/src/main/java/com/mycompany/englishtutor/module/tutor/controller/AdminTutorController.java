@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import com.mycompany.englishtutor.module.tutor.api.request.TutorAdminUpdateRequest;
 import com.mycompany.englishtutor.module.tutor.api.request.TutorProfileRejectRequest;
 import com.mycompany.englishtutor.module.tutor.api.request.TutorStatusUpdateRequest;
+import com.mycompany.englishtutor.module.tutor.api.response.StorageSubscriptionItem;
 import com.mycompany.englishtutor.module.tutor.api.response.TutorPendingSummaryResponse;
 import com.mycompany.englishtutor.module.tutor.api.response.TutorProfileResponse;
 import com.mycompany.englishtutor.module.tutor.service.AdminTutorService;
@@ -181,6 +182,22 @@ public class AdminTutorController {
 
         return ResponseEntity.ok(ApiResponse.<TutorProfileResponse>builder()
                 .result(adminTutorService.updateProfile(tutorId, request))
+                .build());
+    }
+
+    @GetMapping("/{tutorId:\\d+}/storage-subscriptions")
+    @PreAuthorize("hasRole('RECEPTIONIST') or hasRole('ADMIN')")
+    @Operation(
+            summary = "Lịch sử thuê bao gói lưu trữ (V29) của gia sư",
+            description = "Danh sách các lần cấp/gia hạn gói trả phí (mới nhất trước).",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<List<StorageSubscriptionItem>>> getStorageSubscriptions(
+            @Parameter(description = "ID hồ sơ gia sư") @PathVariable Long tutorId) {
+
+        log.info("Fetching storage subscription history for tutorId: {}", tutorId);
+
+        return ResponseEntity.ok(ApiResponse.<List<StorageSubscriptionItem>>builder()
+                .result(adminTutorService.getStorageSubscriptions(tutorId))
                 .build());
     }
 }
