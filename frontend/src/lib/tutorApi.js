@@ -155,6 +155,37 @@ export async function apiGetTutorStorage(token) {
 }
 
 /**
+ * Lịch sử thuê bao gói lưu trữ của gia sư (V29) — GET /api/v1/tutors/{id}/storage-subscriptions.
+ * Trả danh sách các lần cấp/gia hạn gói trả phí (mới nhất trước).
+ *
+ * @param {string|number} tutorId
+ * @param {string} token - JWT token (lễ tân/quản trị)
+ * @returns {Promise<Array<{id: number, tier: string, durationMonths: number, grantedAt: string, expiresAt: string, grantedBy: number}>>}
+ */
+export async function apiGetTutorStorageSubscriptions(tutorId, token) {
+  const res = await fetch(`${BASE}/api/v1/tutors/${encodeURIComponent(tutorId)}/storage-subscriptions`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...bearerHeader(token),
+    },
+  });
+
+  const data = await readJson(res);
+
+  if (!res.ok) {
+    const err = new Error(
+      extractErrorMessage(data, `Không thể lấy lịch sử thuê bao lưu trữ (${res.status})`),
+    );
+    err.status = res.status;
+    err.code = data?.code;
+    throw err;
+  }
+
+  return Array.isArray(data.result) ? data.result : Array.isArray(data) ? data : [];
+}
+
+/**
  * Tải ảnh đại diện gia sư — POST /api/v1/tutors/me/profile/avatar
  * Chỉ upload file và trả URL; ảnh chưa được lưu vào hồ sơ cho đến khi gọi Lưu hồ sơ.
  *

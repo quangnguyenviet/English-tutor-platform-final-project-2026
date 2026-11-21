@@ -32,16 +32,33 @@ không cần cổng thanh toán trong hệ thống (thu tiền offline qua lễ 
 
 ```sql
 -- Gói lưu trữ tài liệu buổi học cho gia sư (V29): FREE / PRO / PREMIUM.
+-- Mô hình "bảng subscription" (chốt với user):
+--   (1) tutors.storage_tier + tutors.storage_tier_expires_at = gói HIỆN HÀNH
+--       (source of truth cho quota gate; gói trả phí qua expires_at → tự hạ FREE,
+--       không cần scheduled job).
+--   (2) tutor_storage_subscriptions = LỊCH SỬ các lần mua/gia hạn (mỗi lần lễ tân
+--       cấp 1 gói trả phí = 1 dòng), chuẩn bị sẵn cho nối online billing về sau.
 -- Quota = SUM(lesson_materials.file_size) qua lessons.class_id -> classes.tutor_id.
--- Gói trả phí (PRO/PREMIUM) có thời hạn theo tháng: storage_tier_expires_at = thời điểm hết hạn;
--- NULL = gói FREE (vô thời hạn) hoặc gói trả phí chưa được gán thời hạn (không xảy ra —
--- form admin luôn bắt time hạn khi chọn PRO/PREMIUM). Quá hạn → coi như FREE.
 -- Mặc định FREE (ADD COLUMN ... DEFAULT tự backfill mọi hàng có sẵn);
--- admin/lễ tân đổi gói + thời hạn qua PATCH /api/v1/tutors/{id} (tutor không tự upgrade — thu tiền offline).
+-- admin/lễ tân đổi gói + thời hạn qua PATCH /api/v1/tutors/{id} (tutor không tự
+-- upgrade — thu tiền offline).
 ALTER TABLE tutors
     ADD COLUMN storage_tier VARCHAR(10) NOT NULL DEFAULT 'FREE',
     ADD COLUMN storage_tier_expires_at TIMESTAMPTZ NULL,
     ADD CONSTRAINT chk_tutors_storage_tier CHECK (storage_tier IN ('FREE', 'PRO', 'PREMIUM'));
+
+CREATE TABLE tutor_storage_subscriptions (
+    id              BIGSERIAL   PRIMARY KEY,
+    tutor_id        BIGINT      NOT NULL REFERENCES tutors(id) ON DELETE CASCADE,
+    tier            VARCHAR(10) NOT NULL,
+    duration_months SMALLINT    NOT NULL,
+    granted_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at      TIMESTAMPTZ NOT NULL,
+    granted_by      BIGINT      REFERENCES users(id),
+    CONSTRAINT chk_tutor_storage_subs_tier CHECK (tier IN ('FREE', 'PRO', 'PREMIUM')),
+    CONSTRAINT chk_tutor_storage_subs_duration CHECK (duration_months IN (1, 3, 12))
+);
+CREATE INDEX idx_tutor_storage_subscriptions_tutor_id ON tutor_storage_subscriptions(tutor_id);
 ```
 
 - Không thêm index mới cho `lesson_materials` (SUM theo `classes.tutor_id` chạy qua index có sẵn
@@ -192,7 +209,11 @@ Không tạo endpoint mới — dùng PATCH tutor profile đang có (`AdminTutor
           tier == StorageTier.FREE ? null : OffsetDateTime.now().plusMonths(months));
   }
   ```
-  (FREE → `expiresAt = null`; PRO/PREMIUM → `now + months`.) Enrich audit `details`
+  (FREE → `expiresAt = null`; PRO/PREMIUM → `now + months`.) **Mỗi lần cấp gói trả phí
+  (tier ≠ FREE) còn ghi thêm 1 dòng sự kiện vào `tutor_storage_subscriptions`**
+  (entity `TutorStorageSubscription` + `TutorStorageSubscriptionRepository`, mô phỏng
+  `TutorCredentialRepository`): `tier, duration_months, granted_at, expires_at, granted_by=actorId`.
+  Enrich audit `details`
   (chuyển `Map.of` → `HashMap`) thêm `oldTier`/`newTier`/`expiresAt` khi tier đổi,
   action giữ `UPDATE_TUTOR_PROFILE`.
 - `module/tutor/api/response/TutorProfileResponse.java` + mapper — thêm `String storageTier;`

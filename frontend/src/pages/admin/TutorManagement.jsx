@@ -36,6 +36,7 @@ import {
   apiGetTutors,
   apiGetTutorCounts,
   apiGetTutorDetail,
+  apiGetTutorStorageSubscriptions,
   apiApproveTutor,
   apiRejectTutor,
   apiUpdateTutorStatus,
@@ -76,6 +77,8 @@ export function TutorManagement() {
   // Modal xem chi tiết
   const [viewingTutor, setViewingTutor] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  // V29: lịch sử thuê bao gói lưu trữ của gia sư đang xem (từ bảng tutor_storage_subscriptions)
+  const [storageSubs, setStorageSubs] = useState([]);
 
   // Modal xem trước ảnh chứng chỉ (Image Lightbox)
   const [previewImage, setPreviewImage] = useState(null);
@@ -175,6 +178,12 @@ export function TutorManagement() {
       showToast(err.message || "Không thể tải chi tiết hồ sơ", true);
     } finally {
       setLoadingDetail(false);
+    }
+    // V29: tải lịch sử thuê bao gói lưu trữ (không block modal chính khi lỗi).
+    try {
+      setStorageSubs(await apiGetTutorStorageSubscriptions(tutorId, token));
+    } catch {
+      setStorageSubs([]);
     }
   };
 
@@ -653,6 +662,49 @@ export function TutorManagement() {
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
               <TutorDetailSections tutor={viewingTutor} onPreviewImage={setPreviewImage} />
+
+              {/* V29: Gói lưu trữ hiện hành + lịch sử thuê bao */}
+              <div className="rounded-xl border border-blue-200 bg-blue-50 p-3.5 dark:border-blue-800 dark:bg-blue-950/40">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-400">
+                    Gói lưu trữ tài liệu buổi học
+                  </p>
+                  <Badge tone={viewingTutor.storageTier === "FREE" ? "slate" : "blue"}>
+                    {viewingTutor.storageTier || "FREE"}
+                  </Badge>
+                </div>
+                {viewingTutor.storageTierExpiresAt ? (
+                  <p className="mb-2 text-slate-600 dark:text-slate-400">
+                    Hết hạn:{" "}
+                    <span className="font-mono">
+                      {new Date(viewingTutor.storageTierExpiresAt).toLocaleDateString("vi-VN")}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="mb-2 text-slate-500 dark:text-slate-400">Vô thời hạn (gói miễn phí).</p>
+                )}
+                {storageSubs.length === 0 ? (
+                  <p className="text-slate-400 dark:text-slate-500">
+                    Chưa có lần cấp/gia hạn gói trả phí nào.
+                  </p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {storageSubs.map((s) => (
+                      <li
+                        key={s.id}
+                        className="flex items-center justify-between rounded-lg border border-blue-100 bg-white px-2.5 py-1.5 dark:border-blue-900/50 dark:bg-slate-900/50"
+                      >
+                        <span className="font-medium text-slate-700 dark:text-slate-200">
+                          {s.tier} · {s.durationMonths} tháng
+                        </span>
+                        <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                          đến {new Date(s.expiresAt).toLocaleDateString("vi-VN")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
 
             {/* Modal Footer với nút Duyệt / Từ chối nếu PENDING */}
