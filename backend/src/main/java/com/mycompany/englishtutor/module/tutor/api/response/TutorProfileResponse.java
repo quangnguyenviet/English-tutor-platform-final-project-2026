@@ -38,6 +38,10 @@ public class TutorProfileResponse {
     String profileStatus;
     /** Cờ "Đang mở nhận lớp" — gia sư tự bật/tắt, tách biệt với profileStatus. */
     Boolean openToTeaching;
+    /** Gói lưu trữ tài liệu buổi học (V29): FREE / PRO / PREMIUM. */
+    String storageTier;
+    /** Thời điểm gói trả phí hết hạn (V29); NULL = gói FREE (vô thời hạn). */
+    OffsetDateTime storageTierExpiresAt;
     String rejectionReason;
     OffsetDateTime submittedAt;
     OffsetDateTime reviewedAt;

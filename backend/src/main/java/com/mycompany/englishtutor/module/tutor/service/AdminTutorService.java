@@ -25,6 +25,7 @@ import com.mycompany.englishtutor.module.tutor.domain.Tutor;
 import com.mycompany.englishtutor.module.tutor.domain.TutorCredential;
 import com.mycompany.englishtutor.module.tutor.domain.TutorSpecialty;
 import com.mycompany.englishtutor.module.tutor.domain.enums.ProfileStatus;
+import com.mycompany.englishtutor.module.tutor.domain.enums.StorageTier;
 import com.mycompany.englishtutor.module.tutor.repository.TutorCredentialRepository;
 import com.mycompany.englishtutor.module.tutor.repository.TutorRepository;
 import com.mycompany.englishtutor.module.tutor.repository.TutorSpecialtyRepository;
@@ -292,14 +293,32 @@ public class AdminTutorService {
         if (request.getBio() != null) tutor.setBio(request.getBio().trim());
         if (request.getVideoUrl() != null) tutor.setVideoUrl(request.getVideoUrl().trim());
 
+        // Gói lưu trữ tài liệu buổi học (V29): đổi gói + thời hạn theo tháng (lễ tân gán).
+        String oldTier = tutor.getStorageTier();
+        if (request.getStorageTier() != null) {
+            StorageTier tier = StorageTier.valueOf(request.getStorageTier().trim());
+            int months = request.getStorageTierDurationMonths() != null
+                    ? request.getStorageTierDurationMonths() : 1;
+            tutor.setStorageTier(tier.name());
+            tutor.setStorageTierExpiresAt(
+                    tier == StorageTier.FREE ? null
+                            : java.time.OffsetDateTime.now().plusMonths(months));
+        }
+
         tutorRepository.save(tutor);
 
         // Ghi Audit Log
         if (auditLogService != null) {
-            Map<String, Object> details = Map.of(
-                    "action", "Admin update tutor profile",
-                    "updatedBy", actorId
-            );
+            String newTier = tutor.getStorageTier();
+            boolean tierChanged = !oldTier.equals(newTier);
+            Map<String, Object> details = new java.util.HashMap<>();
+            details.put("action", "Admin update tutor profile");
+            details.put("updatedBy", actorId);
+            if (tierChanged) {
+                details.put("oldTier", oldTier);
+                details.put("newTier", newTier);
+                details.put("expiresAt", tutor.getStorageTierExpiresAt());
+            }
             auditLogService.log(actorId, "UPDATE_TUTOR_PROFILE", "TUTOR", tutorId, details, getCurrentHttpRequest());
         }
 

@@ -92,6 +92,8 @@ public class TutorProfileMapper {
                 .videoUrl(tutor.getVideoUrl())
                 .profileStatus(tutor.getProfileStatus())
                 .openToTeaching(tutor.isOpenToTeaching())
+                .storageTier(tutor.getStorageTier())
+                .storageTierExpiresAt(tutor.getStorageTierExpiresAt())
                 .rejectionReason(tutor.getRejectionReason())
                 .submittedAt(tutor.getSubmittedAt())
                 .reviewedAt(tutor.getReviewedAt())

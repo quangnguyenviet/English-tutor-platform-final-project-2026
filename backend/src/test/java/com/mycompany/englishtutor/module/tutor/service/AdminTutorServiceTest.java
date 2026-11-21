@@ -4,8 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.mycompany.englishtutor.module.tutor.api.request.TutorAdminUpdateRequest;
 import java.util.List;
 import java.util.Optional;
 
@@ -319,6 +323,77 @@ class AdminTutorServiceTest {
         // WHEN & THEN
         var exception = assertThrows(AppException.class, () -> adminTutorService.updateStatus(TUTOR_ID, req));
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION);
+    }
+
+    // ------------------------------------------------------------------ updateProfile (V29: gói lưu trữ)
+
+    @Test
+    void updateProfile_setProTier_savesTierWithExpiryAndAudits() {
+        // GIVEN
+        when(userRepository.findByUsername(anyString())).thenReturn(Optional.of(reviewer));
+        when(tutorRepository.findDetailById(TUTOR_ID)).thenReturn(Optional.of(tutor));
+        when(tutorRepository.save(any(Tutor.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tutorProfileMapper.mapToResponse(any(), any()))
+                .thenReturn(TutorProfileResponse.builder().tutorId(TUTOR_ID).build());
+
+        var request = com.mycompany.englishtutor.module.tutor.api.request.TutorAdminUpdateRequest.builder()
+                .storageTier("PRO")
+                .storageTierDurationMonths(3)
+                .build();
+
+        // WHEN
+        adminTutorService.updateProfile(TUTOR_ID, request);
+
+        // THEN
+        assertThat(tutor.getStorageTier()).isEqualTo("PRO");
+        assertThat(tutor.getStorageTierExpiresAt())
+                .isAfter(java.time.OffsetDateTime.now().plusMonths(2))
+                .isBefore(java.time.OffsetDateTime.now().plusMonths(4));
+        verify(auditLogService).log(
+                eq(REVIEWER_ID), eq("UPDATE_TUTOR_PROFILE"), eq("TUTOR"), eq(TUTOR_ID),
+                argThat((java.util.Map<String, Object> m) -> "PRO".equals(m.get("newTier"))
+                        && "FREE".equals(m.get("oldTier"))),
+                any());
+    }
+
+    @Test
+    void updateProfile_setFreeTier_clearsExpiry() {
+        // GIVEN
+        tutor.setStorageTier("PRO");
+        tutor.setStorageTierExpiresAt(java.time.OffsetDateTime.now().plusDays(30));
+        when(userRepository.findByUsername(anyString())).thenReturn(Optional.of(reviewer));
+        when(tutorRepository.findDetailById(TUTOR_ID)).thenReturn(Optional.of(tutor));
+        when(tutorRepository.save(any(Tutor.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tutorProfileMapper.mapToResponse(any(), any()))
+                .thenReturn(TutorProfileResponse.builder().tutorId(TUTOR_ID).build());
+
+        var request = com.mycompany.englishtutor.module.tutor.api.request.TutorAdminUpdateRequest.builder()
+                .storageTier("FREE")
+                .build();
+
+        // WHEN
+        adminTutorService.updateProfile(TUTOR_ID, request);
+
+        // THEN
+        assertThat(tutor.getStorageTier()).isEqualTo("FREE");
+        assertThat(tutor.getStorageTierExpiresAt()).isNull();
+    }
+
+    @Test
+    void updateProfile_noTierInRequest_keepsExistingTier() {
+        // GIVEN
+        tutor.setStorageTier("PREMIUM");
+        when(userRepository.findByUsername(anyString())).thenReturn(Optional.of(reviewer));
+        when(tutorRepository.findDetailById(TUTOR_ID)).thenReturn(Optional.of(tutor));
+        when(tutorRepository.save(any(Tutor.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tutorProfileMapper.mapToResponse(any(), any()))
+                .thenReturn(TutorProfileResponse.builder().tutorId(TUTOR_ID).build());
+
+        // WHEN
+        adminTutorService.updateProfile(TUTOR_ID, TutorAdminUpdateRequest.builder().build());
+
+        // THEN
+        assertThat(tutor.getStorageTier()).isEqualTo("PREMIUM");
     }
 }
 
