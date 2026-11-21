@@ -36,6 +36,9 @@ import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepo
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.ScheduleSlotRow;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.TeachingLogRow;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.TrialSlotRow;
+import com.mycompany.englishtutor.module.tutor.domain.Tutor;
+import com.mycompany.englishtutor.module.tutor.domain.enums.StorageTier;
+import com.mycompany.englishtutor.module.tutor.repository.TutorRepository;
 import com.mycompany.englishtutor.module.tutor.service.StorageService;
 import com.mycompany.englishtutor.module.user.domain.User;
 import com.mycompany.englishtutor.module.user.domain.UserRole;
@@ -90,6 +93,7 @@ public class ClassOccurrenceService {
     UserRepository userRepository;
     AuditLogService auditLogService;
     StorageService storageService;
+    TutorRepository tutorRepository;
 
     // ------------------------------------------------------------- LATTICE (đọc)
 
@@ -502,6 +506,8 @@ public class ClassOccurrenceService {
         if (file.getSize() > MATERIAL_MAX_BYTES) {
             throw new AppException(ErrorCode.MATERIAL_FILE_TOO_LARGE);
         }
+
+        checkStorageQuota(lesson.tutorId(), file.getSize());
         String fileType = resolveMaterialType(file);
 
         String fileUrl =
@@ -651,6 +657,56 @@ public class ClassOccurrenceService {
         if (!userId.equals(state.tutorId()) && !userId.equals(state.studentId())) {
             throw new AppException(ErrorCode.CLASS_NOT_OWNED);
         }
+    }
+
+    /**
+     * Gate quota lưu trữ theo gói gia sư (V29): chặn upload nếu {@code used + newSize} vượt dung
+     * lượng của gói hiệu lực (gói trả phí hết hạn tự hạ về FREE). Gọi TRƯỚC khi ghi MinIO.
+     * Phân biệt 2 mã lỗi để frontend hiện đúng CTA: 1603 (vượt quota gói còn hạn) vs
+     * 1604 (gói trả phí đã hết hạn).
+     */
+    private void checkStorageQuota(Long tutorId, long newSize) {
+        Tutor tutor =
+                tutorRepository
+                        .findDetailById(tutorId)
+                        .orElseThrow(() -> new AppException(ErrorCode.MATERIAL_NOT_FOUND));
+        long used = classroomRepository.sumTutorMaterialBytes(tutorId);
+        java.time.OffsetDateTime now = java.time.OffsetDateTime.now();
+        StorageTier tier = StorageTier.valueOf(tutor.getStorageTier());
+        StorageTier effective = StorageTier.effective(tutor.getStorageTier(),
+                tutor.getStorageTierExpiresAt(), now);
+        long quota = effective.quotaBytes();
+        if (used + newSize > quota) {
+            boolean expired = effective == StorageTier.FREE && tier != StorageTier.FREE;
+            if (expired) {
+                throw new AppException(ErrorCode.TUTOR_STORAGE_TIER_EXPIRED,
+                        String.format(
+                                "Gói %s đã hết hạn (hạn dùng %s), hiện áp dụng %s; tệp %s vượt dung lượng.",
+                                tier,
+                                DATE_FMT.format(tutor.getStorageTierExpiresAt().toLocalDate()),
+                                formatBytes(quota),
+                                formatBytes(newSize)));
+            } else {
+                throw new AppException(ErrorCode.TUTOR_STORAGE_QUOTA_EXCEEDED,
+                        String.format(
+                                "Gói %s đã dùng %s / %s; tệp %s sẽ vượt quá dung lượng.",
+                                tier, formatBytes(used), formatBytes(quota), formatBytes(newSize)));
+            }
+        }
+    }
+
+    /** Định dạng byte thành chuỗi dễ đọc (B/KB/MB/GB) cho message lỗi. */
+    private static String formatBytes(long bytes) {
+        if (bytes >= 1024L * 1024 * 1024) {
+            return String.format("%.1f GB", bytes / (1024.0 * 1024 * 1024));
+        }
+        if (bytes >= 1024L * 1024) {
+            return String.format("%.1f MB", bytes / (1024.0 * 1024));
+        }
+        if (bytes >= 1024L) {
+            return String.format("%.1f KB", bytes / 1024.0);
+        }
+        return bytes + " B";
     }
 
     private Long currentUserId() {

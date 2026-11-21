@@ -101,6 +101,9 @@ class ClassOccurrenceServiceTest {
     @Mock
     com.mycompany.englishtutor.module.tutor.service.StorageService storageService;
 
+    @Mock
+    com.mycompany.englishtutor.module.tutor.repository.TutorRepository tutorRepository;
+
     @InjectMocks
     ClassOccurrenceService classOccurrenceService;
 
@@ -117,6 +120,9 @@ class ClassOccurrenceServiceTest {
                         .fullName("Trần Gia Sư")
                         .role(UserRole.TUTOR.name())
                         .build()));
+        // Default quota context (V29): FREE, vô thời hạn, chưa dùng gì → các test
+        // không liên quan quota vẫn chạy như trước; test quota riêng sẽ override lại.
+        when(tutorRepository.findDetailById(TUTOR_ID)).thenReturn(Optional.of(freeTierTutor()));
         httpRequest = new MockHttpServletRequest(HttpMethod.GET.name(), "/api/v1/classes/1/schedule");
     }
 
@@ -172,6 +178,22 @@ class ClassOccurrenceServiceTest {
                 materialId, 42L, CLASS_ID, TUTOR_ID, STUDENT_ID,
                 "bai-hoc.pdf", "https://minio.local/englishpath/x/1.pdf", "PDF",
                 1_000L, "Trần Gia Sư", OffsetDateTime.now());
+    }
+
+    // Helpers quota lưu trữ (V29)
+    private com.mycompany.englishtutor.module.tutor.domain.Tutor freeTierTutor() {
+        return com.mycompany.englishtutor.module.tutor.domain.Tutor.builder()
+                .id(TUTOR_ID)
+                .storageTier("FREE")
+                .build();
+    }
+
+    private com.mycompany.englishtutor.module.tutor.domain.Tutor tutor(String tier, OffsetDateTime expiresAt) {
+        return com.mycompany.englishtutor.module.tutor.domain.Tutor.builder()
+                .id(TUTOR_ID)
+                .storageTier(tier)
+                .storageTierExpiresAt(expiresAt)
+                .build();
     }
 
     private static void assertErrorCode(Runnable action, ErrorCode expected) {
@@ -817,6 +839,60 @@ class ClassOccurrenceServiceTest {
         assertErrorCode(
                 () -> classOccurrenceService.uploadMaterial(42L, file, httpRequest),
                 ErrorCode.CLASS_NOT_OWNED);
+    }
+
+    // ---------------------------------------------------------------- STORAGE QUOTA (V29)
+
+    @Test
+    void uploadMaterial_quotaExceeded_throws1603() {
+        long freeQuota = 1L * 1024 * 1024 * 1024; // 1 GB (FREE)
+        when(classroomRepository.lockLesson(42L)).thenReturn(Optional.of(lessonRow()));
+        when(tutorRepository.findDetailById(TUTOR_ID)).thenReturn(Optional.of(freeTierTutor()));
+        when(classroomRepository.sumTutorMaterialBytes(TUTOR_ID)).thenReturn(freeQuota - 1);
+        var file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "big.pdf", "application/pdf", "xx".getBytes());
+
+        assertErrorCode(
+                () -> classOccurrenceService.uploadMaterial(42L, file, httpRequest),
+                ErrorCode.TUTOR_STORAGE_QUOTA_EXCEEDED);
+        verify(storageService, never()).uploadFile(any(), any(), anyLong());
+    }
+
+    @Test
+    void uploadMaterial_withinQuota_succeeds() {
+        when(classroomRepository.lockLesson(42L)).thenReturn(Optional.of(lessonRow()));
+        when(tutorRepository.findDetailById(TUTOR_ID)).thenReturn(Optional.of(freeTierTutor()));
+        when(classroomRepository.sumTutorMaterialBytes(TUTOR_ID)).thenReturn(0L);
+        var file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "ok.pdf", "application/pdf", "xx".getBytes());
+        when(storageService.uploadFile(eq("lesson-materials/42"), eq(file), anyLong()))
+                .thenReturn("https://minio.local/englishpath/x/1.pdf");
+        when(classroomRepository.insertLessonMaterial(eq(42L), eq(TUTOR_ID), eq("ok.pdf"),
+                eq("https://minio.local/englishpath/x/1.pdf"), eq("PDF"), eq(2L)))
+                .thenReturn(40L);
+        when(classroomRepository.findLessonMaterial(42L, 40L))
+                .thenReturn(Optional.of(materialRow(40L)));
+
+        var result = classOccurrenceService.uploadMaterial(42L, file, httpRequest);
+
+        assertEquals("PDF", result.getFileType());
+        verify(storageService).uploadFile(eq("lesson-materials/42"), eq(file), anyLong());
+    }
+
+    @Test
+    void uploadMaterial_tierExpired_throws1604() {
+        long freeQuota = 1L * 1024 * 1024 * 1024; // PRO hết hạn → effective FREE (1 GB)
+        when(classroomRepository.lockLesson(42L)).thenReturn(Optional.of(lessonRow()));
+        when(tutorRepository.findDetailById(TUTOR_ID))
+                .thenReturn(Optional.of(tutor("PRO", OffsetDateTime.now().minusDays(1))));
+        when(classroomRepository.sumTutorMaterialBytes(TUTOR_ID)).thenReturn(freeQuota - 1);
+        var file = new org.springframework.mock.web.MockMultipartFile(
+                "file", "big.pdf", "application/pdf", "xx".getBytes());
+
+        assertErrorCode(
+                () -> classOccurrenceService.uploadMaterial(42L, file, httpRequest),
+                ErrorCode.TUTOR_STORAGE_TIER_EXPIRED);
+        verify(storageService, never()).uploadFile(any(), any(), anyLong());
     }
 
     @Test
