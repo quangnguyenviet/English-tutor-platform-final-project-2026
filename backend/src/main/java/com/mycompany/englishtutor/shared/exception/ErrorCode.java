@@ -266,6 +266,11 @@ public enum ErrorCode {
     PASSWORD_CHANGE_REQUIRED(1600, "Bạn cần đổi mật khẩu trước khi tiếp tục sử dụng hệ thống", HttpStatus.FORBIDDEN),
     EMPLOYEE_STATUS_VALUE_INVALID(1601, "Giá trị trạng thái nhân sự không hợp lệ", HttpStatus.BAD_REQUEST),
     EMPLOYEE_CONTACT_EXISTED(1602, "Email hoặc Số điện thoại đã được đăng ký trong hệ thống", HttpStatus.BAD_REQUEST),
+    // --- Quota lưu trữ tài liệu theo gói gia sư (tutors.storage_tier, V29) ---
+    TUTOR_STORAGE_QUOTA_EXCEEDED(
+            1603, "Đã vượt dung lượng lưu trữ tối đa của gói hiện tại", HttpStatus.BAD_REQUEST),
+    TUTOR_STORAGE_TIER_EXPIRED(
+            1604, "Gói lưu trữ trả phí đã hết hạn, vui lòng liên hệ lễ tân để gia hạn", HttpStatus.BAD_REQUEST),
     // --- Nhắn tin & đề xuất lớp học MSG (1700 – 1799) ---
     CHAT_UNAVAILABLE(1700, "Dịch vụ nhắn tin tạm thời không khả dụng, vui lòng thử lại sau", HttpStatus.SERVICE_UNAVAILABLE),
     CHAT_PARENT_PROFILE_INCOMPLETE(

@@ -2,6 +2,7 @@ package com.mycompany.englishtutor.module.tutor.domain;
 
 import jakarta.persistence.*;
 
+import com.mycompany.englishtutor.module.tutor.domain.enums.StorageTier;
 import org.hibernate.annotations.ColumnDefault;
 
 import lombok.*;
@@ -73,6 +74,21 @@ public class Tutor {
     @Builder.Default
     @Column(name = "is_open_to_teaching", nullable = false)
     Boolean openToTeaching = Boolean.TRUE;
+
+    /**
+     * Gói lưu trữ tài liệu buổi học (V29): FREE / PRO / PREMIUM, quota theo {@code StorageTier}.
+     * Gói trả phí có thời hạn theo tháng qua {@link #storageTierExpiresAt}.
+     */
+    @Builder.Default
+    @Column(name = "storage_tier", nullable = false, length = 10)
+    String storageTier = StorageTier.FREE.name();
+
+    /**
+     * Thời điểm gói trả phí hết hạn (V29); NULL = gói FREE (vô thời hạn).
+     * Qua hạn → quota hạ về FREE khi kiểm tra upload kế tiếp.
+     */
+    @Column(name = "storage_tier_expires_at")
+    java.time.OffsetDateTime storageTierExpiresAt;
 
     @Column(name = "updated_at", nullable = false, insertable = false)
     @ColumnDefault("NOW()")
