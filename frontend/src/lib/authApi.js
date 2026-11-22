@@ -129,6 +129,26 @@ export async function apiIntrospect(token) {
 }
 
 /**
+ * Gia hạn phiên — POST /api/v1/auth/refresh. Token cũ có thể đã hết hạn miễn là còn trong thời hạn gia hạn của backend.
+ *
+ * @param {string} token
+ * @returns {Promise<string|null>} token mới, hoặc null nếu không gia hạn được (phải đăng nhập lại)
+ */
+export async function apiRefreshToken(token) {
+  try {
+    const res = await fetch(`${BASE}/api/v1/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const data = await res.json();
+    return res.ok && data.result?.authenticated ? data.result.token : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Tạo Authorization header chuẩn Bearer cho các API call sau này.
  *
  * @param {string} token

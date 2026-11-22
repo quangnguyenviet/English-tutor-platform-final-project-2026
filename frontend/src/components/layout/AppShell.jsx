@@ -79,7 +79,6 @@ function AppShellInner() {
 
   const isTutor = session?.role === "tutor";
   const isStudent = session?.role === "student";
-  const isParent = session?.role === "parent";
   const isAdmin = session?.role === "admin";
   const isReceptionist = session?.role === "receptionist";
   const isAccountant = session?.role === "accountant";
@@ -248,13 +247,6 @@ function AppShellInner() {
       { to: "/tutor/payments", label: "Phí nhận lớp", icon: Banknote },
       { to: "/tutor/profile", label: "Hồ sơ", icon: IdCard },
       { to: "/tutor/settings", label: "Cài đặt", icon: Settings },
-    ];
-  } else if (isParent) {
-    items = [
-      { to: "/parent/messages", label: "Tin nhắn", icon: MessageCircle },
-      { to: "/parent/postings", label: "Tin tìm gia sư", icon: Megaphone },
-      { to: "/parent/explore", label: "Khám phá gia sư", icon: Search },
-      { to: "/parent/progress", label: "Tiến độ của con", icon: LineChart },
     ];
   } else if (isStudent) {
     const isMatched = studentMatching?.studentStatus === "MATCHED";

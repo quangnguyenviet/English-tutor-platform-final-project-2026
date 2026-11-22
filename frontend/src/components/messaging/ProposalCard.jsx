@@ -97,6 +97,18 @@ export default function ProposalCard({ proposal, viewer, token, onAccept, onReje
           <dt className="text-xs text-slate-500 dark:text-slate-400">Hình thức</dt>
           <dd className="text-slate-900 dark:text-white">{CLASS_MODE_LABEL[proposal.classMode]}</dd>
         </div>
+        {proposal.classMode === "AT_HOME" && proposal.learningAddress && (
+          <div className="col-span-2">
+            <dt className="text-xs text-slate-500 dark:text-slate-400">Địa chỉ học</dt>
+            <dd className="text-slate-900 dark:text-white">{proposal.learningAddress}</dd>
+          </div>
+        )}
+        {viewer === "TUTOR" && proposal.status === "ACCEPTED" && proposal.parentPhone && (
+          <div className="col-span-2">
+            <dt className="text-xs text-slate-500 dark:text-slate-400">Số điện thoại phụ huynh</dt>
+            <dd className="font-mono font-medium text-emerald-700 dark:text-emerald-400">{proposal.parentPhone}</dd>
+          </div>
+        )}
         {proposal.note && (
           <div className="col-span-2">
             <dt className="text-xs text-slate-500 dark:text-slate-400">Ghi chú</dt>

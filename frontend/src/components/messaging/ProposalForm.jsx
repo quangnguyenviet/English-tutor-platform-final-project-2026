@@ -26,6 +26,7 @@ export default function ProposalForm({ roomId, childrenOfParent = [], token, onC
     trialTimeFrom: "19:00",
     trialTimeTo: "20:00",
     classMode: "ONLINE",
+    learningAddress: "",
     note: "",
   });
   const [saving, setSaving] = useState(false);
@@ -33,7 +34,8 @@ export default function ProposalForm({ roomId, childrenOfParent = [], token, onC
 
   const studentValid = studentMode === "existing" ? Boolean(form.studentId) : form.studentName.trim().length >= 2;
   const valid = useMemo(
-    () => studentValid && Number(form.pricePerSession) >= 10000 && form.scheduleDays.length > 0 && form.trialDate,
+    () => studentValid && Number(form.pricePerSession) >= 10000 && form.scheduleDays.length > 0 && form.trialDate
+      && (form.classMode !== "AT_HOME" || form.learningAddress.trim().length >= 5),
     [studentValid, form]
   );
 
@@ -59,6 +61,7 @@ export default function ProposalForm({ roomId, childrenOfParent = [], token, onC
         trialTimeFrom: form.trialTimeFrom,
         trialTimeTo: form.trialTimeTo,
         classMode: form.classMode,
+        learningAddress: form.classMode === "AT_HOME" ? form.learningAddress.trim() : null,
         note: form.note.trim() || null,
       };
       const created = await apiCreateProposal(roomId, payload, token);
@@ -164,6 +167,14 @@ export default function ProposalForm({ roomId, childrenOfParent = [], token, onC
               {Object.entries(CLASS_MODE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
+          {form.classMode === "AT_HOME" && (
+            <label className="space-y-1.5 text-sm font-medium text-slate-900 dark:text-white sm:col-span-2">
+              Địa chỉ học
+              <input className={inputClass} maxLength={500} value={form.learningAddress}
+                placeholder="Số nhà, đường, phường/xã, quận/huyện"
+                onChange={(e) => setForm({ ...form, learningAddress: e.target.value })} />
+            </label>
+          )}
           <label className="space-y-1.5 text-sm font-medium text-slate-900 dark:text-white sm:col-span-2">
             Ghi chú (không bắt buộc)
             <textarea rows={2} maxLength={1000} className={inputClass} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />

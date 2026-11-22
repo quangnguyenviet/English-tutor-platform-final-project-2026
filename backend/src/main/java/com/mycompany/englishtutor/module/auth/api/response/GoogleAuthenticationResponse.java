@@ -15,4 +15,7 @@ public class GoogleAuthenticationResponse {
     String email;
     String avatarUrl;
     String role;
+
+    /** Chỉ có với gia sư (INCOMPLETE, PENDING, ACTIVE, REJECTED...) để frontend điều hướng. */
+    String profileStatus;
 }
