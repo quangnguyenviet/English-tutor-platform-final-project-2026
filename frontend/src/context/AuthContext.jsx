@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { tutors, tutor, students, matchRequests, paymentProofs, receptionists, receptionist as receptionistData, studentNotifications as studentNotificationsData } from "../data/mockData";
-import { apiLogin, apiChangePassword, apiLogout, apiIntrospect, apiRegisterTutor } from "../lib/authApi";
+import { apiLogin, apiChangePassword, apiLogout, apiIntrospect, apiRegisterTutor, apiRefreshToken } from "../lib/authApi";
 import { decodeJwt, scopeToRole, isTokenExpired } from "../lib/jwtDecode";
 import { beginGoogleOAuth, completeGoogleOAuth } from "../lib/googleOAuth";
 
@@ -116,20 +116,33 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      // Kiểm tra token hết hạn phía client trước (nhanh, không tốn network)
+      // Token hết hạn (thường sau 1 giờ) nhưng còn trong thời hạn gia hạn thì tự gia hạn, không bắt đăng nhập lại.
+      let activeToken = savedToken;
+      let savedSessionData = savedSession;
       if (isTokenExpired(savedToken)) {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(STORAGE_KEY);
-        setAuthLoading(false);
-        return;
+        const renewed = await apiRefreshToken(savedToken);
+        if (!renewed) {
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(STORAGE_KEY);
+          setAuthLoading(false);
+          return;
+        }
+        activeToken = renewed;
+        try {
+          savedSessionData = JSON.stringify({ ...JSON.parse(savedSession), exp: decodeJwt(renewed)?.exp });
+        } catch {
+          savedSessionData = savedSession;
+        }
+        localStorage.setItem(TOKEN_KEY, renewed);
+        localStorage.setItem(STORAGE_KEY, savedSessionData);
       }
 
       // Introspect với server để xác nhận token chưa bị blacklist
-      const valid = await apiIntrospect(savedToken);
+      const valid = await apiIntrospect(activeToken);
       if (valid) {
         try {
-          setSession(JSON.parse(savedSession));
-          setToken(savedToken);
+          setSession(JSON.parse(savedSessionData));
+          setToken(activeToken);
         } catch {
           localStorage.removeItem(TOKEN_KEY);
           localStorage.removeItem(STORAGE_KEY);
@@ -144,6 +157,28 @@ export function AuthProvider({ children }) {
 
     restoreSession();
   }, []);
+
+  // Khi đang mở app: tự gia hạn token trước lúc hết hạn 5 phút để phiên không bị ngắt giữa chừng.
+  useEffect(() => {
+    if (!token) return undefined;
+    const exp = decodeJwt(token)?.exp;
+    if (!exp) return undefined;
+    const delay = Math.max(exp * 1000 - Date.now() - 5 * 60 * 1000, 10 * 1000);
+    const timer = setTimeout(async () => {
+      const renewed = await apiRefreshToken(token);
+      if (!renewed) return;
+      const newExp = decodeJwt(renewed)?.exp;
+      localStorage.setItem(TOKEN_KEY, renewed);
+      setSession((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev, exp: newExp };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        return next;
+      });
+      setToken(renewed);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [token]);
 
   /**
    * Đăng nhập thực với backend — gọi POST /api/v1/auth/token.
@@ -190,16 +225,17 @@ export function AuthProvider({ children }) {
     return { role, profileStatus: profileStatus ?? null, mustChangePassword: newSession.mustChangePassword };
   }
 
-  async function loginParentWithGoogle(returnTo) {
-    await beginGoogleOAuth(returnTo);
+  /** Bắt đầu đăng nhập Google cho phụ huynh (mặc định) hoặc gia sư ("TUTOR"). */
+  async function loginWithGoogle(returnTo, accountRole = "PARENT") {
+    await beginGoogleOAuth(returnTo, accountRole);
   }
 
-  async function completeParentGoogleLogin(code, state) {
+  async function completeGoogleLogin(code, state) {
     const { result, returnTo } = await completeGoogleOAuth(code, state);
     const payload = decodeJwt(result.token);
     const role = scopeToRole(payload?.scope);
-    if (role !== "parent") {
-      throw new Error("Tài khoản Google không có quyền phụ huynh.");
+    if (role !== "parent" && role !== "tutor") {
+      throw new Error("Tài khoản Google không có quyền đăng nhập.");
     }
 
     const initials = result.fullName
@@ -225,7 +261,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
     setToken(result.token);
     setSession(newSession);
-    return { returnTo, newUser: result.newUser };
+    return { returnTo, newUser: result.newUser, role, profileStatus: result.profileStatus ?? null };
   }
 
   /** Đổi mật khẩu rồi gỡ cờ bắt buộc đổi khỏi session. */
@@ -578,8 +614,8 @@ export function AuthProvider({ children }) {
         token,
         authLoading,
         login,
-        loginParentWithGoogle,
-        completeParentGoogleLogin,
+        loginWithGoogle,
+        completeGoogleLogin,
         changePassword,
         logout,
         registerAsTutor,

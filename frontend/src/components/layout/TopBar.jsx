@@ -8,7 +8,9 @@ import Avatar from "../ui/Avatar";
 import Button from "../ui/Button";
 import StudentNotificationBell from "../student/StudentNotificationBell";
 
-const roleLabel = { admin: "Quản trị viên", tutor: "Gia sư", student: "Học sinh" };
+import { ROLE_LABELS } from "../../lib/authRoutes";
+
+const roleLabel = ROLE_LABELS;
 
 const routeMeta = {
   admin: {

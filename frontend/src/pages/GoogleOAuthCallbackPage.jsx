@@ -4,13 +4,14 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import ThemeToggle from "../components/theme-toggle";
 import { useAuth } from "../context/AuthContext";
+import { ROLE_ROUTES } from "../lib/authRoutes";
 
 export default function GoogleOAuthCallbackPage() {
   const [searchParams] = useSearchParams();
   const [error, setError] = useState("");
   const started = useRef(false);
   const navigate = useNavigate();
-  const { completeParentGoogleLogin } = useAuth();
+  const { completeGoogleLogin } = useAuth();
 
   useEffect(() => {
     if (started.current) return;
@@ -24,10 +25,15 @@ export default function GoogleOAuthCallbackPage() {
       return;
     }
 
-    completeParentGoogleLogin(code, state)
-      .then(({ returnTo }) => navigate(returnTo, { replace: true }))
+    completeGoogleLogin(code, state)
+      .then(({ returnTo, role, profileStatus }) => {
+        // Phụ huynh quay lại đúng trang đang xem trước khi đăng nhập; gia sư vào khu làm việc (hồ sơ nếu chưa hoàn thiện).
+        const needsProfile = role === "tutor" && ["INCOMPLETE", "REJECTED"].includes(profileStatus);
+        const target = role === "parent" ? returnTo : (needsProfile ? "/tutor/profile" : ROLE_ROUTES[role]);
+        navigate(target, { replace: true });
+      })
       .catch((exception) => setError(exception.message || "Đăng nhập Google thất bại."));
-  }, [completeParentGoogleLogin, navigate, searchParams]);
+  }, [completeGoogleLogin, navigate, searchParams]);
 
   return (
     <div className="min-h-screen bg-background text-foreground p-4 sm:p-6">

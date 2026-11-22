@@ -97,6 +97,10 @@ public class ProposalService {
         }
 
         Parsed parsed = validate(request, access.room().parentId());
+        String learningAddress = "AT_HOME".equals(request.classMode()) ? trim(request.learningAddress()) : null;
+        if ("AT_HOME".equals(request.classMode()) && (learningAddress == null || learningAddress.length() < 5)) {
+            throw new AppException(ErrorCode.PROPOSAL_INVALID_SCHEDULE, "Vui lòng nhập địa chỉ học tại nhà");
+        }
         scanForContactInfo(request);
         BigDecimal fee = feePolicies.currentPercentage(request.classType());
 
@@ -111,8 +115,8 @@ public class ProposalService {
                         room_id, tutor_id, version, student_id, student_name, student_grade, student_school,
                         student_learning_goal, class_type, fee_percentage, price_per_session, schedule_days,
                         schedule_time_from, schedule_time_to, trial_date, trial_time_from, trial_time_to,
-                        class_mode, note, expires_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::int[], ?, ?, ?, ?, ?, ?, ?,
+                        class_mode, learning_address, note, expires_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::int[], ?, ?, ?, ?, ?, ?, ?, ?,
                               NOW() + (? || ' days')::interval) RETURNING id
                     """,
                     Long.class, roomId, tutorId, version, request.studentId(),
@@ -122,7 +126,7 @@ public class ProposalService {
                     request.studentId() == null ? trim(request.studentLearningGoal()) : null,
                     request.classType(), fee, request.pricePerSession(), toPgArray(parsed.days()),
                     parsed.scheduleFrom(), parsed.scheduleTo(), parsed.trialDate(), parsed.trialFrom(), parsed.trialTo(),
-                    request.classMode(), trim(request.note()), String.valueOf(properties.getProposalExpireDays()));
+                    request.classMode(), learningAddress, trim(request.note()), String.valueOf(properties.getProposalExpireDays()));
         } catch (DuplicateKeyException e) {
             throw new AppException(ErrorCode.PROPOSAL_DUPLICATE_PENDING);
         }
@@ -244,7 +248,7 @@ public class ProposalService {
 
     /** Các trường văn bản tự do của đề xuất cũng không được chứa thông tin liên hệ. */
     private void scanForContactInfo(ProposalRequest r) {
-        for (String field : new String[] {r.note(), r.studentName(), r.studentSchool(), r.studentLearningGoal()}) {
+        for (String field : new String[] {r.note(), r.studentName(), r.studentSchool(), r.studentLearningGoal(), r.learningAddress()}) {
             PiiDetector.Detection detection = piiDetector.detect(field);
             if (detection.blocked()) {
                 throw new PiiBlockedException(detection.violations().stream()

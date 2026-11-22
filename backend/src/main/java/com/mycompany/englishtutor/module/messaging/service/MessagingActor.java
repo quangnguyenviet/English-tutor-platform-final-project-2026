@@ -23,9 +23,11 @@ public class MessagingActor {
 
     /** Hồ sơ phụ huynh của tài khoản PARENT đang đăng nhập. */
     public record ParentRef(
-            Long parentId, Long userId, String fullName, String phone, String purpose, String province, String district) {
+            Long parentId, Long userId, String fullName, String phone, String purpose, String province, String district,
+            String address) {
         public boolean profileComplete() {
-            return phone != null && purpose != null && province != null && district != null;
+            return phone != null && purpose != null && province != null && district != null
+                    && address != null && !address.isBlank();
         }
     }
 
@@ -70,7 +72,7 @@ public class MessagingActor {
 
     public ParentRef parentOfUser(Long userId) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT id, full_name, phone, purpose, province, district FROM parents WHERE user_id = ?", userId);
+                "SELECT id, full_name, phone, purpose, province, district, address FROM parents WHERE user_id = ?", userId);
         if (rows.isEmpty()) {
             throw new AppException(ErrorCode.CHAT_PARENT_ONLY);
         }
@@ -82,7 +84,8 @@ public class MessagingActor {
                 (String) r.get("phone"),
                 (String) r.get("purpose"),
                 (String) r.get("province"),
-                (String) r.get("district"));
+                (String) r.get("district"),
+                (String) r.get("address"));
     }
 
     /** Gia sư dùng chung id với users. */

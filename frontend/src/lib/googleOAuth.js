@@ -23,10 +23,13 @@ async function sha256Base64Url(value) {
 }
 
 function safeReturnTo(value) {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : "/";
+  if (!value?.startsWith("/") || value.startsWith("//")) return "/";
+  // Không quay lại chính trang đăng nhập / callback.
+  return /^\/(login|auth\/)/.test(value) ? "/" : value;
 }
 
-export async function beginGoogleOAuth(returnTo = "/") {
+/** @param {"PARENT"|"TUTOR"} [role] loại tài khoản đang đăng nhập, gửi kèm khi đổi mã ở backend. */
+export async function beginGoogleOAuth(returnTo = "/", role = "PARENT") {
   const codeVerifier = randomValue(64);
   const codeChallenge = await sha256Base64Url(codeVerifier);
   const state = randomValue(32);
@@ -46,6 +49,7 @@ export async function beginGoogleOAuth(returnTo = "/") {
     nonce,
     redirectUri,
     returnTo: safeReturnTo(returnTo),
+    role: role === "TUTOR" ? "TUTOR" : "PARENT",
     createdAt: Date.now(),
   }));
   window.location.assign(authorizationUrl);
@@ -73,6 +77,7 @@ export async function completeGoogleOAuth(code, returnedState) {
     codeVerifier: transaction.codeVerifier,
     redirectUri: transaction.redirectUri,
     nonce: transaction.nonce,
+    role: transaction.role === "TUTOR" ? "TUTOR" : "PARENT",
   });
   return { result, returnTo: safeReturnTo(transaction.returnTo) };
 }

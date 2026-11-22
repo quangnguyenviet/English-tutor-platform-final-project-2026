@@ -1,6 +1,7 @@
 package com.mycompany.englishtutor.module.auth.api.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import lombok.AccessLevel;
@@ -26,4 +27,8 @@ public class GoogleOAuthCallbackRequest {
 
     @NotBlank
     String nonce;
+
+    /** Loại tài khoản đăng nhập: PARENT (mặc định) hoặc TUTOR. */
+    @Pattern(regexp = "PARENT|TUTOR", message = "Loại tài khoản không hợp lệ")
+    String role;
 }

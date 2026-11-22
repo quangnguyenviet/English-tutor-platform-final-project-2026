@@ -49,11 +49,11 @@ public class ParentProfileService {
         }
         jdbcTemplate.update(
                 """
-                UPDATE parents SET phone = ?, full_name = ?, purpose = ?, province = ?, district = ?, updated_at = NOW()
+                UPDATE parents SET phone = ?, full_name = ?, purpose = ?, province = ?, district = ?, address = ?, updated_at = NOW()
                 WHERE id = ?
                 """,
                 phone, request.fullName().trim(), request.purpose(), request.province().trim(),
-                request.district().trim(), parent.parentId());
+                request.district().trim(), request.address().trim(), parent.parentId());
         auditLogService.log(parent.userId(), "UPDATE_PARENT_PROFILE", "PARENT", parent.parentId(), null, http);
         return toResponse(actor.parentOfUser(parent.userId()));
     }
@@ -68,6 +68,6 @@ public class ParentProfileService {
                 parent.parentId());
         return new ParentProfileResponse(
                 parent.parentId(), parent.fullName(), parent.phone(), parent.purpose(), parent.province(),
-                parent.district(), parent.profileComplete(), children);
+                parent.district(), parent.address(), parent.profileComplete(), children);
     }
 }

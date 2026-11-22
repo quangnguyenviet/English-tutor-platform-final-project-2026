@@ -48,6 +48,10 @@ public final class ChatDtos {
     /** Tài khoản học sinh tạo lần đầu; password chỉ có khi học sinh chưa đổi mật khẩu mặc định. */
     public record StudentAccountInfo(String studentName, String username, String initialPassword, boolean passwordChanged) {}
 
+    /**
+     * {@code learningAddress}: địa chỉ học offline do gia sư nhập (bắt buộc khi dạy tại nhà). {@code parentPhone}:
+     * chỉ có khi đề xuất đã được đồng ý (Phone Gate), null ở mọi trạng thái khác.
+     */
     public record ProposalItem(
             Long id,
             Long roomId,
@@ -70,7 +74,9 @@ public final class ChatDtos {
             String createdAt,
             String expiresAt,
             Long classId,
-            boolean studentConflict) {}
+            boolean studentConflict,
+            String learningAddress,
+            String parentPhone) {}
 
     /** type: TEXT | SYSTEM | PROPOSAL. */
     public record MessageItem(
@@ -115,6 +121,7 @@ public final class ChatDtos {
             @NotBlank(message = "Vui lòng nhập giờ bắt đầu dạy thử") String trialTimeFrom,
             @NotBlank(message = "Vui lòng nhập giờ kết thúc dạy thử") String trialTimeTo,
             @NotBlank(message = "Vui lòng chọn hình thức dạy") String classMode,
+            @Size(max = 500, message = "Địa chỉ tối đa 500 ký tự") String learningAddress,
             @Size(max = 1000) String note) {}
 
     public record RejectRequest(@Size(max = 500, message = "Lý do tối đa 500 ký tự") String reason) {}

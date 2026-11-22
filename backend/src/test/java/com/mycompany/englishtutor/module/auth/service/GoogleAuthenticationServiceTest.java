@@ -45,13 +45,17 @@ class GoogleAuthenticationServiceTest {
     @Mock
     private JdbcTemplate jdbcTemplate;
 
+    @Mock
+    private com.mycompany.englishtutor.module.tutor.repository.TutorRepository tutorRepository;
+
     private GoogleAuthenticationService service;
     private GoogleOAuthCallbackRequest request;
 
     @BeforeEach
     void setUp() {
         service = new GoogleAuthenticationService(
-                googleOAuthClient, oAuthAccountRepository, userRepository, authenticationService, jdbcTemplate);
+                googleOAuthClient, oAuthAccountRepository, userRepository, authenticationService, jdbcTemplate,
+                tutorRepository);
         request = new GoogleOAuthCallbackRequest();
         request.setCode("google-code");
         request.setCodeVerifier("a".repeat(43));
@@ -151,5 +155,40 @@ class GoogleAuthenticationServiceTest {
                 .satisfies(exception -> assertThat(((AppException) exception).getErrorCode())
                         .isEqualTo(ErrorCode.GOOGLE_OAUTH_ACCOUNT_CONFLICT));
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void tutorGoogleLoginLinksExistingTutorByVerifiedEmail() {
+        GoogleIdentity identity = new GoogleIdentity("google-sub-t1", "tutor@example.com", "Lê Hoàng Nam", null);
+        User tutor = User.builder().id(7L).username("tutor1").fullName("Lê Hoàng Nam").email("tutor@example.com")
+                .role(UserRole.TUTOR.name()).status("ACTIVE").build();
+        request.setRole("TUTOR");
+        when(googleOAuthClient.exchangeCode(anyString(), anyString(), anyString(), anyString())).thenReturn(identity);
+        when(oAuthAccountRepository.findByProviderAndProviderUserId("GOOGLE", identity.subject()))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmailIgnoreCase(identity.email())).thenReturn(Optional.of(tutor));
+        when(authenticationService.issueToken(tutor)).thenReturn("jwt");
+        when(tutorRepository.findById(7L)).thenReturn(Optional.empty());
+
+        var response = service.authenticate(request);
+
+        org.junit.jupiter.api.Assertions.assertEquals(UserRole.TUTOR.name(), response.getRole());
+        org.junit.jupiter.api.Assertions.assertEquals(7L, response.getUserId());
+        verify(oAuthAccountRepository).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void tutorGoogleLoginRejectsEmailOfParentAccount() {
+        GoogleIdentity identity = new GoogleIdentity("google-sub-t2", "p@example.com", "Phụ huynh", null);
+        User parent = User.builder().id(8L).username("p").email("p@example.com")
+                .role(UserRole.PARENT.name()).status("ACTIVE").build();
+        request.setRole("TUTOR");
+        when(googleOAuthClient.exchangeCode(anyString(), anyString(), anyString(), anyString())).thenReturn(identity);
+        when(oAuthAccountRepository.findByProviderAndProviderUserId("GOOGLE", identity.subject()))
+                .thenReturn(Optional.empty());
+        when(userRepository.findByEmailIgnoreCase(identity.email())).thenReturn(Optional.of(parent));
+
+        AppException ex = org.junit.jupiter.api.Assertions.assertThrows(AppException.class, () -> service.authenticate(request));
+        org.junit.jupiter.api.Assertions.assertEquals(ErrorCode.GOOGLE_OAUTH_ACCOUNT_CONFLICT, ex.getErrorCode());
     }
 }

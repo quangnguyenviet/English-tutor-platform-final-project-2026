@@ -12,4 +12,5 @@ public record ParentProfileRequest(
                 @Pattern(regexp = "PHU_THONG|THI_CHUAN|GIAO_TIEP|THI_HOC_KY", message = "Mục đích học không hợp lệ")
                 String purpose,
         @NotBlank(message = "Vui lòng chọn tỉnh/thành phố") @Size(max = 100) String province,
-        @NotBlank(message = "Vui lòng chọn quận/huyện") @Size(max = 100) String district) {}
+        @NotBlank(message = "Vui lòng chọn quận/huyện") @Size(max = 100) String district,
+        @NotBlank(message = "Vui lòng nhập địa chỉ") @Size(min = 5, max = 500, message = "Địa chỉ từ 5 đến 500 ký tự") String address) {}
