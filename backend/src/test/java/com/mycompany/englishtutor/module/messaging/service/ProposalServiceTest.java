@@ -54,7 +54,7 @@ class ProposalServiceTest {
 
     private ProposalRequest request(String trialDate, String note) {
         return new ProposalRequest(null, "Lê Hoàng Nam", "Lớp 8", null, null, "SHORT_TERM", new BigDecimal("300000"),
-                List.of(2, 4), "19:00", "20:30", trialDate, "19:00", "20:00", "ONLINE", note);
+                List.of(2, 4), "19:00", "20:30", trialDate, "19:00", "20:00", "ONLINE", null, note);
     }
 
     @Test
@@ -86,7 +86,7 @@ class ProposalServiceTest {
     void create_endTimeBeforeStart_isRejected() {
         ProposalRequest bad = new ProposalRequest(null, "Lê Hoàng Nam", null, null, null, "SHORT_TERM",
                 new BigDecimal("300000"), List.of(2), "20:30", "19:00", LocalDate.now().plusDays(2).toString(),
-                "19:00", "20:00", "ONLINE", null);
+                "19:00", "20:00", "ONLINE", null, null);
 
         AppException ex = assertThrows(AppException.class, () -> service.create(5L, bad, null));
 

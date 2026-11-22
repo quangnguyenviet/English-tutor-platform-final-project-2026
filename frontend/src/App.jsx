@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router-dom";
 import ChangePasswordPage from "./pages/ChangePasswordPage";
 import { FORCE_PASSWORD_PATHS } from "./lib/authRoutes";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -51,7 +51,6 @@ import TutorProfile from "./pages/tutor/TutorProfile";
 import TutorProfileEditPage from "./pages/tutor/TutorProfileEditPage";
 import TutorSchedule from "./pages/tutor/TutorSchedule";
 import ParentLearningProgress from "./pages/parent/ParentLearningProgress";
-import ParentTutorExplore from "./pages/parent/ParentTutorExplore";
 import MessagesPage from "./pages/messaging/MessagesPage";
 import ParentPostings from "./pages/messaging/ParentPostings";
 import StaffChatPage from "./pages/messaging/StaffChatPage";
@@ -134,6 +133,13 @@ export default function App() {
             <Route path="/faq" element={<GuestFAQPage />} />
             <Route path="/how-it-works" element={<GuestHowItWorksPage />} />
             <Route path="/contact" element={<GuestContactPage />} />
+            {/* Khu vực phụ huynh (đăng nhập Google): dùng chung header với các trang khách để điều hướng liền mạch */}
+            <Route element={<RequireRole role="parent"><Outlet /></RequireRole>}>
+              <Route path="/parent/messages" element={<MessagesPage viewer="PARENT" basePath="/parent/messages" />} />
+              <Route path="/parent/messages/:roomId" element={<MessagesPage viewer="PARENT" basePath="/parent/messages" />} />
+              <Route path="/parent/postings" element={<ParentPostings />} />
+              <Route path="/parent/progress" element={<ParentLearningProgress />} />
+            </Route>
             {/* UC-P05: Tra cứu tiến độ (Tạm ẩn, phát triển sau)
             <Route path="/parent-view" element={<ParentProgressViewPage />} />
             */}
@@ -153,22 +159,9 @@ export default function App() {
           {/* Tutor Registration Route (Public - onboarding flow) */}
           <Route path="/tutor/register" element={<TutorRegisterPage />} />
 
-          {/* Parent Routes (đăng nhập Google) */}
-          <Route
-            path="/parent"
-            element={
-              <RequireRole role="parent">
-                <AppShell />
-              </RequireRole>
-            }
-          >
-            <Route index element={<Navigate to="messages" replace />} />
-            <Route path="messages" element={<MessagesPage viewer="PARENT" basePath="/parent/messages" />} />
-            <Route path="messages/:roomId" element={<MessagesPage viewer="PARENT" basePath="/parent/messages" />} />
-            <Route path="postings" element={<ParentPostings />} />
-            <Route path="explore" element={<ParentTutorExplore />} />
-            <Route path="progress" element={<ParentLearningProgress />} />
-          </Route>
+          {/* Phụ huynh cũ vào /parent/* được chuyển sang các trang trong khung khách */}
+          <Route path="/parent" element={<Navigate to="/parent/messages" replace />} />
+          <Route path="/parent/explore" element={<Navigate to="/tutors" replace />} />
 
           {/* Admin Routes */}
 

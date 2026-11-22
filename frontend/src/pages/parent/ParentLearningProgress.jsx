@@ -1,8 +1,6 @@
 import { useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import {
   AlertCircle,
-  ArrowLeft,
   BookOpen,
   CalendarDays,
   CheckCircle2,
@@ -11,13 +9,11 @@ import {
   Clock3,
   FileText,
   GraduationCap,
-  LogOut,
   MessageCircle,
   Target,
   TrendingUp,
 } from "lucide-react";
 import Badge from "../../components/ui/Badge";
-import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import { useAuth } from "../../context/AuthContext";
 import { useLessonSessions } from "../../context/LessonSessionContext";
@@ -162,8 +158,7 @@ function SessionTimelineItem({ item, index }) {
 }
 
 export default function ParentLearningProgress() {
-  const navigate = useNavigate();
-  const { session, logout } = useAuth();
+  const { session } = useAuth();
   const { sessions = [] } = useLessonSessions();
   const student = getStudentById(session?.studentId);
   const progress = getProgressSummary(student);
@@ -185,23 +180,14 @@ export default function ParentLearningProgress() {
   const pendingReportCount = completedSessions.length - reportedSessions.length;
   const assignedExercises = (student?.exercises || []).filter((exercise) => exercise.status === "assigned");
 
-  function handleLogout() {
-    logout();
-    navigate("/", { replace: true });
-  }
-
   return (
-    <div className="min-h-[100dvh] bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-white">
+    <div className="text-slate-900 dark:text-white">
       <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 lg:px-8 lg:py-8">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">Góc phụ huynh · Theo dõi học tập</p>
             <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">Việc học của {student?.name || "con"}</h1>
             <p className="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Theo dõi từng buổi học, nhận xét gia sư đã chia sẻ và việc con cần làm tiếp. Lịch minh họa được chụp tại ngày 04/08/2026.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button as={Link} to="/" variant="outline" size="sm"><ArrowLeft size={15} /> Trang chủ</Button>
-            <Button onClick={handleLogout} variant="ghost" size="sm"><LogOut size={15} /> Đăng xuất</Button>
           </div>
         </header>
 

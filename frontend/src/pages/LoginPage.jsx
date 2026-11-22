@@ -20,7 +20,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [accountType, setAccountType] = useState("parent");
-  const { login, logout, loginParentWithGoogle } = useAuth();
+  const { login, logout, loginWithGoogle } = useAuth();
   const selectedType = ACCOUNT_TYPES.find((t) => t.key === accountType);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -29,7 +29,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      await loginParentWithGoogle(searchParams.get("returnTo") || "/");
+      await loginWithGoogle(searchParams.get("returnTo") || "/", accountType === "tutor" ? "TUTOR" : "PARENT");
     } catch (exception) {
       setError(exception.message || "Không thể bắt đầu đăng nhập Google.");
       setLoading(false);
@@ -173,20 +173,29 @@ export default function LoginPage() {
           </form>
           )}
 
-          {accountType === "parent" && (
+          {(accountType === "parent" || accountType === "tutor") && (
             <>
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white font-semibold text-sm hover:border-blue-300 dark:hover:border-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4 text-blue-600" />}
-            <span>Đăng nhập bằng Google</span>
-          </button>
-          <p className="text-xs text-center text-muted-foreground">
-            Phụ huynh chỉ đăng nhập qua Google, không cần tạo mật khẩu riêng.
-          </p>
+              {accountType === "tutor" && (
+                <div className="flex items-center gap-3 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <span className="h-px flex-1 bg-border" />
+                  hoặc
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                className="w-full py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-white font-semibold text-sm hover:border-blue-300 dark:hover:border-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4 text-blue-600" />}
+                <span>Đăng nhập bằng Google</span>
+              </button>
+              <p className="text-xs text-center text-muted-foreground">
+                {accountType === "parent"
+                  ? "Phụ huynh chỉ đăng nhập qua Google, không cần tạo mật khẩu riêng."
+                  : "Dùng email Google trùng với email đăng ký gia sư để liên kết tài khoản. Chưa có tài khoản thì hệ thống tạo hồ sơ gia sư mới."}
+              </p>
             </>
           )}
 

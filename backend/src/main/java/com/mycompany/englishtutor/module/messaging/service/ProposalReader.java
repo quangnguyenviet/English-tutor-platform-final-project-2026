@@ -29,7 +29,8 @@ public class ProposalReader {
                    COALESCE(s.learning_goal, p.student_learning_goal) AS student_goal,
                    p.class_type, p.fee_percentage, p.price_per_session, p.schedule_days,
                    p.schedule_time_from, p.schedule_time_to, p.trial_date, p.trial_time_from, p.trial_time_to,
-                   p.class_mode, p.note, p.rejection_reason, p.decided_at, p.created_at, p.expires_at,
+                   p.class_mode, p.learning_address, p.note, p.rejection_reason, p.decided_at, p.created_at, p.expires_at,
+                   CASE WHEN p.status = 'ACCEPTED' THEN par.phone END AS parent_phone,
                    (SELECT c.id FROM classes c WHERE c.proposal_id = p.id) AS class_id,
                    (p.status = 'PENDING' AND p.student_id IS NOT NULL AND EXISTS (
                         SELECT 1 FROM class_schedules cs JOIN classes c ON c.id = cs.class_id
@@ -38,6 +39,8 @@ public class ProposalReader {
                           AND cs.start_time < p.schedule_time_to AND cs.end_time > p.schedule_time_from
                    )) AS student_conflict
             FROM proposal_messages p
+            JOIN chat_rooms cr ON cr.id = p.room_id
+            JOIN parents par ON par.id = cr.parent_id
             LEFT JOIN students s ON s.id = p.student_id
             LEFT JOIN users su ON su.id = s.id
             """;
@@ -102,6 +105,8 @@ public class ProposalReader {
                 rs.getTimestamp("created_at").toInstant().toString(),
                 rs.getTimestamp("expires_at").toInstant().toString(),
                 rs.getObject("class_id") == null ? null : rs.getLong("class_id"),
-                rs.getBoolean("student_conflict"));
+                rs.getBoolean("student_conflict"),
+                rs.getString("learning_address"),
+                rs.getString("parent_phone"));
     }
 }

@@ -10,6 +10,7 @@ public record ParentProfileResponse(
         String purpose,
         String province,
         String district,
+        String address,
         boolean profileComplete,
         List<ChildItem> children) {
 

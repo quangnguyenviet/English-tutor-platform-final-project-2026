@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, NavLink, useNavigate, useParams } from "react-router-dom";
+import { NavLink, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, MessageCircle } from "lucide-react";
 import clsx from "clsx";
 import Avatar from "../../components/ui/Avatar";
 import Badge from "../../components/ui/Badge";
-import Button from "../../components/ui/Button";
 import PageHeader from "../../components/ui/PageHeader";
 import ChatRoom from "../../components/messaging/ChatRoom";
 import { useAuth } from "../../context/AuthContext";
@@ -70,17 +69,16 @@ export default function MessagesPage({ viewer, basePath }) {
   const refreshTick = tick.roomId === null || tick.roomId === activeId ? tick.count : 0;
 
   return (
-    <div className="mx-auto flex min-h-[100dvh] max-w-6xl flex-col space-y-4 px-4 py-6 lg:px-8 lg:py-8">
+    <div className={clsx("mx-auto flex max-w-6xl flex-col space-y-4 px-4 py-6 lg:px-8 lg:py-8", viewer !== "PARENT" && "min-h-[100dvh]")}>
       <PageHeader
         eyebrow="Tin nhắn"
         title="Trò chuyện"
         description={viewer === "PARENT"
           ? "Trao đổi với gia sư trên hệ thống. Thông tin liên hệ cá nhân được bảo vệ cho đến khi bạn đồng ý một đề xuất."
           : "Trao đổi với phụ huynh và gửi đề xuất lớp học."}
-        actions={viewer === "PARENT" ? <Link to="/"><Button variant="outline" className="cursor-pointer"><ArrowLeft size={16} /> Quay lại</Button></Link> : undefined}
       />
 
-      <div className="grid min-h-[560px] flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:h-[calc(100dvh-14rem)] lg:grid-cols-[320px_1fr]">
+      <div className={clsx("grid min-h-[560px] flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-[320px_1fr]", viewer === "PARENT" ? "lg:h-[calc(100dvh-18rem)]" : "lg:h-[calc(100dvh-14rem)]")}>
         <aside className={clsx("min-h-0 overflow-y-auto border-slate-200 dark:border-slate-800 lg:border-r", activeId && "hidden lg:block")}>
           {loading && <div className="flex items-center justify-center gap-2 p-6 text-sm text-slate-500"><Loader2 size={16} className="animate-spin" /> Đang tải...</div>}
           {error && <p role="alert" className="p-4 text-sm text-rose-600 dark:text-rose-400">{error}</p>}

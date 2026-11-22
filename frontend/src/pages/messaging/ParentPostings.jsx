@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Clock, Loader2, MapPin, MessageCircle, Plus, Users, X } from "lucide-react";
+import { Clock, Loader2, MapPin, MessageCircle, Plus, Users, X } from "lucide-react";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
@@ -223,7 +223,7 @@ function ApplicantsModal({ posting, token, onClose }) {
                   <Button size="sm" className="cursor-pointer" onClick={() => chat(a)} disabled={busyId === a.applicationId}>
                     {busyId === a.applicationId ? <Loader2 size={15} className="animate-spin" /> : <MessageCircle size={15} />} Nhắn tin
                   </Button>
-                  <Link to={`/tutors/${a.tutorId}`} className="text-xs text-blue-600 hover:underline dark:text-blue-400" target="_blank">Xem hồ sơ</Link>
+                  <Link to={`/tutors/${a.tutorId}`} className="text-xs text-blue-600 hover:underline dark:text-blue-400">Xem hồ sơ</Link>
                 </div>
               </div>
             </li>
@@ -291,7 +291,6 @@ export default function ParentPostings() {
         description="Theo dõi tin đã đăng, xem gia sư ứng tuyển và nhắn tin với từng ứng viên."
         actions={(
           <div className="flex flex-wrap gap-2">
-            <Link to="/"><Button variant="outline" className="cursor-pointer"><ArrowLeft size={16} /> Quay lại</Button></Link>
             <Button className="cursor-pointer" onClick={() => setShowForm(true)}><Plus size={16} /> Đăng tin mới</Button>
           </div>
         )}
