@@ -148,9 +148,9 @@ Gia sư luôn xem lại và sửa được từng câu trước khi giao. Hệ t
 | Thành phần | Công nghệ |
 | --- | --- |
 | Frontend | React 19, Vite, Tailwind CSS v4, React Router, Recharts |
-| Backend | Java 17, Spring Boot 3.2, Spring Data JPA, xác thực JWT, phân quyền theo vai trò và theo quan hệ lớp học |
-| AI Service | Python 3.11, FastAPI, LangGraph |
-| Cơ sở dữ liệu | PostgreSQL 16 (thiết kế ERD tại `docs/New_ERD.md`) |
+| Backend | Java 21, Spring Boot 3.2, Spring Data JPA, xác thực JWT, phân quyền theo vai trò và theo quan hệ lớp học |
+| AI Service | Python 3.11, FastAPI (gọi LLM qua SDK OpenAI / thư viện `requests` cho Anthropic) |
+| Cơ sở dữ liệu | PostgreSQL 16 (thiết kế ERD tại `docs/project/ERD.md`) |
 | Lưu trữ file | Hệ thống lưu trữ tương thích S3 cho chứng chỉ, tài liệu, minh chứng chuyển khoản |
 | Triển khai | Docker Compose, GitHub Actions CI |
 

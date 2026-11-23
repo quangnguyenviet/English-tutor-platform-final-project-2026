@@ -1,7 +1,8 @@
 # TÀI LIỆU ĐẶC TẢ NGHIỆP VỤ: NHẮN TIN PHỤ HUYNH — GIA SƯ KÈM ĐỀ XUẤT LỚP HỌC
 
 > Mã tính năng: **MSG** (Messaging + Proposal)
-> Phiên bản: 2.0 (18/11/2026) — thay thế bản 1.x (luồng đơn CHAT + Lễ tân xác nhận đã bỏ)
+> Phiên bản: 2.1 (18/12/2026) — đối chiếu code tại migration V27/V29; thay thế bản 2.0 (18/11) và 1.x (luồng đơn CHAT + Lễ tân xác nhận đã bỏ)
+> Changelog v2.1: form hồ sơ phụ huynh là một màn hình (thêm địa chỉ nhà bắt buộc); bổ sung trường địa chỉ học của đề xuất, đầy đủ trường form đăng tin; gia sư cũng đăng nhập Google; room APPLICATION còn ghi được khi tin `MATCHED`; chỉnh schema `chat_pii_events` (lưu `blocked_text`, duyệt nội bộ); bỏ CHECK không tồn tại của `chat_rooms`
 > Phạm vi: **thay thế UC-PA-03** (Gửi yêu cầu học với gia sư chỉ định) và **UC-PA-04** (Gửi yêu cầu tìm gia sư — form khách). Lễ tân chỉ còn **1 điểm dừng**: duyệt tin đăng. Việc chốt gia sư do phụ huynh và gia sư tự thỏa thuận qua chat + đề xuất.
 > Nguồn đối chiếu: `docs/project/prd.md`, `docs/project/ERD.md` (bảng `parents`, `students`, `class_requests`, `class_applications`, `classes`), `docs/Usecase/Usecase_Student_Parent.md`, `docs/Usecase/Usecase_Tutor.md`
 > Kế hoạch triển khai: `MESSAGING_ROCKETCHAT_PLAN.md`
@@ -12,12 +13,12 @@
 
 Trước đây khi phụ huynh chọn một gia sư, Lễ tân phải làm kênh trao đổi nhiều lần giữa hai bên (học phí, lịch, yêu cầu) rồi mới ghép lớp. Tính năng MSG cho phụ huynh và gia sư **trao đổi trực tiếp trên nền tảng**, chốt thỏa thuận bằng **Đề xuất lớp học (proposal)**; khi phụ huynh đồng ý đề xuất, **lớp học thử (`classes` `TRIAL`) được tạo ngay**, không qua bước xác nhận của Lễ tân.
 
-Hai luồng, cả hai **bắt buộc phụ huynh đăng nhập Google**:
+Hai luồng, cả hai **bắt buộc phụ huynh đăng nhập Google** (gia sư cũng đăng nhập Google, liên kết hồ sơ `TUTOR`; hồ sơ chưa đầy đủ vẫn được tạo/ghép):
 
 | Luồng | Đường đi | Thay thế |
 |---|---|---|
 | **A. Nhắn tin trực tiếp** | Phụ huynh chọn gia sư → **Nhắn tin** → room `DIRECT` (phụ huynh–gia sư) → proposal → phụ huynh đồng ý → `classes` TRIAL (**không có** `class_request_id`) | UC-PA-03 |
-| **B. Đăng tin "Lớp cần gia sư"** | Phụ huynh đăng tin → **Lễ tân duyệt** → gia sư ứng tuyển (`class_applications`) → phụ huynh xem ứng viên, chọn 1 người để chat → room `APPLICATION` → proposal → phụ huynh đồng ý → `classes` TRIAL (có `class_request_id` + `proposal_id`), **tin chuyển `MATCHED` (đóng tin)** | UC-PA-04 |
+| **B. Đăng tin "Lớp cần gia sư"** | Phụ huynh đăng tin → **Lễ tân duyệt** → gia sư ứng tuyển (`class_applications`) → phụ huynh xem ứng viên, chọn 1 người để chat → room `APPLICATION` → proposal → phụ huynh đồng ý → `classes` TRIAL (có `class_request_id` + `proposal_id`), **tin chuyển `MATCHED` (không nhận ứng tuyển mới; room chat của ứng viên được chọn vẫn mở, mục 5.3)** | UC-PA-04 |
 
 > **Hai room độc lập:** một phụ huynh có thể có đồng thời room `DIRECT` và room `APPLICATION` với cùng một gia sư; hai room không gộp, lịch sử và đề xuất riêng.
 
@@ -31,8 +32,8 @@ Mục tiêu:
 
 | Vai trò | Trong tính năng MSG |
 |---|---|
-| **Phụ huynh** (`PARENT`, chỉ đăng nhập Google, không mật khẩu) | Đăng nhập, wizard 4 bước, đăng tin, xem ứng viên, chat, đồng ý/từ chối đề xuất |
-| **Gia sư** (`TUTOR`, `ACTIVE`) | Ứng tuyển, chat, tạo/rút đề xuất, nhận SĐT phụ huynh sau khi đề xuất được đồng ý |
+| **Phụ huynh** (`PARENT`, chỉ đăng nhập Google, không mật khẩu) | Đăng nhập Google, điền form hồ sơ (một màn hình), đăng tin, xem ứng viên, chat, đồng ý/từ chối đề xuất |
+| **Gia sư** (`TUTOR`, `ACTIVE`) | Đăng nhập Google (liên kết/tạo hồ sơ `TUTOR`), ứng tuyển, chat, tạo/rút đề xuất, nhận SĐT phụ huynh sau khi đề xuất được đồng ý |
 | **Lễ tân / Admin** | Duyệt/hủy tin đăng; xem transcript read-only và log kiểm duyệt; Admin quản lý bảng cấu hình phí |
 | **Kế toán** | Không tham gia MSG; phí nhận lớp vẫn xử lý ở luồng thanh toán hiện hành (mục 10) |
 
@@ -43,7 +44,7 @@ Mục tiêu:
 ```
 Phụ huynh bấm "Nhắn tin" trên hồ sơ/card gia sư
   ▼ [0] Đăng nhập Google (bắt buộc)
-  ▼ [1] Wizard 4 bước (lần đầu): SĐT → họ tên → mục đích → khu vực
+  ▼ [1] Form hồ sơ 1 màn hình (lần đầu): họ tên → SĐT → mục đích → khu vực + địa chỉ
   ▼ [2] Room DIRECT (parent_id + tutor_id): chat văn bản có kiểm duyệt PII
   ▼ [3] Gia sư tạo đề xuất (PENDING)
         ├─ Phụ huynh ĐỒNG Ý → (a) mở khóa SĐT; (b) tạo/gắn học sinh;
@@ -62,32 +63,36 @@ Phụ huynh bấm "Tìm gia sư" → [0] đăng nhập Google → [1] Form đăn
   ▼ [4] Phụ huynh vào tin của mình → xem danh sách ứng viên (hồ sơ + lời nhắn)
         └─ chọn 1 ứng viên → "Nhắn tin" → room APPLICATION (parent_id + class_application_id)
   ▼ [5] Chat → gia sư tạo đề xuất → phụ huynh ĐỒNG Ý
-        └─ tạo classes TRIAL (class_request_id + proposal_id) + tin → MATCHED (đóng tin)
+        └─ tạo classes TRIAL (class_request_id + proposal_id) + tin → MATCHED (không nhận ứng tuyển mới;
+           room APPLICATION của ứng viên được chọn vẫn ghi được để chat tiếp — mục 5.3)
            + application được chọn → SELECTED, các ứng viên còn lại → REJECTED (có thông báo)
 ```
 
-## 4. Truy cập: đăng nhập Google & Wizard
+## 4. Truy cập: đăng nhập Google & Form hồ sơ
 
 ### 4.1. Đăng nhập Google
-Mọi thao tác **Nhắn tin**, **Tìm gia sư/đăng tin**, **xem tin của tôi** yêu cầu phụ huynh đã đăng nhập; chưa đăng nhập thì chuyển tới màn "Đăng nhập bằng Google" rồi quay về trang ban đầu. Lần đầu: hệ thống tạo `users` role `PARENT` (không mật khẩu) + `oauth_accounts` + `parents`. Không tự gộp hồ sơ `parents` cũ theo email/SĐT: nếu phụ huynh nhập ở bước 1 một SĐT đã thuộc hồ sơ khác (kể cả hồ sơ cũ chưa có tài khoản), hệ thống chặn, không lộ tên chủ số và hướng dẫn liên hệ hotline để trung tâm xử lý.
+Mọi thao tác **Nhắn tin**, **Tìm gia sư/đăng tin**, **xem tin của tôi** yêu cầu phụ huynh đã đăng nhập; chưa đăng nhập thì chuyển tới màn "Đăng nhập bằng Google" rồi quay về trang ban đầu. Lần đầu: hệ thống tạo `users` role `PARENT` (không mật khẩu) + `oauth_accounts` + `parents`. Không tự gộp hồ sơ `parents` cũ theo email/SĐT: nếu phụ huynh nhập ở form hồ sơ một SĐT đã thuộc hồ sơ khác (kể cả hồ sơ cũ chưa có tài khoản), hệ thống chặn, không lộ tên chủ số và hướng dẫn liên hệ hotline để trung tâm xử lý.
 
 > UC-PA-03 và UC-PA-04 dạng form công khai **bị loại bỏ**; API `POST /api/v1/public/class-requests` ngừng dùng.
 
-### 4.2. Wizard 4 bước (lần đầu chat hoặc đăng tin)
+Gia sư **cũng** đăng nhập Google (vào vai trò `TUTOR`): liên kết hoặc tạo hồ sơ `TUTOR` mới (hồ sơ chưa đầy đủ được giữ trạng thái `INCOMPLETE` cho tới khi gia sư hoàn thiện); cùng email Google không được dùng cho cả hai vai trò — hệ thống chặn conflict.
 
-| Bước | Trường | Ghi chú |
+### 4.2. Form hồ sơ phụ huynh (một màn hình, lần đầu chat hoặc đăng tin)
+Form **một màn hình gồm 4 nhóm trường** (không phải stepper nhiều bước); không lưu được nếu thiếu trường bắt buộc, mọi thao tác nhắn tin/đăng tin sau đó bị chặn (`CHAT_PARENT_PROFILE_INCOMPLETE`).
+
+| Nhóm | Trường | Ghi chú |
 |---|---|---|
-| 1 | Số điện thoại | Định dạng VN 10 số (03/05/07/08/09 hoặc +84/84). Số đã thuộc phụ huynh khác → chặn, không lộ tên chủ số |
-| 2 | Họ tên phụ huynh | Prefill từ Google, tối thiểu 2 ký tự |
+| 1 | Họ tên phụ huynh | Prefill từ Google (bấm "Sửa" để đổi), tối thiểu 2 ký tự |
+| 2 | Số điện thoại | Định dạng VN 10 số (03/05/07/08/09 hoặc +84/84). Số đã thuộc phụ huynh khác → chặn, không lộ tên chủ số |
 | 3 | Mục đích | `PHU_THONG`, `THI_CHUAN`, `GIAO_TIEP`, `THI_HOC_KY` |
-| 4 | Khu vực | Tỉnh/TP → Quận/Huyện |
+| 4 | Khu vực + địa chỉ | Tỉnh/TP → Quận/Huyện; **địa chỉ nhà bắt buộc (5–500 ký tự)** — dùng khi học tại nhà; gia sư chỉ thấy địa chỉ trong đề xuất (mục 8.1), không phải SĐT |
 
-Wizard **không chọn học sinh**: học sinh được khai trong đề xuất (mục 8.1). Gia sư thấy ngay mục đích + khu vực của phụ huynh; **không** thấy SĐT (mục 9).
+Form **không chọn học sinh**: học sinh được khai trong đề xuất (mục 8.1). Gia sư thấy ngay mục đích + khu vực của phụ huynh; **không** thấy SĐT (mục 9).
 
 ## 5. Luồng B — Đăng tin
 
 ### 5.1. Form đăng tin
-Trường: họ tên, SĐT (prefill), mục đích, tỉnh/quận, số buổi/tuần gợi ý (1–5, tùy chọn), mức phí tham khảo (tùy chọn), ghi chú (≤ 1000 ký tự, có thể nêu thông tin con). Tin **không gắn học sinh cấu trúc**.
+Form **không có trường họ tên/SĐT** (lấy từ hồ sơ phụ huynh, mục 4.2). Trường: mục đích, tỉnh/quận (trống thì prefill từ hồ sơ phụ huynh), số buổi/tuần gợi ý (1–5, tùy chọn), mức phí tham khảo (tùy chọn), **hình thức học** `ONLINE`/`AT_HOME` (tùy chọn), **địa chỉ học** (≤ 255 ký tự, tùy chọn), **yêu cầu giới tính** `MALE`/`FEMALE`/`ANY`, **yêu cầu gia sư** `STUDENT`/`TEACHER`/`ANY`, **loại lớp** `SHORT_TERM`/`REGULAR` (tùy chọn), **thời gian có thể học** (thứ trong tuần + khung giờ, ≤ 255 ký tự, tùy chọn), ghi chú (≤ 1000 ký tự, có thể nêu thông tin con; ghi chú không được chứa SĐT/email/link — bị chặn PII như tin nhắn). Tin **không gắn học sinh cấu trúc**.
 
 Hậu điều kiện: `class_requests` `NEW`, `source = POSTING`, `student_id = NULL`, `created_by = user_id phụ huynh`. Giới hạn chống spam: mỗi phụ huynh tối đa **1 tin `NEW`/`OPEN`** cùng lúc.
 
@@ -100,7 +105,7 @@ Mục **"Lớp cần gia sư"** của Lễ tân: danh sách tin `NEW`. **Duyệt
 |---|---|---|
 | Chờ duyệt (`NEW`) | Lễ tân chưa duyệt | "Hủy tin" |
 | Đang nhận ứng tuyển (`OPEN`) | Gia sư xem/ứng tuyển | "Xem ứng viên" (danh sách `class_applications` + hồ sơ gia sư + lời nhắn), "Nhắn tin" từng ứng viên, "Đóng tin" |
-| Đã có lớp (`MATCHED`) | Đã tạo lớp từ tin này | Link tới lớp TRIAL; tin **đã đóng**, không nhận ứng tuyển |
+| Đã có lớp (`MATCHED`) | Đã tạo lớp từ tin này | Link tới lớp TRIAL; tin **đã đóng, không nhận ứng tuyển mới** nhưng nút "Xem ứng viên" vẫn hiện; room `APPLICATION` của ứng viên được chọn **vẫn ghi được** để phụ huynh và gia sư tiếp tục chat (tin `OPEN`/`REMATCH`/`MATCHED` đều cho chat; chỉ `CANCELLED`, gia sư `INACTIVE` hay room bị đóng mới khóa) |
 | Đang ghép lại (`REMATCH`) | Dạy thử thất bại, mở lại theo UC-PA-05 | Như `OPEN` (gia sư cũ bị loại) |
 | Đã hủy (`CANCELLED`) | Phụ huynh/Lễ tân hủy | "Tạo tin mới" |
 
@@ -109,13 +114,13 @@ Khi có gia sư ứng tuyển mới, phụ huynh nhận thông báo in-app.
 ## 6. Tiền điều kiện mở chat
 
 - Gia sư `profile_status = ACTIVE` (ẩn nút "Nhắn tin" nếu không).
-- Phụ huynh đã đăng nhập Google và hoàn tất wizard.
+- Phụ huynh đã đăng nhập Google và hoàn tất form hồ sơ (mục 4.2).
 - Room `APPLICATION`: chỉ mở được khi tin thuộc chính phụ huynh, tin đang `OPEN`/`REMATCH` và application ở trạng thái `APPLIED`.
 
 ## 7. Chính sách phòng chat (bắt buộc)
 
 ### 7.1. Chặn thông tin liên hệ (PII)
-Quét mọi tin trước khi gửi: số điện thoại VN (kể cả biến thể dấu cách/gạch nối/+84), email, link/handle mạng xã hội (`zalo.me/...`, `fb.com/...`...). Chặn theo **thành phần** (nhắc từ "zalo" nhưng không có số/link thì không chặn). Tin bị chặn: không lưu, người gửi thấy phần vi phạm tô đỏ để sửa, ghi `chat_pii_events` (Lễ tân/Admin xem được, không tự công khai lại tin). Cơ chế hai lớp: kiểm tra ở backend (trả loại + vị trí vi phạm) và Rocket.Chat App chặn khi gọi thẳng API (xem kế hoạch về giới hạn license).
+Quét mọi tin trước khi gửi: số điện thoại VN (kể cả biến thể dấu cách/gạch nối/+84), email, link/handle mạng xã hội (`zalo.me/...`, `fb.com/...`...). Chặn theo **thành phần** (nhắc từ "zalo" nhưng không có số/link thì không chặn). Tin bị chặn: **không gửi vào Rocket.Chat, không nằm trong lịch sử chat**; người gửi thấy phần vi phạm tô đỏ để sửa; ghi `chat_pii_events` loại `PII_BLOCKED` — nguyên văn tin vi phạm được lưu trong cột `blocked_text` (PostgreSQL) để Lễ tân/Admin xem lại khi kiểm duyệt (mục 13), không tự công khai lại tin. Ngoài tin nhắn, PII cũng bị chặn ở: **ghi chú tin đăng** (mục 5.1, lỗi 422 "Ghi chú không được chứa thông tin liên hệ") và **các trường văn bản tự do của đề xuất** (ghi chú, họ tên/trường học/mục tiêu học sinh, địa chỉ học). Cơ chế hai lớp: kiểm tra ở backend (trả loại + vị trí vi phạm) và Rocket.Chat App chặn khi gọi thẳng API (xem kế hoạch về giới hạn license).
 
 ### 7.2. Giới hạn khác
 - Tối đa 2000 ký tự/tin; không đính kèm file; 10 tin/phút/người.
@@ -135,6 +140,7 @@ Quét mọi tin trước khi gửi: số điện thoại VN (kể cả biến th
 | `schedule_time_from/to` | ✔ | Giờ bắt đầu – kết thúc mỗi buổi |
 | `trial_date`, `trial_time_from/to` | ✔ | **Buổi dạy thử** do gia sư đặt trong đề xuất; buổi thử tách riêng khỏi lịch cố định |
 | `class_mode` | ✔ | `AT_HOME` / `ONLINE` |
+| `learning_address` (địa chỉ học) | ✔ khi `AT_HOME` | Địa chỉ học tại nhà (≥ 5 ký tự, ≤ 500); không có với lớp `ONLINE`. Gia sư tự điền trong form đề xuất; phụ huynh đã khai địa chỉ nhà ở form hồ sơ (mục 4.2) |
 | `note` | — | Ghi chú |
 
 ### 8.2. Tài khoản học sinh và việc học nhiều lớp
@@ -189,7 +195,7 @@ Từ chối: đề xuất `REJECTED` kèm lý do, SĐT vẫn ẩn, chat tiếp t
 | Thời điểm | Hành động | Bảng |
 |---|---|---|
 | Đăng nhập Google lần đầu | Tạo `users` PARENT + `parents` | `users`, `oauth_accounts`, `parents` |
-| Wizard hoàn tất | Cập nhật SĐT, mục đích, khu vực | `parents` |
+| Form hồ sơ hoàn tất | Cập nhật SĐT, họ tên, mục đích, khu vực, địa chỉ | `parents` |
 | Đăng tin | `class_requests` NEW, source POSTING | `class_requests` |
 | Lễ tân duyệt | NEW → OPEN / CANCELLED | `class_requests` |
 | Gia sư ứng tuyển | Tạo lượt ứng tuyển | `class_applications` |
@@ -207,13 +213,13 @@ Từ chối: đề xuất `REJECTED` kèm lý do, SĐT vẫn ẩn, chat tiếp t
 
 | # | Tình huống | Xử lý |
 |---|---|---|
-| E-1 | Gõ SĐT/email/link liên hệ | Chặn, không lưu, ghi `chat_pii_events` |
-| E-2 | Đổi SĐT ở wizard khi đã có room | SĐT mới chưa ai dùng → cập nhật, giữ room; thuộc phụ huynh khác → chặn |
+| E-1 | Gõ SĐT/email/link liên hệ | Chặn: tin **không gửi vào chat** (không nằm ở lịch sử Rocket.Chat), người gửi thấy phần vi phạm tô đỏ; ghi `chat_pii_events` loại `PII_BLOCKED` kèm nguyên văn tin trong `blocked_text` (PostgreSQL) để trung tâm kiểm duyệt (mục 13) |
+| E-2 | Đổi SĐT ở form hồ sơ khi đã có room | SĐT mới chưa ai dùng → cập nhật, giữ room; thuộc phụ huynh khác → chặn |
 | E-3 | Gia sư `INACTIVE` khi room có đề xuất PENDING | Room khóa (chỉ đọc); đề xuất `EXPIRED` sau 7 ngày; gia sư `ACTIVE` lại thì mở lại |
 | E-4 | Học sinh học nhiều lớp | Cho phép với gia sư khác nhau; chặn trùng (học sinh, gia sư) còn `TRIAL`/`ACTIVE`; trùng khung giờ → cảnh báo mềm |
 | E-5 | Gia sư đã có lớp trùng giờ khi phụ huynh đồng ý | Đề xuất `EXPIRED`, gia sư tạo đề xuất mới |
 | E-6 | Hẹn gặp ngoài hệ thống | Không phát hiện tự động; Lễ tân xem transcript + log khi có khiếu nại |
-| E-7 | Tin chặn nhầm | Lễ tân/Admin xem log và duyệt lại nội bộ; không tự công khai |
+| E-7 | Tin chặn nhầm | Lễ tân/Admin xem log (kèm nguyên văn tin trong `blocked_text`) và đánh dấu đã xem xét nội bộ (kèm ghi chú); tin **không bao giờ** tự công khai lại chat, các bên phải nhắn lại nội dung hợp lệ |
 | E-8 | Tin POSTING bị Lễ tân hủy | `CANCELLED` kèm lý do; room `APPLICATION` của tin chuyển chỉ đọc; phụ huynh tạo tin mới |
 | E-9 | Tin không có ứng viên sau 14 ngày | Nhắc phụ huynh điều chỉnh; tin vẫn `OPEN` |
 | E-10 | Phụ huynh muốn đổi gia sư sau khi đã có lớp TRIAL | Qua quy trình khiếu nại/hủy lớp hiện hành của Lễ tân; ngoài phạm vi MVP có nút "Đổi gia sư" |
@@ -230,10 +236,10 @@ Từ chối: đề xuất `REJECTED` kèm lý do, SĐT vẫn ẩn, chat tiếp t
 ### Bảng mới
 - **`oauth_accounts`** — đã triển khai ở MSG-02.
 - **`chat_outbox`**: hàng đợi tin hệ thống (đề xuất được đồng ý/từ chối/rút/hết hạn) gửi sang Rocket.Chat; Rocket.Chat tạm lỗi không làm hỏng nghiệp vụ.
-- **`chat_rooms`**: `id`, `room_type` (`DIRECT`/`APPLICATION`), `parent_id`, `tutor_id`, `class_application_id` (NULL với DIRECT), `rocket_room_id`, `status` (`ACTIVE`/`CLOSED`), timestamps. Ràng buộc: `UNIQUE(class_application_id)`; unique một phần `(parent_id, tutor_id)` khi `room_type = 'DIRECT'`; CHECK `room_type` khớp `class_application_id`.
-- **`proposal_messages`**: `id`, `room_id`, `tutor_id`, `version`, `student_id` / `student_name` / `student_grade` / `student_school` / `student_learning_goal`, `class_type`, `fee_percentage` (snapshot), `price_per_session`, `schedule_days`, `schedule_time_from/to`, `trial_date`, `trial_time_from/to`, `class_mode`, `note`, `status`, `rejection_reason`, `decided_at`, `rocket_message_id`. `UNIQUE(room_id, version)`; CHECK `student_id` hoặc `student_name` có giá trị; unique một phần cho đề xuất `PENDING` theo học sinh.
+- **`chat_rooms`**: `id`, `room_type` (`DIRECT`/`APPLICATION`), `parent_id`, `tutor_id`, `class_application_id` (NULL với DIRECT), `rocket_room_id`, `status` (`ACTIVE`/`CLOSED`), timestamps. Ràng buộc: `UNIQUE(class_application_id)`; unique một phần `(parent_id, tutor_id)` khi `room_type = 'DIRECT'`. Khi application bị xóa, `class_application_id` bị `SET NULL` nên không có ràng buộc ép khớp chiều `room_type`.
+- **`proposal_messages`**: `id`, `room_id`, `tutor_id`, `version`, `student_id` / `student_name` / `student_grade` / `student_school` / `student_learning_goal`, `class_type`, `fee_percentage` (snapshot), `price_per_session`, `schedule_days`, `schedule_time_from/to`, `trial_date`, `trial_time_from/to`, `class_mode`, `learning_address` (địa chỉ học khi `class_mode = AT_HOME`, NULL khi `ONLINE`; thêm ở V29), `note`, `status`, `rejection_reason`, `decided_at`, `rocket_message_id`. `UNIQUE(room_id, version)`; CHECK `student_id` hoặc `student_name` có giá trị; unique một phần cho đề xuất `PENDING` theo học sinh.
 - **`platform_fee_policies`**: `id`, `class_type`, `fee_percentage`, `effective_from`, `active`, `created_by`, `created_at`. Seed `SHORT_TERM = 25`, `REGULAR = 35`.
-- **`chat_pii_events`**: `id`, `room_id`, `type` (`PII_BLOCKED`/`PHONE_UNLOCKED`/`REVIEW_REINSTATED`), `detail`, `created_at`, `created_by`.
+- **`chat_pii_events`**: `id`, `room_id`, `user_id` (người liên quan, NULL với sự kiện do hệ thống), `type` (`PII_BLOCKED`/`PHONE_UNLOCKED`/`REVIEW_REINSTATED`), `detail` (JSONB), `blocked_text` (nguyên văn tin vi phạm, chỉ `PII_BLOCKED`), `reviewed_by`/`reviewed_at`/`review_note` (đánh dấu xem xét nội bộ cho E-7), `created_at`. Tin thường **không** lưu PostgreSQL; `blocked_text` là ngoại lệ có chủ đích — chỉ để trung tâm kiểm duyệt, không gửi lại chat.
 - **`rocket_chat_accounts`**: ánh xạ `users` ↔ tài khoản Rocket.Chat.
 - Tin nhắn thường **không** lưu ở PostgreSQL — nằm ở Rocket.Chat/MongoDB. Mỗi phòng là một **private group** Rocket.Chat gồm phụ huynh, gia sư và tài khoản hệ thống (gửi tin hệ thống, đọc transcript cho Lễ tân). PostgreSQL (`chat_rooms`) là nguồn chuẩn cho ánh xạ phụ huynh/gia sư/application; thẻ đề xuất nối với tin Rocket.Chat qua `proposal_messages.rocket_message_id` (Rocket.Chat mặc định tắt `customFields`). Trình duyệt chỉ gọi backend; realtime đi qua kênh SSE của backend, không cấp token Rocket.Chat cho trình duyệt.
 
@@ -242,12 +248,13 @@ Từ chối: đề xuất `REJECTED` kèm lý do, SĐT vẫn ẩn, chat tiếp t
 |---|---|
 | `class_requests` | **Xóa `requested_tutor_id`**; thêm `source` (`POSTING`/`STAFF`), `purpose`, `province`, `district`, `no_applicant_reminded_at`; đơn `NEW` đang chỉ định gia sư được chuyển `CANCELLED` khi migrate |
 | `classes` | Đã có sẵn `trial_*`, `sessions_per_week` (dùng lại). `class_request_id` → **nullable**; thêm `proposal_id` (FK, UNIQUE); CHECK `class_request_id IS NOT NULL OR proposal_id IS NOT NULL`; thêm `class_type`, `fee_percentage`, `end_date`; chỉnh `uq_classes_one_current_per_request` cho phù hợp |
-| `parents` | Thêm `purpose`, `province`, `district` |
+| `parents` | Thêm `purpose`, `province`, `district` (V27). Cột `address` đã có từ trước; từ V29 trở thành **bắt buộc** trước khi nhắn tin/đăng tin (mục 4.2) |
 | `class_applications` | Giữ nguyên; `status` dùng `SELECTED`/`REJECTED` khi lớp được tạo |
 
 ## 14. Giao diện (theo `frontend/AGENTS.md`)
-- Wizard 4 bước có stepper, không chọn con.
-- Form đề xuất: mục "Học sinh" (con có sẵn / thêm mới), loại lớp (hiện tỷ lệ phí), giá, thứ trong tuần + giờ, **buổi dạy thử**, hình thức, ghi chú.
+- Form hồ sơ phụ huynh: một màn hình, 4 nhóm (họ tên, SĐT, mục đích, khu vực + địa chỉ nhà bắt buộc), không chọn con; không phải stepper.
+- Form đăng tin: mục đích/khu vực (prefill từ hồ sơ), số buổi/tuần, phí tham khảo, hình thức, địa chỉ học, yêu cầu giới tính/gia sư, loại lớp, thời gian có thể học, ghi chú.
+- Form đề xuất: mục "Học sinh" (con có sẵn / thêm mới), loại lớp (hiện tỷ lệ phí), giá, thứ trong tuần + giờ, **buổi dạy thử**, hình thức, **địa chỉ học (bắt buộc khi học tại nhà)**, ghi chú.
 - Thẻ đề xuất: đầu thẻ là học sinh (nổi bật), huy hiệu trạng thái (PENDING amber, ACCEPTED emerald, REJECTED/CANCELLED/EXPIRED rose), nút "Đồng ý"/"Từ chối".
 - Trang "Tin của tôi" của phụ huynh: card từng tin, danh sách ứng viên, nút nhắn tin theo từng ứng viên.
 - Tin bị chặn: phần vi phạm tô rose nhạt; tin hệ thống `text-xs` căn giữa.

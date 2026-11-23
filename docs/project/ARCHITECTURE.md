@@ -9,23 +9,24 @@ updated: '2026-10-13'
 sources:
   - docs/project/prd.md (v2, 44 FR)
   - docs/Usecase/*.md
-  - docs/New_ERD.md
+  - docs/project/ERD.md
 ---
 
 # Kiến trúc hệ thống
 
-Tài liệu mô tả kiến trúc theo PRD v2 và bộ use case. Mã `FR-xx` là yêu cầu trong `prd.md`. Tài liệu có hai phần: **kiến trúc mục tiêu** (các quyết định AD-1 đến AD-10) và **hiện trạng mã nguồn** (mục 9), vì backend và AI Service mới có khung.
+Tài liệu mô tả kiến trúc theo PRD v2 và bộ use case (bổ sung use case MSG). Mã `FR-xx` là yêu cầu trong `prd.md`. Hai phần: **kiến trúc mục tiêu** (quyết định AD-1 → AD-10) và **hiện trạng mã nguồn** (mục 9).
 
 ## 1. Tổng quan
 
-Hệ thống gồm bốn khối chạy bằng Docker Compose:
+Hệ thống gồm bốn khối ứng dụng, chạy kèm hạ tầng (PostgreSQL, MinIO, Rocket.Chat) bằng Docker Compose:
 
 | Khối | Công nghệ (theo mã nguồn hiện tại) | Vai trò |
 | --- | --- | --- |
-| Frontend | React 19, Vite 8, Tailwind CSS v4, React Router 7, Recharts | Một SPA phục vụ 5 cổng: công khai (phụ huynh), Gia sư, Học sinh, Lễ tân/Admin, Kế toán. Phục vụ qua Nginx |
-| Backend | Java 17, Spring Boot 3.2, Spring Data JPA, PostgreSQL driver, Actuator | Cổng API duy nhất, toàn bộ nghiệp vụ, phân quyền, Elo, audit log |
-| AI Service | Python 3.11, FastAPI, Uvicorn, LangGraph | Sinh quiz theo hội thoại, kiểm định JSON import, kiểm duyệt nội dung. Không lưu trạng thái |
-| Dữ liệu | PostgreSQL 16, kho tệp tương thích S3 | Dữ liệu nghiệp vụ (ERD ở `docs/New_ERD.md`), chứng chỉ, tài liệu, minh chứng chuyển khoản |
+| Frontend | React 19, Vite, Tailwind CSS v4, React Router 7, Recharts | Một SPA phục vụ 5 cổng: công khai (phụ huynh), Gia sư, Học sinh, Phụ huynh (Google), Lễ tân/Admin/Kế toán |
+| Backend | Java 21, Spring Boot 3.2, Spring Data JPA, Flyway | Cổng API duy nhất, toàn bộ nghiệp vụ, phân quyền 5+1 vai trò, Elo, audit log |
+| AI Service | Python 3.11, FastAPI, Uvicorn (gọi LLM OpenAI-compatible & Anthropic) | Sinh quiz theo hội thoại, kiểm định JSON import. Không lưu trạng thái |
+| Nhắn tin (MSG) | Rocket.Chat 8.9 (`rocketchat-apps/pii-guard`) | Chat phụ huynh–gia sư; backend Spring là cổng nghiệp vụ duy nhất (room mapping, đề xuất lớp học, Phone Gate) |
+| Dữ liệu | PostgreSQL 16 (Flyway V1–V30), kho tệp MinIO (S3) | Dữ liệu nghiệp vụ (ERD ở `docs/project/ERD.md`), chứng chỉ, tài liệu, minh chứng |
 
 ```mermaid
 graph TD
@@ -348,16 +349,17 @@ sequenceDiagram
 
 ## 6. Dữ liệu
 
-ERD đầy đủ ở [`docs/New_ERD.md`](../New_ERD.md). Nhóm bảng:
+ERD đầy đủ ở [`docs/project/ERD.md`](project/ERD.md). Nhóm bảng:
 
 | Nhóm | Bảng |
 | --- | --- |
-| Tài khoản | `users`, `employees` (Admin, Lễ tân, Kế toán), `parents` (chỉ lưu liên hệ, không đăng nhập), `students` |
-| Hồ sơ gia sư | `tutors`, `tutor_credentials`, `tutor_specialties`, `tutor_prices`, `tutor_availabilities`, `tutor_service_areas` |
+| Tài khoản | `users` (kèm vai trò `PARENT` — phụ huynh đăng nhập Google, V23), `employees` (Admin, Lễ tân, Kế toán), `parents`, `parent_google_oauth` (V23), `students` |
+| Hồ sơ gia sư | `tutors`, `tutor_credentials`, `tutor_specialties`, `tutor_prices`, `tutor_availabilities`, `tutor_service_areas`, `storage_tiers` + `tutor_storage_subscriptions` (V30, quota gói lưu trữ) |
 | Yêu cầu và ghép lớp | `class_requests`, `class_applications` |
 | Lớp và bài giảng (V16) | `classes` (kèm ca thử `trial_*`), `class_schedules`, `lessons`, `lesson_materials`, `teaching_logs`, `schedule_exceptions` |
-| Quiz và Elo | `skills`, `quizzes`, `quiz_questions`, `quiz_answers`, view `v_student_skill_stats`; MongoDB `ai_chat_messages` |
+| Quiz và Elo | `skills`, `quizzes`, `quiz_questions`, `quiz_answers`, view `v_student_skill_stats`; ôn tập ngắt quãng: `spaced_repetition_reviews` (V21), `review_cards` (V24), `review_decks` (V26), `student_settings` (V25) |
 | Tài chính và khiếu nại | `payments`, `refunds`, `complaints`, `complaint_attachments` |
+| Nhắn tin (MSG, V27–V29) | `chat_rooms`, `proposal_messages`, `platform_fee_policies`, `rocket_chat_accounts`, `chat_pii_events`, `chat_outbox` |
 | Hệ thống | `notifications`, `audit_logs` |
 
 Quy ước:
@@ -370,7 +372,7 @@ Quy ước:
 | Mã nghiệp vụ | Cột `code` riêng, dễ đọc (mã lớp, mã gia sư, mã khiếu nại, mã nhân viên), tách khỏi khóa chính |
 | Lỗi | `{ "code": "...", "message": "...", "timestamp": "...", "errors": [] }` qua `@ControllerAdvice`; map 400, 401, 403, 404, 409, 500 |
 | Chuyển trạng thái | Dùng động từ rõ ràng (`/approve`, `/request-resubmit`, `/select-tutor`, `/cancel`) |
-| Migration | Flyway, mỗi thay đổi schema là một file; cập nhật `docs/New_ERD.md` cùng PR |
+| Migration | Flyway, mỗi thay đổi schema là một file; cập nhật `docs/project/ERD.md` cùng PR |
 
 Chỉ mục cần có: `quiz_answers (student_id, question_id)` duy nhất; `class_schedules (class_id, day_of_week)`; `notifications (user_id, is_read, created_at)`; `tutors (profile_status)`; `payments (status, reviewed_at)`; `refunds (status, processed_at)`; partial unique `refunds (complaint_id) WHERE status IN (PENDING, PAID)`.
 
@@ -405,9 +407,9 @@ Chỉ mục cần có: `quiz_answers (student_id, question_id)` duy nhất; `cla
 ## 8. Triển khai và phi chức năng
 
 ### 8.1. Môi trường
-- `docker-compose.yml` hiện có 5 dịch vụ: `postgres`, `minio`, `backend`, `ai`, `frontend` (Nginx), cùng mạng `app-network`. Biến môi trường trong `.env` (mẫu ở `.env.example`).
-- Đã thêm dịch vụ `minio` (kho tệp tương thích S3, cổng 9000, giao diện quản trị 9001) và các biến cấu hình `S3_*`, `AI_SERVICE_URL`, `AI_TIMEOUT_SECONDS`, `LLM_*` trong `docker-compose.yml` và `.env.example`. Bucket `englishpath` cần được Backend tạo khi khởi động nếu chưa có.
-- CI: GitHub Actions build backend (Maven, JDK 17) và frontend (Node 20, lint, build); merge vào `dev` yêu cầu CI xanh.
+- `docker-compose.yml` hiện chạy các dịch vụ: `postgres`, `minio`, Rocket.Chat (+ MongoDB, NATS cho MSG), `ai`. Dịch vụ `backend` và `frontend` trong compose đang được chú thích — dev chạy backend bằng `mvn spring-boot:run` (JDK 21) và frontend bằng `npm run dev` (port 5173). Biến môi trường trong `.env` (mẫu ở `.env.example`).
+- `minio` là kho tệp tương thích S3 (cổng 9000, console 9001); bucket `englishpath` do Backend tạo khi khởi động nếu chưa có. Các biến `S3_*`, `AI_SERVICE_URL`, `AI_TIMEOUT_SECONDS`, `LLM_*`, `ROCKETCHAT_*`, `GOOGLE_OAUTH_*` trong `docker-compose.yml` và `.env.example`.
+- CI: GitHub Actions build backend (Maven, JDK 21) và frontend (Node 20, lint, build); merge vào `dev` yêu cầu CI xanh.
 
 ### 8.2. Phi chức năng
 
@@ -420,17 +422,18 @@ Chỉ mục cần có: `quiz_answers (student_id, question_id)` duy nhất; `cla
 | Chịu lỗi từng phần | Một khu vực dashboard lỗi không hỏng cả trang | Gọi và xử lý lỗi theo từng khối ở frontend |
 | Audit | Ghi các thao tác use case yêu cầu: duyệt hoặc từ chối hồ sơ gia sư, thu hộ và xác nhận minh chứng, chỉnh tỷ lệ phí, tạo, chi hoặc từ chối hoàn tiền, xuất báo cáo, thêm nhân sự, giải quyết khiếu nại | `common.AuditLog`, ghi trong cùng giao dịch; không có giao diện xem |
 
-## 9. Hiện trạng mã nguồn so với kiến trúc (11/10/2026)
+## 9. Hiện trạng mã nguồn so với kiến trúc (23/11/2026)
 
-| Khối | Đã có | Chưa có |
+| Khối | Đã có | Còn mở |
 | --- | --- | --- |
-| Backend | `TutorApplication`, `HealthController` (`/api/v1/health`), Actuator, cấu hình datasource, Dockerfile | Toàn bộ gói nghiệp vụ, Spring Security, Flyway, entity |
-| AI Service | FastAPI, `/health`, Dockerfile | `/quiz/chat`, `/quiz/validate`, `/moderate`, LangGraph flow, schema Pydantic |
-| Cơ sở dữ liệu | PostgreSQL 16 trong Compose, `init.sql` (bật extension) | DDL và migration |
-| Frontend | Prototype nhiều trang với dữ liệu giả, design system | Lớp gọi API, `AuthContext`, route guard theo vai trò, dọn các trang ngoài phạm vi (xem `ke-hoach-trien-khai.md` mục 3.4) |
-| Hạ tầng | Compose 5 dịch vụ (có `minio`), biến môi trường S3, AI và LLM, CI | Khóa LLM thật (để trống thì chỉ dùng được chế độ import) |
+| Backend | 12 module nghiệp vụ (auth, user, tutor, matching, classroom, quiz, payment, complaint, student, staff, messaging, audit), Spring Security RBAC, Flyway V1–V30, `ApiResponse`/audit, Swagger UI | Chạy bằng `mvn spring-boot:run` (JDK 21); dịch vụ trong compose đang chú thích |
+| AI Service | FastAPI, `/health`, `/api/v1/quiz/chat` (LLM thật: provider `openai`/`anthropic`), schema Pydantic | `/quiz/validate`, `/moderate`; tính chi phí token AI (WBS 9.2) |
+| Cơ sở dữ liệu | PostgreSQL trong Compose, Flyway V1–V30 + seed | — |
+| Frontend | 5 cổng nối API thật, design system Light/Dark, auth context + route guard theo vai trò | Dọn mock trang thừa, thống nhất UI (kế hoạch 6.2, tuần 13) |
+| Nhắn tin (MSG) | Rocket.Chat + app `pii-guard`, module `messaging` (room/proposal/Phone Gate), đăng nhập Google phụ huynh (V23) | Chỉnh luồng ghép lớp message + proposal (WBS 9.1) |
+| Hạ tầng | Compose `postgres`, `minio`, Rocket.Chat (+MongoDB/NATS), `ai`; biến `S3_*`, `LLM_*`, `ROCKETCHAT_*`, CI | Khóa LLM thật, merge gói lưu trữ, bảng chi phí |
 
-Lưu ý khi dựng backend: dự án đang dùng **Java 17 và Spring Boot 3.2**, và `README` của từng dịch vụ ghi đúng như vậy. Bản kiến trúc cũ ghi Java 21 và Spring Boot 3.4, **không khớp mã nguồn**; nếu nhóm muốn nâng phiên bản thì phải sửa `pom.xml` và Dockerfile cùng lúc.
+Lưu ý: mã nguồn backend dùng **Java 21 và Spring Boot 3.2.2** (`pom.xml`), Dockerfile build theo đó. Nếu nâng/thấp phiên bản cần sửa `pom.xml` và Dockerfile cùng lúc.
 
 ## 10. Hoãn lại
 

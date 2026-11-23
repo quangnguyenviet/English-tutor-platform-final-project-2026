@@ -7,7 +7,7 @@ ngày bắt đầu: 2026-09-07
 ngày kết thúc: 2026-12-13
 nhóm: 3 thành viên
 thời lượng: 14 tuần (11 tuần kế hoạch gốc + 3 tuần bổ sung: tuần 12–14)
-tài liệu liên quan: prd.md, mo_ta_de_tai.md, ARCHITECTURE.md, ../database.mmd, ../Usecase/
+tài liệu liên quan: prd.md, mo_ta_de_tai.md, ARCHITECTURE.md, ERD.md, ../Usecase/
 ---
 # 1. Tóm tắt
 
@@ -35,12 +35,13 @@ Nền tảng Web single-tenant cho trung tâm gia sư tiếng Anh 1-1: số hóa
 
 | Thành phần      | Công nghệ                        | Vai trò                                                                           |
 | ----------------- | ---------------------------------- | ---------------------------------------------------------------------------------- |
-| Frontend          | React 19, Vite, Tailwind CSS v4    | 4 cổng: công khai (phụ huynh), Gia sư, Học sinh, Lễ tân/Admin               |
-| Backend           | Java 17, Spring Boot 3.2, JPA, JWT | Cổng API duy nhất, nghiệp vụ, phân quyền, ghi audit log                      |
-| AI Service        | Python 3.11, FastAPI, LangGraph    | Sinh quiz theo hội thoại, parser và kiểm định import, kiểm duyệt nội dung |
-| Cơ sở dữ liệu | PostgreSQL 16                      | Thiết kế tại`docs/database.mmd`                                               |
-| Lưu trữ file    | Tương thích S3                  | Chứng chỉ, tài liệu, minh chứng                                               |
-| Hạ tầng         | Docker Compose, GitHub Actions     | Chạy local, CI                                                                    |
+| Frontend          | React 19, Vite, Tailwind CSS v4    | 5 cổng: công khai, Gia sư, Học sinh, Phụ huynh (Google), Lễ tân/Admin/Kế toán |
+| Backend           | Java 21, Spring Boot 3.2, JPA, Flyway, JWT | Cổng API duy nhất, nghiệp vụ, phân quyền, ghi audit log            |
+| AI Service        | Python 3.11, FastAPI (gọi LLM OpenAI/Anthropic) | Sinh quiz theo hội thoại, parser và kiểm định import       |
+| Cơ sở dữ liệu | PostgreSQL 16                      | Thiết kế tại `docs/project/ERD.md`                                        |
+| Nhắn tin (MSG)    | Rocket.Chat 8.9, app `pii-guard`   | Chat phụ huynh–gia sư; backend là cổng nghiệp vụ duy nhất (V23, V27–V29)  |
+| Lưu trữ file      | MinIO (tương thích S3)             | Chứng chỉ, tài liệu, minh chứng; quota gói lưu trữ gia sư (V30)           |
+| Hạ tầng           | Docker Compose, GitHub Actions     | Chạy local (postgres, minio, Rocket.Chat, ai), CI                         |
 
 # 2. Hiện trạng (tính đến 22/11/2026)
 

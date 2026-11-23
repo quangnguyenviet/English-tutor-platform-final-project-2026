@@ -1,6 +1,22 @@
 **ĐẶC TẢ USE CASE**  
   **LỄ TÂN (RECEPTIONIST)**
 
+Phiên bản: v1.2 (18/12/2026) — bản v1.1 cập nhật 08/11.
+
+Nội dung cập nhật v1.2 (chỉnh khớp với mã nguồn tại dev, 18/12/2026):
+
+- UC-REC-01: viết lại 4 thẻ KPI và 6 thẻ thao tác nhanh theo dashboard Lễ tân hiện tại (khiếu nại, phí chưa nộp minh chứng, thông báo; không còn KPI "tổng gia sư đang hoạt động" và không có lời chào kèm mã nhân viên).
+- UC-REC-02: bỏ trường "Gia sư chỉ định (tùy chọn)" khỏi form tạo lớp.
+- UC-REC-03: bỏ tiền điều kiện "không có gia sư chỉ định" (chức năng đã loại).
+- UC-REC-05: viết lại thành "Bổ sung thông tin và đăng lớp"; bỏ nút "Xác nhận đơn" và các bước đổi gia sư chỉ định.
+- UC-REC-06: đánh dấu "Đã loại khỏi hệ thống — 20/11, V27" (chức năng gia sư chỉ định đã bỏ, cột `class_requests.requested_tutor_id` đã DROP).
+- UC-REC-07: sửa ngoại lệ 7.1 — lớp đang ghép lại hiển thị với gia sư như lớp đăng tuyển bình thường, không bị ẩn; bỏ nhánh "Xác nhận đơn" khỏi bước 7.
+- UC-REC-08 / UC-REC-09: danh sách tab Quản lý Gia sư khớp thực tế (Tất cả / Chờ duyệt / Đang hoạt động / Ngưng hoạt động); bổ sung quy định lý do bắt buộc khi từ chối hồ sơ.
+- UC-REC-10: viết lại theo phân công hiện tại — Lễ tân thu hộ tại quầy, chỉnh tỷ lệ phí, nộp biên lai thay; xác nhận (duyệt) khoản phí do Kế toán thực hiện (tham chiếu UC-ACC-03); sửa tên tab theo trạng thái hệ thống (Chưa nộp minh chứng / Yêu cầu gửi lại / Chờ xác nhận / Đã xác nhận).
+- UC-REC-11: sửa tab quản lý học sinh (Chờ duyệt / Đã duyệt, gồm "Đã tạo account" / Tất cả); ghi chú trang đang chạy trên dữ liệu mock và tài khoản học sinh thật được tạo tự động tại UC-REC-03.
+- UC-REC-14/15/16: bổ sung dòng ghi chú phạm vi — khiếu nại đã loại khỏi phạm vi triển khai (mốc 23/11) nhưng module giữ nguyên trong codebase.
+- §1.1, §1.2, §1.3: cập nhật phân quyền phí (Lễ tân thu hộ / Kế toán xác nhận) và trách nhiệm quản lý nhân sự thuộc Admin; cập nhật luồng REC-1 (không còn nhánh gia sư chỉ định).
+
 # **PHẦN I. MÔ TẢ VAI TRÒ RECEPTIONIST TRONG HỆ THỐNG**
 
 ## **1.1 Định nghĩa vai trò**
@@ -11,7 +27,7 @@ Trong mô hình vận hành thực tế, Quản trị viên (Admin) không thể
 
 •     Tiếp nhận và xử lý nhanh các yêu cầu ghép lớp mới từ trang chủ.
 
-•     Kiểm tra và phê duyệt minh chứng nộp phí nhận lớp từ gia sư.
+•     Thu hộ phí nhận lớp tại quầy (tiền mặt hoặc chuyển khoản), chỉnh tỷ lệ phí và nộp biên lai thay gia sư; khoản phí do Kế toán xác nhận sau đối chiếu (xem UC-REC-10).
 
 •     Hỗ trợ tra cứu, cập nhật thông tin hồ sơ gia sư và học sinh.
 
@@ -21,14 +37,14 @@ Trong mô hình vận hành thực tế, Quản trị viên (Admin) không thể
 
 | Trách nhiệm | Mô tả  |
 | :---- | :---- |
-| Quản lý Lớp cần gia sư | Tiếp nhận yêu cầu đăng ký học từ Phụ huynh trên một trang duy nhất. Phụ huynh đã chọn gia sư thì trao đổi và xác nhận chuyển dạy thử; chưa chọn thì đăng lớp cho gia sư ứng tuyển. Theo dõi dạy thử, xác nhận ghép thành công, ghép lại, hủy lớp. |
+| Quản lý Lớp cần gia sư | Tiếp nhận yêu cầu đăng ký học từ Phụ huynh trên một trang duy nhất, đăng lớp để gia sư ứng tuyển và chọn gia sư từ danh sách ứng tuyển. Theo dõi dạy thử, xác nhận ghép thành công, ghép lại, hủy lớp. |
 | Quản lý hồ sơ Gia sư | Duyệt hồ sơ gia sư đăng ký mới, quản lý trạng thái hoạt động, chỉnh sửa thông tin |
-| Quản lý hồ sơ Học sinh | Duyệt hồ sơ học sinh, tạo tài khoản học sinh sau khi thanh toán được xác nhận |
-| Phê duyệt phí nhận lớp (QR Proof) | Kiểm tra minh chứng chuyển khoản (ảnh biên lai), duyệt/yêu cầu gửi lại minh chứng |
+| Quản lý hồ sơ Học sinh | Tra cứu, cập nhật thông tin hồ sơ học sinh; tài khoản học sinh được tạo tự động khi lớp được ghép gia sư (UC-REC-03) |
+| Phí nhận lớp (QR Proof) | Thu hộ tại quầy (tiền mặt/chuyển khoản), chỉnh tỷ lệ phí, nộp biên lai thay gia sư; việc đối chiếu và xác nhận khoản phí do Kế toán thực hiện (UC-REC-10) |
 | Giám sát vận hành & báo cáo | Theo dõi doanh thu, tỷ lệ ghép lớp, số lượng gia sư/học sinh mới, xuất báo cáo |
 | Quản lý thông báo | Nhận & xử lý thông báo từ gia sư, phụ huynh, hệ thống |
 | Kiểm soát nhật ký hoạt động | Giám sát audit trail, theo dõi mọi thao tác quan trọng trong hệ thống |
-| Quản lý nhân sự Lễ tân | Thêm mới, chỉnh sửa thông tin, phân quyền và quản lý trạng thái hoạt động của nhân viên Lễ tân |
+| Quản lý nhân sự Lễ tân | Trách nhiệm thuộc Admin (UC-ADM-11, UC-ADM-12): thêm mới, đổi trạng thái nhân viên. Lễ tân không có quyền quản lý nhân sự. |
 | Xử lý khiếu nại & Đối soát tài chính | Giám sát toàn bộ khiếu nại (Hoàn tiền / Không hoàn tiền) do Lễ tân tiếp nhận, duyệt xử lý và đối soát dòng tiền thu \- chi |
 
 ##  
@@ -39,10 +55,10 @@ Tóm tắt các luồng nghiệp vụ Lễ tân:
 
 | Luồng | Tên luồng | Mô tả ngắn |
 | :---- | :---- | :---- |
-| REC-1 | Quản lý lớp cần gia sư | Từ yêu cầu PH → Tư vấn (\<12h) → Có gia sư chỉ định thì xác nhận, chưa có thì đăng lớp và chọn gia sư ứng tuyển → Đang dạy thử → Ghép thành công (nếu dạy thử thất bại: Phụ huynh chọn ghép lại → Đang ghép lại → chọn gia sư mới) |
-| REC-2 | Duyệt phí nhận lớp (QR Proof) | Sau 1 tháng dạy → GS nộp MC → Duyệt / Yêu cầu gửi lại |
+| REC-1 | Quản lý lớp cần gia sư | Từ yêu cầu PH → Tư vấn → Đăng lớp cho gia sư ứng tuyển (chọn gia sư từ danh sách ứng tuyển) → Đang dạy thử → Ghép thành công (nếu dạy thử thất bại: Phụ huynh chọn ghép lại → Đang ghép lại → chọn gia sư mới) |
+| REC-2 | Phí nhận lớp (QR Proof) | GS nộp minh chứng (Lễ tân có thể thu hộ tại quầy, chỉnh tỷ lệ, nộp thay) → Kế toán đối chiếu và xác nhận / yêu cầu gửi lại (UC-ACC-03) |
 | REC-3 | Quản lý Gia sư | Duyệt hồ sơ mới → Quản lý trạng thái → Sửa/Xóa thông tin |
-| REC-4 | Quản lý Học sinh | Duyệt hồ sơ → Tạo tài khoản sau khi thanh toán OK |
+| REC-4 | Quản lý Học sinh | Tra cứu, cập nhật hồ sơ học sinh; tài khoản học sinh được tạo tự động khi lớp được ghép gia sư (UC-REC-03) |
 | REC-5 | Giám sát & Báo cáo vận hành | Dashboard thống kê, biểu đồ doanh thu, xuất báo cáo |
 | REC-6 | Giám sát khiếu nại & Đối soát thu chi | Tiếp nhận khiếu nại tại quầy → Phân loại hoàn tiền/không hoàn tiền → Đối soát doanh thu thực |
 
@@ -57,8 +73,8 @@ Tóm tắt các luồng nghiệp vụ Lễ tân:
 | **Tên UC** | Xem Receptionist Dashboard tổng quan |
 | **Actor** | Receptionist (Lễ tân) |
 | **Tiền điều kiện** | Lễ tân đã đăng nhập vào hệ thống với tài khoản vai trò receptionist |
-| **Hậu điều kiện** | Lễ tân nắm được toàn bộ khối lượng công việc cần xử lý trong ca trực: số yêu cầu ghép lớp đang chờ, số thanh toán chờ duyệt, và số khiếu nại chưa xử lý |
-| **Kịch bản chính** | 1\. Lễ tân đăng nhập và truy cập trang Tổng quan (/receptionist) 2\. Hệ thống hiển thị lời chào kèm tên và mã nhân viên lễ tân, hiển thị các thẻ KPI thống kê nhiệm vụ trọng tâm: Yêu cầu ghép lớp chờ xử lý (số lượng match request trạng thái "Chờ xử lý") Thanh toán phí chờ duyệt (số lượng payment proof trạng thái SUBMITTED) Khiếu nại chưa xử lý (số đơn khiếu nại tại quầy trạng thái Chờ xử lý) Tổng số gia sư đang hoạt động trong hệ thống Danh sách các lối tắt (Quick Actions): "Xử lý khiếu nại ngay", "Duyệt yêu cầu ghép lớp", "Kiểm tra thanh toán", "Danh sách gia sư" |
+| **Hậu điều kiện** | Lễ tân nắm được toàn bộ khối lượng công việc cần xử lý trong ca trực: số yêu cầu ghép lớp đang chờ, số khoản phí chưa nộp minh chứng, số khiếu nại chưa xử lý và số thông báo mới chưa đọc |
+| **Kịch bản chính** | 1\. Lễ tân đăng nhập và truy cập trang Tổng quan (/receptionist). 2\. Hệ thống hiển thị tiêu đề "Bảng điều khiển lễ tân" (thông điệp mô tả ngắn, không có lời chào kèm tên hay mã nhân viên), nút "Đồng bộ" để làm mới dữ liệu và các thẻ KPI: (a) Yêu cầu ghép lớp — tổng số đơn và số đơn "Chờ xử lý"; (b) Phí chưa nộp minh chứng — số khoản phí trạng thái "Chưa nộp minh chứng" (NOT\_SUBMITTED); (c) Khiếu nại chưa xử lý — số khiếu nại "Chờ xử lý" kèm số khiếu nại "Chờ hoàn tiền"; (d) Thông báo mới — số thông báo chưa đọc. 3\. Hệ thống hiển thị khối thao tác nhanh gồm 6 thẻ: Ghép lớp, Phí nhận lớp, Quản lý Gia sư, Quản lý Học sinh, Xử lý khiếu nại, Thông báo; mỗi thẻ kèm số liệu tóm tắt (đơn chờ xử lý, khoản phí chưa nộp, số gia sư, số học sinh, khiếu nại chưa xử lý, tin mới). 4\. Nếu có khiếu nại gần đây, hệ thống hiển thị khối tóm tắt các khiếu nại mới nhất. |
 | **Ngoại lệ** |  |
 
 ## **UC-REC-02: Tạo lớp cần gia sư**
@@ -67,9 +83,9 @@ Tóm tắt các luồng nghiệp vụ Lễ tân:
 | :---- | :---- |
 | **Tên UC** | Tạo lớp cần gia sư |
 | **Actor** | Lễ tân |
-| **Tiền điều kiện** | 1\. Lễ tân đã đăng nhập. 2\. Phụ huynh liên hệ trung tâm để tìm gia sư, có thể đã chọn sẵn gia sư hoặc chưa. Yêu cầu phụ huynh gửi trên website tự tạo lớp ở "Chờ xử lý", không cần Lễ tân tạo lại. |
+| **Tiền điều kiện** | 1\. Lễ tân đã đăng nhập. 2\. Phụ huynh liên hệ trung tâm để tìm gia sư. Yêu cầu phụ huynh gửi trên website tự tạo lớp ở "Chờ xử lý", không cần Lễ tân tạo lại. |
 | **Hậu điều kiện** | Xuất hiện lớp cần gia sư mới ở trạng thái "Chờ xử lý". |
-| **Kịch bản chính** | 1\. Lễ tân chọn mục "Quản lý lớp cần gia sư". 2\. Hệ thống hiển thị danh sách lớp với các tab: Tất cả, Chờ xử lý, Đã đăng, Đang dạy thử, Ghép thành công, Đang ghép lại, Đã hủy; có tìm kiếm, sắp xếp theo thời gian và số gia sư ứng tuyển, và nút "Tạo mới lớp". 3\. Lễ tân bấm "Tạo mới lớp". 4\. Hệ thống hiển thị form gồm: Họ tên phụ huynh, SĐT, Họ tên học sinh, Khối lớp, Trường học, Gia sư chỉ định (tùy chọn, mặc định không chỉ định), Yêu cầu lớp học, Mục tiêu học tập, Hình thức học, Học phí/buổi, Số buổi/tuần, Tỷ lệ phí nhận lớp, Lịch học mong muốn, Yêu cầu đối với gia sư; và 2 nút "Tạo lớp", "Hủy". Thông tin phụ huynh và học sinh không công khai với gia sư. 5\. Lễ tân nhập thông tin và bấm "Tạo lớp". 6\. Hệ thống hiển thị popup xác nhận kèm 2 nút Đồng ý/Hủy. 7\. Lễ tân bấm "Đồng ý". 8\. Hệ thống thông báo thành công, lớp xuất hiện ở tab "Chờ xử lý". Chưa tạo tài khoản học sinh ở bước này. |
+| **Kịch bản chính** | 1\. Lễ tân chọn mục "Quản lý lớp cần gia sư". 2\. Hệ thống hiển thị danh sách lớp với các tab: Tất cả, Chờ xử lý, Đã đăng, Đang dạy thử, Ghép thành công, Đang ghép lại, Đã hủy; có tìm kiếm, sắp xếp theo thời gian và số gia sư ứng tuyển, và nút "Tạo mới lớp". 3\. Lễ tân bấm "Tạo mới lớp". 4\. Hệ thống hiển thị form gồm: Họ tên phụ huynh, SĐT, Họ tên học sinh, Khối lớp, Trường học, Yêu cầu lớp học, Mục tiêu học tập, Hình thức học, Học phí/buổi, Số buổi/tuần, Tỷ lệ phí nhận lớp, Lịch học mong muốn, Yêu cầu đối với gia sư; và 2 nút "Tạo lớp", "Hủy". Thông tin phụ huynh và học sinh không công khai với gia sư. 5\. Lễ tân nhập thông tin và bấm "Tạo lớp". 6\. Hệ thống hiển thị popup xác nhận kèm 2 nút Đồng ý/Hủy. 7\. Lễ tân bấm "Đồng ý". 8\. Hệ thống thông báo thành công, lớp xuất hiện ở tab "Chờ xử lý". Chưa tạo tài khoản học sinh ở bước này. |
 | **Ngoại lệ** | 4.1. Lễ tân bấm "Hủy": hệ thống đóng form, không tạo lớp. 5.1. Thiếu thông tin bắt buộc hoặc SĐT sai định dạng: hệ thống báo lỗi, giữ nguyên dữ liệu đã nhập. 7.1. Lễ tân bấm "Hủy" tại popup: hệ thống quay lại form. 5.2. Số điện thoại thuộc về phụ huynh khác tên: hệ thống hiện cảnh báo kèm tên phụ huynh đó và khóa nút "Tạo lớp". Lễ tân xác nhận lại với phụ huynh: nhầm số thì đổi số điện thoại, cùng gia đình thì bấm "Dùng phụ huynh [tên]". Đúng họ tên và số điện thoại đã có thì không cảnh báo, lớp mới gắn với phụ huynh đó. |
 
 ## **UC-REC-03: Chọn gia sư từ danh sách ứng tuyển**
@@ -78,7 +94,7 @@ Tóm tắt các luồng nghiệp vụ Lễ tân:
 | :---- | :---- |
 | **Tên UC** | Chọn gia sư từ danh sách ứng tuyển |
 | **Actor** | Lễ tân |
-| **Tiền điều kiện** | Lễ tân đã đăng nhập. Lớp ở "Đã đăng", hoặc "Đang ghép lại" và không có gia sư chỉ định. Có gia sư ứng tuyển. Lễ tân đã trao đổi với phụ huynh và gia sư, hai bên đồng ý. |
+| **Tiền điều kiện** | Lễ tân đã đăng nhập. Lớp ở "Đã đăng" hoặc "Đang ghép lại". Có gia sư ứng tuyển. Lễ tân đã trao đổi với phụ huynh và gia sư, hai bên đồng ý. |
 | **Hậu điều kiện** | Lớp chuyển "Đang dạy thử". Lớp học `TRIAL` và khoản phí nháp được tạo. Tài khoản học sinh được tạo nếu chưa có. Các gia sư còn lại được thông báo không được chọn. |
 | **Kịch bản chính** | 1\. Lễ tân bấm "Danh sách ứng tuyển" tại lớp tương ứng. 2\. Hệ thống mở modal gồm: Tên gia sư, Thời gian ứng tuyển, Lời nhắn, nút "Chọn gia sư", "Xem chi tiết". 3\. Lễ tân bấm "Chọn gia sư". 4\. Hệ thống hiển thị popup xác nhận kèm 2 nút Đồng ý/Hủy. 5\. Lễ tân bấm "Đồng ý". 6\. Hệ thống thông báo thành công và hiển thị tài khoản học sinh, mật khẩu mặc định nếu vừa tạo để bàn giao cho gia đình. |
 | **Ngoại lệ** | 1.1. Chưa có gia sư ứng tuyển: nút "Danh sách ứng tuyển" bị khóa. 5.1. Lễ tân bấm "Hủy" tại popup: hệ thống quay lại danh sách ứng tuyển. 6.1. Chưa có họ tên học sinh hoặc gia sư không còn hoạt động: hệ thống báo lỗi, không đổi dữ liệu. |
@@ -94,18 +110,20 @@ Tóm tắt các luồng nghiệp vụ Lễ tân:
 | **Kịch bản chính** | 1\. Hệ thống hiển thị danh sách lớp kèm nút "Hủy lớp". Lớp "Ghép thành công" hiển thị đếm ngược "Còn N ngày để hủy lớp, đến hết ngày dd/mm/yyyy". 2\. Lễ tân bấm "Hủy lớp". 3\. Hệ thống hiển thị ô nhập lý do. 4\. Lễ tân nhập lý do và bấm "Đồng ý hủy". 5\. Hệ thống hiển thị popup xác nhận kèm 2 nút. 6\. Lễ tân bấm "Đồng ý hủy". 7\. Hệ thống cập nhật trạng thái, gửi thông báo và báo thành công. |
 | **Ngoại lệ** | 1.1. Lớp "Ghép thành công" đã quá 7 ngày: nút "Hủy lớp" bị làm mờ, hệ thống hiển thị "Đã hết hạn hủy lớp", nếu vẫn gửi yêu cầu thì từ chối. 4.1. Để trống lý do: nút xác nhận bị khóa. 6.1. Lễ tân bấm "Hủy" tại popup: hệ thống quay lại, không thay đổi. |
 
-## **UC-REC-05: Bổ sung thông tin, đổi gia sư chỉ định và đăng lớp**
+## **UC-REC-05: Bổ sung thông tin và đăng lớp**
 
 | Mã UC | UC-REC-05 |
 | :---- | :---- |
-| **Tên UC** | Bổ sung thông tin, đổi gia sư chỉ định và đăng lớp |
+| **Tên UC** | Bổ sung thông tin và đăng lớp |
 | **Actor** | Lễ tân |
-| **Tiền điều kiện** | 1\. Lễ tân đã đăng nhập. 2\. Lớp ở "Chờ xử lý". Đổi gia sư chỉ định còn áp dụng cho lớp "Đang ghép lại" (xem UC-REC-07). 3\. Lễ tân đã gọi tư vấn phụ huynh. |
-| **Hậu điều kiện** | Thông tin lớp được cập nhật. Lớp có gia sư chỉ định chờ xác nhận (UC-REC-06), lớp không có gia sư chỉ định có thể đăng lên, chuyển "Đã đăng". |
-| **Kịch bản chính** | 1\. Lễ tân mở tab "Chờ xử lý" và bấm "Đăng lớp" (lớp không có gia sư chỉ định) hoặc "Xác nhận đơn" (lớp có gia sư chỉ định). Không còn nút "Bổ sung thông tin" riêng. 2\. Hệ thống hiển thị form bổ sung thông tin phụ huynh, học sinh, yêu cầu lớp, hình thức, học phí, tỷ lệ phí, lịch học, yêu cầu gia sư. SĐT không sửa được. 3\. Lễ tân nhập thông tin rồi bấm "Lưu và đăng lớp" hoặc "Lưu và xác nhận"; bấm "Chỉ lưu" nếu chưa đủ thông tin để chuyển trạng thái. 4\. Để đổi gia sư, Lễ tân bấm "Gia sư chỉ định". 5\. Hệ thống hiển thị danh sách gia sư đang hoạt động và lựa chọn "Không". 6\. Lễ tân chọn gia sư B thay gia sư A khi gia sư A không dạy được, hoặc chọn "Không" khi phụ huynh muốn trung tâm tìm hộ, rồi bấm "Lưu". 7\. Khi bấm "Lưu và đăng lớp". 8\. Hệ thống hiển thị popup xác nhận. 9\. Lễ tân bấm "Đồng ý". 10\. Lớp chuyển "Đã đăng", hiển thị trên trang gia sư và trang công khai. |
-| **Ngoại lệ** | 3.1. Thiếu họ tên phụ huynh, họ tên học sinh hoặc email sai định dạng: hệ thống báo lỗi. 6.1. Gia sư đã ngưng hoạt động hoặc đã bị loại khỏi lớp: hệ thống báo lỗi, không đổi. 9.1. Lớp thiếu họ tên học sinh, yêu cầu lớp, hình thức hoặc học phí: hệ thống báo chưa đủ thông tin để đăng. |
+| **Tiền điều kiện** | 1\. Lễ tân đã đăng nhập. 2\. Lớp ở "Chờ xử lý". Lễ tân đã gọi tư vấn phụ huynh. |
+| **Hậu điều kiện** | Thông tin lớp được cập nhật. Lớp đủ thông tin được đăng lên trang gia sư, chuyển "Đã đăng". |
+| **Kịch bản chính** | 1\. Lễ tân mở tab "Chờ xử lý" và bấm "Đăng lớp" (không còn nút "Xác nhận đơn" hay "Bổ sung thông tin" riêng). 2\. Hệ thống hiển thị form bổ sung thông tin phụ huynh, học sinh, yêu cầu lớp, hình thức, học phí, tỷ lệ phí, lịch học, yêu cầu gia sư. SĐT không sửa được. 3\. Lễ tân nhập thông tin rồi bấm "Lưu và đăng lớp"; bấm "Chỉ lưu" nếu chưa đủ thông tin để chuyển trạng thái. 4\. Hệ thống hiển thị popup xác nhận "Lưu thông tin và đăng lớp" kèm 2 nút Đồng ý/Hủy. 5\. Lễ tân bấm "Đồng ý". 6\. Hệ thống lưu thông tin và đăng lớp, lớp chuyển "Đã đăng", hiển thị trên trang gia sư và trang công khai. |
+| **Ngoại lệ** | 3.1. Thiếu họ tên phụ huynh, họ tên học sinh hoặc email sai định dạng: hệ thống báo lỗi. 5.1. Lễ tân bấm "Hủy" tại popup: hệ thống quay lại form. 6.1. Lớp thiếu họ tên học sinh, yêu cầu lớp, hình thức hoặc học phí: hệ thống báo chưa đủ thông tin để đăng. |
 
-## **UC-REC-06: Xác nhận lớp có gia sư chỉ định**
+## **UC-REC-06: Xác nhận lớp có gia sư chỉ định** (Đã loại khỏi hệ thống — 20/11, V27)
+
+> **Lưu ý v1.2:** Chức năng "gia sư chỉ định" đã được loại bỏ hoàn toàn (migration V27: DROP COLUMN `class_requests.requested_tutor_id`; nút "Xác nhận đơn" và modal tương ứng đã xóa khỏi trang Lớp cần gia sư; không còn endpoint xác nhận đơn chỉ định). Khi phụ huynh đã chọn sẵn gia sư, gia sư được ghép qua UC-REC-03 (từ danh sách ứng tuyển). Nội dung dưới đây chỉ còn giá trị tham khảo, không mô tả luồng hiện tại.
 
 | Mã UC | UC-REC-06 |
 | :---- | :---- |
@@ -135,8 +153,8 @@ Tóm tắt các luồng nghiệp vụ Lễ tân:
 | **Actor** | Lễ tân |
 | **Tiền điều kiện** | 1\. Lễ tân đã đăng nhập. 2\. Lớp ở "Đang dạy thử". 3\. Dạy thử không thành công, Lễ tân đã hỏi ý kiến phụ huynh. |
 | **Hậu điều kiện** | Lớp chuyển "Đang ghép lại", gia sư cũ bị loại và không ứng tuyển lại được. Các gia sư trước đó không được chọn tự quay lại danh sách ứng tuyển và nhận thông báo. Gia sư và khách thấy lớp như lớp đăng tuyển bình thường. |
-| **Kịch bản chính** | 1\. Lễ tân bấm "Ghép lại". 2\. Hệ thống hiển thị 2 lựa chọn "Tìm gia sư khác", "Không tìm nữa" và ô nhập lý do. 3\. Lễ tân chọn "Tìm gia sư khác", nhập lý do và bấm "Chuyển sang ghép lại". 4\. Hệ thống hiển thị popup xác nhận. 5\. Lễ tân bấm "Đồng ý". 6\. Hệ thống hủy lớp dạy thử, thông báo gia sư cũ và học sinh, chuyển lớp sang tab "Đang ghép lại". 7\. Lễ tân chọn gia sư từ danh sách ứng tuyển (UC-REC-03), hoặc khi phụ huynh tự chọn được gia sư thì bấm "Gia sư chỉ định" rồi "Xác nhận đơn" (UC-REC-06). |
-| **Ngoại lệ** | 3.1. Phụ huynh chọn "Không tìm nữa": chuyển sang UC-REC-04, điền sẵn lý do. 7.1. Lớp đang có gia sư chỉ định thì tạm ẩn khỏi trang gia sư, không nhận ứng tuyển; đổi về "Không" thì lớp hiển thị lại. 7.2. Lễ tân bấm "Sửa thông tin": chỉ sửa được học phí, yêu cầu lớp, mục tiêu học tập, yêu cầu gia sư; gia sư đang ứng tuyển nhận thông báo thay đổi. Lớp chuyển "Đang dạy thử" với học phí đã sửa. |
+| **Kịch bản chính** | 1\. Lễ tân bấm "Ghép lại". 2\. Hệ thống hiển thị 2 lựa chọn "Tìm gia sư khác", "Không tìm nữa" và ô nhập lý do. 3\. Lễ tân chọn "Tìm gia sư khác", nhập lý do và bấm "Chuyển sang ghép lại". 4\. Hệ thống hiển thị popup xác nhận. 5\. Lễ tân bấm "Đồng ý". 6\. Hệ thống hủy lớp dạy thử, thông báo gia sư cũ và học sinh, chuyển lớp sang tab "Đang ghép lại". 7\. Lễ tân chọn gia sư từ danh sách ứng tuyển (UC-REC-03); nếu phụ huynh tự liên hệ được gia sư, gia sư đó ứng tuyển vào lớp rồi Lễ tân chọn theo UC-REC-03. |
+| **Ngoại lệ** | 3.1. Phụ huynh chọn "Không tìm nữa": chuyển sang UC-REC-04, điền sẵn lý do. 7.1. Lớp "Đang ghép lại" hiển thị với gia sư và khách như lớp đăng tuyển bình thường (trạng thái "Đã đăng"), mọi gia sư đang hoạt động đều có thể ứng tuyển; không có cơ chế ẩn lớp theo gia sư chỉ định (chức năng đã loại khỏi hệ thống theo UC-REC-06). 7.2. Lễ tân bấm "Sửa thông tin": chỉ sửa được học phí, yêu cầu lớp, mục tiêu học tập, yêu cầu gia sư; gia sư đang ứng tuyển nhận thông báo thay đổi. Lớp chuyển "Đang dạy thử" với học phí đã sửa. |
 
 ## **UC-REC-08: Duyệt hồ sơ Gia sư đăng ký mới**
 
@@ -147,7 +165,7 @@ Tóm tắt các luồng nghiệp vụ Lễ tân:
 | **Tiền điều kiện** | 1\. Lễ tân đã đăng nhập 2\. Tồn tại ít nhất 1 hồ sơ Gia sư ở trạng thái Chờ duyệt |
 | **Hậu điều kiện** | 1\. Nếu Duyệt: Hồ sơ GS chuyển trạng thái → Đang hoạt động, GS có thể nhận Match Offer 2\. Nếu Từ chối: Hồ sơ bị loại, GS nhận thông báo từ chối |
 | **Kịch bản chính** | 1\. Lễ tân truy cập trang "Quản lý Gia sư", chọn tab "Chờ duyệt" 2\. Hệ thống hiển thị danh sách Gia sư chờ duyệt. 3\. Lễ tân bấm vào một hồ sơ GS. 4\. Hệ thống hiển thị thông tin chi tiết: họ tên, SĐT, ngày tháng năm sinh, quê quán, email, chuyên môn, kinh nghiệm, khu vực dạy, bảng giá, bằng cấp/chứng chỉ, ảnh đính kèm. Và 2 nút Duyệt, Không duyệt. 5\. Lễ tân bấm nút "Duyệt". 6\. Hệ thống hiển thị popup xác nhận kèm 2 nút Đồng ý/Hủy. 7\. Lễ tân bấm "Đồng ý". 8\. Hệ thống cập nhật trạng thái GS, ghi Audit Log. |
-| **Ngoại lệ** | 5.1. Lễ tân bấm nút “Không duyệt”. 5.1.1. Hệ thống hiển thị pop up xác nhận và 2 nút Đồng ý/ Hủy. 5.1.1.1. Lễ tân bấm nút Đồng ý. 5.1.1.1.1. Hệ thống hiển thị thông báo đã từ chối hồ sơ của Gia sư. 5.1.1.2. Lễ tân bấm nút Hủy. 5.1.1.2.1. Hệ thống quay trở lại trang cũ. (Trang chờ duyệt) 7.1. Gia sư bấm nút Hủy 7.1.1. Hệ thống quay trở lại trang cũ (Trang chờ duyệt). |
+| **Ngoại lệ** | 5.1. Lễ tân bấm nút “Không duyệt”. 5.1.1. Hệ thống hiển thị modal từ chối, yêu cầu nhập lý do (bắt buộc) và 2 nút Đồng ý/Hủy. 5.1.1.1. Lễ tân bấm nút Đồng ý: hồ sơ GS chuyển "Bị từ chối" (REJECTED), hệ thống hiển thị thông báo đã từ chối hồ sơ của Gia sư. 5.1.1.2. Lễ tân bấm nút Hủy: hệ thống quay trở lại trang cũ (Trang chờ duyệt). 7.1. Lễ tân bấm nút Hủy tại popup xác nhận duyệt: hệ thống quay trở lại trang cũ (Trang chờ duyệt). |
 
 ## **UC-REC-09: Quản lý thông tin gia sư**
 
@@ -157,32 +175,34 @@ Tóm tắt các luồng nghiệp vụ Lễ tân:
 | **Actor** | Lễ tân |
 | **Tiền điều kiện** | 1\. Lễ tân đã đăng nhập 2\. Tồn tại ít nhất 1 Gia sư trong hệ thống |
 | **Hậu điều kiện** | 1\. Hồ sơ gia sư sẽ không thay đổi nếu chỉ xem.2\. Hồ sơ gia sư sẽ được cập nhật thay đổi khi Lễ tân chỉnh sửa. |
-| **Kịch bản chính** | 1\. Lễ tân truy cập trang "Quản lý Gia sư" từ trang chủ Lễ tân. 2\. Hệ thống hiển thị danh sách GS với 3 tab: Chờ duyệt / Đang hoạt động / Ngưng hoạt động và 2 button Xem GS. 3\. Lễ tân bấm button “Xem GS" ở 1 hồ sơ gia sư bất kỳ. 4\. Hệ thống hiển thị modal thông tin chi tiết GS gồm:  họ tên, SĐT, ngày tháng năm sinh, quê quán, email, trạng thái hoạt động, chuyên môn, kinh nghiệm, khu vực dạy, bảng giá, bằng cấp/chứng chỉ, ảnh đính kèm. Và 2 nút Lưu, Đóng. 5\. Lễ tân xem chi tiết được thông tin GS, đồng thời cũng có thể chỉnh sửa thông tin GS ở trường như trạng thái hoạt động. Sau đó ấn nút Lưu. 6\. Hệ thống hiển thị xác nhận: “Bạn có xác nhận thay đổi thông tin của gia sư không?” và 2 nút Đồng ý/ Hủy. 7\. Lễ tân ấn nút Đồng ý. 8\. Hệ thống hiển thị thông báo “Đã lưu thông tin gia sư” và quay lại trang Quản lý GS. |
+| **Kịch bản chính** | 1\. Lễ tân truy cập trang "Quản lý Gia sư" từ trang chủ Lễ tân. 2\. Hệ thống hiển thị danh sách GS với 4 tab: Tất cả / Chờ duyệt / Đang hoạt động / Ngưng hoạt động và nút Xem GS; hồ sơ đã từ chối hiển thị nhãn "Bị từ chối" (REJECTED) khi xem tại tab Tất cả. 3\. Lễ tân bấm button “Xem GS" ở 1 hồ sơ gia sư bất kỳ. 4\. Hệ thống hiển thị modal thông tin chi tiết GS gồm:  họ tên, SĐT, ngày tháng năm sinh, quê quán, email, trạng thái hoạt động, chuyên môn, kinh nghiệm, khu vực dạy, bảng giá, bằng cấp/chứng chỉ, ảnh đính kèm. Và 2 nút Lưu, Đóng. 5\. Lễ tân xem chi tiết được thông tin GS, đồng thời cũng có thể chỉnh sửa thông tin GS ở trường như trạng thái hoạt động. Sau đó ấn nút Lưu. 6\. Hệ thống hiển thị xác nhận: “Bạn có xác nhận thay đổi thông tin của gia sư không?” và 2 nút Đồng ý/ Hủy. 7\. Lễ tân ấn nút Đồng ý. 8\. Hệ thống hiển thị thông báo “Đã lưu thông tin gia sư” và quay lại trang Quản lý GS. |
 | **Ngoại lệ** | 7.1. Lễ tân bấm nút Hủy. 7.1.1. Hệ thống quay lại trang modal thông tin chi tiết GS. |
 
-## **UC-REC-10: Tạo đơn xác minh phí nhận lớp** 
+## **UC-REC-10: Thu hộ phí nhận lớp và chỉnh tỷ lệ phí** 
 
 | Mã UC | UC-REC-10 |
 | :---- | :---- |
-| **Tên UC** | Tạo đơn xác minh phí nhận lớp |
+| **Tên UC** | Thu hộ phí nhận lớp và chỉnh tỷ lệ phí |
 | **Actor** | Lễ tân |
-| **Tiền điều kiện** | 1\. Lễ tân đã đăng nhập 2\. Phụ huynh đóng tiền trước cho lớp Onine và đã gửi ảnh minh chứng chuyển khoản hoặc đến tận nơi đóng tiền mặt.  |
-| **Hậu điều kiện** | Đơn đang ở trạng thái “Chờ duyệt” |
-| **Kịch bản chính** | 1\. Lễ tân chọn mục "Quản lý phí ghép lớp" từ trang chủ Lễ tân. 2\. Hệ thống hiển thị danh sách thanh toán với các tab: Chưa nộp minh chứng, Chờ duyệt, Đã duyệt, Yêu cầu nộp lại và nút tạo đơn. 3\. Lễ tân nhấn nút tạo đơn. 4\. Hệ thống hiển thị form để nhập minh chứng vào:  \- Thông tin lớp học: Mã lớp, Tên môn/khối lớp, Hình thức dạy, Địa chỉ. \- Thông tin các bên: Gia sư phụ trách, Học sinh, Phụ huynh. \- Lịch học cố định đã chốt: Các thứ trong tuần, khung giờ học, ngày bắt đầu. \- Tỷ lệ phí: Hiển thị tỷ lệ phí của lớp cần gia sư này (mặc định 40%, chỉnh được trong khoảng 0–50% trước khi lớp có gia sư được chọn; sau đó chỉ đọc). \- Học phí mỗi buổi: Số tiền VNĐ. \- Số buổi mỗi tuần: Số lượng buổi. \- Tổng số tiền phải nộp: Được tính tự động và hiển thị cố định dạng chữ và số. \- Thông tin minh chứng (nếu có): Ảnh biên lai, người tải lên, thời điểm tải lên. \- 2 nút Gửi, Hủy. 5\. Lễ tân điền đầy đủ thông tin vào và ấn nút Gửi 6\. Hệ thống hiển thị popup xác nhận: "Bạn chắc chắn muốn gửi minh chứng thanh toán này không?” kèm 2 nút Đồng ý/Hủy. 7\. Lễ tân bấm nút Đồng ý 8\. Hệ thống thông báo duyệt thành công, cập nhật trạng thái phí thành "Đã duyệt" và ghi Audit Log. (Gia sư đã xem được SĐT phụ huynh từ khi ghép lớp thành công, không phụ thuộc bước này.) |
-| **Ngoại lệ** | 5.1. Lễ tân điền thiếu thông tin và bấm nút Gửi. 5.1.1. Hệ thống yêu cầu gia sư nhập đầy đủ thông tin trước khi gửi. |
+| **Tiền điều kiện** | 1\. Lễ tân đã đăng nhập 2\. Tồn tại khoản phí nhận lớp: hệ thống tự tạo bản nháp khi ghép lớp dạy thử (trạng thái "Chưa nộp minh chứng" khi lớp chính thức) và kích hoạt khi xác nhận ghép thành công; gia sư tự nộp biên lai hoặc đến tận nơi thanh toán tiền mặt.  |
+| **Hậu điều kiện** | Biên lai được ghi nhận kèm hình thức thu; khoản phí chuyển "Chờ xác nhận" chờ Kế toán đối chiếu (xem UC-ACC-03). Lễ tân không có quyền tự xác nhận/duyệt khoản phí đã thu hộ. |
+| **Kịch bản chính** | 1\. Lễ tân chọn mục "Phí nhận lớp" từ trang chủ Lễ tân. 2\. Hệ thống hiển thị danh sách khoản phí với 4 tab theo trạng thái: Chưa nộp minh chứng / Yêu cầu gửi lại / Chờ xác nhận / Đã xác nhận, kèm ô tìm kiếm (mã lớp, tên gia sư, SĐT phụ huynh). 3\. Lễ tân bấm nút "Thu hộ" tại khoản phí "Chưa nộp minh chứng". 4\. Hệ thống hiển thị modal "Thu hộ tại quầy": thông tin khoản phí (lớp, gia sư, số tiền), lựa chọn hình thức thu (Tiền mặt / Chuyển khoản), ô tải ảnh phiếu thu hoặc biên lai. 5\. Lễ tân chọn hình thức, tải tệp minh chứng và bấm "Xác nhận thu hộ". 6\. Hệ thống ghi nhận minh chứng, chuyển khoản phí sang "Chờ xác nhận" và thông báo "Đã thu hộ và gửi biên lai cho Kế toán đối chiếu". Khoản "Yêu cầu gửi lại" cũng thao tác tương tự (gia sư nộp lại hoặc Lễ tân thu hộ thay). 7\. Khi khoản phí "Chưa nộp minh chứng", Lễ tân có thể bấm "Chỉnh tỷ lệ" để điều chỉnh tỷ lệ phí (mặc định 40%, khoảng 0–50%) rồi lưu. 8\. Bước xác nhận (đối chiếu số tiền thực nhận, xác nhận đã nhận tiền hoặc yêu cầu nộp lại) được Kế toán thực hiện theo UC-ACC-03; Lễ tân chỉ được xem kết quả ở tab "Đã xác nhận". |
+| **Ngoại lệ** | 5.1. Lễ tân chọn tệp không hợp lệ (không phải JPG/PNG/PDF hoặc lớn hơn 5MB): hệ thống báo lỗi, không gửi minh chứng. 6.1. Lễ tân không thể tự xác nhận khoản phí mình đã thu hộ: hệ thống yêu cầu Kế toán thực hiện bước xác nhận (UC-ACC-03). |
 
-## **UC-REC-11: Quản lý thông tin Học sinh** 
+## **UC-REC-11: Quản lý thông tin Học sinh** (chạy trên dữ liệu mock)
 
 | Mã UC | UC-REC-11 |
 | :---- | :---- |
 | **Tên UC** | Quản lý thông tin Học sinh |
 | **Actor** | Lễ tân |
-| **Tiền điều kiện** | 1\. Lễ tân đã đăng nhập 2\. Tồn tại ít nhất 1 hồ sơ học sinh trong hệ thống. |
+| **Tiền điều kiện** | 1\. Lễ tân đã đăng nhập 2\. Tồn tại ít nhất 1 hồ sơ học sinh trong hệ thống. Trang hiện chạy trên dữ liệu mock (chưa có backend quản lý hồ sơ học sinh của Admin/Lễ tân); trong khi đó, tài khoản học sinh thật được hệ thống tạo tự động khi lớp được ghép gia sư (UC-REC-03), không phải thao tác thủ công tại đây. |
 | **Hậu điều kiện** | Lễ tân nắm được chi tiết hồ sơ học sinh, thông tin phụ huynh và gia sư phụ trách hiện tại. |
-| **Kịch bản chính** | 1\. Lễ tân truy cập trang "Quản lý Học sinh".  2\. Hệ thống hiển thị danh sách học sinh (phân thành Đang hoạt động và Dừng hoạt động), thanh tìm kiếm/bộ lọc và nút Xem chi tiết. 3\. Lễ tân bấm nút Xem chi tiết của 1 học sinh cần xem. 4\. Hệ thống hiển thị modal chi tiết gồm: Họ tên học sinh, ngày tháng năm sinh, địa chỉ, trường đang theo học, tên phụ huynh, SDT, Email, các lớp đã tham gia, các lớp đang tham gia, thời gian tạo account, trạng thái hoạt động. Và 2 nút Lưu, Đóng. 5\. Lễ tân xem chi tiết được thông tin Học sinh, đồng thời cũng có thể chỉnh sửa thông tin HS như trạng thái hoạt động. Sau đó ấn nút Lưu. 6\. Hệ thống hiển thị xác nhận: “Bạn có xác nhận thay đổi thông tin của HS không?” và 2 nút Đồng ý/ Hủy. 7\. Lễ tân ấn nút Đồng ý. 8\. Hệ thống hiển thị thông báo “Đã lưu thông tin HS” và quay lại trang Quản lý HS.  |
-| **Ngoại lệ** | 7.1. Lễ tân bấm nút Hủy. 7.1.1. Hệ thống quay lại trang modal thông tin chi tiết HS. |
+| **Kịch bản chính** | 1\. Lễ tân truy cập trang "Quản lý Học sinh".  2\. Hệ thống hiển thị danh sách học sinh với các thẻ thống kê (Tổng số học sinh, Chờ duyệt, Đã duyệt, Đã tạo account), 3 tab theo trạng thái duyệt: Chờ duyệt / Đã duyệt (gồm "Đã tạo account") / Tất cả, cùng thanh tìm kiếm và bộ lọc theo gia sư phụ trách. 3\. Lễ tân bấm nút Xem chi tiết của 1 học sinh cần xem. 4\. Hệ thống hiển thị modal chi tiết gồm: Họ tên học sinh, trình độ/khối lớp, mục tiêu, lịch học, ghi chú, thông tin phụ huynh (họ tên, SĐT/Zalo, Telegram, tỉnh/quận), gia sư phụ trách và tiến độ học tập. 5\. Đối với học sinh đã duyệt nhưng chưa có tài khoản, nút "Tạo account" chỉ đánh dấu trạng thái "Đã tạo account" trên dữ liệu mock (username = SĐT phụ huynh, mật khẩu mặc định 123456789). Lễ tân cũng có thể chỉnh sửa thông tin học sinh (form modal) và lưu. 6\. Hệ thống hiển thị xác nhận: “Bạn xác nhận lưu thay đổi thông tin học sinh này chứ?” và 2 nút Lưu thay đổi/Hủy. 7\. Lễ tân bấm nút Đồng ý. 8\. Hệ thống hiển thị thông báo “Đã cập nhật thông tin học sinh” và quay lại trang Quản lý Học sinh.  |
+| **Ngoại lệ** | 7.1. Lễ tân bấm nút Hủy. 7.1.1. Hệ thống quay lại trang/modal chi tiết, giữ nguyên dữ liệu. 4.1. Học sinh đang ở tab Chờ duyệt: không có nút chỉnh sửa/xóa/tạo account, chỉ xem chi tiết. |
 
 ## **UC-REC-14: Tạo đơn khiếu nại** 
+
+> Ghi chú phạm vi (v1.2): tính năng khiếu nại đã được loại khỏi phạm vi triển khai còn lại (mốc 23/11, WBS 6.1) nhưng module backend và 2 trang Admin/Lễ tân vẫn giữ nguyên trong codebase; các UC khiếu nại dưới đây mô tả chức năng hiện có trong mã nguồn, không phải hạng mục bắt buộc hoàn thiện.
 
 | Mã UC | UC-REC-14 |
 | :---- | :---- |
@@ -195,6 +215,8 @@ Tóm tắt các luồng nghiệp vụ Lễ tân:
 
 ## **UC-REC-15: Xem, sửa các đơn khiếu nại**
 
+> Ghi chú phạm vi (v1.2): tính năng khiếu nại đã loại khỏi phạm vi triển khai còn lại (mốc 23/11, WBS 6.1); module vẫn giữ nguyên trong codebase — UC này mô tả chức năng hiện có, không phải hạng mục bắt buộc hoàn thiện.
+
 | Mã UC | UC-REC-15 |
 | :---- | :---- |
 | **Tên UC** | Xem, sửa các đơn khiếu nại |
@@ -205,6 +227,8 @@ Tóm tắt các luồng nghiệp vụ Lễ tân:
 | **Ngoại lệ** | 2.1. Không có khiếu nại nào trong hệ thống. 2.1.1. Hệ thống hiển thị thông báo "Chưa có khiếu nại nào". 4a. Người khiếu nại rút yêu cầu khi đơn còn "Chờ xử lý". 4a.1. Lễ tân bấm "Hủy khiếu nại". 4a.2. Hệ thống hiển thị thông báo xác nhận và 2 nút Đồng ý, Hủy. 4a.3. Lễ tân bấm Đồng ý. 4a.4. Khiếu nại chuyển "Đã hủy", lớp cần gia sư và lớp học giữ nguyên trạng thái. |
 
 ## **UC-REC-16: Xác nhận giải quyết khiếu nại**
+
+> Ghi chú phạm vi (v1.2): tính năng khiếu nại đã loại khỏi phạm vi triển khai còn lại (mốc 23/11, WBS 6.1); module vẫn giữ nguyên trong codebase — UC này mô tả chức năng hiện có, không phải hạng mục bắt buộc hoàn thiện.
 
 | Mã UC | UC-REC-16 |
 | :---- | :---- |
