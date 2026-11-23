@@ -138,6 +138,23 @@ public class MatchingLifecycleSupport {
                 userId, title, content, entityType, entityId);
     }
 
+    /**
+     * Fan-out thông báo đến toàn bộ lễ tân đang hoạt động (mẫu {@code ParentPostingService}):
+     * insert 1 dòng notifications cho mỗi user {@code RECEPTIONIST} + {@code ACTIVE}.
+     * Dùng khi cần thông báo sự kiện lớp dạy thử cho phía lễ tân mà không biết trước
+     * lễ tân cụ thể nào phụ trách.
+     */
+    public void notifyReceptionists(String title, String content, String entityType, Long entityId) {
+        jdbcTemplate.update(
+                """
+                INSERT INTO notifications (user_id, title, content, link_entity_type, link_entity_id)
+                SELECT id, ?, ?, ?, ?
+                FROM users
+                WHERE role = 'RECEPTIONIST' AND status = 'ACTIVE'
+                """,
+                title, content, entityType, entityId);
+    }
+
     /** Ảnh chụp lớp mới nhất của đơn. */
     public record ClassSnapshot(
             Long id, Long tutorId, Long studentId, String className, String status, LocalDate activeFrom) {

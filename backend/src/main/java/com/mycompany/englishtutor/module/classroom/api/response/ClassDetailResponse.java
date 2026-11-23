@@ -33,6 +33,15 @@ public class ClassDetailResponse {
     String learningGoal;
     TrialSessionResponse trialSession;
 
+    /** Kết quả báo cáo dạy thử mới nhất của gia sư (trial_reports, V31): SUCCESS | FAILED, null nếu chưa báo cáo. */
+    String trialReportOutcome;
+
+    /** Lý do báo cáo (bắt buộc khi FAILED). */
+    String trialReportNote;
+
+    /** Thời điểm gia sư gửi báo cáo dạy thử mới nhất. */
+    OffsetDateTime trialReportAt;
+
     /** Thông tin phụ huynh của học sinh (students.parent_id → parents). */
     String parentName;
     String parentPhone;

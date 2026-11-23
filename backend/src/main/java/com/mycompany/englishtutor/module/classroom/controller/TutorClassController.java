@@ -22,6 +22,7 @@ import com.mycompany.englishtutor.module.classroom.api.request.CreateExceptionRe
 import com.mycompany.englishtutor.module.classroom.api.request.CreateLessonRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.FinalizeScheduleRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.SaveTeachingLogRequest;
+import com.mycompany.englishtutor.module.classroom.api.request.TrialReportRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpdateLessonRequest;
 import com.mycompany.englishtutor.module.classroom.api.request.UpsertTrialSessionRequest;
 import com.mycompany.englishtutor.module.classroom.api.response.ClassDetailResponse;
@@ -34,6 +35,7 @@ import com.mycompany.englishtutor.module.classroom.api.response.SessionException
 import com.mycompany.englishtutor.module.classroom.api.response.TeachingLogResponse;
 import com.mycompany.englishtutor.module.classroom.api.response.TrialSessionResponse;
 import com.mycompany.englishtutor.module.classroom.service.ClassOccurrenceService;
+import com.mycompany.englishtutor.module.classroom.service.TrialReportService;
 import com.mycompany.englishtutor.module.classroom.service.TutorClassService;
 import com.mycompany.englishtutor.shared.api.ApiResponse;
 
@@ -58,6 +60,7 @@ public class TutorClassController {
 
     private final TutorClassService tutorClassService;
     private final ClassOccurrenceService classOccurrenceService;
+    private final TrialReportService trialReportService;
 
     // -------------------------------------------------- READ CLASSES
 
@@ -93,6 +96,23 @@ public class TutorClassController {
         return ResponseEntity.ok(ApiResponse.<TrialSessionResponse>builder()
                 .message("Đã lưu lịch dạy thử")
                 .result(tutorClassService.upsertTrialSlot(id, request, httpRequest))
+                .build());
+    }
+
+    @PostMapping("/classes/{id}/trial-report")
+    @Operation(
+            summary = "Gia sư báo cáo kết quả dạy thử (SUCCESS → kích hoạt ACTIVE, FAILED → thông báo lễ tân)",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<ApiResponse<Void>> submitTrialReport(
+            @PathVariable Long id,
+            @Valid @RequestBody TrialReportRequest request,
+            HttpServletRequest httpRequest) {
+        boolean activated = trialReportService.submit(id, request, httpRequest);
+        String message = activated
+                ? "Đã báo dạy thử thành công — lớp học đã được kích hoạt chính thức"
+                : "Đã gửi báo cáo dạy thử không thành công cho lễ tân";
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .message(message)
                 .build());
     }
 
