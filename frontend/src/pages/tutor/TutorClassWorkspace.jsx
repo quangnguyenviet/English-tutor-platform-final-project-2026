@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, Outlet, useParams } from "react-router-dom";
-import { AlertCircle, CalendarDays, CalendarPlus, CheckCircle2, X } from "lucide-react";
+import { AlertCircle, CalendarDays, CalendarPlus, CheckCircle2, ClipboardCheck, X } from "lucide-react";
 import Card from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import TrialSessionForm from "../../components/tutor/TrialSessionForm";
 import FixedScheduleForm from "../../components/tutor/FixedScheduleForm";
+import TrialReportForm from "../../components/tutor/TrialReportForm";
 import clsx from "clsx";
 import { useAuth } from "../../context/AuthContext";
 import { students } from "../../data/mockData";
 import {
   apiFinalizeSchedule,
   apiGetClassDetail,
+  apiSubmitTrialReport,
   apiUpdateClassSchedules,
   apiUpsertTrialSlot,
   formatSessionDate,
@@ -43,6 +45,11 @@ export default function TutorClassWorkspace() {
   const [scheduleInitial, setScheduleInitial] = useState([]);
   const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
   const [scheduleError, setScheduleError] = useState("");
+
+  // Báo cáo kết quả dạy thử (V31): modal form báo cáo.
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportError, setReportError] = useState("");
 
   // Dữ liệu prototype còn được tab lộ trình / tài liệu dùng. Tab "Bài giảng"
   // và "Bài tập" đã nối API thật, không đọc exercisesList này nữa.
@@ -143,6 +150,39 @@ export default function TutorClassWorkspace() {
       setScheduleError(err.message || "Không thể lưu lịch dạy.");
     } finally {
       setScheduleSubmitting(false);
+    }
+  };
+
+  // ------------------------------------------------- BÁO CÁO DẠY THỬ (V31)
+  const openReportForm = () => {
+    setReportError("");
+    setShowReportForm(true);
+  };
+
+  const closeReportForm = () => {
+    setShowReportForm(false);
+    setReportError("");
+  };
+
+  const handleSubmitReport = async (payload) => {
+    if (!token || reportSubmitting) return;
+    setReportSubmitting(true);
+    setReportError("");
+    try {
+      await apiSubmitTrialReport(token, classId, payload);
+      closeReportForm();
+      loadDetail();
+      setToast({
+        type: "success",
+        message:
+          payload.outcome === "SUCCESS"
+            ? "Đã kích hoạt lớp học thành công. Hệ thống tạo khoản phí nhận lớp và thông báo cho lễ tân."
+            : "Đã gửi báo cáo dạy thử không thành công cho lễ tân. Bạn vẫn có thể báo cáo lại sau.",
+      });
+    } catch (err) {
+      setReportError(err.message || "Không thể gửi báo cáo dạy thử.");
+    } finally {
+      setReportSubmitting(false);
     }
   };
 
@@ -340,6 +380,41 @@ export default function TutorClassWorkspace() {
         </div>
       )}
 
+      {/* Modal báo cáo kết quả dạy thử (V31) */}
+      {showReportForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+                  <ClipboardCheck size={18} />
+                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                    Báo cáo kết quả dạy thử
+                  </h4>
+                  <p className="text-[11px] text-slate-400">{detail.className}</p>
+                </div>
+              </div>
+              <button
+                onClick={closeReportForm}
+                className="cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                aria-label="Đóng"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <TrialReportForm
+              submitting={reportSubmitting}
+              serverError={reportError}
+              onDone={closeReportForm}
+              onSubmit={handleSubmitReport}
+            />
+          </div>
+        </div>
+      )}
+
       <Outlet
         context={{
           // API thật
@@ -349,6 +424,7 @@ export default function TutorClassWorkspace() {
           basePath,
           openTrialForm,
           openScheduleForm,
+          openReportForm,
           // Prototype còn dùng bởi lộ trình / tài liệu
           student: demoStudent,
           pathItems,
