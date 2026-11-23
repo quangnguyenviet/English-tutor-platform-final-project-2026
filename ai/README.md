@@ -13,15 +13,17 @@ Dịch vụ AI hỗ trợ gia sư soạn quiz trắc nghiệm. Dịch vụ **kh�
 
 ## Provider LLM
 
-Dịch vụ gọi LLM OpenAI-compatible bằng SDK OpenAI: endpoint là `LLM_BASE_URL`
-(mặc định `api.openai.com`), model là `LLM_MODEL`, xác thực bằng `LLM_API_KEY`.
-`LLM_API_KEY` **bắt buộc** — thiếu key → HTTP 502 (backend map
-`AI_SERVICE_UNAVAILABLE`).
+Dịch vụ gọi LLM theo `LLM_PROVIDER` (mặc định `openai`), chọn từ 2 chế độ,
+đều dùng `LLM_BASE_URL` và `LLM_API_KEY`:
 
-Với endpoint OpenAI-compatible (Ollama, LM Studio, OpenRouter, vLLM...): đặt
-`LLM_BASE_URL` (ví dụ `http://host.docker.internal:11434/v1`), `LLM_MODEL`
-theo model của bạn; với Ollama/LM Studio `LLM_API_KEY` có thể là giá trị bất kỳ
-(SDK bắt buộc khác rỗng).
+| Provider | Cách gọi | Endpoint mặc định (khi `LLM_BASE_URL` trống) |
+| --- | --- | --- |
+| `openai` | SDK OpenAI, chat/completions OpenAI-compatible (Ollama, LM Studio, OpenRouter, vLLM...) | `api.openai.com` |
+| `anthropic` | Messages API native qua thư viện `requests` | `api.anthropic.com` |
+
+`LLM_API_KEY` **bắt buộc** — thiếu key → HTTP 502 (backend map
+`AI_SERVICE_UNAVAILABLE`). Với Ollama/LM Studio, `LLM_API_KEY` có thể là giá trị
+bất kỳ khác rỗng (SDK bắt buộc không rỗng).
 
 > Giai đoạn này chưa thực hiện cơ chế tính chi phí LLM (budget hằng tháng);
 > `LLM_MONTHLY_BUDGET_USD` vẫn giữ trong `.env.example` cho lát cắt sau.
@@ -56,15 +58,16 @@ Quy tắc kiểm định: đủ 4 phương án A/B/C/D, `correct` thuộc A–D,
 
 | Biến | Mặc định | Ý nghĩa |
 | --- | --- | --- |
+| `LLM_PROVIDER` | `openai` | Chế độ gọi LLM: `openai` (OpenAI-compatible) hoặc `anthropic` (Messages API native) |
 | `LLM_MODEL` | `gpt-4o-mini` | Mô hình dùng để sinh quiz (theo API của endpoint) |
 | `LLM_API_KEY` | (trống) | Khóa API LLM — **bắt buộc**, thiếu thì endpoint trả 502 |
-| `LLM_BASE_URL` | (trống → `api.openai.com`) | Base URL endpoint OpenAI-compatible (Ollama, LM Studio, OpenRouter, vLLM...) |
+| `LLM_BASE_URL` | (trống → `api.openai.com` / `api.anthropic.com`) | Base URL endpoint theo provider (Ollama, LM Studio, OpenRouter, vLLM...) |
 | `LLM_MONTHLY_BUDGET_USD` | `10` | Hạn mức chi phí hằng tháng (dùng ở lát cắt sau) |
 
 ## Công nghệ sử dụng
 - **Python 3.11**
 - **uv** (bộ quản lý gói và môi trường ảo)
-- **FastAPI**, **Uvicorn**, **Pydantic**, **OpenAI SDK**
+- **FastAPI**, **Uvicorn**, **Pydantic**, **OpenAI SDK** (provider `openai`), **requests** (provider `anthropic`)
 
 ## Khởi chạy dịch vụ
 
@@ -103,7 +106,7 @@ Hoặc chạy cùng cả hệ thống bằng `docker compose up --build` ở th�
 ## Endpoints sẵn có
 - `GET /health`: kiểm tra sức khỏe.
 - `GET /docs`: OpenAPI (Swagger UI).
-- `POST /api/v1/ai/quiz/chat`: 1 lượt hội thoại soạn/sửa quiz qua LLM OpenAI-compatible.
+- `POST /api/v1/ai/quiz/chat`: 1 lượt hội thoại soạn/sửa quiz qua LLM (provider `openai` hoặc `anthropic`).
 
 ### Ví dụ gọi (cần cấu hình `LLM_API_KEY`)
 ```bash

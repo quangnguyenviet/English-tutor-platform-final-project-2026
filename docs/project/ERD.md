@@ -2,8 +2,8 @@
 
 > **Tác giả:** Chuyên gia kiến trúc phần mềm  
 > **Ngày tạo:** 12/10/2026  
-> **Phiên bản:** 3.0 — khiếu nại: thêm loại `NON_REFUND`, `complaints.class_request_id` (luôn gắn một lớp cần gia sư), `request_outcome`, `class_id` nullable (migration V22). Bản 2.9: một SĐT là một phụ huynh: `parents.phone` có `UNIQUE`, lưu dạng `0xxxxxxxxx` (migration V20). Bản 2.8: gộp Đơn ghép lớp vào Lớp cần gia sư (migration V19): lớp `OPEN` được phép chưa có `student_id`, tài khoản học sinh tạo khi vào dạy thử. Bản 2.7: refactor theo kế hoạch `plan-refactor-lessons-logs` (migration V16): đổi `sessions` thành `lessons` (bài giảng "driver" nhúng vào lớp, CHỈ quan hệ `class_id` + `title` + `status` PUBLISHED/HIDDEN — bỏ hết ngày/giờ, `is_trial`, `teaching_mode`/`meeting_url`/`location` và 2 cột log); tách nhật ký dạy học thành bảng mới `teaching_logs` (chỉ `class_id` + `log_date` + `start_time` + knowledge/homework, UNIQUE theo ô ca — C-15'); các cột ca thử chuyển lên `classes` (6 cột `trial_*`, R-TRIAL — chỉ khi `status = TRIAL`); đổi tên bảng con `session_materials` → `lesson_materials`, `quizzes.session_id` → `lesson_id`, `session_exceptions` → `schedule_exceptions`; bỏ luồng "vật chất hóa ô ảo" (không còn tạo session on-demand, chỉ tạo bài giảng ở tab riêng); `ai_chat_messages` (Mongo) soft-link `session_id` → `lesson_id`. (2.6: bổ sung bảng `session_exceptions` (V13: lớp overlay cho ô ảo của lịch cố định), `classes.sessions_per_week` (V11) và bảng hạ tầng `invalidated_token`; mô tả lại cơ chế "ô ảo". (2.5: `class_schedules` bổ sung `valid_from` (DATE, NOT NULL) + `valid_to` (DATE, NULL = không giới hạn): khoảng hiệu lực **từng ca** dùng để render lịch và kiểm tra session on-demand, thay thế vai trò render của `classes.active_from` (trường này chỉ còn ghi nhận ngày kích hoạt lớp). (2.4: bảng `class_requests` bổ sung `sessions_per_week` (số buổi/tuần) và `fee_percentage` (tỷ lệ phí nhận lớp, DEFAULT 40, 0–50, migration V10) + trạng thái `REMATCH` (ghép lại sau khi dạy thử thất bại); `class_applications` thêm trạng thái `TERMINATED` (dạy thử không thành công, loại khỏi danh sách ứng viên); `tutors` thêm `is_open_to_teaching` (migration V10). (2.3: bổ sung `tutors.submitted_at` (V4); làm rõ kế thừa `users` → `tutors`/`employees`/`students`; ghi luồng form công khai) (2.2: bỏ `current_address` khỏi `tutors` — V3; giữ `hometown` — V2)
-> **Cơ sở dữ liệu:** PostgreSQL (27 bảng nghiệp vụ + 1 bảng hạ tầng `invalidated_token` = 28 bảng, cùng 1 view `v_student_skill_stats`) + MongoDB (1 collection `ai_chat_messages`)
+> **Phiên bản:** 3.1 — module ôn tập SRS: `spaced_repetition_reviews` (V21), `review_cards` (V24, snapshot câu hỏi), `review_decks` (V26), `student_settings` (V25); chi tiết tin đăng: `class_requests.address`/`gender_requirement`/`duration_type` (V28), `proposal_messages.learning_address` (V29); gói lưu trữ gia sư: `storage_tiers` + `tutor_storage_subscriptions` (V30), `tutors.storage_tier_id`/`storage_tier_expires_at`. Bản 3.0 — khiếu nại: thêm loại `NON_REFUND`, `complaints.class_request_id` (luôn gắn một lớp cần gia sư), `request_outcome`, `class_id` nullable (migration V22). Bản 2.9: một SĐT là một phụ huynh: `parents.phone` có `UNIQUE`, lưu dạng `0xxxxxxxxx` (migration V20). Bản 2.8: gộp Đơn ghép lớp vào Lớp cần gia sư (migration V19): lớp `OPEN` được phép chưa có `student_id`, tài khoản học sinh tạo khi vào dạy thử. Bản 2.7: refactor theo kế hoạch `plan-refactor-lessons-logs` (migration V16): đổi `sessions` thành `lessons` (bài giảng "driver" nhúng vào lớp, CHỈ quan hệ `class_id` + `title` + `status` PUBLISHED/HIDDEN — bỏ hết ngày/giờ, `is_trial`, `teaching_mode`/`meeting_url`/`location` và 2 cột log); tách nhật ký dạy học thành bảng mới `teaching_logs` (chỉ `class_id` + `log_date` + `start_time` + knowledge/homework, UNIQUE theo ô ca — C-15'); các cột ca thử chuyển lên `classes` (6 cột `trial_*`, R-TRIAL — chỉ khi `status = TRIAL`); đổi tên bảng con `session_materials` → `lesson_materials`, `quizzes.session_id` → `lesson_id`, `session_exceptions` → `schedule_exceptions`; bỏ luồng "vật chất hóa ô ảo" (không còn tạo session on-demand, chỉ tạo bài giảng ở tab riêng); `ai_chat_messages` (Mongo) soft-link `session_id` → `lesson_id`. (2.6: bổ sung bảng `session_exceptions` (V13: lớp overlay cho ô ảo của lịch cố định), `classes.sessions_per_week` (V11) và bảng hạ tầng `invalidated_token`; mô tả lại cơ chế "ô ảo". (2.5: `class_schedules` bổ sung `valid_from` (DATE, NOT NULL) + `valid_to` (DATE, NULL = không giới hạn): khoảng hiệu lực **từng ca** dùng để render lịch và kiểm tra session on-demand, thay thế vai trò render của `classes.active_from` (trường này chỉ còn ghi nhận ngày kích hoạt lớp). (2.4: bảng `class_requests` bổ sung `sessions_per_week` (số buổi/tuần) và `fee_percentage` (tỷ lệ phí nhận lớp, DEFAULT 40, 0–50, migration V10) + trạng thái `REMATCH` (ghép lại sau khi dạy thử thất bại); `class_applications` thêm trạng thái `TERMINATED` (dạy thử không thành công, loại khỏi danh sách ứng viên); `tutors` thêm `is_open_to_teaching` (migration V10). (2.3: bổ sung `tutors.submitted_at` (V4); làm rõ kế thừa `users` → `tutors`/`employees`/`students`; ghi luồng form công khai) (2.2: bỏ `current_address` khỏi `tutors` — V3; giữ `hometown` — V2)
+> **Cơ sở dữ liệu:** PostgreSQL (40 bảng nghiệp vụ + 1 bảng hạ tầng `invalidated_token` = 41 bảng, cùng 1 view `v_student_skill_stats`) + MongoDB (1 collection `ai_chat_messages`)
 
 ---
 
@@ -28,19 +28,26 @@
 
 ## 1. Tổng quan kiến trúc dữ liệu
 
-Hệ thống EnglishPath chia cơ sở dữ liệu thành **7 nhóm bảng** trong PostgreSQL và **1 collection** trong MongoDB, phục vụ 5 vai trò: **Admin (Quản trị viên)**, **Receptionist (Lễ tân)**, **Accountant (Kế toán)**, **Tutor (Gia sư)** và **Student (Học sinh)** — cùng đối tượng **Parent (Phụ huynh)** không có tài khoản.
+Hệ thống EnglishPath chia cơ sở dữ liệu thành **7 nhóm bảng** trong PostgreSQL và **1 collection** trong MongoDB, phục vụ 5 vai trò: **Admin (Quản trị viên)**, **Receptionist (Lễ tân)**, **Accountant (Kế toán)**, **Tutor (Gia sư)** và **Student (Học sinh)** — cùng đối tượng **Parent (Phụ huynh)** (có tài khoản từ MSG, V23, đăng nhập Google).
 
 ```
-Nhóm 1  │ Tài khoản & Người dùng          │ users, employees, parents, students
+Nhóm 1  │ Tài khoản & Người dùng          │ users, employees, parents, students,
+        │                                  │ oauth_accounts (V23)
 Nhóm 2  │ Hồ sơ Gia sư                    │ tutors, tutor_credentials, tutor_specialties,
-        │                                  │ tutor_prices, tutor_availabilities, tutor_service_areas
+        │                                  │ tutor_prices, tutor_availabilities, tutor_service_areas,
+        │                                  │ storage_tiers, tutor_storage_subscriptions (V30)
 Nhóm 3  │ Yêu cầu & Ghép lớp             │ class_requests, class_applications
 Nhóm 4  │ Lớp học & Bài giảng             │ classes (kèm ca thử trial_*), class_schedules, lessons,
         │                                  │ lesson_materials, teaching_logs, schedule_exceptions
-Nhóm 5  │ Quiz, Elo & SKP                 │ skills, quizzes, quiz_questions, quiz_answers
+Nhóm 5  │ Quiz, Elo & SKP                 │ skills, quizzes, quiz_questions, quiz_answers,
+        │                                  │ spaced_repetition_reviews, review_cards,
+        │                                  │ review_decks, student_settings
         │                                  │ (SKP là view v_student_skill_stats, không phải bảng)
 Nhóm 6  │ Tài chính & Khiếu nại          │ payments, refunds, complaints, complaint_attachments
 Nhóm 7  │ Hệ thống                        │ notifications, audit_logs
+Nhóm 8  │ Nhắn tin & Đề xuất lớp (MSG)   │ chat_rooms, proposal_messages, chat_pii_events,
+        │                                  │ chat_outbox, rocket_chat_accounts,
+        │                                  │ platform_fee_policies
 MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB collection)
 ```
 
@@ -67,7 +74,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `username` | `VARCHAR(50)` | UQ, NN | Tên đăng nhập duy nhất, dùng để xác thực khi login (UC-ST-01) |
 | `password_hash` | `VARCHAR(255)` | | Mật khẩu đã băm (bcrypt/argon2). **NULL** với tài khoản `PARENT` vì phụ huynh chỉ đăng nhập bằng Google (V23) |
 | `full_name` | `VARCHAR(100)` | NN | Họ và tên đầy đủ, hiển thị trên giao diện và trong báo cáo |
-| `email` | `VARCHAR(100)` | UQ | Email liên hệ, dùng để gửi thông báo và khôi phục mật khẩu |
+| `email` | `VARCHAR(255)` | UQ | Email liên hệ, dùng để gửi thông báo và khôi phục mật khẩu. V23 đổi loại từ `VARCHAR(100)` (thoải mái cho email Google dài) |
 | `phone` | `VARCHAR(15)` | UQ | Số điện thoại liên hệ, dùng trong tư vấn và xác thực. Tài khoản học sinh để NULL, SĐT liên hệ nằm ở `parents.phone` vì anh chị em dùng chung một số |
 | `date_of_birth` | `DATE` | | Ngày sinh, hiển thị trong hồ sơ học sinh (UC-REC-10, UC-ST-02) và hồ sơ gia sư (UC-T01 bước 1) |
 | `gender` | `VARCHAR(10)` | | Giới tính: `MALE`, `FEMALE`, `OTHER`. Phụ huynh có thể lọc gia sư theo giới tính (UC-PA-01) |
@@ -165,6 +172,8 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `reviewed_by` | `BIGINT` | FK → users.id | ID của Lễ tân/Admin đã duyệt hồ sơ, ghi nhận trách nhiệm duyệt (UC-REC-08) |
 | `reviewed_at` | `TIMESTAMPTZ` | | Thời điểm duyệt hồ sơ |
 | `submitted_at` | `TIMESTAMPTZ` | | Thời điểm gia sư gửi hồ sơ để duyệt lần gần nhất (migration V4). Set mỗi lần chuyển sang `PENDING`; dùng sắp xếp hàng chờ duyệt (hồ sơ chờ lâu nhất lên đầu) |
+| `storage_tier_id` | `BIGINT` | FK → storage_tiers.id, NN, DEFAULT 1 (V30) | Gói lưu trữ hiện hành (catalog `storage_tiers`: FREE 1 GB / PRO 10 GB / PREMIUM 50 GB). Quota = `SUM(lesson_materials.file_size)` qua `lessons → classes → tutor`. DEFAULT 1 = FREE cho mọi gia sư có sẵn (backfill) |
+| `storage_tier_expires_at` | `TIMESTAMPTZ` | NULL (V30) | Hạn gói trả phí: quá hạn, tại thao tác upload/widget kế tiếp, hệ thống tự hạ về gói mặc định (FREE) — không cần scheduled job |
 | `updated_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm cập nhật gần nhất |
 
 > **Vì sao `tutors` không lặp lại các cột của `users`?** Đây là kế thừa theo kiểu *bảng con – khóa chính dùng chung*: `tutors.id` vừa là PK vừa là FK tới `users.id`. Họ tên, email, SĐT, ngày sinh, giới tính, ảnh đại diện... chỉ lưu **một nơi** ở `users`; `tutors` (và `employees`, `students`) chỉ chứa cột riêng của vai trò, muốn lấy thông tin chung thì JOIN theo `id`. Cách này tránh trùng dữ liệu và không bị lệch giữa hai bảng.
@@ -247,6 +256,35 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 
 ---
 
+#### Bảng `storage_tiers`
+
+> **Catalog gói lưu trữ tài liệu buổi học** (V30, module FR-quota). Quota là DỮ LIỆU trong DB (không hardcode trong code): mỗi gia sư gắn 1 gói qua `tutors.storage_tier_id`. Seed cố định 3 gói (id 1/2/3 để DEFAULT 1 của `tutors` luôn trỏ FREE).
+
+| Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
+|---|---|---|---|
+| `id` | `BIGSERIAL` | PK | Khóa chính; seed id 1/2/3 cố định |
+| `code` | `VARCHAR(10)` | UQ, NN | Mã gói: `FREE`, `PRO`, `PREMIUM` |
+| `name` | `VARCHAR(50)` | NN | Tên hiển thị |
+| `quota_bytes` | `BIGINT` | NN, CHECK ≥ 0 | Dung lượng giới hạn (bytes): FREE = 1 GB, PRO = 10 GB, PREMIUM = 50 GB |
+| `is_default` | `BOOLEAN` | NN, DEFAULT FALSE | Gói mặc định khi gia sư chưa mua (hàng FREE) |
+| `is_paid` | `BOOLEAN` | NN, DEFAULT FALSE | Cờ gói trả phí; gói `is_paid` đi kèm hạn `tutors.storage_tier_expires_at` |
+
+#### Bảng `tutor_storage_subscriptions`
+
+> **Lịch sử các lần mua/gia hạn gói** (V30): 1 dòng mỗi lần, chuẩn bị sẵn cho online billing về sau. Gia sư không có dòng nào = đang dùng gói FREE mặc định.
+
+| Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
+|---|---|---|---|
+| `id` | `BIGSERIAL` | PK | Khóa chính |
+| `tutor_id` | `BIGINT` | FK → tutors.id, NN, ON DELETE CASCADE | Gia sư sở hữu lần cấp gói |
+| `tier_id` | `BIGINT` | FK → storage_tiers.id, NN | Gói được cấp (trỏ catalog) |
+| `duration_months` | `SMALLINT` | NULL, CHECK IN (1, 3, 12) | Thời hạn mua (không có = gia hạn vô hạn cho tới khi đổi gói) |
+| `granted_at` | `TIMESTAMPTZ` | NN, DEFAULT NOW() | Thời điểm cấp |
+| `expires_at` | `TIMESTAMPTZ` | NULL | Hạn của lần cấp này |
+| `granted_by` | `BIGINT` | FK → users.id | Người cấp (Admin), nếu do trung tâm cấp |
+
+---
+
 ### 2.3 Nhóm 3: Yêu cầu & Ghép lớp
 
 #### Bảng `class_requests`
@@ -268,6 +306,9 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `source` | `VARCHAR(20)` | NN, DEFAULT 'STAFF' | `STAFF` hoặc `POSTING` (V27). Partial UNIQUE (`parent_id`) WHERE `source = 'POSTING'` AND `status IN ('NEW','OPEN')` |
 | `purpose` | `VARCHAR(20)` | CHECK | Mục đích học của tin đăng (V27), mặc định lấy từ hồ sơ phụ huynh |
 | `province` / `district` | `VARCHAR(100)` | | Khu vực của tin đăng (V27) |
+| `address` | `VARCHAR(255)` | NULL (V28) | Địa chỉ cụ thể (lớp dạy tại nhà), bổ sung tinh xác định vị trong `province`/`district` |
+| `gender_requirement` | `VARCHAR(10)` | NULL, CHECK IN (`MALE`, `FEMALE`, `ANY`) (V28) | Yêu cầu giới tính gia sư của tin đăng; NULL/`ANY` = không yêu cầu |
+| `duration_type` | `VARCHAR(20)` | NULL, CHECK IN (`SHORT_TERM`, `REGULAR`) (V28) | Loại lớp tin đăng, cùng chuẩn `classes.class_type` (V27) |
 | `no_applicant_reminded_at` | `TIMESTAMPTZ` | | Thời điểm đã nhắc phụ huynh vì 14 ngày chưa có ứng viên (V27), tránh nhắc lặp |
 | `status` | `VARCHAR(20)` | NN | `NEW` (Mới tiếp nhận, chờ gọi lại), `OPEN` (Đã đăng cho gia sư ứng tuyển), `MATCHED` (Đã ghép, đã có lớp), `REMATCH` (Đang ghép lại — lớp đang dạy thử thất bại và phụ huynh muốn trung tâm tìm gia sư khác; ở trạng thái này đơn chờ ghép lại với gia sư mới, khi ghép xong chuyển `MATCHED`; migration V10), `CANCELLED` (Đã hủy — hủy đơn, hoặc khi dạy thử thất bại phụ huynh không muốn nhờ trung tâm tìm gia sư nữa; trạng thái cuối) |
 | `cancel_reason` | `TEXT` | | Lý do hủy, nhập khi Lễ tân hủy (UC-REC-04) |
@@ -720,6 +761,7 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `schedule_time_from/to` | `TIME` | NN | Giờ bắt đầu - kết thúc mỗi buổi |
 | `trial_date`, `trial_time_from/to` | `DATE`, `TIME` | NN | Buổi dạy thử do gia sư đặt |
 | `class_mode` | `VARCHAR(20)` | NN | `AT_HOME`, `ONLINE` |
+| `learning_address` | `VARCHAR(500)` | NULL (V29) | Địa chỉ học offline: với đề xuất `class_mode = AT_HOME`, gia sư chốt địa chỉ học tại thời điểm tạo đề xuất — lấy từ `parents.address` (địa chỉ mặc định của phụ huynh, phải có trước khi nhắn tin); NULL với đề xuất `ONLINE` |
 | `note` | `TEXT` | | Ghi chú (quét PII như tin nhắn) |
 | `status` | `VARCHAR(20)` | NN | `PENDING`, `ACCEPTED`, `REJECTED`, `CANCELLED`, `EXPIRED` |
 | `rejection_reason`, `decided_at` | | | Lý do từ chối/rút và thời điểm quyết định |

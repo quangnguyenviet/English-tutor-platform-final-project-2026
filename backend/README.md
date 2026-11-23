@@ -1,8 +1,8 @@
-# Identity service
-This microservice is responsible for:
-* Onboarding users
-* Role-based access control
-* Authentication
+# EnglishPath Backend
+
+Backend của EnglishPath: cổng API duy nhất của hệ thống, chứa toàn bộ nghiệp vụ
+(vận hành trung tâm và hỗ trợ giảng dạy), phân quyền RBAC theo 5 vai trò
+(`ADMIN`, `RECEPTIONIST`, `ACCOUNTANT`, `TUTOR`, `STUDENT`), ghi audit log.
 
 ## Project structure
 
@@ -12,14 +12,24 @@ grow as an isolated module:
 ```text
 com.mycompany.englishtutor
 ├── module
-│   ├── auth       # Authentication, JWT and token lifecycle
-│   ├── role       # Role management
-│   └── user       # User management
+│   ├── auth       # Authentication: JWT, đổi mật khẩu, đăng ký gia sư, đăng nhập Google
+│   ├── user       # Quản lý tài khoản & thông tin của tôi
+│   ├── tutor      # Hồ sơ gia sư, duyệt/quản lý (admin), gói lưu trữ
+│   ├── matching   # Lớp cần gia sư, đơn ghép lớp, ứng tuyển
+│   ├── classroom  # Lớp học, lịch dạy, bài giảng, nhật ký, tài liệu
+│   ├── quiz       # Quiz, Elo, AI chat, import, ôn tập ngắt quãng
+│   ├── payment    # Phí nhận lớp, đối chiếu, hoàn tiền
+│   ├── complaint  # Khiếu nại & hoàn tiền
+│   ├── student    # Cổng học sinh (lịch, buổi học, quiz, dashboard)
+│   ├── staff      # Nhân sự, thông báo, dashboard lễ tân/kế toán
+│   ├── messaging  # Nhắn tin phụ huynh–gia sư qua Rocket.Chat, đề xuất lớp học
+│   └── audit      # Audit log
 ├── infrastructure
-│   └── config     # Spring, security and OpenAPI configuration
+│   └── config     # Spring, security, Flyway và cấu hình chung
 └── shared
-    ├── api        # Shared API envelope
+    ├── api        # Shared API envelope (ApiResponse, PageResponse)
     ├── exception  # Global error handling
+    ├── util       # Tiện ích dùng chung
     └── validation # Shared validation constraints
 ```
 
@@ -42,15 +52,19 @@ modules.
 
 ## Tài khoản seed
 
-Sau khi khởi động ứng dụng và chạy migration, có thể sử dụng các tài khoản mẫu
-sau để đăng nhập:
+Trên cơ sở dữ liệu mới (chạy xong migration Flyway), các tài khoản mẫu được tạo
+bởi `V6__seed_sample_data.sql` — tất cả dùng mật khẩu chung `123456` (chưa ép đổi):
 
 | Vai trò | Tên đăng nhập | Mật khẩu |
 | --- | --- | --- |
-| Quản trị viên | `admin` | `admin` |
-| Gia sư | `tutor` | `tutor` |
-| Học viên | `student` | `student` |
-| Lễ tân | `receptionist` | `receptionist` |
+| Quản trị viên | `admin` | `123456` |
+| Lễ tân | `receptionist` | `123456` |
+| Kế toán | `accountant` | `123456` |
+| Gia sư | `tutor` | `123456` |
+| Học viên | `student` | `123456` |
+
+> `ApplicationInitConfig` chỉ tự tạo tài khoản (mật khẩu = tên đăng nhập, ép đổi
+> lần đầu) khi tên chưa tồn tại. Vì `V6` đã tạo sẵn, mật khẩu thực dụng là `123456`.
 
 ## Start application
 `mvn spring-boot:run`
@@ -63,18 +77,19 @@ version `0`, while new databases run the initial migration. Hibernate validates
 the schema but does not create or update database objects.
 
 ## API documentation
+
 After starting the application, open Swagger UI at
-`http://localhost:8080/identity/swagger-ui/index.html`.
+`http://localhost:8080/swagger-ui/index.html`.
 
 The OpenAPI document is available at
-`http://localhost:8080/identity/v3/api-docs`.
+`http://localhost:8080/v3/api-docs`.
 
 To download the API documentation:
 
 * JSON: open the URL above in a browser and use **Save as**, or run:
-  `curl http://localhost:8080/identity/v3/api-docs -o openapi.json`
+  `curl http://localhost:8080/v3/api-docs -o openapi.json`
 * YAML: use:
-  `curl http://localhost:8080/identity/v3/api-docs.yaml -o openapi.yaml`
+  `curl http://localhost:8080/v3/api-docs.yaml -o openapi.yaml`
 
 Swagger UI includes the `bearerAuth` security scheme. Use **Authorize** and enter
 the JWT token to try protected endpoints.
@@ -83,16 +98,18 @@ the JWT token to try protected endpoints.
 `mvn clean package`
 
 ## Docker guideline
+> Chạy nhanh nhất là `docker compose up --build` từ thư mục gốc (postgres + minio + ai +
+> Rocket.Chat). Ở chế độ dev, backend chạy bằng `mvn spring-boot:run` (không đóng gói Docker).
+> Các lệnh dưới đây dùng khi cần đóng gói backend thành image độc lập.
+
 ### Build docker image
-`docker build -t <account>/english-tutor:0.9.0 .`
+`docker build -t <account>/englishpath-backend:latest .`
 ### Push docker image to Docker Hub
-`docker image push <account>/english-tutor:0.9.0`
-### Create network:
-`docker network create devteria-network`
-### Start PostgreSQL in devteria-network
-`docker run --network devteria-network --name postgres -p 5432:5432 -e POSTGRES_DB=identity_service -e POSTGRES_USER=identity_user -e POSTGRES_PASSWORD=identity_password -d postgres:16`
-### Run your application in devteria-network
-`docker run --name english-tutor --network devteria-network -p 8080:8080 -e DBMS_CONNECTION=jdbc:postgresql://postgres:5432/identity_service -e DBMS_USERNAME=identity_user -e DBMS_PASSWORD=identity_password english-tutor:0.9.0`
+`docker image push <account>/englishpath-backend:latest`
+### Start PostgreSQL
+`docker run --name englishpath-postgres -p 5432:5432 -e POSTGRES_DB=tutor_db -e POSTGRES_USER=tutor_user -e POSTGRES_PASSWORD=tutor_password_123 -d postgres:16`
+### Run your application
+`docker run --name englishpath-backend -p 8080:8080 -e DBMS_CONNECTION=jdbc:postgresql://postgres:5432/tutor_db -e DBMS_USERNAME=tutor_user -e DBMS_PASSWORD=tutor_password_123 englishpath-backend:latest`
 
 ## Install Docker on ubuntu
 
