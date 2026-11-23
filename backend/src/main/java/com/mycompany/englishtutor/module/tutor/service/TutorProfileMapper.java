@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 import com.mycompany.englishtutor.module.tutor.api.response.TutorPendingSummaryResponse;
 import com.mycompany.englishtutor.module.tutor.api.response.TutorProfileResponse;
+import com.mycompany.englishtutor.module.tutor.domain.StorageTier;
 import com.mycompany.englishtutor.module.tutor.domain.Tutor;
 import com.mycompany.englishtutor.module.tutor.domain.TutorAvailability;
 import com.mycompany.englishtutor.module.tutor.domain.TutorCredential;
@@ -17,6 +18,7 @@ import com.mycompany.englishtutor.module.tutor.repository.TutorCredentialReposit
 import com.mycompany.englishtutor.module.tutor.repository.TutorPriceRepository;
 import com.mycompany.englishtutor.module.tutor.repository.TutorServiceAreaRepository;
 import com.mycompany.englishtutor.module.tutor.repository.TutorSpecialtyRepository;
+import com.mycompany.englishtutor.module.tutor.repository.StorageTierRepository;
 import com.mycompany.englishtutor.module.user.domain.User;
 
 import lombok.AccessLevel;
@@ -40,6 +42,7 @@ public class TutorProfileMapper {
     TutorPriceRepository tutorPriceRepository;
     TutorAvailabilityRepository tutorAvailabilityRepository;
     TutorCredentialRepository tutorCredentialRepository;
+    StorageTierRepository storageTierRepository;
 
     /**
      * Chuyển {@link Tutor} + {@link User} sang {@link TutorPendingSummaryResponse}
@@ -92,6 +95,11 @@ public class TutorProfileMapper {
                 .videoUrl(tutor.getVideoUrl())
                 .profileStatus(tutor.getProfileStatus())
                 .openToTeaching(tutor.isOpenToTeaching())
+                .storageTier(
+                        storageTierRepository.findById(tutor.getStorageTierId())
+                                .map(StorageTier::getCode)
+                                .orElse("FREE"))
+                .storageTierExpiresAt(tutor.getStorageTierExpiresAt())
                 .rejectionReason(tutor.getRejectionReason())
                 .submittedAt(tutor.getSubmittedAt())
                 .reviewedAt(tutor.getReviewedAt())

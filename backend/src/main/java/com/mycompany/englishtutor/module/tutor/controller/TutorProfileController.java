@@ -12,7 +12,9 @@ import org.springframework.web.multipart.MultipartFile;
 import com.mycompany.englishtutor.module.tutor.api.request.OpenToTeachingRequest;
 import com.mycompany.englishtutor.module.tutor.api.request.TutorProfileUpsertRequest;
 import com.mycompany.englishtutor.module.tutor.api.response.TutorProfileResponse;
+import com.mycompany.englishtutor.module.tutor.api.response.TutorStorageResponse;
 import com.mycompany.englishtutor.module.tutor.service.TutorProfileService;
+import com.mycompany.englishtutor.module.tutor.service.TutorStorageService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -31,6 +33,20 @@ import lombok.extern.slf4j.Slf4j;
 public class TutorProfileController {
 
     private final TutorProfileService tutorProfileService;
+    private final TutorStorageService tutorStorageService;
+
+    @GetMapping("/me/storage")
+    @PreAuthorize("hasRole('TUTOR')")
+    @Operation(summary = "Widget gói lưu trữ tài liệu buổi học (V30): quota gói + dung lượng đã dùng",
+            security = @SecurityRequirement(name = "bearerAuth"))
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Storage status retrieved successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "404", description = "Tutor profile not found")
+    })
+    public ResponseEntity<TutorStorageResponse> getStorage() {
+        return ResponseEntity.ok(tutorStorageService.getMyStorage());
+    }
 
     @GetMapping("/me/profile")
     @PreAuthorize("hasRole('TUTOR')")

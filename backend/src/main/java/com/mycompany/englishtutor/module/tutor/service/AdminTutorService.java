@@ -19,12 +19,16 @@ import com.mycompany.englishtutor.module.audit.service.AuditLogService;
 import com.mycompany.englishtutor.module.tutor.api.request.TutorAdminUpdateRequest;
 import com.mycompany.englishtutor.module.tutor.api.request.TutorProfileRejectRequest;
 import com.mycompany.englishtutor.module.tutor.api.request.TutorStatusUpdateRequest;
+import com.mycompany.englishtutor.module.tutor.api.response.StorageSubscriptionItem;
 import com.mycompany.englishtutor.module.tutor.api.response.TutorPendingSummaryResponse;
 import com.mycompany.englishtutor.module.tutor.api.response.TutorProfileResponse;
 import com.mycompany.englishtutor.module.tutor.domain.Tutor;
 import com.mycompany.englishtutor.module.tutor.domain.TutorCredential;
 import com.mycompany.englishtutor.module.tutor.domain.TutorSpecialty;
+import com.mycompany.englishtutor.module.tutor.domain.TutorStorageSubscription;
+import com.mycompany.englishtutor.module.tutor.domain.StorageTier;
 import com.mycompany.englishtutor.module.tutor.domain.enums.ProfileStatus;
+import com.mycompany.englishtutor.module.tutor.repository.StorageTierRepository;
 import com.mycompany.englishtutor.module.tutor.repository.TutorCredentialRepository;
 import com.mycompany.englishtutor.module.tutor.repository.TutorRepository;
 import com.mycompany.englishtutor.module.tutor.repository.TutorSpecialtyRepository;
@@ -54,6 +58,8 @@ public class AdminTutorService {
     TutorRepository tutorRepository;
     TutorSpecialtyRepository tutorSpecialtyRepository;
     TutorCredentialRepository tutorCredentialRepository;
+    com.mycompany.englishtutor.module.tutor.repository.TutorStorageSubscriptionRepository tutorStorageSubscriptionRepository;
+    StorageTierRepository storageTierRepository;
     TutorProfileMapper tutorProfileMapper;
     AuditLogService auditLogService;
 
@@ -120,6 +126,26 @@ public class AdminTutorService {
         log.info("Fetched detail of tutor profile, tutorId: {}", tutorId);
 
         return tutorProfileMapper.mapToResponse(tutor.getUser(), tutor);
+    }
+
+    /**
+     * Lịch sử thuê bao gói lưu trữ (V30) của 1 gia sư, mới nhất trước.
+     * Dùng cho admin/lễ tân truy vết các lần cấp/gia hạn gói trả phí.
+     */
+    @Transactional(readOnly = true)
+    public List<StorageSubscriptionItem> getStorageSubscriptions(Long tutorId) {
+        tutorRepository.findById(tutorId)
+                .orElseThrow(() -> new AppException(ErrorCode.TUTOR_PROFILE_NOT_FOUND));
+
+        return tutorStorageSubscriptionRepository.findByTutorIdOrderByGrantedAtDesc(tutorId).stream()
+                .map(s -> new StorageSubscriptionItem(
+                        s.getId(),
+                        s.getTier() != null ? s.getTier().getCode() : null,
+                        s.getDurationMonths() != null ? s.getDurationMonths().intValue() : null,
+                        s.getGrantedAt(),
+                        s.getExpiresAt(),
+                        s.getGrantedBy()))
+                .toList();
     }
 
     /**
@@ -292,14 +318,52 @@ public class AdminTutorService {
         if (request.getBio() != null) tutor.setBio(request.getBio().trim());
         if (request.getVideoUrl() != null) tutor.setVideoUrl(request.getVideoUrl().trim());
 
+        // Gói lưu trữ tài liệu buổi học (V30): đổi gói (catalog storage_tiers) + thời hạn theo
+        // tháng (lễ tân gán). Request truyền mã gói (FREE/PRO/PREMIUM) — tra catalog lấy quota/thuộc tính.
+        java.time.OffsetDateTime oldExpiresAt = tutor.getStorageTierExpiresAt();
+        String oldTier = storageTierRepository.findById(tutor.getStorageTierId())
+                .map(StorageTier::getCode)
+                .orElse("FREE");
+        if (request.getStorageTier() != null) {
+            StorageTier tier = storageTierRepository.findByCode(request.getStorageTier().trim())
+                    .orElseThrow(() -> new AppException(ErrorCode.TUTOR_STORAGE_TIER_NOT_FOUND));
+            int months = request.getStorageTierDurationMonths() != null
+                    ? request.getStorageTierDurationMonths() : 1;
+            java.time.OffsetDateTime expiresAt = Boolean.TRUE.equals(tier.getIsPaid())
+                    ? java.time.OffsetDateTime.now().plusMonths(months) : null;
+            tutor.setStorageTierId(tier.getId());
+            tutor.setStorageTierExpiresAt(expiresAt);
+            // Gói trả phí: ghi 1 sự kiện vào bảng lịch sử thuê bao (V30, FK tier_id trỏ catalog).
+            if (Boolean.TRUE.equals(tier.getIsPaid())) {
+                TutorStorageSubscription sub = TutorStorageSubscription.builder()
+                        .tutor(tutor)
+                        .tier(tier)
+                        .durationMonths((short) months)
+                        .grantedAt(java.time.OffsetDateTime.now())
+                        .expiresAt(expiresAt)
+                        .grantedBy(actorId)
+                        .build();
+                tutorStorageSubscriptionRepository.save(sub);
+            }
+        }
+
         tutorRepository.save(tutor);
 
         // Ghi Audit Log
         if (auditLogService != null) {
-            Map<String, Object> details = Map.of(
-                    "action", "Admin update tutor profile",
-                    "updatedBy", actorId
-            );
+            String newTier = storageTierRepository.findById(tutor.getStorageTierId())
+                    .map(StorageTier::getCode)
+                    .orElse("FREE");
+            boolean tierChanged = !oldTier.equals(newTier)
+                    || !java.util.Objects.equals(oldExpiresAt, tutor.getStorageTierExpiresAt());
+            Map<String, Object> details = new java.util.HashMap<>();
+            details.put("action", "Admin update tutor profile");
+            details.put("updatedBy", actorId);
+            if (tierChanged) {
+                details.put("oldTier", oldTier);
+                details.put("newTier", newTier);
+                details.put("expiresAt", tutor.getStorageTierExpiresAt());
+            }
             auditLogService.log(actorId, "UPDATE_TUTOR_PROFILE", "TUTOR", tutorId, details, getCurrentHttpRequest());
         }
 

@@ -856,6 +856,26 @@ public class ClassroomQueryRepository {
                 "DELETE FROM lesson_materials WHERE lesson_id = ? AND id = ?", lessonId, materialId);
     }
 
+    /**
+     * Tổng bytes tài liệu buổi học của 1 gia sư (V30): {@code lesson_materials.file_size} qua
+     * {@code lessons.lesson_id} → {@code classes.class_id} + {@code classes.tutor_id}.
+     * NULL {@code file_size} (row legacy) được coi là 0.
+     */
+    public long sumTutorMaterialBytes(Long tutorId) {
+        Long sum =
+                jdbcTemplate.queryForObject(
+                        """
+                        SELECT COALESCE(SUM(m.file_size), 0)
+                        FROM lesson_materials m
+                        JOIN lessons l ON l.id = m.lesson_id
+                        JOIN classes c ON c.id = l.class_id
+                        WHERE c.tutor_id = ?
+                        """,
+                        Long.class,
+                        tutorId);
+        return sum == null ? 0L : sum;
+    }
+
     /** Thêm tài liệu (trả về id dòng mới). */
     public Long insertLessonMaterial(
             Long lessonId,

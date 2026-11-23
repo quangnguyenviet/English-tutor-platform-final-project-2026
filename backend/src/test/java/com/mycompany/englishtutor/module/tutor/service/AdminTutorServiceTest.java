@@ -4,8 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.mycompany.englishtutor.module.tutor.api.request.TutorAdminUpdateRequest;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,6 +56,13 @@ class AdminTutorServiceTest {
 
     @Mock
     TutorCredentialRepository tutorCredentialRepository;
+
+    @Mock
+    com.mycompany.englishtutor.module.tutor.repository.TutorStorageSubscriptionRepository
+            tutorStorageSubscriptionRepository;
+
+    @Mock
+    com.mycompany.englishtutor.module.tutor.repository.StorageTierRepository storageTierRepository;
 
     @Mock
     TutorProfileMapper tutorProfileMapper;
@@ -319,6 +330,104 @@ class AdminTutorServiceTest {
         // WHEN & THEN
         var exception = assertThrows(AppException.class, () -> adminTutorService.updateStatus(TUTOR_ID, req));
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION);
+    }
+
+    // ------------------------------------------------------------------ updateProfile (V30: gói lưu trữ)
+
+    private static com.mycompany.englishtutor.module.tutor.domain.StorageTier tier(
+            long id, String code, long quotaBytes, boolean isDefault, boolean isPaid) {
+        return com.mycompany.englishtutor.module.tutor.domain.StorageTier.builder()
+                .id(id).code(code).name(code).quotaBytes(quotaBytes)
+                .isDefault(isDefault).isPaid(isPaid).build();
+    }
+
+    private static final com.mycompany.englishtutor.module.tutor.domain.StorageTier FREE =
+            tier(1L, "FREE", 1024L * 1024 * 1024, true, false);
+    private static final com.mycompany.englishtutor.module.tutor.domain.StorageTier PRO =
+            tier(2L, "PRO", 10240L * 1024 * 1024, false, true);
+    private static final com.mycompany.englishtutor.module.tutor.domain.StorageTier PREMIUM =
+            tier(3L, "PREMIUM", 53687091200L, false, true);
+
+    @Test
+    void updateProfile_setProTier_savesTierWithExpiryAndAudits() {
+        // GIVEN
+        when(userRepository.findByUsername(anyString())).thenReturn(Optional.of(reviewer));
+        when(tutorRepository.findDetailById(TUTOR_ID)).thenReturn(Optional.of(tutor));
+        when(tutorRepository.save(any(Tutor.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tutorProfileMapper.mapToResponse(any(), any()))
+                .thenReturn(TutorProfileResponse.builder().tutorId(TUTOR_ID).build());
+        // catalog: tier hiện hành (id=1 FREE) + tra mã "PRO" + tier mới (id=2)
+        when(storageTierRepository.findById(1L)).thenReturn(Optional.of(FREE));
+        when(storageTierRepository.findByCode("PRO")).thenReturn(Optional.of(PRO));
+        when(storageTierRepository.findById(2L)).thenReturn(Optional.of(PRO));
+
+        var request = com.mycompany.englishtutor.module.tutor.api.request.TutorAdminUpdateRequest.builder()
+                .storageTier("PRO")
+                .storageTierDurationMonths(3)
+                .build();
+
+        // WHEN
+        adminTutorService.updateProfile(TUTOR_ID, request);
+
+        // THEN
+        assertThat(tutor.getStorageTierId()).isEqualTo(2L);
+        assertThat(tutor.getStorageTierExpiresAt())
+                .isAfter(java.time.OffsetDateTime.now().plusMonths(2))
+                .isBefore(java.time.OffsetDateTime.now().plusMonths(4));
+        verify(auditLogService).log(
+                eq(REVIEWER_ID), eq("UPDATE_TUTOR_PROFILE"), eq("TUTOR"), eq(TUTOR_ID),
+                argThat((java.util.Map<String, Object> m) -> "PRO".equals(m.get("newTier"))
+                        && "FREE".equals(m.get("oldTier"))),
+                any());
+        // V30: gói trả phí ghi 1 sự kiện vào bảng lịch sử thuê bao (FK trỏ catalog).
+        verify(tutorStorageSubscriptionRepository).save(
+                org.mockito.ArgumentMatchers.argThat(s -> "PRO".equals(s.getTier().getCode())
+                        && s.getDurationMonths() == 3
+                        && s.getGrantedBy().equals(REVIEWER_ID)));
+    }
+
+    @Test
+    void updateProfile_setFreeTier_clearsExpiry() {
+        // GIVEN
+        tutor.setStorageTierId(2L); // PRO
+        tutor.setStorageTierExpiresAt(java.time.OffsetDateTime.now().plusDays(30));
+        when(userRepository.findByUsername(anyString())).thenReturn(Optional.of(reviewer));
+        when(tutorRepository.findDetailById(TUTOR_ID)).thenReturn(Optional.of(tutor));
+        when(tutorRepository.save(any(Tutor.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tutorProfileMapper.mapToResponse(any(), any()))
+                .thenReturn(TutorProfileResponse.builder().tutorId(TUTOR_ID).build());
+        when(storageTierRepository.findById(2L)).thenReturn(Optional.of(PRO));
+        when(storageTierRepository.findByCode("FREE")).thenReturn(Optional.of(FREE));
+        when(storageTierRepository.findById(1L)).thenReturn(Optional.of(FREE));
+
+        var request = com.mycompany.englishtutor.module.tutor.api.request.TutorAdminUpdateRequest.builder()
+                .storageTier("FREE")
+                .build();
+
+        // WHEN
+        adminTutorService.updateProfile(TUTOR_ID, request);
+
+        // THEN
+        assertThat(tutor.getStorageTierId()).isEqualTo(1L);
+        assertThat(tutor.getStorageTierExpiresAt()).isNull();
+    }
+
+    @Test
+    void updateProfile_noTierInRequest_keepsExistingTier() {
+        // GIVEN
+        tutor.setStorageTierId(3L); // PREMIUM
+        when(userRepository.findByUsername(anyString())).thenReturn(Optional.of(reviewer));
+        when(tutorRepository.findDetailById(TUTOR_ID)).thenReturn(Optional.of(tutor));
+        when(tutorRepository.save(any(Tutor.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tutorProfileMapper.mapToResponse(any(), any()))
+                .thenReturn(TutorProfileResponse.builder().tutorId(TUTOR_ID).build());
+        when(storageTierRepository.findById(3L)).thenReturn(Optional.of(PREMIUM));
+
+        // WHEN
+        adminTutorService.updateProfile(TUTOR_ID, TutorAdminUpdateRequest.builder().build());
+
+        // THEN
+        assertThat(tutor.getStorageTierId()).isEqualTo(3L);
     }
 }
 
