@@ -29,7 +29,7 @@ import com.mycompany.englishtutor.module.user.domain.User;
 import com.mycompany.englishtutor.module.user.repository.UserRepository;
 
 /**
- * Widget gói lưu trữ (V29): đọc quota từ catalog {@code storage_tiers} + dung lượng đã dùng thật.
+ * Widget gói lưu trữ (V30): đọc quota từ catalog {@code storage_tiers} + dung lượng đã dùng thật.
  * Quota là dữ liệu DB (entity catalog), không hardcode — test mock repo catalog.
  */
 @ExtendWith(MockitoExtension.class)

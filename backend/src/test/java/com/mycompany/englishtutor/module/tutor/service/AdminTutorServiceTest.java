@@ -332,7 +332,7 @@ class AdminTutorServiceTest {
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_STATUS_TRANSITION);
     }
 
-    // ------------------------------------------------------------------ updateProfile (V29: gói lưu trữ)
+    // ------------------------------------------------------------------ updateProfile (V30: gói lưu trữ)
 
     private static com.mycompany.englishtutor.module.tutor.domain.StorageTier tier(
             long id, String code, long quotaBytes, boolean isDefault, boolean isPaid) {
@@ -379,7 +379,7 @@ class AdminTutorServiceTest {
                 argThat((java.util.Map<String, Object> m) -> "PRO".equals(m.get("newTier"))
                         && "FREE".equals(m.get("oldTier"))),
                 any());
-        // V29: gói trả phí ghi 1 sự kiện vào bảng lịch sử thuê bao (FK trỏ catalog).
+        // V30: gói trả phí ghi 1 sự kiện vào bảng lịch sử thuê bao (FK trỏ catalog).
         verify(tutorStorageSubscriptionRepository).save(
                 org.mockito.ArgumentMatchers.argThat(s -> "PRO".equals(s.getTier().getCode())
                         && s.getDurationMonths() == 3

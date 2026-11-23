@@ -37,7 +37,7 @@ public class TutorProfileController {
 
     @GetMapping("/me/storage")
     @PreAuthorize("hasRole('TUTOR')")
-    @Operation(summary = "Widget gói lưu trữ tài liệu buổi học (V29): quota gói + dung lượng đã dùng",
+    @Operation(summary = "Widget gói lưu trữ tài liệu buổi học (V30): quota gói + dung lượng đã dùng",
             security = @SecurityRequirement(name = "bearerAuth"))
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Storage status retrieved successfully"),

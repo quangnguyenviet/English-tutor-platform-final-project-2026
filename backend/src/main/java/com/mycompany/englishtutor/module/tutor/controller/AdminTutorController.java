@@ -188,7 +188,7 @@ public class AdminTutorController {
     @GetMapping("/{tutorId:\\d+}/storage-subscriptions")
     @PreAuthorize("hasRole('RECEPTIONIST') or hasRole('ADMIN')")
     @Operation(
-            summary = "Lịch sử thuê bao gói lưu trữ (V29) của gia sư",
+            summary = "Lịch sử thuê bao gói lưu trữ (V30) của gia sư",
             description = "Danh sách các lần cấp/gia hạn gói trả phí (mới nhất trước).",
             security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<ApiResponse<List<StorageSubscriptionItem>>> getStorageSubscriptions(

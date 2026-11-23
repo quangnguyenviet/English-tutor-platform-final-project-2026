@@ -119,12 +119,12 @@ const upcomingSessions = [
 
 export default function TutorDashboard() {
   const [today] = useState(new Date());
-  const [storage, setStorage] = useState(null); // V29: {tier, tierExpiresAt, effectiveQuotaBytes, usedBytes}
+  const [storage, setStorage] = useState(null); // V30: {tier, tierExpiresAt, effectiveQuotaBytes, usedBytes}
   const [storageError, setStorageError] = useState(false);
   const activeClasses = 3; // TODO: compute from enrollment data
   const { token } = useAuth();
 
-  // Widget gói lưu trữ thật (V29) — dùng hiệu lực (gói trả phí hết hạn tự về FREE).
+  // Widget gói lưu trữ thật (V30) — dùng hiệu lực (gói trả phí hết hạn tự về FREE).
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
@@ -211,7 +211,7 @@ export default function TutorDashboard() {
         </div>
       </div>
 
-      {/* --- Widget gói lưu trữ tài liệu buổi học (V29 — số liệu thật từ /me/storage) --- */}
+      {/* --- Widget gói lưu trữ tài liệu buổi học (V30 — số liệu thật từ /me/storage) --- */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">

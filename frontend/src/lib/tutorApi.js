@@ -125,7 +125,7 @@ export async function apiGetTutorProfile(token) {
 }
 
 /**
- * Widget gói lưu trữ tài liệu buổi học (V29) — GET /api/v1/tutors/me/storage.
+ * Widget gói lưu trữ tài liệu buổi học (V30) — GET /api/v1/tutors/me/storage.
  * Trả { tier, tierExpiresAt, quotaBytes, effectiveQuotaBytes, usedBytes }.
  *
  * @param {string} token - JWT token
@@ -155,7 +155,7 @@ export async function apiGetTutorStorage(token) {
 }
 
 /**
- * Lịch sử thuê bao gói lưu trữ của gia sư (V29) — GET /api/v1/tutors/{id}/storage-subscriptions.
+ * Lịch sử thuê bao gói lưu trữ của gia sư (V30) — GET /api/v1/tutors/{id}/storage-subscriptions.
  * Trả danh sách các lần cấp/gia hạn gói trả phí (mới nhất trước).
  *
  * @param {string|number} tutorId

@@ -129,7 +129,7 @@ public class AdminTutorService {
     }
 
     /**
-     * Lịch sử thuê bao gói lưu trữ (V29) của 1 gia sư, mới nhất trước.
+     * Lịch sử thuê bao gói lưu trữ (V30) của 1 gia sư, mới nhất trước.
      * Dùng cho admin/lễ tân truy vết các lần cấp/gia hạn gói trả phí.
      */
     @Transactional(readOnly = true)
@@ -318,7 +318,7 @@ public class AdminTutorService {
         if (request.getBio() != null) tutor.setBio(request.getBio().trim());
         if (request.getVideoUrl() != null) tutor.setVideoUrl(request.getVideoUrl().trim());
 
-        // Gói lưu trữ tài liệu buổi học (V29): đổi gói (catalog storage_tiers) + thời hạn theo
+        // Gói lưu trữ tài liệu buổi học (V30): đổi gói (catalog storage_tiers) + thời hạn theo
         // tháng (lễ tân gán). Request truyền mã gói (FREE/PRO/PREMIUM) — tra catalog lấy quota/thuộc tính.
         java.time.OffsetDateTime oldExpiresAt = tutor.getStorageTierExpiresAt();
         String oldTier = storageTierRepository.findById(tutor.getStorageTierId())
@@ -333,7 +333,7 @@ public class AdminTutorService {
                     ? java.time.OffsetDateTime.now().plusMonths(months) : null;
             tutor.setStorageTierId(tier.getId());
             tutor.setStorageTierExpiresAt(expiresAt);
-            // Gói trả phí: ghi 1 sự kiện vào bảng lịch sử thuê bao (V29, FK tier_id trỏ catalog).
+            // Gói trả phí: ghi 1 sự kiện vào bảng lịch sử thuê bao (V30, FK tier_id trỏ catalog).
             if (Boolean.TRUE.equals(tier.getIsPaid())) {
                 TutorStorageSubscription sub = TutorStorageSubscription.builder()
                         .tutor(tutor)

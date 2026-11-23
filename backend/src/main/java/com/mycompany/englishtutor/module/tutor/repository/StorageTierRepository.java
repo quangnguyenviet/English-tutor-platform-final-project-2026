@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.mycompany.englishtutor.module.tutor.domain.StorageTier;
 
 /**
- * Catalog gói lưu trữ (V29) — bảng {@code storage_tiers}. Quota (quota_bytes) là dữ liệu
+ * Catalog gói lưu trữ (V30) — bảng {@code storage_tiers}. Quota (quota_bytes) là dữ liệu
  * DB, không hardcode: mọi caller (quota gate, widget, admin) đọc qua đây.
  */
 public interface StorageTierRepository extends JpaRepository<StorageTier, Long> {

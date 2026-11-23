@@ -6,7 +6,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 /**
- * Catalog gói lưu trữ tài liệu buổi học (V29) — bảng {@code storage_tiers}.
+ * Catalog gói lưu trữ tài liệu buổi học (V30) — bảng {@code storage_tiers}.
  * Quota là DỮ LIỆU (quota_bytes) chứ không hardcode trong code: sửa gói/dung lượng
  * qua DB được, sẵn sàng thêm cột giá khi làm billing thật.
  * {@code is_paid} = gói trả phí (có thời hạn theo tháng); {@code is_default} = gói

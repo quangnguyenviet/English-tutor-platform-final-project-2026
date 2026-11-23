@@ -77,7 +77,7 @@ export function TutorManagement() {
   // Modal xem chi tiết
   const [viewingTutor, setViewingTutor] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  // V29: lịch sử thuê bao gói lưu trữ của gia sư đang xem (từ bảng tutor_storage_subscriptions)
+  // V30: lịch sử thuê bao gói lưu trữ của gia sư đang xem (từ bảng tutor_storage_subscriptions)
   const [storageSubs, setStorageSubs] = useState([]);
 
   // Modal xem trước ảnh chứng chỉ (Image Lightbox)
@@ -179,7 +179,7 @@ export function TutorManagement() {
     } finally {
       setLoadingDetail(false);
     }
-    // V29: tải lịch sử thuê bao gói lưu trữ (không block modal chính khi lỗi).
+    // V30: tải lịch sử thuê bao gói lưu trữ (không block modal chính khi lỗi).
     try {
       setStorageSubs(await apiGetTutorStorageSubscriptions(tutorId, token));
     } catch {
@@ -663,7 +663,7 @@ export function TutorManagement() {
             <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
               <TutorDetailSections tutor={viewingTutor} onPreviewImage={setPreviewImage} />
 
-              {/* V29: Gói lưu trữ hiện hành + lịch sử thuê bao */}
+              {/* V30: Gói lưu trữ hiện hành + lịch sử thuê bao */}
               <div className="rounded-xl border border-blue-200 bg-blue-50 p-3.5 dark:border-blue-800 dark:bg-blue-950/40">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-semibold text-blue-700 dark:text-blue-400">
@@ -946,7 +946,7 @@ export function TutorManagement() {
                 </div>
               </div>
 
-              {/* Gói lưu trữ tài liệu buổi học (V29) */}
+              {/* Gói lưu trữ tài liệu buổi học (V30) */}
               <div className="rounded-xl border border-blue-200 bg-blue-50 p-3.5 dark:border-blue-800 dark:bg-blue-950/40">
                 <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-2">
                   Gói lưu trữ tài liệu buổi học

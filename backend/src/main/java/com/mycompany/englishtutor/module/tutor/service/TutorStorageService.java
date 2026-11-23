@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 /**
- * Widget dashboard gia sư (V29): đọc gói lưu trữ + dung lượng đã dùng thật.
+ * Widget dashboard gia sư (V30): đọc gói lưu trữ + dung lượng đã dùng thật.
  * Quota đọc từ catalog {@code storage_tiers}; gói trả phí (is_paid) hết hạn tự hạ về
  * gói mặc định (FREE) — không ghi gì vào DB.
  */

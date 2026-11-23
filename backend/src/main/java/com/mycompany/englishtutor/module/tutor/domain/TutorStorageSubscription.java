@@ -6,7 +6,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 /**
- * Lịch sử thuê bao gói lưu trữ tài liệu buổi học (V29). Mỗi dòng là 1 lần lễ tân cấp/gia hạn
+ * Lịch sử thuê bao gói lưu trữ tài liệu buổi học (V30). Mỗi dòng là 1 lần lễ tân cấp/gia hạn
  * gói cho gia sư — ghi nhận sự kiện để truy vết (mua/gia hạn, ai cấp, thời hạn đến đâu).
  * {@code tier_id} là FK trỏ bảng catalog {@code storage_tiers} (gói + quota); gói HIỆN HÀNH
  * của tutor nằm ở {@link Tutor#getStorageTierId()}, bảng này là hồ sơ các lần cấp.

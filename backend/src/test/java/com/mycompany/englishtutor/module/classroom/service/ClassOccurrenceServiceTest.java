@@ -123,7 +123,7 @@ class ClassOccurrenceServiceTest {
                         .fullName("Trần Gia Sư")
                         .role(UserRole.TUTOR.name())
                         .build()));
-        // Default quota context (V29): gói FREE (id=1, 1 GB, vô thời hạn) qua catalog
+        // Default quota context (V30): gói FREE (id=1, 1 GB, vô thời hạn) qua catalog
         // storage_tiers, chưa dùng gì → các test không liên quan quota vẫn chạy như trước;
         // test quota riêng sẽ override lại tutor/quota ở dưới.
         when(tutorRepository.findDetailById(TUTOR_ID)).thenReturn(Optional.of(freeTierTutor()));
@@ -185,7 +185,7 @@ class ClassOccurrenceServiceTest {
                 1_000L, "Trần Gia Sư", OffsetDateTime.now());
     }
 
-    // Helpers quota lưu trữ (V29, catalog storage_tiers)
+    // Helpers quota lưu trữ (V30, catalog storage_tiers)
     private com.mycompany.englishtutor.module.tutor.domain.Tutor freeTierTutor() {
         return com.mycompany.englishtutor.module.tutor.domain.Tutor.builder()
                 .id(TUTOR_ID)
@@ -858,7 +858,7 @@ class ClassOccurrenceServiceTest {
                 ErrorCode.CLASS_NOT_OWNED);
     }
 
-    // ---------------------------------------------------------------- STORAGE QUOTA (V29)
+    // ---------------------------------------------------------------- STORAGE QUOTA (V30)
 
     @Test
     void uploadMaterial_quotaExceeded_throws1603() {

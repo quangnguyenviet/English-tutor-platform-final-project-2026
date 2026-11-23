@@ -75,7 +75,7 @@ public class Tutor {
     Boolean openToTeaching = Boolean.TRUE;
 
     /**
-     * Gói lưu trữ tài liệu buổi học hiện hành (V29) — FK {@code storage_tiers.id} (catalog,
+     * Gói lưu trữ tài liệu buổi học hiện hành (V30) — FK {@code storage_tiers.id} (catalog,
      * FREE seed id=1, default cho mọi tutor mới). Quota thật nằm ở
      * {@code StorageTier.quotaBytes} (dữ liệu DB, không hardcode trong code).
      * Gói trả phí (is_paid) có thời hạn theo tháng qua {@link #storageTierExpiresAt};
@@ -86,7 +86,7 @@ public class Tutor {
     Long storageTierId = 1L;
 
     /**
-     * Thời điểm gói trả phí hết hạn (V29); NULL = gói vô thời hạn (FREE).
+     * Thời điểm gói trả phí hết hạn (V30); NULL = gói vô thời hạn (FREE).
      */
     @Column(name = "storage_tier_expires_at")
     java.time.OffsetDateTime storageTierExpiresAt;

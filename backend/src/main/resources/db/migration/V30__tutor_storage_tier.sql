@@ -1,4 +1,4 @@
--- V29: Quota lưu trữ tài liệu buổi học theo gói thuê bao gia sư (FREE / PRO / PREMIUM).
+-- V30: Quota lưu trữ tài liệu buổi học theo gói thuê bao gia sư (FREE / PRO / PREMIUM).
 --
 -- Thiết kế "catalog + fact" (chốt với user, chuẩn production):
 --   * storage_tiers = CATALOG 3 gói (quota là DỮ LIỆU trong DB, không hardcode trong code)

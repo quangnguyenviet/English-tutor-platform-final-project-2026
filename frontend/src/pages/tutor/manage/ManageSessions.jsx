@@ -298,7 +298,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
   // ---------------- Tài liệu bài giảng (upload / tải / gỡ)
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
-  // V29: gói lưu trữ hết hạn mức (1603) hoặc hết thời hạn tháng (1604) → hiện CTA liên hệ lễ tân.
+  // V30: gói lưu trữ hết hạn mức (1603) hoặc hết thời hạn tháng (1604) → hiện CTA liên hệ lễ tân.
   const [showStorageUpgradeHint, setShowStorageUpgradeHint] = useState(false);
   const [confirmDeleteMaterial, setConfirmDeleteMaterial] = useState(null);
   const [deletingMaterialId, setDeletingMaterialId] = useState(null);
@@ -696,7 +696,7 @@ export default function ManageSessions({ token, classId, basePath, classDetail }
                   )}
                 </div>
 
-                {/* V29: CTA khi vượt quota gói (1603) hoặc gói trả phí hết hạn (1604) */}
+                {/* V30: CTA khi vượt quota gói (1603) hoặc gói trả phí hết hạn (1604) */}
                 {showStorageUpgradeHint && (
                   <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-300">
                     <AlertCircle size={14} className="mt-0.5 shrink-0 text-amber-500" />

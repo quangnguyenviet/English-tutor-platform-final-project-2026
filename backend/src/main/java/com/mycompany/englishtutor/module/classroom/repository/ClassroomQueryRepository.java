@@ -857,7 +857,7 @@ public class ClassroomQueryRepository {
     }
 
     /**
-     * Tổng bytes tài liệu buổi học của 1 gia sư (V29): {@code lesson_materials.file_size} qua
+     * Tổng bytes tài liệu buổi học của 1 gia sư (V30): {@code lesson_materials.file_size} qua
      * {@code lessons.lesson_id} → {@code classes.class_id} + {@code classes.tutor_id}.
      * NULL {@code file_size} (row legacy) được coi là 0.
      */

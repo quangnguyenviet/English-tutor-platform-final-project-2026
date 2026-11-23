@@ -662,7 +662,7 @@ public class ClassOccurrenceService {
     }
 
     /**
-     * Gate quota lưu trữ theo gói gia sư (V29): chặn upload nếu {@code used + newSize} vượt dung
+     * Gate quota lưu trữ theo gói gia sư (V30): chặn upload nếu {@code used + newSize} vượt dung
      * lượng của gói hiệu lực. Quota đọc từ catalog {@code storage_tiers} (dữ liệu DB); gói trả
      * phí (is_paid) mà {@code storage_tier_expires_at} đã qua → tự hạ về gói mặc định (FREE).
      * Gọi TRƯỚC khi ghi MinIO. Phân biệt 2 mã lỗi để frontend hiện đúng CTA:
