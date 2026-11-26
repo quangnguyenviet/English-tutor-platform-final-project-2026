@@ -36,6 +36,27 @@ const STATUS_META = {
   CANCELLED: { label: "Đã hủy", tone: "rose", icon: XCircle },
 };
 
+const STATUS_BAR = {
+  blue: "bg-blue-500",
+  amber: "bg-amber-500",
+  emerald: "bg-emerald-500",
+  rose: "bg-rose-500",
+};
+
+const STATUS_SURFACE = {
+  blue: "border-blue-200 dark:border-blue-900",
+  amber: "border-amber-200 dark:border-amber-900",
+  emerald: "border-emerald-200 dark:border-emerald-900",
+  rose: "border-rose-200 dark:border-rose-900",
+};
+
+const STATUS_TEXT = {
+  blue: "text-blue-700 dark:text-blue-400",
+  amber: "text-amber-700 dark:text-amber-400",
+  emerald: "text-emerald-700 dark:text-emerald-400",
+  rose: "text-rose-700 dark:text-rose-400",
+};
+
 const SURFACE = {
   blue: "border-blue-200 bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950/20",
   amber: "border-amber-200 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/20",
@@ -128,30 +149,42 @@ export default function TutorSchedule() {
         <ErrorBox message={error} onRetry={reload} />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7 lg:gap-3" aria-label="Lịch dạy theo ngày">
-            {days.map((day) => (
-              <div key={day.date} className="min-w-0 space-y-2">
-                <div className={clsx("rounded-xl border px-2 py-2 text-center", day.date === todayISO() ? "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30" : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900")}>
-                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{day.label}</p>
-                  <p className="mt-0.5 font-mono text-sm font-bold text-slate-800 dark:text-slate-200">{day.date.slice(-2)}</p>
+          <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7" aria-label="Lịch dạy theo ngày">
+            {days.map((day) => {
+              const isToday = day.date === todayISO();
+              return (
+                <div key={day.date} className={clsx("flex h-full min-w-0 flex-col overflow-hidden rounded-xl border bg-white transition-colors dark:bg-slate-900", isToday ? "border-blue-300 ring-1 ring-blue-300/60 dark:border-blue-800 dark:ring-blue-800/60" : "border-slate-200 dark:border-slate-800")}>
+                  <div className={clsx("border-b px-3 py-2.5", isToday ? "border-blue-200 bg-blue-50/60 dark:border-blue-900/60 dark:bg-blue-950/30" : "border-slate-200 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/40")}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{day.label}</p>
+                        <p className="mt-0.5 font-mono text-sm font-bold text-slate-900 dark:text-white">{day.date.slice(8)}</p>
+                      </div>
+                      {isToday ? <Badge tone="blue">Hôm nay</Badge> : <p className="text-[11px] text-slate-400 dark:text-slate-500">{day.sessions.length ? `${day.sessions.length} buổi` : "Trống lịch"}</p>}
+                    </div>
+                  </div>
+                  <div className="flex-1 space-y-2 p-2.5">
+                    {day.sessions.length ? day.sessions.map((item) => {
+                      const meta = statusMeta(item);
+                      return (
+                        <Link key={`${item.classId}-${item.occurrenceKey}`} to={detailUrl(item, weekStart)} className={clsx("relative block overflow-hidden rounded-lg border bg-white py-2.5 pl-3.5 pr-2.5 text-left transition-all hover:border-blue-400 hover:shadow-sm active:scale-[0.98] dark:bg-slate-900 dark:hover:border-blue-700", STATUS_SURFACE[meta.tone])}>
+                          <span aria-hidden="true" className={clsx("absolute inset-y-0 left-0 w-1", STATUS_BAR[meta.tone])} />
+                          <p className="line-clamp-2 text-xs font-semibold text-slate-900 dark:text-white">{item.className}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-slate-500 dark:text-slate-400">{item.studentName}</p>
+                          <p className="mt-1 font-mono text-xs text-slate-600 dark:text-slate-300">{item.startTime}–{item.endTime}</p>
+                          <p className={clsx("mt-1 text-[11px] font-medium", STATUS_TEXT[meta.tone])}>{meta.label}</p>
+                        </Link>
+                      );
+                    }) : (
+                      <div className="flex h-full min-h-[120px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 px-2 py-6 dark:border-slate-800">
+                        <CalendarDays size={22} className="text-slate-300 dark:text-slate-600" />
+                        <p className="text-xs font-medium text-slate-400 dark:text-slate-500">Trống lịch</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  {day.sessions.length ? day.sessions.map((item) => {
-                    const meta = statusMeta(item);
-                    return (
-                      <Link key={`${item.classId}-${item.occurrenceKey}`} to={detailUrl(item, weekStart)} className={clsx("block rounded-xl border p-2.5 text-left transition-all hover:border-blue-400 active:scale-[0.98] dark:hover:border-blue-700", SURFACE[meta.tone])}>
-                        <p className="line-clamp-2 text-xs font-semibold text-slate-900 dark:text-white">{item.className}</p>
-                        <p className="mt-1 truncate text-[11px] text-slate-500 dark:text-slate-400">{item.studentName}</p>
-                        <p className="mt-1 font-mono text-xs text-slate-600 dark:text-slate-300">{item.startTime}–{item.endTime}</p>
-                        <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{meta.label}</p>
-                      </Link>
-                    );
-                  }) : (
-                    <div className="flex min-h-16 items-center justify-center rounded-xl border border-dashed border-slate-200 px-2 text-center dark:border-slate-800"><p className="text-xs text-slate-400 dark:text-slate-500">Không có lịch</p></div>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <section aria-label="Buổi dạy trong tuần">
