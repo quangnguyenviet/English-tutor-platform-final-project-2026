@@ -12,21 +12,20 @@ function normalizedTime(value) {
   return formatSessionTime(value || "00:00");
 }
 
-/** Ngày/giờ thực tế của ca; ca RESCHEDULED dùng mốc mới thay vì ô gốc. */
+/**
+ * Ngày/giờ thực tế của ca; ca RESCHEDULED dùng mốc mới thay vì ô gốc.
+ * Backend đã trả `date` là mốc mới và `originalDate` là mốc cũ; khi backend
+ * cũ chưa có `originalDate` thì suy ra từ `exception.newDate`.
+ */
 export function tutorOccurrenceTarget(occurrence) {
   const exception = occurrence?.source === "EXCEPTION" ? occurrence.exception : null;
-  if (
-    exception?.type === "RESCHEDULED"
-    && exception.newDate
-    && exception.newStartTime
-    && exception.newEndTime
-  ) {
-    return {
-      date: exception.newDate,
-      startTime: normalizedTime(exception.newStartTime),
-      endTime: normalizedTime(exception.newEndTime),
-      originalDate: occurrence.date,
-    };
+  const rescheduled = exception?.type === "RESCHEDULED" && exception.newDate;
+  if (rescheduled) {
+    const date = occurrence.date || exception.newDate;
+    const originalDate = occurrence.originalDate || occurrence.date || null;
+    const startTime = normalizedTime(exception.newStartTime || occurrence.startTime);
+    const endTime = normalizedTime(exception.newEndTime || occurrence.endTime);
+    return { date, startTime, endTime, originalDate };
   }
   return {
     date: occurrence?.date,

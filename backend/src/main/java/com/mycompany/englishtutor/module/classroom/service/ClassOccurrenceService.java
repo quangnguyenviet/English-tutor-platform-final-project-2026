@@ -142,15 +142,29 @@ public class ClassOccurrenceService {
                 String slotKey = slot.scheduleId() + "_" + date;
                 TeachingLogRow log = logsBySlot.get(logKey(date, slot.startTime()));
                 ScheduleExceptionRow ex = exceptionsBySlot.get(slotKey);
+                boolean rescheduled = ex != null
+                        && EXCEPTION_RESCHEDULED.equals(ex.exceptionType())
+                        && ex.newDate() != null;
+                if (rescheduled && !inSelectedWeek(ex.newDate(), monday)) {
+                    continue;
+                }
+                LocalDate actualDate = rescheduled ? ex.newDate() : date;
+                LocalTime actualStartTime = rescheduled && ex.newStartTime() != null
+                        ? ex.newStartTime()
+                        : slot.startTime();
+                LocalTime actualEndTime = rescheduled && ex.newEndTime() != null
+                        ? ex.newEndTime()
+                        : slot.endTime();
 
                 OccurrenceResponse.OccurrenceResponseBuilder builder = OccurrenceResponse.builder()
                         .occurrenceKey(slotKey)
                         .scheduleId(slot.scheduleId())
-                        .date(date)
-                        .dayOfWeek(slot.dayOfWeek())
+                        .date(actualDate)
+                        .originalDate(rescheduled ? date : null)
+                        .dayOfWeek(actualDate.getDayOfWeek().getValue())
                         .source(ex != null ? "EXCEPTION" : "OCCURRENCE")
-                        .startTime(slot.startTime())
-                        .endTime(slot.endTime())
+                        .startTime(actualStartTime)
+                        .endTime(actualEndTime)
                         .log(log != null ? toLogMini(log) : null);
 
                 if (ex != null) {
@@ -203,6 +217,10 @@ public class ClassOccurrenceService {
     private static boolean inValidity(ScheduleSlotRow slot, LocalDate date) {
         return (slot.validFrom() == null || !date.isBefore(slot.validFrom()))
                 && (slot.validTo() == null || !date.isAfter(slot.validTo()));
+    }
+
+    private static boolean inSelectedWeek(LocalDate date, LocalDate monday) {
+        return !date.isBefore(monday) && date.isBefore(monday.plusDays(7));
     }
 
     private static String logKey(LocalDate date, LocalTime startTime) {
