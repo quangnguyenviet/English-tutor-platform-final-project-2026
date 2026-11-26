@@ -319,6 +319,7 @@ public enum ErrorCode {
             1728, "Học sinh đang có lớp với gia sư này, không thể tạo thêm lớp", HttpStatus.CONFLICT),
     PROPOSAL_REQUEST_CLOSED(1729, "Tin đăng đã đóng nên không thể đồng ý thêm đề xuất", HttpStatus.CONFLICT),
     PROPOSAL_WITHDRAW_REASON_REQUIRED(1730, "Vui lòng nhập lý do rút đề xuất (ít nhất 5 ký tự)", HttpStatus.BAD_REQUEST),
+    PROPOSAL_STUDENT_BUSY(1731, "Khung giờ trong đề xuất trùng lịch học hiện có của học sinh", HttpStatus.CONFLICT),
     FEE_POLICY_NOT_FOUND(1740, "Chưa cấu hình tỷ lệ phí cho loại lớp này", HttpStatus.INTERNAL_SERVER_ERROR),
     POSTING_LIMIT_REACHED(1750, "Bạn đang có một tin đăng chưa kết thúc, vui lòng đóng tin cũ trước khi tạo tin mới", HttpStatus.CONFLICT),
     POSTING_NOT_FOUND(1751, "Tin đăng không tồn tại", HttpStatus.NOT_FOUND),

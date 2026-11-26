@@ -50,6 +50,7 @@ public class ProposalService {
     private final PiiDetector piiDetector;
     private final AuditLogService auditLogService;
     private final MessagingProperties properties;
+    private final ProposalConflictChecker conflicts;
 
     @Transactional(readOnly = true)
     public List<ProposalItem> listByRoom(Long roomId) {
@@ -102,6 +103,16 @@ public class ProposalService {
             throw new AppException(ErrorCode.PROPOSAL_INVALID_SCHEDULE, "Vui lòng nhập địa chỉ học tại nhà");
         }
         scanForContactInfo(request);
+        ProposalConflictChecker.Slot slot = new ProposalConflictChecker.Slot(parsed.days(), parsed.scheduleFrom(),
+                parsed.scheduleTo(), parsed.trialDate(), parsed.trialFrom(), parsed.trialTo());
+        if (conflicts.tutorBusy(tutorId, slot)) {
+            throw new AppException(ErrorCode.PROPOSAL_TUTOR_BUSY,
+                    "Khung giờ học hoặc dạy thử trùng lịch hiện có của bạn, vui lòng chọn khung giờ khác");
+        }
+        if (request.studentId() != null && conflicts.studentBusy(request.studentId(), slot)) {
+            throw new AppException(ErrorCode.PROPOSAL_STUDENT_BUSY,
+                    "Khung giờ học hoặc dạy thử trùng lịch học hiện có của học sinh, vui lòng chọn khung giờ khác");
+        }
         BigDecimal fee = feePolicies.currentPercentage(request.classType());
 
         jdbcTemplate.queryForObject("SELECT id FROM chat_rooms WHERE id = ? FOR UPDATE", Long.class, roomId);
