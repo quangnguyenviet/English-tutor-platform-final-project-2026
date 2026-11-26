@@ -7,10 +7,7 @@ import Badge from "../../components/ui/Badge";
 import PageHeader from "../../components/ui/PageHeader";
 import ChatRoom from "../../components/messaging/ChatRoom";
 import { useAuth } from "../../context/AuthContext";
-import { apiGetRooms, subscribeChatEvents } from "../../lib/messagingApi";
-
-const initialsOf = (name) =>
-  (name || "?").trim().split(/\s+/).slice(-2).map((w) => w[0]).join("").toUpperCase();
+import { apiGetRooms, initialsOf, subscribeChatEvents } from "../../lib/messagingApi";
 
 const formatWhen = (iso) => {
   if (!iso) return "";
@@ -69,8 +66,9 @@ export default function MessagesPage({ viewer, basePath }) {
   const refreshTick = tick.roomId === null || tick.roomId === activeId ? tick.count : 0;
 
   return (
-    <div className={clsx("mx-auto flex max-w-6xl flex-col space-y-4 px-4 py-6 lg:px-8 lg:py-8", viewer !== "PARENT" && "min-h-[100dvh]")}>
+    <div className={clsx("mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 lg:px-8 lg:py-6", viewer === "TUTOR" && "pb-20 lg:pb-6")}>
       <PageHeader
+        className={clsx("!mb-0 shrink-0", activeId && "!hidden lg:!flex")}
         eyebrow="Tin nhắn"
         title="Trò chuyện"
         description={viewer === "PARENT"
@@ -78,8 +76,11 @@ export default function MessagesPage({ viewer, basePath }) {
           : "Trao đổi với phụ huynh và gửi đề xuất lớp học."}
       />
 
-      <div className={clsx("grid min-h-[560px] flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-[320px_1fr]", viewer === "PARENT" ? "lg:h-[calc(100dvh-18rem)]" : "lg:h-[calc(100dvh-14rem)]")}>
-        <aside className={clsx("min-h-0 overflow-y-auto border-slate-200 dark:border-slate-800 lg:border-r", activeId && "hidden lg:block")}>
+      {/* Khung chat cao đúng bằng phần nhìn thấy, nên cuộn trang chỉ đi đến khi phần đầu khung chat chạm lên trên.
+          Gia sư đo theo vùng nội dung (100cqh), phụ huynh đo theo màn hình trừ header (65px, màn hẹp 102px). */}
+      <div className={clsx("grid shrink-0 grid-rows-[minmax(0,1fr)] overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-[320px_minmax(0,1fr)]",
+        viewer === "TUTOR" ? "h-[calc(100cqh-6rem)] lg:h-[calc(100cqh-3rem)]" : "h-[calc(100dvh-102px-2rem)] md:h-[calc(100dvh-65px-2rem)] lg:h-[calc(100dvh-65px-3rem)]")}>
+        <aside className={clsx("min-h-0 overflow-y-auto overscroll-contain border-slate-200 dark:border-slate-800 lg:border-r", activeId && "hidden lg:block")}>
           {loading && <div className="flex items-center justify-center gap-2 p-6 text-sm text-slate-500"><Loader2 size={16} className="animate-spin" /> Đang tải...</div>}
           {error && <p role="alert" className="p-4 text-sm text-rose-600 dark:text-rose-400">{error}</p>}
           {!loading && rooms.length === 0 && !error && (
@@ -88,7 +89,7 @@ export default function MessagesPage({ viewer, basePath }) {
               {viewer === "PARENT" ? "Bạn chưa có cuộc trò chuyện nào. Hãy chọn một gia sư và bấm Nhắn tin." : "Chưa có phụ huynh nhắn tin cho bạn."}
             </div>
           )}
-          <ul>
+          <ul className="min-h-[calc(100%+1px)]">
             {rooms.map((room) => (
               <li key={room.id}>
                 <NavLink to={`${basePath}/${room.id}`}

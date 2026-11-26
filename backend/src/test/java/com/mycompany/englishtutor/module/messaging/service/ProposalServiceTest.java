@@ -36,6 +36,7 @@ class ProposalServiceTest {
     private final ChatMessageService messages = mock(ChatMessageService.class);
     private final FeePolicyService fees = mock(FeePolicyService.class);
     private final ChatOutboxService outbox = mock(ChatOutboxService.class);
+    private final ProposalConflictChecker conflicts = mock(ProposalConflictChecker.class);
     private ProposalService service;
     private Access access;
 
@@ -43,7 +44,7 @@ class ProposalServiceTest {
     void setUp() {
         service = new ProposalService(jdbc, actor, rooms, messages, mock(RocketChatAccountService.class),
                 mock(RocketChatClient.class), fees, mock(ProposalReader.class), outbox, new PiiDetector(),
-                mock(AuditLogService.class), new MessagingProperties());
+                mock(AuditLogService.class), new MessagingProperties(), conflicts);
         Room room = new Room(5L, "DIRECT", 2L, 6L, 4L, null, "rc5", "ACTIVE", null, "ACTIVE", null, null, null);
         access = new Access(room, Viewer.TUTOR, 4L);
         when(actor.requireTutorId()).thenReturn(4L);
@@ -65,6 +66,30 @@ class ProposalServiceTest {
                 () -> service.create(5L, request(LocalDate.now().plusDays(2).toString(), null), null));
 
         assertEquals(ErrorCode.PROPOSAL_NEEDS_CONVERSATION, ex.getErrorCode());
+    }
+
+    @Test
+    void create_overlapsTutorSchedule_isRejectedBeforeAnyWrite() {
+        when(conflicts.tutorBusy(eq(4L), any())).thenReturn(true);
+
+        AppException ex = assertThrows(AppException.class,
+                () -> service.create(5L, request(LocalDate.now().plusDays(2).toString(), null), null));
+
+        assertEquals(ErrorCode.PROPOSAL_TUTOR_BUSY, ex.getErrorCode());
+        verify(jdbc, never()).queryForObject(eq("SELECT id FROM chat_rooms WHERE id = ? FOR UPDATE"), eq(Long.class), any(Object.class));
+    }
+
+    @Test
+    void create_overlapsExistingStudentSchedule_isRejected() {
+        when(jdbc.queryForObject(eq("SELECT COUNT(*) FROM students WHERE id = ? AND parent_id = ?"), eq(Integer.class), eq(9L), eq(2L)))
+                .thenReturn(1);
+        when(conflicts.studentBusy(eq(9L), any())).thenReturn(true);
+        ProposalRequest r = new ProposalRequest(9L, null, null, null, null, "SHORT_TERM", new BigDecimal("300000"),
+                List.of(2, 4), "19:00", "20:30", LocalDate.now().plusDays(2).toString(), "19:00", "20:00", "ONLINE", null, null);
+
+        AppException ex = assertThrows(AppException.class, () -> service.create(5L, r, null));
+
+        assertEquals(ErrorCode.PROPOSAL_STUDENT_BUSY, ex.getErrorCode());
     }
 
     @Test

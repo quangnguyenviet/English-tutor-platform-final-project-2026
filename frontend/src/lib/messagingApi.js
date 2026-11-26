@@ -218,3 +218,6 @@ export const formatVnd = (value) =>
   new Intl.NumberFormat("vi-VN").format(Number(value || 0)) + " đ";
 
 export const formatTime = (value) => (value ? String(value).slice(0, 5) : "");
+
+export const initialsOf = (name) =>
+  (name || "?").trim().split(/\s+/).slice(-2).map((w) => w[0]).join("").toUpperCase();
