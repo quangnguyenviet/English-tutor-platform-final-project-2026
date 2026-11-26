@@ -267,6 +267,7 @@ function AppShellInner() {
       { to: "/student/exercises", label: "Bài tập & kiểm tra", icon: NotebookPen, locked: !isMatched },
       { to: "/student/spaced-repetition", label: "Ôn tập ngắt quãng", icon: RotateCcw, locked: !isMatched },
       { to: "/student/progress", label: "Kết quả & tiến bộ", icon: LineChart, locked: !isMatched },
+      { to: "/student/profile", label: "Trang cá nhân", icon: IdCard },
       { to: "/student/settings", label: "Cài đặt", icon: Settings },
     ];
   }

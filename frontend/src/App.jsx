@@ -66,6 +66,8 @@ import ExerciseTaking from "./pages/student/ExerciseTaking";
 import StudentProgress from "./pages/student/StudentProgress";
 import SpacedRepetitionSession from "./pages/student/SpacedRepetitionSession";
 import SettingsPage from "./pages/SettingsPage";
+import ParentProfile from "./pages/parent/ParentProfile";
+import StudentProfile from "./pages/student/StudentProfile";
 
 import GuestLayout from "./components/guest/GuestLayout";
 import GuestTutorExplorePage from "./pages/guest/GuestTutorExplorePage";
@@ -137,6 +139,7 @@ export default function App() {
             <Route path="/contact" element={<GuestContactPage />} />
             {/* Khu vực phụ huynh (đăng nhập Google): dùng chung header với các trang khách để điều hướng liền mạch */}
             <Route element={<RequireRole role="parent"><Outlet /></RequireRole>}>
+              <Route path="/parent/profile" element={<ParentProfile />} />
               <Route path="/parent/messages" element={<MessagesPage viewer="PARENT" basePath="/parent/messages" />} />
               <Route path="/parent/messages/:roomId" element={<MessagesPage viewer="PARENT" basePath="/parent/messages" />} />
               <Route path="/parent/postings" element={<ParentPostings />} />
@@ -278,6 +281,7 @@ export default function App() {
             <Route path="exercises/:exerciseId" element={<ExerciseTaking />} />
             <Route path="spaced-repetition" element={<SpacedRepetitionSession />} />
             <Route path="progress" element={<StudentProgress />} />
+            <Route path="profile" element={<StudentProfile />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
 

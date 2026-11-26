@@ -46,6 +46,7 @@ const routeMeta = {
     "/student/schedule": { label: "Lịch học" },
     "/student/exercises": { label: "Bài tập & kiểm tra" },
     "/student/progress": { label: "Kết quả & tiến bộ" },
+    "/student/profile": { label: "Trang cá nhân" },
     "/student/settings": { label: "Cài đặt" },
   },
 };

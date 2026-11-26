@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { ChevronDown, LineChart, Megaphone, MessageCircle, Users } from "lucide-react";
+import { ChevronDown, LineChart, Megaphone, MessageCircle, UserRound, Users } from "lucide-react";
 
 const PARENT_LINKS = [
+  { to: "/parent/profile", label: "Trang cá nhân", icon: UserRound },
   { to: "/parent/messages", label: "Phòng chat", icon: MessageCircle },
   { to: "/parent/postings", label: "Tin của tôi", icon: Megaphone },
   { to: "/parent/progress", label: "Tiến độ của con", icon: LineChart },

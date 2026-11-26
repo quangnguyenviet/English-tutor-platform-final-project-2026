@@ -49,6 +49,12 @@ async function request(token, path, options = {}) {
 
 const enc = encodeURIComponent;
 
+// ---------- Trang cá nhân ----------
+
+export const apiGetMyProfile = (token) => request(token, "/api/v1/students/me/profile");
+export const apiUpdateMyProfile = (token, payload) =>
+  request(token, "/api/v1/students/me/profile", { method: "PUT", body: JSON.stringify(payload) });
+
 // ---------- Lịch & buổi học (3.6) ----------
 
 /** Lịch tuần T2–CN của học sinh; có thể lọc theo một lớp trong workspace. */

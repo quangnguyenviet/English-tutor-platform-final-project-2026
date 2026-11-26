@@ -264,6 +264,17 @@ export function AuthProvider({ children }) {
     return { returnTo, newUser: result.newUser, role, profileStatus: result.profileStatus ?? null };
   }
 
+  /** Cập nhật tên hiển thị trên phiên sau khi người dùng sửa trang cá nhân. */
+  function updateSessionProfile({ name }) {
+    setSession((prev) => {
+      if (!prev || !name) return prev;
+      const initials = name.trim().split(/\s+/).slice(-2).map((word) => word[0]).join("").toUpperCase();
+      const next = { ...prev, name, initials };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
   /** Đổi mật khẩu rồi gỡ cờ bắt buộc đổi khỏi session. */
   async function changePassword(oldPassword, newPassword) {
     await apiChangePassword(token, { oldPassword, newPassword });
@@ -617,6 +628,7 @@ export function AuthProvider({ children }) {
         loginWithGoogle,
         completeGoogleLogin,
         changePassword,
+        updateSessionProfile,
         logout,
         registerAsTutor,
         loginAsAdmin,
