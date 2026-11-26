@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ChevronUp, Eye, FilePlus2, Loader2, Lock, MapPin, Phone, Send, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ChevronUp, Loader2, Send } from "lucide-react";
 import clsx from "clsx";
-import Badge from "../ui/Badge";
 import Button from "../ui/Button";
 import ProposalCard from "./ProposalCard";
 import ProposalForm from "./ProposalForm";
+import ProposalListModal from "./ProposalListModal";
+import ChatRoomHeader from "./ChatRoomHeader";
 import {
   apiAcceptProposal,
   apiCheckMessage,
@@ -14,7 +15,6 @@ import {
   apiRejectProposal,
   apiSendMessage,
   apiWithdrawProposal,
-  purposeLabel,
 } from "../../lib/messagingApi";
 
 const formatClock = (iso) => (iso ? new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "");
@@ -50,8 +50,8 @@ export default function ChatRoom({ roomId, viewer, token, refreshTick = 0, onCha
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const [showProposalForm, setShowProposalForm] = useState(false);
-  const [acceptResult, setAcceptResult] = useState(null);
-  const bottomRef = useRef(null);
+  const [showProposalList, setShowProposalList] = useState(false);
+  const listRef = useRef(null);
   const stickToBottom = useRef(true);
 
   const readOnly = viewer === "STAFF";
@@ -85,7 +85,6 @@ export default function ChatRoom({ roomId, viewer, token, refreshTick = 0, onCha
     setLoading(true);
     setDetail(null);
     setMessages([]);
-    setAcceptResult(null);
     loadAll();
   }, [loadAll]);
 
@@ -101,9 +100,11 @@ export default function ChatRoom({ roomId, viewer, token, refreshTick = 0, onCha
       .catch(() => {});
   }, [refreshTick, roomId, token, mergeLatest, readOnly, onChanged]);
 
+  // Chỉ cuộn khung tin nhắn; scrollIntoView sẽ kéo theo cả trang làm trôi phần đầu phòng chat.
   useEffect(() => {
-    if (stickToBottom.current) bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [messages]);
+    const el = listRef.current;
+    if (el && stickToBottom.current) el.scrollTop = el.scrollHeight;
+  }, [messages, loading]);
 
   // Kiểm tra PII khi đang gõ để tô đỏ phần vi phạm trước khi gửi.
   useEffect(() => {
@@ -156,8 +157,7 @@ export default function ChatRoom({ roomId, viewer, token, refreshTick = 0, onCha
 
   async function handleAccept(proposal) {
     try {
-      const result = await apiAcceptProposal(proposal.id, token);
-      setAcceptResult(result);
+      await apiAcceptProposal(proposal.id, token);
       await loadAll();
       onChanged?.();
     } catch (err) {
@@ -186,72 +186,20 @@ export default function ChatRoom({ roomId, viewer, token, refreshTick = 0, onCha
     return <div className="p-6 text-sm text-rose-600 dark:text-rose-400" role="alert">{error || "Không tìm thấy phòng chat."}</div>;
   }
 
-  const counterpart = room.counterpart;
   const parentInfo = detail.parent;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-base font-semibold text-slate-900 dark:text-white">{counterpart.fullName}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {room.roomType === "APPLICATION" ? "Ứng viên từ tin đăng" : "Nhắn tin trực tiếp"}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {readOnly && <Badge tone="violet"><Eye size={12} /> Chỉ xem</Badge>}
-            {!readOnly && !room.writable && <Badge tone="rose"><Lock size={12} /> Phòng đã khóa</Badge>}
-            {writable && viewer === "TUTOR" && (
-              <Button size="sm" className="cursor-pointer" onClick={() => setShowProposalForm(true)}>
-                <FilePlus2 size={15} /> Tạo đề xuất
-              </Button>
-            )}
-          </div>
-        </div>
+      <ChatRoomHeader detail={detail} viewer={viewer}
+        onCreateProposal={() => setShowProposalForm(true)} onShowProposals={() => setShowProposalList(true)} />
 
-        {parentInfo && (
-          <div className="mt-3 grid gap-2 rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-800/50 sm:grid-cols-2">
-            <p className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
-              <ShieldCheck size={15} className="text-slate-400" /> Mục đích: {purposeLabel(parentInfo.purpose)}
-            </p>
-            <p className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
-              <MapPin size={15} className="text-slate-400" /> {parentInfo.district}, {parentInfo.province}
-            </p>
-            <p className="flex items-center gap-2 text-slate-700 dark:text-slate-200 sm:col-span-2">
-              <Phone size={15} className="text-slate-400" />
-              {parentInfo.phoneUnlocked ? (
-                <span><span className="font-mono">{parentInfo.phone}</span> <span className="text-xs text-slate-500">· mở khóa ngày {new Date(parentInfo.phoneUnlockedAt).toLocaleDateString("vi-VN")}</span></span>
-              ) : (
-                <span className="text-slate-500 dark:text-slate-400">Số điện thoại phụ huynh được mở sau khi một đề xuất được đồng ý</span>
-              )}
-            </p>
-            {parentInfo.children.length > 0 && (
-              <p className="text-slate-700 dark:text-slate-200 sm:col-span-2">
-                Con đã có hồ sơ: {parentInfo.children.map((c) => `${c.fullName}${c.grade ? ` (${c.grade})` : ""}`).join(", ")}
-              </p>
-            )}
-          </div>
-        )}
-      </header>
-
-      {acceptResult && (
-        <div className="m-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-800/40 dark:bg-emerald-950/40 dark:text-emerald-300" role="status">
-          <p className="font-medium">Lớp dạy thử đã được tạo.</p>
-          {acceptResult.studentCreated && (
-            <p className="mt-1">
-              Tài khoản học sinh: <span className="font-mono">{acceptResult.studentUsername}</span>, mật khẩu ban đầu:{" "}
-              <span className="font-mono">{acceptResult.initialPassword}</span>. Học sinh sẽ được yêu cầu đổi mật khẩu khi đăng nhập lần đầu; hãy lưu lại thông tin này.
-            </p>
-          )}
-        </div>
-      )}
-
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4"
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4"
         onScroll={(e) => {
           const el = e.currentTarget;
           stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
         }}>
+        {/* Luôn cao hơn khung 1px để overscroll-contain có tác dụng cả khi ít tin nhắn. */}
+        <div className="min-h-[calc(100%+1px)] space-y-3">
         {nextCursor && (
           <div className="flex justify-center">
             <Button variant="ghost" size="sm" className="cursor-pointer" onClick={loadOlder} disabled={loadingOlder}>
@@ -284,13 +232,13 @@ export default function ChatRoom({ roomId, viewer, token, refreshTick = 0, onCha
             </div>
           );
         })}
-        <div ref={bottomRef} />
+        </div>
       </div>
 
       {error && <p role="alert" className="px-4 pb-2 text-sm text-rose-600 dark:text-rose-400">{error}</p>}
 
       {writable && (
-        <form onSubmit={send} className="border-t border-slate-200 p-3 dark:border-slate-800">
+        <form onSubmit={send} className="shrink-0 border-t border-slate-200 p-3 dark:border-slate-800">
           {violations.length > 0 && (
             <div className="mb-2 rounded-xl border border-rose-200 bg-rose-50 p-2.5 text-sm dark:border-rose-800/40 dark:bg-rose-950/40" role="alert">
               <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-rose-700 dark:text-rose-400">
@@ -324,6 +272,12 @@ export default function ChatRoom({ roomId, viewer, token, refreshTick = 0, onCha
             </Button>
           </div>
         </form>
+      )}
+
+      {showProposalList && (
+        <ProposalListModal roomId={roomId} viewer={viewer} token={token} refreshTick={refreshTick}
+          onAccept={handleAccept} onReject={handleReject} onWithdraw={handleWithdraw}
+          onClose={() => setShowProposalList(false)} />
       )}
 
       {showProposalForm && (

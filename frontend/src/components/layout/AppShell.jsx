@@ -278,6 +278,9 @@ function AppShellInner() {
   const isClassWorkspace = isTutorClassWorkspace || isStudentClassWorkspace;
   const classSidebarCompact = isClassWorkspace && classSidebarCollapsed;
 
+  // Trang tin nhắn tự căn lề và đo chiều cao khung chat theo vùng nội dung.
+  const isMessagesPage = location.pathname.startsWith("/tutor/messages");
+
   function handleLogout() {
     logout();
     navigate("/login");
@@ -475,8 +478,8 @@ function AppShellInner() {
         <TopBar onMenuToggle={() => setMobileOpen(true)} />
 
         <div className="flex min-h-0 flex-1">
-          <main className="min-w-0 flex-1 overflow-y-auto">
-            <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-6 lg:py-8">
+          <main className={clsx("min-w-0 flex-1 overflow-y-auto", isMessagesPage && "[container-type:size]")}>
+            <div className={clsx("mx-auto max-w-6xl", !isMessagesPage && "px-4 py-6 sm:px-6 lg:px-6 lg:py-8")}>
               <Outlet />
             </div>
           </main>

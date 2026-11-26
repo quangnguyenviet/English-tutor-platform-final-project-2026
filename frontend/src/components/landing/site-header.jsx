@@ -1,7 +1,8 @@
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { GraduationCap, LineChart, LogOut, MessageCircle, Megaphone } from "lucide-react";
+import { GraduationCap, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import ThemeToggle from "../theme-toggle";
+import ParentMenu from "./parent-menu";
 import { ROLE_LABELS, ROLE_ROUTES } from "../../lib/authRoutes";
 
 const PUBLIC_LINKS = [
@@ -10,13 +11,7 @@ const PUBLIC_LINKS = [
   { to: "/faq", label: "Hỏi đáp" },
 ];
 
-const PARENT_LINKS = [
-  { to: "/parent/messages", label: "Phòng chat", icon: MessageCircle },
-  { to: "/parent/postings", label: "Tin của tôi", icon: Megaphone },
-  { to: "/parent/progress", label: "Tiến độ của con", icon: LineChart },
-];
-
-const parentLinkClass = ({ isActive }) =>
+const navLinkClass = ({ isActive }) =>
   "inline-flex items-center gap-1.5 whitespace-nowrap transition-colors " +
   (isActive ? "font-semibold text-primary" : "text-muted-foreground hover:text-foreground");
 
@@ -43,13 +38,9 @@ export function SiteHeader() {
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
           {PUBLIC_LINKS.map(({ to, label }) => (
-            <NavLink key={to} to={to} className={parentLinkClass}>{label}</NavLink>
+            <NavLink key={to} to={to} className={navLinkClass}>{label}</NavLink>
           ))}
-          {isParent && PARENT_LINKS.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} className={parentLinkClass}>
-              <Icon className="w-4 h-4" /> {label}
-            </NavLink>
-          ))}
+          {isParent && <ParentMenu />}
           {/* UC-P05 & UC-P06: Tạm ẩn tab Phụ huynh theo dõi, triển khai sau
           <Link to="/parent-view" className="hover:text-foreground transition-colors text-emerald-600 dark:text-emerald-400 font-semibold">
             Phụ huynh theo dõi
@@ -97,13 +88,9 @@ export function SiteHeader() {
         </div>
       </div>
       {isParent && (
-        <nav className="md:hidden flex items-center gap-5 overflow-x-auto border-t border-border px-4 py-2 text-sm font-medium text-muted-foreground">
-          <NavLink to="/tutors" className={parentLinkClass}>Gia sư</NavLink>
-          {PARENT_LINKS.map(({ to, label, icon: Icon }) => (
-            <NavLink key={to} to={to} className={parentLinkClass}>
-              <Icon className="w-4 h-4" /> {label}
-            </NavLink>
-          ))}
+        <nav className="md:hidden flex items-center gap-5 border-t border-border px-4 py-2 text-sm font-medium text-muted-foreground">
+          <NavLink to="/tutors" className={navLinkClass}>Gia sư</NavLink>
+          <ParentMenu />
         </nav>
       )}
     </header>

@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import SiteHeader from "../landing/site-header";
 import SiteFooter from "../landing/site-footer";
 import ParentContactModal from "../landing/parent-contact-modal";
 
 export function GuestLayout() {
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+
+  // Trang tin nhắn không có footer để cuộn trang dừng lại ở khung chat.
+  const isMessagesPage = useLocation().pathname.startsWith("/parent/messages");
 
   const openContactModal = () => setIsContactModalOpen(true);
   const closeContactModal = () => setIsContactModalOpen(false);
@@ -19,7 +22,7 @@ export function GuestLayout() {
         <Outlet context={{ openContactModal }} />
       </main>
 
-      <SiteFooter />
+      {!isMessagesPage && <SiteFooter />}
 
       {/* Parent Registration / Trial Modal */}
       <ParentContactModal isOpen={isContactModalOpen} onClose={closeContactModal} />
