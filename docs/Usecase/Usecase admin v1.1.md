@@ -130,8 +130,8 @@ Tóm tắt 7 luồng nghiệp vụ chính:
 | **Actor** | Admin |
 | **Tiền điều kiện** | 1\. Admin đã đăng nhập. 2\. Lớp ở "Đang dạy thử". 3\. Gia sư đã hoàn thành buổi dạy thử và hai bên thống nhất học chính thức. |
 | **Hậu điều kiện** | 1\. Lớp chuyển "Ghép thành công". 2\. Lớp học chuyển từ `TRIAL` sang `ACTIVE`, ghi ngày chính thức. 3\. Khoản phí nhận lớp được kích hoạt. 4\. Bắt đầu đếm ngược 7 ngày được hủy lớp. |
-| **Kịch bản chính** | 1\. Admin mở tab "Đang dạy thử". 2\. Hệ thống hiển thị danh sách lớp kèm nút "Xác nhận ghép thành công", "Ghép lại", "Hủy lớp", "Xem chi tiết". 3\. Admin bấm "Xác nhận ghép thành công". 4\. Hệ thống hiển thị modal gồm số buổi/tuần, học phí/buổi, tỷ lệ phí và số phí tính được. 5\. Admin bổ sung thông tin còn thiếu và xác nhận. 6\. Hệ thống thông báo thành công và chuyển lớp sang tab "Ghép thành công". |
-| **Ngoại lệ** | 2.1. Admin bấm "Ghép lại": chuyển sang UC-ADM-06. 2.2. Admin bấm "Hủy lớp": chuyển sang UC-ADM-03. 5.1. Thiếu số buổi/tuần hoặc học phí: hệ thống báo lỗi, không kích hoạt. |
+| **Kịch bản chính** | 1\. Ưu tiên chính (V31): Gia sư tự gửi **báo cáo kết quả dạy thử** "Thành công" (`POST /classes/{id}/trial-report`); hệ thống tự kích hoạt lớp `TRIAL` → `ACTIVE`. 2\. Trường hợp lớp chưa có báo cáo (tạo từ đề xuất trực tiếp): Admin mở tab "Đang dạy thử", bấm "Xác nhận ghép thành công" (endpoint `complete-match`), nhập số buổi/tuần, học phí/buổi và xác nhận. 3\. Hệ thống thông báo thành công và chuyển lớp sang tab "Ghép thành công". |
+| **Ngoại lệ** | 2.1. Admin bấm "Ghép lại": chuyển sang UC-ADM-06. 2.2. Admin bấm "Hủy lớp": chuyển sang UC-ADM-03. 3.1. Lớp đã có báo cáo chính thức: không kích hoạt lại; nếu kết quả "Không thành công" lớp ở `TRIAL_FAIL`, xử lý theo UC-ADM-19. 5.1. Thiếu số buổi/tuần hoặc học phí: hệ thống báo lỗi, không kích hoạt. |
 
 ## **UC-ADM-06: Ghép lại lớp**
 
@@ -139,10 +139,21 @@ Tóm tắt 7 luồng nghiệp vụ chính:
 | :---- | :---- |
 | **Tên UC** | Ghép lại lớp khi dạy thử không thành công |
 | **Actor** | Admin |
-| **Tiền điều kiện** | 1\. Admin đã đăng nhập. 2\. Lớp ở "Đang dạy thử". 3\. Dạy thử không thành công, Admin đã hỏi ý kiến phụ huynh. |
-| **Hậu điều kiện** | Lớp chuyển "Đang ghép lại", gia sư cũ bị loại và không ứng tuyển lại được. Các gia sư trước đó không được chọn tự quay lại danh sách ứng tuyển và nhận thông báo. Gia sư và khách thấy lớp như lớp đăng tuyển bình thường. |
-| **Kịch bản chính** | 1\. Admin bấm "Ghép lại". 2\. Hệ thống hiển thị 2 lựa chọn "Tìm gia sư khác", "Không tìm nữa" và ô nhập lý do. 3\. Admin chọn "Tìm gia sư khác", nhập lý do và bấm "Chuyển sang ghép lại". 4\. Hệ thống hiển thị popup xác nhận. 5\. Admin bấm "Đồng ý". 6\. Hệ thống hủy lớp dạy thử, thông báo gia sư cũ và học sinh, chuyển lớp sang tab "Đang ghép lại". 7\. Admin chọn gia sư từ danh sách ứng tuyển (UC-ADM-02); nếu phụ huynh tự chọn được gia sư qua tin nhắn (đề xuất MSG), lớp được ghép thành công khi gia sư chấp nhận đề xuất. |
-| **Ngoại lệ** | 3.1. Phụ huynh chọn "Không tìm nữa": chuyển sang UC-ADM-03, điền sẵn lý do. 7.1. Lớp đang ghép lại (REMATCH) được API gia sư trả về như trạng thái "Đã đăng": gia sư và khách thấy lớp như đơn đăng tuyển bình thường và nhận ứng tuyển bình thường (V27: không còn cơ chế tạm ẩn lớp). 7.2. Admin bấm "Sửa thông tin" (UC-ADM-04): chỉ sửa được học phí, mục tiêu học tập, yêu cầu đối với gia sư; gia sư đang ứng tuyển nhận thông báo thay đổi. Lớp chuyển "Đang dạy thử" khi gia sư mới được chọn (UC-ADM-02 / đề xuất MSG), không phải sau bước sửa thông tin. |
+| **Tiền điều kiện** | 1\. Admin đã đăng nhập. 2\. Dạy thử không thành công, gia sư đã báo cáo kết quả "Không thành công" (lớp `TRIAL_FAIL`, hệ thống tạo task trong hàng đợi). 3\. Admin đã xử lý task và hỏi ý kiến phụ huynh. |
+| **Hậu điều kiện** | Đơn `class_request` chuyển "Đang ghép lại" (`REMATCH`), gia sư cũ bị loại và không ứng tuyển lại được. Các gia sư trước đó không được chọn tự quay lại danh sách ứng tuyển và nhận thông báo. Lớp cũ giữ `TRIAL_FAIL`. Gia sư và khách thấy đơn như đơn đăng tuyển bình thường. |
+| **Kịch bản chính** | 1\. Admin mở task "Dạy thử thất bại cần xử lý" (UC-ADM-19) và xử lý trạng thái task. 2\. Phụ huynh đồng ý tìm gia sư khác (Admin hỏi ý kiến ngoài hệ thống). 3\. Admin bấm **"Ghép lại"** tại chi tiết task (hệ thống mở lại đơn `class_request`, đưa đơn về `REMATCH`; thao tác an toàn lặp lại nếu đơn đã `OPEN`/`REMATCH`, không đổi trạng thái task). 4\. Đơn hiển thị trong tab "Đang ghép lại"; nếu phụ huynh không muốn tìm nữa, Admin hủy đơn theo UC-ADM-03 (đơn `CANCELLED`, điền sẵn lý do). 5\. Admin chọn gia sư từ danh sách ứng tuyển (UC-ADM-02); nếu phụ huynh tự chọn được gia sư qua tin nhắn (đề xuất MSG), lớp được ghép thành công khi gia sư chấp nhận đề xuất. |
+| **Ngoại lệ** | 3.1. Phụ huynh chọn "Không tìm nữa": chuyển sang UC-ADM-03, điền sẵn lý do. 3.2. Lớp không có đơn (tạo từ nhắn tin trực tiếp, không có `class_request_id`): không thể ghép lại qua task; phụ huynh liên hệ gia sư khác qua tin nhắn trực tiếp. 5.1. Đơn đang ghép lại (REMATCH) được API gia sư trả về như trạng thái "Đã đăng": gia sư và khách thấy đơn như đơn đăng tuyển bình thường và nhận ứng tuyển bình thường (V27: không còn cơ chế tạm ẩn đơn). 5.2. Admin bấm "Sửa thông tin" (UC-ADM-04): chỉ sửa được học phí, mục tiêu học tập, yêu cầu đối với gia sư; gia sư đang ứng tuyển nhận thông báo thay đổi. Lớp chuyển "Đang dạy thử" khi gia sư mới được chọn (UC-ADM-02 / đề xuất MSG), không phải sau bước sửa thông tin. |
+
+## **UC-ADM-19: Xử lý hàng đợi dạy thử thất bại**
+
+| Mã UC | UC-ADM-19 |
+| :---- | :---- |
+| **Tên UC** | Xử lý hàng đợi dạy thử thất bại (dùng chung trang với lễ tân) |
+| **Actor** | Admin |
+| **Tiền điều kiện** | 1\. Admin đã đăng nhập. 2\. Tồn tại task từ báo cáo `FAILED` của gia sư. |
+| **Hậu điều kiện** | Task được theo dõi qua `PENDING`, `IN_PROGRESS`, `RESOLVED`. Khi vào `RESOLVED`, ghi `resolved_by`/`resolved_at`; khi mở lại thì xóa hai trường này. Lớp cũ giữ `TRIAL_FAIL`. |
+| **Kịch bản chính** | Trang và thao tác **giống UC-REC-17** (menu *Quản lý lớp học → Dạy thử thất bại cần xử lý*, thống kê, danh sách phân trang + lọc, chi tiết task, gán/bỏ gán, dropdown 3 trạng thái, nút Ghép lại khi có `class_request_id`, lịch sử thao tác); khác actor: Admin thay vì Lễ tân, dùng chung trang `ClassManagement` / `TrialReportTasks` của lễ tân. |
+| **Ngoại lệ** | Như UC-REC-17: lớp không có `class_request_id` thì không ghép được; trạng thái ngoài 3 giá trị bị từ chối; phụ huynh không muốn tìm nữa thì hủy lớp (UC-ADM-03). |
 
 ## **UC-ADM-07: Duyệt hồ sơ Gia sư đăng ký mới**
 

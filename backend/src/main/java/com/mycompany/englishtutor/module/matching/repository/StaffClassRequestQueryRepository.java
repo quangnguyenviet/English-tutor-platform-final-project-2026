@@ -160,7 +160,36 @@ public class StaffClassRequestQueryRepository {
         }
         ClassRequestDetailResponse detail = list.get(0);
         detail.setApplications(findApplications(id));
+        applyLatestTrialReport(detail, id);
         return Optional.of(detail);
+    }
+
+    /**
+     * Gắn báo cáo dạy thử mới nhất của lớp TRIAL hiện hành của đơn (trial_reports, V31)
+     * vào 3 trường detail. Không có lớp TRIAL hay chưa báo cáo → để null.
+     */
+    private void applyLatestTrialReport(ClassRequestDetailResponse detail, Long classRequestId) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                """
+                SELECT tr.outcome AS outcome, tr.note AS note, tr.created_at AS created_at
+                FROM trial_reports tr
+                WHERE tr.class_id = (
+                    SELECT c.id FROM classes c
+                    WHERE c.class_request_id = ? AND c.status = 'TRIAL'
+                    ORDER BY c.id DESC LIMIT 1
+                )
+                ORDER BY tr.created_at DESC, tr.id DESC
+                LIMIT 1
+                """,
+                classRequestId);
+        if (rows.isEmpty()) {
+            return;
+        }
+        Map<String, Object> row = rows.get(0);
+        detail.setTrialReportOutcome((String) row.get("outcome"));
+        detail.setTrialReportNote((String) row.get("note"));
+        Object createdAt = row.get("created_at");
+        detail.setTrialReportAt(createdAt == null ? null : OffsetDateTime.ofInstant(((java.sql.Timestamp) createdAt).toInstant(), VN_ZONE));
     }
 
     public List<ClassApplicationResponse> findApplications(Long classRequestId) {

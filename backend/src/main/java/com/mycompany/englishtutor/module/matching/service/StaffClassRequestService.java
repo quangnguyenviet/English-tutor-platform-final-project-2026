@@ -394,6 +394,49 @@ public class StaffClassRequestService {
         activateTrialClass(rows.get(0), null, body, null, httpRequest);
     }
 
+    /**
+     * Gia sư kích hoạt lớp sau khi báo dạy thử thành công (trial_report, V31).
+     *
+     * <p>Khóa dòng lớp FOR UPDATE (chống 2 tutor bấm chồng), đọc tỷ lệ phí từ
+     * {@code class_requests} nếu có {@code class_request_id}, rồi gọi đúng
+     * {@link #activateTrialClass} — không cần body {@code CompleteMatchRequest}
+     * (gia sư không nhập thêm học phí/số buổi).</p>
+     *
+     * <p>Callee nằm trong transaction của {@code TrialReportService} (propagation REQUIRED).</p>
+     */
+    @Transactional
+    public void tutorActivateTrial(Long classId, HttpServletRequest httpRequest) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                """
+                SELECT id, tutor_id, student_id, class_name, status, sessions_per_week, price_per_session, class_request_id
+                FROM classes WHERE id = ? FOR UPDATE
+                """,
+                classId);
+        if (rows.isEmpty()) {
+            throw new AppException(ErrorCode.CLASS_NOT_FOUND);
+        }
+        Map<String, Object> cl = rows.get(0);
+        if (!"TRIAL".equalsIgnoreCase((String) cl.get("status"))) {
+            throw new AppException(ErrorCode.CLASS_NOT_TRIAL);
+        }
+
+        // Đọc fee_percentage từ đơn nếu lớp có class_request_id
+        Object requestFee = null;
+        Long classRequestId = cl.get("class_request_id") != null
+                ? ((Number) cl.get("class_request_id")).longValue()
+                : null;
+        if (classRequestId != null) {
+            List<Map<String, Object>> feeRows = jdbcTemplate.queryForList(
+                    "SELECT fee_percentage FROM class_requests WHERE id = ? FOR UPDATE",
+                    classRequestId);
+            if (!feeRows.isEmpty() && feeRows.get(0).get("fee_percentage") != null) {
+                requestFee = feeRows.get(0).get("fee_percentage");
+            }
+        }
+
+        activateTrialClass(cl, requestFee, null, classRequestId, httpRequest);
+    }
+
     /** Dạy thử thất bại với lớp tạo từ đề xuất: hủy lớp và phí nháp, phụ huynh nhắn lại gia sư khác. */
     @Transactional
     public void cancelDirectTrialClass(Long classId, String reason, HttpServletRequest httpRequest) {
@@ -503,6 +546,16 @@ public class StaffClassRequestService {
      */
     @Transactional
     public void rematchClass(Long id, String reason, boolean allowActive, HttpServletRequest httpRequest) {
+        rematchClass(id, reason, allowActive, false, httpRequest);
+    }
+
+    /**
+     * Phiên bản cho hàng đợi báo cáo dạy thử thất bại (task): bỏ guard {@code status = MATCHED},
+     * vì request có thể đã về {@code REMATCH} sau lần ghép lại trước đó — thao tác vẫn idempotent.
+     */
+    @Transactional
+    public void rematchClass(
+            Long id, String reason, boolean allowActive, boolean skipStatusGuard, HttpServletRequest httpRequest) {
         Map<String, Object> row = lockRequest(id);
         String status = (String) row.get("status");
         if ("CANCELLED".equalsIgnoreCase(status)) {
@@ -511,11 +564,12 @@ public class StaffClassRequestService {
 
         LocalDate today = MatchingLifecycleSupport.today();
         ClassSnapshot trial = lifecycle.findLatestClass(id)
-                .filter(cl -> "MATCHED".equalsIgnoreCase(status))
+                .filter(cl -> skipStatusGuard || "MATCHED".equalsIgnoreCase(status))
                 .filter(cl -> cl.isTrial()
+                        || (skipStatusGuard && cl.isTrialFail())
                         || (allowActive && "ACTIVE".equalsIgnoreCase(cl.status()) && !cl.isCancelExpired(today)))
                 .orElseThrow(() -> new AppException(ErrorCode.MATCH_REQUEST_NOT_TRIAL));
-        boolean fromActive = !trial.isTrial();
+        boolean fromActive = "ACTIVE".equalsIgnoreCase(trial.status());
 
         Long currentUserId = getCurrentUserId();
 

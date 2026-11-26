@@ -154,4 +154,13 @@ public class ClassRequestDetailResponse {
 
     @Schema(description = "Học phí mỗi buổi trên lớp học (nguồn tính phí, V11)")
     BigDecimal classPricePerSession;
+
+    @Schema(description = "Kết quả báo cáo dạy thử mới nhất của gia sư (trial_reports, V31): SUCCESS | FAILED, null nếu chưa báo cáo hoặc lớp không TRIAL")
+    String trialReportOutcome;
+
+    @Schema(description = "Lý do báo cáo dạy thử (bắt buộc khi FAILED)")
+    String trialReportNote;
+
+    @Schema(description = "Thời điểm gia sư gửi báo cáo dạy thử mới nhất")
+    OffsetDateTime trialReportAt;
 }

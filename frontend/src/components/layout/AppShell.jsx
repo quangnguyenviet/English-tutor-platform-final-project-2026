@@ -180,6 +180,7 @@ function AppShellInner() {
       { to: "/admin/tutors", label: "Quản lý gia sư", icon: UserCog },
       { to: "/admin/students", label: "Quản lý học sinh", icon: Users },
       { to: "/admin/lessons", label: "Theo dõi buổi học", icon: BookOpenCheck },
+      { to: "/admin/class-management", label: "Quản lý lớp học", icon: Users },
       { to: "/admin/staff", label: "Quản lý nhân sự", icon: IdCard },
       { to: "/admin/complaints", label: "Xử lý khiếu nại", icon: FileWarning, badge: complaintBadge },
       { to: "/admin/refunds", label: "Hoàn tiền", icon: Wallet, badge: refundBadge },
@@ -216,6 +217,7 @@ function AppShellInner() {
       { to: "/receptionist/tutors", label: "Quản lý gia sư", icon: UserCog },
       { to: "/receptionist/students", label: "Quản lý học sinh", icon: Users },
       { to: "/receptionist/lessons", label: "Theo dõi buổi học", icon: BookOpenCheck },
+      { to: "/receptionist/class-management", label: "Quản lý lớp học", icon: Users },
       {
         to: "/receptionist/complaints",
         label: "Xử lý khiếu nại",

@@ -2,6 +2,7 @@ import { useOutletContext, Link } from "react-router-dom";
 import {
   CalendarDays,
   CalendarPlus,
+  ClipboardCheck,
   Clock,
   ExternalLink,
   GraduationCap,
@@ -13,6 +14,7 @@ import {
   User,
   Video,
   Wallet,
+  XCircle,
 } from "lucide-react";
 import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
@@ -55,6 +57,7 @@ export default function ClassOverview() {
     classId,
     openTrialForm,
     openScheduleForm,
+    openReportForm,
   } = useOutletContext();
 
   const canEditTrial = detail.status === "TRIAL" && detail.trialSession?.status === "SCHEDULED";
@@ -62,6 +65,13 @@ export default function ClassOverview() {
   const hasParentInfo = Boolean(
     detail.parentName || detail.parentPhone || detail.parentEmail || detail.parentAddress,
   );
+  // Khu báo cáo kết quả dạy thử (V31): lớp TRIAL + ca thử đã thiết lập + đã diễn ra.
+  const showTrialReport =
+    detail.status === "TRIAL" && Boolean(detail.trialSession) && !isTrialUpcoming(detail.trialSession);
+  // Card "Lịch dạy thử" hiện khi: chưa thiết lập ca thử, ca thử sắp diễn ra,
+  // hoặc ca thử đã diễn ra mà lớp vẫn TRIAL (để gia sư báo cáo kết quả).
+  const showTrialCard =
+    !detail.trialSession || isTrialUpcoming(detail.trialSession) || showTrialReport;
 
   const initialFromTrial = () =>
     detail.trialSession
@@ -149,8 +159,8 @@ export default function ClassOverview() {
         </Card>
       )}
 
-      {/* Lịch dạy thử — ẩn hoàn toàn khi buổi dạy thử đã diễn ra */}
-      {(!detail.trialSession || isTrialUpcoming(detail.trialSession)) && (
+      {/* Lịch dạy thử — ẩn khi ca thử đã diễn ra, trừ khi lớp vẫn TRIAL (để báo cáo) */}
+      {showTrialCard && (
       <Card className="border-slate-200/80 dark:border-slate-800">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -229,6 +239,45 @@ export default function ClassOverview() {
                   </span>
                 </div>
               )
+            )}
+
+            {/* Khu báo cáo kết quả dạy thử (V31) — hiện khi ca thử đã diễn ra, lớp vẫn TRIAL */}
+            {showTrialReport && (
+              <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-900/40">
+                <div className="flex items-start gap-2.5">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
+                    <ClipboardCheck size={17} />
+                  </span>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      Báo cáo kết quả dạy thử
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      {detail.trialReport?.outcome === "FAILED"
+                        ? "Buổi dạy thử đã được báo không thành công. Bạn vẫn có thể báo cáo lại nếu tình hình thay đổi."
+                        : "Buổi dạy thử đã diễn ra. Hãy báo cáo kết quả để trung tâm kích hoạt lớp hoặc xử lý tiếp."}
+                    </p>
+                  </div>
+                </div>
+
+                {detail.trialReport?.outcome === "FAILED" && detail.trialReport?.note && (
+                  <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-[11px] text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+                    <XCircle size={14} className="mt-0.5 shrink-0" />
+                    <span>
+                      <strong>Lý do đã báo:</strong> {detail.trialReport.note}
+                    </span>
+                  </div>
+                )}
+
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => openReportForm(null)}
+                  className="cursor-pointer bg-blue-600 px-5 text-xs font-bold text-white hover:bg-blue-700"
+                >
+                  <ClipboardCheck size={14} /> Báo cáo kết quả dạy thử
+                </Button>
+              </div>
             )}
           </div>
         ) : detail.status === "TRIAL" ? (

@@ -554,8 +554,48 @@ Use Case kết thúc.
 Use Case quay lại bước 4.
 
 5b. Buổi dạy thử không thành công:  
-5b1. Sau buổi dạy thử, hệ thống chuyển lớp học sang nhánh xử lý kết quả không thành công theo Luồng thay thế 4b của UC-T09: lớp cần gia sư chuyển `REMATCH` hoặc `CANCELLED` ("Đã hủy"), lượt ứng tuyển của Gia sư chuyển `TERMINATED` (Gia sư không thể ứng tuyển lại lớp này nếu chọn tìm gia sư khác). Các lớp đang dạy khác của Gia sư không bị ảnh hưởng.  
+5b1. Gia sư mở khu vực **Báo cáo kết quả dạy thử**, chọn "Không thành công", nhập lý do tối thiểu 5 ký tự và gửi báo cáo theo UC-T09b. Hệ thống ghi báo cáo, chuyển lớp sang `TRIAL_FAIL`, tạo một task `PENDING` cho Lễ tân/Admin và gửi thông báo cho nhân sự vận hành. Gia sư không tự chuyển lớp sang `REMATCH` hoặc `CANCELLED`.  
 Use Case kết thúc.
+
+---
+
+### UC - T09b. Báo cáo kết quả dạy thử
+
+**Mã Use Case**  
+UC-T09b
+
+**Tên Use Case**  
+Báo cáo kết quả dạy thử
+
+**Tác nhân**  
+Gia sư
+
+**Mô tả**  
+Cho phép Gia sư gửi kết quả chính thức sau khi ca dạy thử đã diễn ra. Mỗi lớp chỉ có một báo cáo chính thức.
+
+**Tiền điều kiện**
+- Gia sư đã đăng nhập và là người phụ trách lớp.
+- Lớp đang ở trạng thái `TRIAL` và ca dạy thử đã được thiết lập, đã diễn ra.
+- Lớp chưa có báo cáo kết quả chính thức.
+
+**Hậu điều kiện**
+- Chọn **Thành công (`SUCCESS`)**: hệ thống kích hoạt lớp sang `ACTIVE` và tạo/kích hoạt khoản phí nhận lớp theo luồng hiện có.
+- Chọn **Không thành công (`FAILED`)**: hệ thống lưu lý do, chuyển lớp sang `TRIAL_FAIL`, tạo một task `PENDING` và thông báo cho Lễ tân/Admin.
+
+**Luồng chính**
+1. Gia sư mở chi tiết lớp `TRIAL` sau khi ca dạy thử kết thúc.
+2. Gia sư chọn **Báo cáo kết quả dạy thử**.
+3. Hệ thống hiển thị hai lựa chọn: **Thành công** và **Không thành công**.
+4. Gia sư chọn kết quả; nếu chọn `FAILED`, nhập lý do tối thiểu 5 ký tự.
+5. Gia sư bấm **Gửi báo cáo**.
+6. Hệ thống ghi `trial_reports` và khóa báo cáo của lớp để không nhận thêm báo cáo chính thức.
+7. Với `SUCCESS`, hệ thống chuyển lớp từ `TRIAL` sang `ACTIVE`. Với `FAILED`, hệ thống chuyển lớp sang `TRIAL_FAIL`, tạo task vận hành ở trạng thái `PENDING` và gửi thông báo cho Lễ tân/Admin.
+
+**Luồng ngoại lệ**
+- 3.1. Không chọn kết quả: hệ thống yêu cầu chọn kết quả.
+- 4.1. `FAILED` thiếu lý do hoặc lý do dưới 5 ký tự: hệ thống không gửi báo cáo.
+- 5.1. Lớp đã có báo cáo chính thức: hệ thống từ chối báo cáo bổ sung.
+- 5.2. Lớp không còn ở `TRIAL` hoặc chưa có ca thử hợp lệ: hệ thống từ chối thao tác.
 
 ---
 
@@ -568,27 +608,27 @@ UC-T09
 Thiết lập Lịch học cố định
 
 **Mô tả**  
-Cho phép Gia sư thiết lập khung thời khóa biểu lặp hàng tuần (gồm các Thứ trong tuần, khung giờ dạy từng ca, hình thức học Online/Tại nhà và ngày bắt đầu áp dụng) cho lớp học sau khi buổi dạy thử kết thúc thành công và hai bên thống nhất học chính thức lâu dài. Lưu ý: việc chuyển lớp từ Đang dạy thử (`TRIAL`) sang Đang hoạt động (`ACTIVE`) **do Lễ tân/Admin thực hiện** (xác nhận ghép lớp thành công sau dạy thử, endpoint `POST /api/v1/class-requests/{id}/complete-match` — service `activateTrialClass`); sau khi lớp đã ở trạng thái `ACTIVE`, Gia sư mới được phép chốt lịch cố định (endpoint `POST /classes/{id}/finalize-schedule` yêu cầu lớp đang `ACTIVE` và chưa có khung lịch tồn tại). Việc thiết lập lịch cố định giúp hệ thống kiểm tra xung đột trùng lịch tuần của gia sư và tự động sinh chuỗi thời khóa biểu lặp tuần trên giao diện Lịch dạy (UC-T07) cho Gia sư, Học sinh và Phụ huynh.
+Cho phép Gia sư thiết lập khung thời khóa biểu lặp hàng tuần (gồm các Thứ trong tuần, khung giờ dạy từng ca, hình thức học Online/Tại nhà và ngày bắt đầu áp dụng) cho lớp học sau khi buổi dạy thử kết thúc thành công và hai bên thống nhất học chính thức lâu dài. Lưu ý: việc chuyển lớp từ Đang dạy thử (`TRIAL`) sang Đang hoạt động (`ACTIVE`) được kích hoạt bởi **báo cáo dạy thử `SUCCESS` của Gia sư** (UC-T09b, endpoint `POST /api/v1/classes/{id}/trial-report` — kích hoạt qua `tutorActivateTrial`); với lớp chưa có báo cáo, Lễ tân/Admin vẫn xác nhận được qua endpoint `POST /api/v1/class-requests/{id}/complete-match`. Sau khi lớp đã ở trạng thái `ACTIVE`, Gia sư mới được phép chốt lịch cố định (endpoint `POST /classes/{id}/finalize-schedule` yêu cầu lớp đang `ACTIVE` và chưa có khung lịch tồn tại). Việc thiết lập lịch cố định giúp hệ thống kiểm tra xung đột trùng lịch tuần của gia sư và tự động sinh chuỗi thời khóa biểu lặp tuần trên giao diện Lịch dạy (UC-T07) cho Gia sư, Học sinh và Phụ huynh.
 
 **Tác nhân**  
-Gia sư (chốt lịch cố định), Lễ tân / Admin (xác nhận ghép thành công, chuyển `TRIAL` → `ACTIVE`)
+Gia sư (báo cáo kết quả và chốt lịch cố định), Lễ tân / Admin (xác nhận ghép thành công thay thế, chuyển `TRIAL` → `ACTIVE`)
 
 **Độ ưu tiên**  
 Cao
 
 **Sự kiện kích hoạt**  
-Gia sư nhấp nút "Chốt lịch học cố định" tại trang Chi tiết Lớp học — nút chỉ khả dụng sau khi Lễ tân đã xác nhận ghép lớp thành công và lớp chuyển sang trạng thái Đang hoạt động (`ACTIVE`).
+Gia sư nhấp nút "Chốt lịch học cố định" tại trang Chi tiết Lớp học — nút chỉ khả dụng sau khi lớp chuyển sang trạng thái Đang hoạt động (`ACTIVE`) (qua báo cáo `SUCCESS` của Gia sư hoặc xác nhận của Lễ tân/Admin).
 
 **Tiền điều kiện**  
 - Gia sư đã đăng nhập thành công vào Cổng Gia sư.
-- Buổi học thử đã kết thúc thành công; Lễ tân đã xác nhận ghép lớp (`complete-match`) và lớp học đang ở trạng thái Đang hoạt động (`ACTIVE`).
+- Buổi học thử đã kết thúc thành công; Gia sư đã báo cáo kết quả dạy thử `SUCCESS` (UC-T09b) hoặc Lễ tân/Admin xác nhận ghép lớp (`complete-match`) và lớp học đang ở trạng thái Đang hoạt động (`ACTIVE`).
 
 **Hậu điều kiện**  
 - Khung thời gian dạy cố định hàng tuần được lưu vào lớp học.
 - Chuỗi ca dạy lặp tuần được sinh tự động và đồng bộ trên giao diện Lịch dạy (UC-T07).
 
 **Luồng chính**  
-1. Sau khi buổi dạy thử thành công, Lễ tân xác nhận ghép lớp thành công (endpoint `POST /api/v1/class-requests/{id}/complete-match`); hệ thống chuyển lớp học từ Đang dạy thử (`TRIAL`) sang Đang hoạt động (`ACTIVE`) và gửi thông báo tới Gia sư, Phụ huynh & Học sinh.
+1. Sau khi buổi dạy thử thành công, Gia sư gửi báo cáo `SUCCESS` theo UC-T09b; hệ thống chuyển lớp học từ Đang dạy thử (`TRIAL`) sang Đang hoạt động (`ACTIVE`), kích hoạt khoản phí nhận lớp và gửi thông báo tới Gia sư, Phụ huynh & Học sinh. Với lớp chưa có báo cáo, Lễ tân/Admin có thể xác nhận tương đương qua endpoint `POST /api/v1/class-requests/{id}/complete-match`.
 2. Gia sư truy cập trang Quản lý Lớp học và chọn lớp học đang ở trạng thái `ACTIVE`.
 3. Gia sư nhấp nút **"Chốt lịch học cố định"**.
 4. Hệ thống hiển thị biểu mẫu Thiết lập Khung lịch dạy cố định hàng tuần:
@@ -611,9 +651,9 @@ Gia sư nhấp nút "Chốt lịch học cố định" tại trang Chi tiết L�
 Use Case kết thúc.
 
 4b. Buổi dạy thử kết quả không thành công (thay vì chốt lịch cố định):  
-4b1. Thay vì Gia sư chốt lịch, phụ huynh được trung tâm (Lễ tân/Admin) hỏi ý kiến về hướng xử lý tiếp theo của lớp.  
-4b2. **Nếu Phụ huynh chọn "Tìm gia sư khác":** Hệ thống chuyển lớp sang `REMATCH`, lượt ứng tuyển của Gia sư hiện tại chuyển `TERMINATED` (Gia sư bị loại khỏi lớp và không thể ứng tuyển lại), lớp dạy thử bị hủy. Các Gia sư trước đó không được chọn tự quay lại danh sách ứng tuyển. Gia sư mới (đang bật cờ "Đang mở nhận lớp") thấy lớp như lớp đăng tuyển bình thường và có thể ứng tuyển; khi Lễ tân ghép được gia sư mới, lớp chuyển "Đang dạy thử" và lặp lại luồng dạy thử.  
-4b3. **Nếu Phụ huynh chọn "Không tìm nữa":** Hệ thống chuyển lớp sang `CANCELLED` ("Đã hủy" — trạng thái cuối), các lớp đang dạy khác của Gia sư không bị ảnh hưởng.  
+4b1. Gia sư gửi báo cáo kết quả dạy thử "Không thành công" kèm lý do (UC-T09b). Hệ thống chuyển lớp sang `TRIAL_FAIL`, tạo task vận hành `PENDING` và thông báo Lễ tân/Admin; lớp **không** tự chuyển `REMATCH`/`CANCELLED` ở bước này.  
+4b2. Lễ tân/Admin tiếp nhận task, liên hệ phụ huynh xin ý kiến và xử lý trong hàng đợi dạy thử thất bại. **Nếu phụ huynh chọn "Tìm gia sư khác":** staff bấm **Ghép lại** — yêu cầu lớp (nếu có `class_request_id`) mở lại (idempotent, không đổi trạng thái task); gia sư cũ bị loại khỏi đơn khi đơn chính thức chuyển `REMATCH`. Gia sư mới ứng tuyển và khi ghép xong, lớp dạy thử mới chuyển "Đang dạy thử" và lặp lại luồng dạy thử.  
+4b3. **Nếu phụ huynh chọn "Không tìm nữa":** staff hủy lớp theo UC hủy lớp (chuyển `CANCELLED`), lớp dạy thử bị hủy; các lớp đang dạy khác của Gia sư không bị ảnh hưởng.  
 Use Case kết thúc.
 
 **Luồng ngoại lệ**  
@@ -639,10 +679,11 @@ Bảng tổng hợp đối chiếu Use Case Phân hệ Gia sư hiện có với 
 | **UC-T06b** | Import Quiz từ công cụ ngoài | Gia sư | **FR-9**: Chế độ kép & Nhập dữ liệu BYO-AI — *Chưa triển khai* | UJ-2 |
 | **UC-T07** | Xem & Tra cứu Lịch dạy | Gia sư | **FR-26**: Xem Lịch dạy (Lưới thời khóa biểu tuần) | UJ-2 |
 | **UC-T08** | Thiết lập Lịch dạy thử | Gia sư | **FR-29**: Cấu hình Lịch học thử | UJ-2 |
+| **UC-T09b** | Báo cáo kết quả dạy thử | Gia sư | **FR-29**: Báo cáo kết quả dạy thử (`SUCCESS`/`FAILED`) | UJ-2 |
 | **UC-T09** | Thiết lập Lịch học cố định | Gia sư | **FR-29**: Chốt Lịch dạy cố định (`ACTIVE`) | UJ-2 |
 
 > [!NOTE]  
-> **Tính năng phát sinh sau tài liệu (V16 – V30):** *Đăng nhập Google* cho tài khoản Gia sư và *Quota lưu trữ gói* (V30, `storage_tiers`: FREE/PRO/PREMIUM — widget `GET /tutors/me/storage`, chặn tải tài liệu khi vượt quota) là 2 tính năng được phát triển sau bản mô tả ban đầu của tài liệu; chi tiết được bổ sung tại UC-T01 (mô tả + luồng thay thế 9a). Mô hình Bài giảng / Nhật ký dạy học (V16) được mô tả tại UC-T05; ngoại lệ lịch dạy (V13) được mô tả tại UC-T07.
+> **Tính năng phát sinh sau tài liệu (V16 – V32):** *Đăng nhập Google* cho tài khoản Gia sư, *Quota lưu trữ gói* (V30, `storage_tiers`: FREE/PRO/PREMIUM — widget `GET /tutors/me/storage`, chặn tải tài liệu khi vượt quota), *Báo cáo kết quả dạy thử* (V31) và *Hàng đợi xử lý dạy thử thất bại* (V32) được phát triển sau bản mô tả ban đầu; chi tiết báo cáo được bổ sung tại UC-T09b. Mô hình Bài giảng / Nhật ký dạy học (V16) được mô tả tại UC-T05; ngoại lệ lịch dạy (V13) được mô tả tại UC-T07.
 
 ---
 *Tài liệu Đặc tả Use Case Phân hệ Gia sư được biên soạn chuẩn hóa theo PRD v1.6 và Kế hoạch triển khai dự án Học viện Công nghệ Bưu chính Viễn thông (PTIT). Lần cập nhật đối chiếu mã nguồn: sau migration V16 (lessons & teaching_logs), V30 (quota lưu trữ theo gói) và Google-Login cho Gia sư.*

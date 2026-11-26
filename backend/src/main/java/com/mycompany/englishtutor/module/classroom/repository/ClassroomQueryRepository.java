@@ -92,6 +92,15 @@ public class ClassroomQueryRepository {
             String meetingUrl,
             String location) {}
 
+    /** Báo cáo kết quả dạy thử của gia sư (trial_reports, V31). */
+    public record TrialReportRow(
+            Long id,
+            Long classId,
+            Long reportedBy,
+            String outcome,
+            String note,
+            OffsetDateTime createdAt) {}
+
     /** Một ngoại lệ (schedule_exceptions) gắn với ca cụ thể tại một ngày. */
     public record ScheduleExceptionRow(
             Long id,
@@ -182,7 +191,16 @@ public class ClassroomQueryRepository {
                    c.trial_end_time AS trial_end,
                    c.trial_teaching_mode AS trial_mode,
                    c.trial_meeting_url AS trial_meeting_url,
-                   c.trial_location AS trial_location
+                   c.trial_location AS trial_location,
+                   (SELECT tr.outcome FROM trial_reports tr
+                      WHERE tr.class_id = c.id
+                      ORDER BY tr.created_at DESC, tr.id DESC LIMIT 1) AS trial_report_outcome,
+                   (SELECT tr.note FROM trial_reports tr
+                      WHERE tr.class_id = c.id
+                      ORDER BY tr.created_at DESC, tr.id DESC LIMIT 1) AS trial_report_note,
+                   (SELECT tr.created_at FROM trial_reports tr
+                      WHERE tr.class_id = c.id
+                      ORDER BY tr.created_at DESC, tr.id DESC LIMIT 1) AS trial_report_at
             FROM classes c
             JOIN users u ON u.id = c.student_id
             JOIN students st ON st.id = c.student_id
@@ -484,6 +502,78 @@ public class ClassroomQueryRepository {
                         startTime)
                 .stream()
                 .toList();
+    }
+
+    // ------------------------------------------------ TRIAL REPORTS (trial_reports, V31)
+
+    /**
+     * Khóa dòng lớp (FOR UPDATE) để đảm bảo chỉ 1 tutor kích hoạt lớp cùng lúc
+     * (mô phỏng lock trên {@code class_requests}). Trả về status/tutor_id của lớp.
+     */
+    public Optional<ClassState> lockClassForUpdate(Long classId) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT c.tutor_id, c.student_id, c.status, c.teaching_mode,
+                               c.class_name, u.full_name AS student_name
+                        FROM classes c
+                        JOIN users u ON u.id = c.student_id
+                        WHERE c.id = ?
+                        FOR UPDATE
+                        """,
+                        (ResultSet rs, int rowNum) -> new ClassState(
+                                rs.getLong("tutor_id"),
+                                rs.getLong("student_id"),
+                                rs.getString("status"),
+                                rs.getString("teaching_mode"),
+                                rs.getString("class_name"),
+                                rs.getString("student_name")),
+                        classId)
+                .stream()
+                .findFirst();
+    }
+
+    /** Chèn 1 báo cáo dạy thử, trả về id dòng mới (NULL note cho kết quả SUCCESS). */
+    public Long insertTrialReport(Long classId, Long reportedBy, String outcome, String note) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO trial_reports (class_id, reported_by, outcome, note)
+                VALUES (?, ?, ?, ?)
+                RETURNING id
+                """,
+                Long.class,
+                classId,
+                reportedBy,
+                outcome,
+                note);
+    }
+
+    /** Chuyển lớp sang {@code TRIAL_FAIL} (khi gia sư báo dạy thử không thành công, V32). */
+    public int markClassTrialFail(Long classId) {
+        return jdbcTemplate.update(
+                "UPDATE classes SET status = 'TRIAL_FAIL', updated_at = NOW() WHERE id = ?",
+                classId);
+    }
+
+    /** Báo cáo mới nhất của lớp (ORDER BY created_at DESC, id DESC). */
+    public Optional<TrialReportRow> findLatestTrialReport(Long classId) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT id, class_id, reported_by, outcome, note, created_at
+                        FROM trial_reports
+                        WHERE class_id = ?
+                        ORDER BY created_at DESC, id DESC
+                        LIMIT 1
+                        """,
+                        (ResultSet rs, int rowNum) -> new TrialReportRow(
+                                rs.getLong("id"),
+                                rs.getLong("class_id"),
+                                rs.getLong("reported_by"),
+                                rs.getString("outcome"),
+                                rs.getString("note"),
+                                rs.getObject("created_at", OffsetDateTime.class)),
+                        classId)
+                .stream()
+                .findFirst();
     }
 
     // ------------------------------------------------- T7-B4: OCCURRENCE (lattice)
@@ -1128,6 +1218,9 @@ public class ClassroomQueryRepository {
                     .parentEmail(rs.getString("parent_email"))
                     .parentAddress(rs.getString("parent_address"))
                     .trialSession(mapTrialSession(rs))
+                    .trialReportOutcome(rs.getString("trial_report_outcome"))
+                    .trialReportNote(rs.getString("trial_report_note"))
+                    .trialReportAt(rs.getObject("trial_report_at", OffsetDateTime.class))
                     .build();
         }
     }

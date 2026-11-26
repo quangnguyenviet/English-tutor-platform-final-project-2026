@@ -287,15 +287,15 @@ HỌC SINH VÀ PHỤ HUYNH**
 | ------------------ | ------------------------------------------------------------- |
 | **Tên UC**         | Xử lý kết quả dạy thử không thành công |
 | ---                | --- |
-| **Mô tả**          | Khi buổi dạy thử của gia sư ghép lớp không thành công, trung tâm (Lễ tân/Admin) hỏi ý kiến phụ huynh về hướng xử lý tiếp theo của đơn; phụ huynh chọn tìm gia sư khác hoặc không tìm nữa. |
+| **Mô tả**          | Khi buổi dạy thử không thành công, gia sư gửi báo cáo `FAILED`; hệ thống giữ lớp ở trạng thái chờ xử lý `TRIAL_FAIL` và tạo task cho Lễ tân/Admin. Trung tâm liên hệ phụ huynh để quyết định tìm gia sư khác hoặc dừng yêu cầu. |
 | ---                | --- |
-| **Actor**          | Phụ huynh (khách), Lễ tân / Admin (tác nhân phụ) |
+| **Actor**          | Phụ huynh (người đưa ra lựa chọn), Lễ tân / Admin (tác nhân thực hiện trên hệ thống), Gia sư (tác nhân khởi tạo báo cáo) |
 | ---                | --- |
-| **Tiền điều kiện** | Lớp của phụ huynh đang dạy thử và buổi dạy thử không thành công. |
+| **Tiền điều kiện** | Lớp của phụ huynh đang `TRIAL`; ca thử đã diễn ra và gia sư đã gửi báo cáo kết quả `FAILED`. |
 | ---                | --- |
-| **Hậu điều kiện**  | Trạng thái lớp được cập nhật theo lựa chọn của phụ huynh: "Đang ghép lại (REMATCH)" hoặc "Đã hủy (CANCELLED)". |
+| **Hậu điều kiện**  | Sau khi báo cáo được gửi, lớp ở `TRIAL_FAIL` và chờ task vận hành. Nếu phụ huynh chọn tìm gia sư khác, Lễ tân/Admin bấm Ghép lại để đơn có `class_request_id` chuyển `REMATCH`; nếu không tìm nữa, staff hủy đơn/lớp theo luồng hủy và chuyển `CANCELLED`. |
 | ---                | --- |
-| **Kịch bản chính** | 1\. Trung tâm (Lễ tân/Admin) liên hệ phụ huynh và hỏi ý kiến về kết quả dạy thử không thành công.<br><br>2\. Phụ huynh chọn một trong hai phương án: "Tìm gia sư khác" hoặc "Không tìm nữa".<br><br>3\. Hệ thống cập nhật trạng thái lớp theo lựa chọn: ◦ "Tìm gia sư khác": lớp chuyển sang "Đang ghép lại (REMATCH)", gia sư cũ bị loại, lớp hiển thị như lớp đăng tuyển bình thường để gia sư ứng tuyển; phụ huynh cũng có thể tự chọn gia sư mới qua Lễ tân. Khi có gia sư mới, lớp chuyển về "Đang dạy thử". ◦ "Không tìm nữa": lớp chuyển sang "Đã hủy (CANCELLED)" (trạng thái cuối). |
+| **Kịch bản chính** | 1\. Gia sư gửi báo cáo `FAILED` kèm lý do; hệ thống lưu báo cáo, chuyển lớp sang `TRIAL_FAIL`, tạo task `PENDING` và thông báo Lễ tân/Admin. 2\. Lễ tân/Admin nhận task, xem lý do và liên hệ phụ huynh ngoài hệ thống. 3\. Phụ huynh chọn "Tìm gia sư khác" hoặc "Không tìm nữa". 4\. Nếu tìm gia sư khác, Lễ tân/Admin bấm "Ghép lại" trên task; hệ thống mở lại `class_request` về `REMATCH`, loại gia sư cũ theo lifecycle và giữ lớp cũ `TRIAL_FAIL`; khi ghép được gia sư mới, lớp mới chuyển `TRIAL`. 5\. Nếu không tìm nữa, Lễ tân/Admin hủy theo luồng hủy lớp, không tạo task ghép lại. |
 | ---                | --- |
-| **Ngoại lệ**       | 1.1. Chưa có kết quả dạy thử: hệ thống không mở thao tác xử lý.<br><br>2.1. Phụ huynh chưa quyết định: trung tâm giữ lớp ở trạng thái hiện tại và liên hệ lại.<br><br>3.1. Lỗi mạng hoặc máy chủ: hệ thống thông báo chưa thể hoàn tất thao tác, giữ lại dữ liệu đã nhập (nếu có) và cho phép thử lại. |
+| **Ngoại lệ**       | 1.1. Chưa có báo cáo `FAILED`: hệ thống chưa tạo task để xử lý. 2.1. Phụ huynh chưa quyết định: lớp giữ `TRIAL_FAIL`, task tiếp tục ở trạng thái hiện tại. 3.1. Lớp không có `class_request_id` (tạo từ đề xuất trực tiếp): không thể Ghép lại qua task; phụ huynh liên hệ gia sư khác qua kênh phù hợp. 4.1. Lỗi mạng hoặc máy chủ: hệ thống không hoàn tất thao tác, giữ nguyên báo cáo/task và cho phép thử lại. |
 | ---                | --- |

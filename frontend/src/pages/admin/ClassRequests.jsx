@@ -1716,6 +1716,26 @@ export function ClassRequestManagement() {
               </p>
             </div>
 
+            {activateDetail?.trialReportOutcome === "FAILED" && (
+              <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 text-xs space-y-1.5">
+                <div className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                  <AlertCircle size={13} />
+                  <span>Gia sư báo dạy thử không thành công</span>
+                </div>
+                <div className="text-amber-700/90 dark:text-amber-300/90">
+                  Lý do từ gia sư: {activateDetail.trialReportNote || "—"}
+                  {activateDetail.trialReportAt && (
+                    <span className="block text-[11px] opacity-70 mt-0.5">
+                      Báo cáo lúc {new Date(activateDetail.trialReportAt).toLocaleString("vi-VN")}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-amber-700/80 dark:text-amber-300/80">
+                  Bạn có thể ghép lại hoặc hủy lớp sau khi xem xét lý do.
+                </div>
+              </div>
+            )}
+
             {activateDetail ? (
               <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/40 text-xs space-y-1.5">
                 <div className="font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1.5">

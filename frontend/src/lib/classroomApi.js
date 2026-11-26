@@ -82,6 +82,18 @@ export function apiUpsertTrialSlot(token, classId, payload) {
 }
 
 /**
+ * Gia sư báo cáo kết quả dạy thử (trial_report, V31).
+ * @param {Object} payload - { outcome: "SUCCESS" | "FAILED", note?: string }
+ *                            (note bắt buộc khi FAILED, tối thiểu 5 ký tự)
+ */
+export function apiSubmitTrialReport(token, classId, payload) {
+  return request(token, `/api/v1/classes/${encodeURIComponent(classId)}/trial-report`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
  * Chốt lịch dạy cố định lần đầu cho lớp ACTIVE (UC-T09).
  * @param {Object} payload - { schedules: [ { dayOfWeek: 1-7, startTime: "HH:mm", endTime: "HH:mm",
  *                                           validFrom: "YYYY-MM-DD", validTo: "YYYY-MM-DD" | null } ] }
@@ -445,8 +457,19 @@ export function mapClassDetail(item) {
   const schedules = Array.isArray(item?.schedules)
     ? item.schedules.map(mapScheduleInfo).filter(Boolean)
     : [];
+  // Báo cáo kết quả dạy thử (V31): chỉ khả dụng khi lớp TRIAL + ca thử đã thiết lập.
+  const trialReportable = item?.status === "TRIAL" && Boolean(item?.trialSession);
+  const trialReport = trialReportable
+    ? {
+        outcome: item.trialReportOutcome || null,
+        note: item.trialReportNote || null,
+        reportAt: item.trialReportAt || null,
+      }
+    : null;
   return {
     ...mapClassSummary(item),
+    trialReportable,
+    trialReport,
     activeFrom: item?.activeFrom || null,
     activeFromLabel: item?.activeFrom ? formatSessionDate(item.activeFrom) : "",
     school: item?.school || "",
