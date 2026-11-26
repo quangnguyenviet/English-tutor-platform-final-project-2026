@@ -143,6 +143,12 @@ export function subscribeChatEvents(token, { onEvent, onReconnect }) {
           headers: { Accept: "text/event-stream", ...bearerHeader(token) },
           signal: controller.signal,
         });
+        // Token hết hạn/không hợp lệ: thử lại với token cũ vô ích. Dừng hẳn; khi AuthContext gia hạn token,
+        // caller sẽ hủy và đăng ký lại với token mới.
+        if (res.status === 401 || res.status === 403) {
+          stopped = true;
+          break;
+        }
         if (!res.ok || !res.body) throw new Error(`stream ${res.status}`);
         if (!first) onReconnect?.();
         first = false;
