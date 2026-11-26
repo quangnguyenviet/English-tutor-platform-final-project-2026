@@ -31,8 +31,11 @@ public class OccurrenceResponse {
     @Schema(example = "3")
     Long scheduleId;
 
-    @Schema(description = "Ngày diễn ra ô", example = "2026-11-06")
+    @Schema(description = "Ngày diễn ra ô thực tế", example = "2026-11-06")
     LocalDate date;
+
+    @Schema(description = "Ngày gốc khi ca được dời lịch", example = "2026-11-04")
+    LocalDate originalDate;
 
     @Schema(description = "1 = Thứ 2 ... 7 = Chủ nhật", example = "5")
     Integer dayOfWeek;
