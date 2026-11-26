@@ -187,10 +187,23 @@ Gia sư muốn rút ứng tuyển thì xóa dòng này, chỉ được khi lớp
 
 | Trạng thái | Ý nghĩa | Chuyển được sang |
 | --- | --- | --- |
-| `TRIAL` | Đang dạy thử | `ACTIVE` (gia sư chốt lịch cố định), `CANCELLED` |
+| `TRIAL` | Đang dạy thử | `ACTIVE` (gia sư chốt lịch cố định), `TRIAL_FAIL` (báo cáo dạy thử không thành công), `CANCELLED` |
+| `TRIAL_FAIL` | Dạy thử không thành công, chờ vận hành xử lý | không tự chuyển; mở lại yêu cầu ghép qua hàng đợi task nếu có `class_request_id` |
 | `ACTIVE` | Đang học chính thức | `COMPLETED`, `CANCELLED` |
 | `COMPLETED` | Kết thúc | không |
 | `CANCELLED` | Đã hủy | không |
+
+**Hàng đợi dạy thử thất bại** (`trial_report_tasks.status`) — V32
+
+Mỗi lớp tối đa một báo cáo chính thức (V31, V32 thêm UNIQUE `class_id`). Báo cáo `FAILED` tạo một task; `SUCCESS` không tạo task.
+
+| Trạng thái | Ý nghĩa | Chuyển được sang |
+| --- | --- | --- |
+| `PENDING` | Chờ xử lý (mặc định khi report `FAILED`) | `IN_PROGRESS`, `RESOLVED` |
+| `IN_PROGRESS` | Đang xử lý | `PENDING`, `RESOLVED` |
+| `RESOLVED` | Đã xử lý; ghi `resolved_by`, `resolved_at` | `PENDING`, `IN_PROGRESS` (xóa 2 trường này khi ra khỏi) |
+
+Gán người phụ trách (`assigned_to`) tách rời, không đổi trạng thái: assign-self (chỉ khi chưa gán, 409 `TRIAL_REPORT_ALREADY_ASSIGNED` 1178), bỏ gán, gán cho người khác (người nhận phải là `RECEPTIONIST`/`ADMIN` `ACTIVE`). Ghép lại (`rematch`) idempotent, không đổi trạng thái task, chỉ chạy khi lớp có `class_request_id`.
 
 **Bài giảng** (`lessons.status`) — V16, thay `sessions`
 
@@ -318,8 +331,24 @@ Gia sư muốn rút ứng tuyển thì xóa dòng này, chỉ được khi lớp
 | PUT | `/api/v1/classes/{id}/schedules` | TUTOR | V16: cập nhật (ghi đè) lịch cố định của lớp `ACTIVE`. Cùng shape body `finalize-schedule`. Xóa `schedule_exceptions` cũ theo ca bị gỡ | FR-10 |
 | POST | `/api/v1/classes/{id}/exceptions` | TUTOR | V16 (bảng `schedule_exceptions`), V17 (bỏ 3 cột override + loại `MODIFIED`): ghi overlay cho 1 ô ca — `{ scheduleId, exceptionDate, exceptionType: CANCELLED\|RESCHEDULED, newDate?, newStartTime?, newEndTime?, reason? }`. `RESCHEDULED` chỉ đổi ngày + khung giờ; hình thức/link/địa chỉ giữ theo ca gốc của lớp. Ô đã có log chặn `CANCELLED`/`RESCHEDULED` (R-LOG) | FR-11 |
 | DELETE | `/api/v1/classes/{id}/exceptions/{scheduleId}/{exceptionDate}` | TUTOR | V16: gỡ ngoại lệ của 1 ô | FR-11 |
+| POST | `/api/v1/classes/{id}/trial-report` | TUTOR | V31/V32: body `{ outcome: SUCCESS\|FAILED, note? }` (bắt buộc khi `FAILED`). Mỗi lớp tối đa một báo cáo chính thức (UNIQUE `class_id`); đã có báo cáo → 409 `TRIAL_REPORT_LOCKED` 1175. `SUCCESS`: kích hoạt lớp `TRIAL → ACTIVE` (lưu theo flow `tutorActivateTrial`). `FAILED`: cùng transaction — lớp `TRIAL → TRIAL_FAIL`, insert task `PENDING` (`trial_report_tasks`), audit, thông báo nhân sự `RECEPTIONIST` + `ADMIN` | FR-09 |
 
 Công thức `payments.amount`: `fee_percentage × sessions_per_week × 4 × price_per_session`, làm tròn nghìn đồng.
+
+**Hàng đợi dạy thử thất bại (module `classroom`, V32 — `TrialReportTaskController`, chỉ `RECEPTIONIST`/`ADMIN`):**
+
+| Method | Path | Quyền | Mô tả |
+| --- | --- | --- | --- |
+| GET | `/api/v1/trial-report-tasks` | RECEPTIONIST, ADMIN | Hàng đợi. Query: `status` (`PENDING`/`IN_PROGRESS`/`RESOLVED`), `assignedTo`, `page`, `size`. Trật tự `created_at DESC` |
+| GET | `/api/v1/trial-report-tasks/counts` | RECEPTIONIST, ADMIN | Số task theo trạng thái cho stat card |
+| GET | `/api/v1/trial-report-tasks/{id}` | RECEPTIONIST, ADMIN | Chi tiết: task, report, lớp, gia sư, học sinh, request, người phụ trách/xử lý, lịch sử thao tác. Không tìm thấy → 404 `TRIAL_REPORT_TASK_NOT_FOUND` 1176 |
+| POST | `/api/v1/trial-report-tasks/{id}/assign-self` | RECEPTIONIST, ADMIN | Gán cho mình; chỉ khi chưa gán (409 `TRIAL_REPORT_ALREADY_ASSIGNED` 1178), không đổi trạng thái task, ghi history |
+| DELETE | `/api/v1/trial-report-tasks/{id}/assignment` | RECEPTIONIST, ADMIN | Bỏ gán (`assigned_to` = NULL), không đổi trạng thái, ghi history |
+| PUT | `/api/v1/trial-report-tasks/{id}/assignment` | RECEPTIONIST, ADMIN | Body `{ userId }`. Gán cho người khác; người nhận phải là nhân sự `RECEPTIONIST`/`ADMIN` đang `ACTIVE` (sai → 404 `USER_NOT_EXISTED`), không đổi trạng thái, ghi history |
+| PATCH | `/api/v1/trial-report-tasks/{id}/status` | RECEPTIONIST, ADMIN | Body `{ status: PENDING\|IN_PROGRESS\|RESOLVED }` (dropdown 3 trạng thái, không có nút resolve/reopen riêng). Vào `RESOLVED` ghi `resolved_by`/`resolved_at`; ra khỏi `RESOLVED` đặt NULL. Giá trị ngoài danh sách → 409 `TRIAL_REPORT_TASK_INVALID_STATUS` 1177 |
+| POST | `/api/v1/trial-report-tasks/{id}/rematch` | RECEPTIONIST, ADMIN | Ghép lại: mở lại `class_requests` liên quan (qua task → report → `class_request_id`). Không có request → 409 `TRIAL_REPORT_REMATCH_NO_REQUEST` 1179. Idempotent: request đã `REMATCH`/`OPEN` chỉ ghi history, không chạy lifecycle; request `CANCELLED` thì chạy lại lifecycle ghép lớp. Không đổi trạng thái task |
+
+Mã lỗi nhóm trial report: `TRIAL_REPORT_LOCKED` 1175, `TRIAL_REPORT_TASK_NOT_FOUND` 1176, `TRIAL_REPORT_TASK_INVALID_STATUS` 1177, `TRIAL_REPORT_ALREADY_ASSIGNED` 1178, `TRIAL_REPORT_REMATCH_NO_REQUEST` 1179.
 
 ### 3.6. Lịch dạy, Nhật ký & Bài giảng (module `classroom`, V16)
 
@@ -584,8 +613,10 @@ vượt quota (kèm CTA nâng cấp); gói trả phí tự hạ về FREE khi h�
 | V28 | `class_requests`: cột tin đăng `address`, `gender_requirement`, `duration_type` (địa chỉ, yêu cầu giới tính, loại lớp) |
 | V29 | `proposal_messages.learning_address` (đề xuất offline `AT_HOME` chốt địa chỉ học theo địa chỉ mặc định của phụ huynh) |
 | V30 | **Gói lưu trữ gia sư:** catalog `storage_tiers` (quota FREE/PRO/PREMIUM là dữ liệu DB), `tutor_storage_subscriptions` (lịch sử thuê bao), `tutors.storage_tier_id` + `storage_tier_expires_at`; chặn upload tài liệu khi vượt quota |
+| V31 | Bảng `trial_reports` (báo cáo kết quả dạy thử của gia sư: `class_id`, `reported_by`, `outcome` SUCCESS/FAILED, `note` bắt buộc khi FAILED) |
+| V32 | **Quản lý lớp dạy thử không thành công:** `classes.status` thêm `TRIAL_FAIL`; bảng `trial_report_tasks` (hàng đợi vận hành: `status` PENDING/IN_PROGRESS/RESOLVED, `assigned_to`, `resolved_by/at`, `resolution`), `trial_report_task_histories` (lịch sử thao tác); UNIQUE `trial_reports.class_id` (một lớp tối đa một báo cáo chính thức) |
 
-> Thực tế `payments`, `complaints`, `refunds` đã được tạo trong V5; V7–V8 là seed và `unaccent`. `db/migration/` hiện có **V1–V30** (V21 là ôn tập ngắt quãng, V31+ chưa có trên `dev`), mọi file mới phải tăng version, không sửa file đã merge (Flyway immutable — V16 đổi tên bảng cũ thay vì sửa lại migration).
+> Thực tế `payments`, `complaints`, `refunds` đã được tạo trong V5; V7–V8 là seed và `unaccent`. `db/migration/` hiện có **V1–V32**, mọi file mới phải tăng version, không sửa file đã merge (Flyway immutable — V16 đổi tên bảng cũ thay vì sửa lại migration).
 
 ## 6. Ma trận phân quyền tổng hợp
 
@@ -596,6 +627,8 @@ vượt quota (kèm CTA nâng cấp); gói trả phí tự hạ về FREE khi h�
 | Duyệt/quản lý gia sư (3.3) | | | | | x | | x |
 | Lớp cần gia sư (3.4) | | | | | x | | x |
 | Ứng tuyển, lịch dạy, buổi học (3.4–3.6 TUTOR) | | | | x | | | |
+| Báo cáo kết quả dạy thử (3.5 TUTOR) | | | | x | | | |
+| Hàng đợi dạy thử thất bại (3.5 staff) | | | | | x | | x |
 | Lịch học, làm quiz (3.6–3.7 STUDENT) | | | x | | | | |
 | Nộp minh chứng phí (3.8) | | | | x | thu hộ / nộp thay | | x |
 | Chỉnh tỷ lệ phí (3.8) | | | | | x | | x |

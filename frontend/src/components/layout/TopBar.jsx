@@ -16,12 +16,16 @@ const routeMeta = {
   admin: {
     "/admin": { label: "Tổng quan" },
     "/admin/class-requests": { label: "Quản lý lớp cần gia sư" },
+    "/admin/class-management": { label: "Quản lý lớp học" },
+    "/admin/trial-report-tasks": { label: "Dạy thử thất bại cần xử lý" },
     "/admin/tutors": { label: "Quản lý gia sư" },
     "/admin/settings": { label: "Cài đặt" },
   },
   receptionist: {
     "/receptionist": { label: "Tổng quan" },
     "/receptionist/class-requests": { label: "Quản lý lớp cần gia sư" },
+    "/receptionist/class-management": { label: "Quản lý lớp học" },
+    "/receptionist/trial-report-tasks": { label: "Dạy thử thất bại cần xử lý" },
   },
   tutor: {
     "/tutor": { label: "Tổng quan" },
@@ -64,6 +68,8 @@ function buildBreadcrumbs(pathname, classId) {
     crumbs.push({ label: "Gia sư", to: "/tutor" });
   } else if (pathname.startsWith("/student")) {
     crumbs.push({ label: "Học sinh", to: "/student" });
+  } else if (pathname.startsWith("/receptionist")) {
+    crumbs.push({ label: "Lễ tân", to: "/receptionist" });
   }
 
   if (classId && pathname.startsWith("/tutor/classes/")) {
@@ -78,7 +84,7 @@ function buildBreadcrumbs(pathname, classId) {
       crumbs.push({ label: classSubTabs[segments[segments.length - 2]] });
     }
   } else {
-    const role = pathname.startsWith("/admin") ? "admin" : pathname.startsWith("/tutor") ? "tutor" : "student";
+    const role = pathname.startsWith("/admin") ? "admin" : pathname.startsWith("/tutor") ? "tutor" : pathname.startsWith("/receptionist") ? "receptionist" : "student";
     const meta = routeMeta[role];
     if (meta) {
       if (meta[pathname]) {

@@ -33,6 +33,7 @@ import com.mycompany.englishtutor.module.classroom.api.request.TrialReportReques
 import com.mycompany.englishtutor.module.classroom.api.response.TrialSessionResponse;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.ClassState;
+import com.mycompany.englishtutor.module.classroom.repository.TrialReportTaskRepository;
 import com.mycompany.englishtutor.module.matching.service.MatchingLifecycleSupport;
 import com.mycompany.englishtutor.module.matching.service.StaffClassRequestService;
 import com.mycompany.englishtutor.module.user.domain.User;
@@ -80,6 +81,9 @@ class TrialReportServiceTest {
     ClassroomQueryRepository classroomRepository;
 
     @Mock
+    TrialReportTaskRepository taskRepository;
+
+    @Mock
     UserRepository userRepository;
 
     @Mock
@@ -118,7 +122,13 @@ class TrialReportServiceTest {
     // ------------------------------------------------------------ helpers
 
     private void mockOwnedTrialClass() {
+        mockOwnedTrialClassNoReport();
+    }
+
+    /** Lớp TRIAL sở hữu, chưa có báo cáo chính thức (default khi không mock findLatestTrialReport). */
+    private void mockOwnedTrialClassNoReport() {
         when(classroomRepository.lockClassForUpdate(CLASS_ID)).thenReturn(Optional.of(TRIAL_STATE));
+        when(classroomRepository.findLatestTrialReport(CLASS_ID)).thenReturn(Optional.empty());
         when(classroomRepository.findTrialSession(CLASS_ID)).thenReturn(Optional.of(TRIAL_SESSION));
     }
 
@@ -162,7 +172,7 @@ class TrialReportServiceTest {
         verify(staffClassRequestService, never()).tutorActivateTrial(anyLong(), any());
     }
 
-    /** FAILED đủ lý do: insert, lớp giữ TRIAL, được nộp lại lần 2 (insert mới). */
+    /** FAILED đủ lý do: insert report, lớp TRIAL_FAIL, tạo task PENDING (V32), không kích hoạt. */
     @Test
     void failedWithReasonInsertsAndKeepsTrial() {
         mockOwnedTrialClass();
@@ -174,10 +184,34 @@ class TrialReportServiceTest {
 
         assertFalse(activated);
         verify(classroomRepository).insertTrialReport(CLASS_ID, TUTOR_ID, "FAILED", "Học sinh chưa phù hợp");
+        verify(classroomRepository).markClassTrialFail(CLASS_ID);
+        verify(taskRepository).insertTask(101L);
         verify(staffClassRequestService, never()).tutorActivateTrial(anyLong(), any());
         verify(lifecycle)
-                .notifyReceptionists(
+                .notifyStaff(
                         eq("Gia sư báo dạy thử không thành công"), any(), eq("CLASS"), eq(CLASS_ID));
+    }
+
+    /** Lớp đã có báo cáo chính thức (V32: 1 lớp = 1 báo cáo) → 409 TRIAL_REPORT_LOCKED. */
+    @Test
+    void secondReportOnClassThrows409() {
+        when(classroomRepository.lockClassForUpdate(CLASS_ID)).thenReturn(Optional.of(TRIAL_STATE));
+        when(classroomRepository.findLatestTrialReport(CLASS_ID))
+                .thenReturn(
+                        Optional.of(
+                                new com.mycompany.englishtutor.module.classroom.repository
+                                        .ClassroomQueryRepository.TrialReportRow(
+                                        1L, CLASS_ID, TUTOR_ID, "FAILED", "Lý do cũ",
+                                        OffsetDateTime.now())));
+
+        AppException ex =
+                assertThrows(
+                        AppException.class,
+                        () -> trialReportService.submit(CLASS_ID, request("FAILED", "Báo cáo mới"), httpRequest));
+        assertTrue(ex.getErrorCode() == ErrorCode.TRIAL_REPORT_LOCKED);
+        verify(classroomRepository, never()).insertTrialReport(anyLong(), anyLong(), any(), any());
+        verify(classroomRepository, never()).markClassTrialFail(anyLong());
+        verify(taskRepository, never()).insertTask(anyLong());
     }
 
     /** Chưa có ca thử (trial_start_time NULL) → 404 TRIAL_SESSION_NOT_FOUND. */

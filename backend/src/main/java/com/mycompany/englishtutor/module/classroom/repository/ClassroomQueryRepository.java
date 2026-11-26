@@ -547,6 +547,13 @@ public class ClassroomQueryRepository {
                 note);
     }
 
+    /** Chuyển lớp sang {@code TRIAL_FAIL} (khi gia sư báo dạy thử không thành công, V32). */
+    public int markClassTrialFail(Long classId) {
+        return jdbcTemplate.update(
+                "UPDATE classes SET status = 'TRIAL_FAIL', updated_at = NOW() WHERE id = ?",
+                classId);
+    }
+
     /** Báo cáo mới nhất của lớp (ORDER BY created_at DESC, id DESC). */
     public Optional<TrialReportRow> findLatestTrialReport(Long classId) {
         return jdbcTemplate.query(

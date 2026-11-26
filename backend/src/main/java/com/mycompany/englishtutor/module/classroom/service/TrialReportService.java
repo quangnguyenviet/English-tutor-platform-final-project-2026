@@ -11,6 +11,7 @@ import com.mycompany.englishtutor.module.classroom.api.request.TrialReportReques
 import com.mycompany.englishtutor.module.classroom.api.response.TrialSessionResponse;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository;
 import com.mycompany.englishtutor.module.classroom.repository.ClassroomQueryRepository.ClassState;
+import com.mycompany.englishtutor.module.classroom.repository.TrialReportTaskRepository;
 import com.mycompany.englishtutor.module.matching.service.MatchingLifecycleSupport;
 import com.mycompany.englishtutor.module.matching.service.StaffClassRequestService;
 import com.mycompany.englishtutor.module.user.domain.User;
@@ -25,13 +26,14 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Nghiệp vụ báo cáo kết quả dạy thử của gia sư (trial_report, V31).
+ * Nghiệp vụ báo cáo kết quả dạy thử của gia sư (trial_report, V31 + V32 quản lý lớp thất bại).
  *
  * <p>Gia sư báo cáo ngay trong card "Lịch dạy thử" tab Tổng quan của workspace lớp.
- * Kết quả {@code SUCCESS} kích hoạt lớp sang {@code ACTIVE} (tái dụng
- * {@link StaffClassRequestService#tutorActivateTrial}), {@code FAILED} lưu lý do
- * và fan-out thông báo lễ tân (lớp giữ TRIAL). Cho phép nộp lại nhiều lần —
- * "báo cáo mới nhất" = {@code ORDER BY created_at DESC, id DESC}.</p>
+ * Mỗi lớp chỉ nhận <b>một</b> báo cáo chính thức (V32, {@code uq_trial_reports_class}):
+ * {@code SUCCESS} kích hoạt lớp sang {@code ACTIVE} (tái dụng
+ * {@link StaffClassRequestService#tutorActivateTrial}); {@code FAILED} chuyển lớp sang
+ * {@code TRIAL_FAIL}, tạo 1 task {@code PENDING} trong hàng đợi vận hành và fan-out
+ * thông báo lễ tân + admin — sau đó lớp bị khóa báo cáo.</p>
  */
 @Slf4j
 @Service
@@ -46,13 +48,14 @@ public class TrialReportService {
     private static final String STATUS_TRIAL = "TRIAL";
 
     ClassroomQueryRepository classroomRepository;
+    TrialReportTaskRepository taskRepository;
     UserRepository userRepository;
     AuditLogService auditLogService;
     StaffClassRequestService staffClassRequestService;
     MatchingLifecycleSupport lifecycle;
 
     /**
-     * Gia sư gửi báo cáo kết quả dạy thử cho lớp TRIAL.
+     * Gia sư gửi báo cáo kết quả dạy thử cho lớp (chưa có báo cáo chính thức).
      *
      * @return true nếu kết quả SUCCESS (lớp đã kích hoạt ACTIVE)
      */
@@ -69,7 +72,12 @@ public class TrialReportService {
             throw new AppException(ErrorCode.CLASS_NOT_OWNED);
         }
 
-        // Lớp phải đang TRIAL
+        // Mỗi lớp tối đa 1 báo cáo chính thức (V32) — lớp đã báo cáo bị khóa
+        if (classroomRepository.findLatestTrialReport(classId).isPresent()) {
+            throw new AppException(ErrorCode.TRIAL_REPORT_LOCKED);
+        }
+
+        // Lớp phải đang TRIAL (chưa ghép thành công, chưa hủy, chưa thất bại trước đó)
         if (!STATUS_TRIAL.equalsIgnoreCase(state.status())) {
             throw new AppException(ErrorCode.CLASS_NOT_TRIAL);
         }
@@ -93,10 +101,14 @@ public class TrialReportService {
         Long reportId = classroomRepository.insertTrialReport(
                 classId, tutorId, outcome, OUTCOME_FAILED.equals(outcome) ? note : null);
 
-        // SUCCESS: kích hoạt lớp ACTIVE + payment NOT_SUBMITTED (cùng transaction)
         boolean activated = OUTCOME_SUCCESS.equals(outcome);
         if (activated) {
+            // SUCCESS: kích hoạt lớp ACTIVE + payment NOT_SUBMITTED (cùng transaction)
             staffClassRequestService.tutorActivateTrial(classId, httpRequest);
+        } else {
+            // FAILED: lớp TRIAL_FAIL + tạo task PENDING trong hàng đợi (cùng transaction, nguyên tử)
+            classroomRepository.markClassTrialFail(classId);
+            taskRepository.insertTask(reportId);
         }
 
         auditLogService.log(
@@ -107,7 +119,7 @@ public class TrialReportService {
                 Map.of("reportId", reportId, "outcome", outcome, "activated", activated),
                 httpRequest);
 
-        // Fan-out thông báo lễ tân (cả 2 outcome; FAILED kèm lý do)
+        // Fan-out thông báo lễ tân + admin (cả 2 outcome; FAILED kèm lý do)
         String className = state.className();
         if (activated) {
             lifecycle.notifyReceptionists(
@@ -117,10 +129,10 @@ public class TrialReportService {
                     "CLASS",
                     classId);
         } else {
-            lifecycle.notifyReceptionists(
+            lifecycle.notifyStaff(
                     "Gia sư báo dạy thử không thành công",
                     "Gia sư đã báo kết quả dạy thử KHÔNG THÀNH CÔNG cho lớp " + className
-                            + ". Lý do: " + note + ". Vui lòng xem xét ghép lại hoặc hủy lớp.",
+                            + ". Lý do: " + note + ". Vui vào mục Dạy thử thất bại cần xử lý để xem xét.",
                     "CLASS",
                     classId);
         }

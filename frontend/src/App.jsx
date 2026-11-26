@@ -55,6 +55,8 @@ import MessagesPage from "./pages/messaging/MessagesPage";
 import ParentPostings from "./pages/messaging/ParentPostings";
 import StaffChatPage from "./pages/messaging/StaffChatPage";
 import LessonOperations from "./pages/operations/LessonOperations";
+import TrialReportTasks from "./pages/operations/TrialReportTasks";
+import ClassManagement from "./pages/admin/ClassManagement";
 
 import StudentMarketplace from "./pages/student/StudentMarketplace";
 import StudentOnboarding from "./pages/student/StudentOnboarding";
@@ -187,6 +189,8 @@ export default function App() {
             <Route path="refunds" element={<AccountantRefunds />} />
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="lessons" element={<LessonOperations />} />
+            <Route path="class-management" element={<ClassManagement />} />
+            <Route path="trial-report-tasks" element={<TrialReportTasks />} />
             <Route path="notifications" element={<AdminNotifications />} />
             <Route path="logs" element={<AdminLogs />} />
             <Route path="settings" element={<SettingsPage />} />
@@ -304,6 +308,8 @@ export default function App() {
             <Route path="tutors" element={<ReceptionistTutorList />} />
             <Route path="students" element={<ReceptionistStudentList />} />
             <Route path="lessons" element={<LessonOperations />} />
+            <Route path="class-management" element={<ClassManagement />} />
+            <Route path="trial-report-tasks" element={<TrialReportTasks />} />
             <Route path="complaints" element={<ReceptionistComplaints />} />
             <Route path="notifications" element={<ReceptionistNotifications />} />
             <Route path="settings" element={<SettingsPage />} />

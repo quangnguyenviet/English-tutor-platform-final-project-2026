@@ -546,6 +546,16 @@ public class StaffClassRequestService {
      */
     @Transactional
     public void rematchClass(Long id, String reason, boolean allowActive, HttpServletRequest httpRequest) {
+        rematchClass(id, reason, allowActive, false, httpRequest);
+    }
+
+    /**
+     * Phiên bản cho hàng đợi báo cáo dạy thử thất bại (task): bỏ guard {@code status = MATCHED},
+     * vì request có thể đã về {@code REMATCH} sau lần ghép lại trước đó — thao tác vẫn idempotent.
+     */
+    @Transactional
+    public void rematchClass(
+            Long id, String reason, boolean allowActive, boolean skipStatusGuard, HttpServletRequest httpRequest) {
         Map<String, Object> row = lockRequest(id);
         String status = (String) row.get("status");
         if ("CANCELLED".equalsIgnoreCase(status)) {
@@ -554,11 +564,12 @@ public class StaffClassRequestService {
 
         LocalDate today = MatchingLifecycleSupport.today();
         ClassSnapshot trial = lifecycle.findLatestClass(id)
-                .filter(cl -> "MATCHED".equalsIgnoreCase(status))
+                .filter(cl -> skipStatusGuard || "MATCHED".equalsIgnoreCase(status))
                 .filter(cl -> cl.isTrial()
+                        || (skipStatusGuard && cl.isTrialFail())
                         || (allowActive && "ACTIVE".equalsIgnoreCase(cl.status()) && !cl.isCancelExpired(today)))
                 .orElseThrow(() -> new AppException(ErrorCode.MATCH_REQUEST_NOT_TRIAL));
-        boolean fromActive = !trial.isTrial();
+        boolean fromActive = "ACTIVE".equalsIgnoreCase(trial.status());
 
         Long currentUserId = getCurrentUserId();
 

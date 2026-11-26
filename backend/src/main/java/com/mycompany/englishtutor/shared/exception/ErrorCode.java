@@ -172,6 +172,16 @@ public enum ErrorCode {
             1173, "Vui lòng nhập lý do khi báo dạy thử không thành công (ít nhất 5 ký tự)", HttpStatus.BAD_REQUEST),
     TRIAL_REPORT_INVALID_OUTCOME(
             1174, "Kết quả báo cáo không hợp lệ (chỉ nhận SUCCESS hoặc FAILED)", HttpStatus.BAD_REQUEST),
+    TRIAL_REPORT_LOCKED(
+            1175, "Lớp đã có báo cáo kết quả dạy thử, không gửi thêm được", HttpStatus.CONFLICT),
+    TRIAL_REPORT_TASK_NOT_FOUND(
+            1176, "Việc xử lý báo cáo dạy thử không tồn tại", HttpStatus.NOT_FOUND),
+    TRIAL_REPORT_TASK_INVALID_STATUS(
+            1177, "Trạng thái việc xử lý báo cáo không hợp lệ", HttpStatus.CONFLICT),
+    TRIAL_REPORT_ALREADY_ASSIGNED(
+            1178, "Việc xử lý đã được gán cho nhân sự khác", HttpStatus.CONFLICT),
+    TRIAL_REPORT_REMATCH_NO_REQUEST(
+            1179, "Lớp không có yêu cầu tìm gia sư nên không thể ghép lại", HttpStatus.CONFLICT),
     PAYMENT_NOT_FOUND(1200, "Khoản phí nhận lớp không tồn tại", HttpStatus.NOT_FOUND),
     PAYMENT_INVALID_STATE(1201, "Khoản phí không ở trạng thái cho phép thao tác này", HttpStatus.CONFLICT),
     PAYMENT_SAME_ACTOR(1202, "Người duyệt không được trùng với người nộp hoặc thu hộ minh chứng", HttpStatus.FORBIDDEN),

@@ -145,14 +145,26 @@ public class MatchingLifecycleSupport {
      * lễ tân cụ thể nào phụ trách.
      */
     public void notifyReceptionists(String title, String content, String entityType, Long entityId) {
-        jdbcTemplate.update(
-                """
+        notifyStaffByRoles(title, content, entityType, entityId, "RECEPTIONIST");
+    }
+
+    /** Fan-out thông báo tới nhân sự vận hành đang hoạt động. */
+    public void notifyStaff(String title, String content, String entityType, Long entityId) {
+        notifyStaffByRoles(title, content, entityType, entityId, "RECEPTIONIST", "ADMIN");
+    }
+
+    private void notifyStaffByRoles(String title, String content, String entityType, Long entityId, String... roles) {
+        String placeholders = String.join(", ", java.util.Collections.nCopies(roles.length, "?"));
+        Object[] args = new Object[4 + roles.length];
+        args[0] = title;
+        args[1] = content;
+        args[2] = entityType;
+        args[3] = entityId;
+        System.arraycopy(roles, 0, args, 4, roles.length);
+        jdbcTemplate.update("""
                 INSERT INTO notifications (user_id, title, content, link_entity_type, link_entity_id)
-                SELECT id, ?, ?, ?, ?
-                FROM users
-                WHERE role = 'RECEPTIONIST' AND status = 'ACTIVE'
-                """,
-                title, content, entityType, entityId);
+                SELECT id, ?, ?, ?, ? FROM users
+                WHERE role IN (""" + placeholders + ") AND status = 'ACTIVE'", args);
     }
 
     /** Ảnh chụp lớp mới nhất của đơn. */
@@ -161,6 +173,10 @@ public class MatchingLifecycleSupport {
 
         public boolean isTrial() {
             return "TRIAL".equalsIgnoreCase(status);
+        }
+
+        public boolean isTrialFail() {
+            return "TRIAL_FAIL".equalsIgnoreCase(status);
         }
 
         public boolean isOpen() {
