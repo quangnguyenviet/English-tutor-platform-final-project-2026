@@ -46,6 +46,7 @@ public class ClassDetailResponse {
     String parentName;
     String parentPhone;
     String parentEmail;
+    /** Chỉ phường/xã, tỉnh/thành: gia sư không được xem địa chỉ chi tiết. */
     String parentAddress;
 
     /** Ca dạy cố định trong tuần (rỗng nếu chưa chốt lịch). */

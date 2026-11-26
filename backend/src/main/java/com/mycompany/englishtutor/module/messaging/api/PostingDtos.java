@@ -17,7 +17,7 @@ public final class PostingDtos {
     public record CreatePostingRequest(
             @Pattern(regexp = "PHU_THONG|THI_CHUAN|GIAO_TIEP|THI_HOC_KY", message = "Mục đích học không hợp lệ") String purpose,
             @Size(max = 100) String province,
-            @Size(max = 100) String district,
+            @Size(max = 100, message = "Phường/xã tối đa 100 ký tự") String ward,
             @Min(value = 1, message = "Số buổi mỗi tuần từ 1 đến 5") @Max(value = 5, message = "Số buổi mỗi tuần từ 1 đến 5")
                     Integer sessionsPerWeek,
             BigDecimal referencePrice,
@@ -36,7 +36,7 @@ public final class PostingDtos {
             String status,
             String purpose,
             String province,
-            String district,
+            String ward,
             Integer sessionsPerWeek,
             BigDecimal referencePrice,
             String teachingMode,

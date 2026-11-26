@@ -18,7 +18,7 @@ import com.mycompany.englishtutor.shared.util.PhoneNumbers;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
-/** Wizard truy cập: lưu SĐT, họ tên, mục đích, khu vực của phụ huynh. */
+/** Hồ sơ phụ huynh (wizard truy cập và trang cá nhân): SĐT, họ tên, mục đích, khu vực, địa chỉ. */
 @Service
 @RequiredArgsConstructor
 public class ParentProfileService {
@@ -49,11 +49,14 @@ public class ParentProfileService {
         }
         jdbcTemplate.update(
                 """
-                UPDATE parents SET phone = ?, full_name = ?, purpose = ?, province = ?, district = ?, address = ?, updated_at = NOW()
+                UPDATE parents SET phone = ?, full_name = ?, purpose = ?, province = ?, ward = ?, address = ?, updated_at = NOW()
                 WHERE id = ?
                 """,
                 phone, request.fullName().trim(), request.purpose(), request.province().trim(),
-                request.district().trim(), request.address().trim(), parent.parentId());
+                request.ward().trim(), request.address().trim(), parent.parentId());
+        // Tên hiển thị trong phòng chat và trên header lấy từ users nên phải đổi cùng lúc.
+        jdbcTemplate.update("UPDATE users SET full_name = ?, updated_at = NOW() WHERE id = ?",
+                request.fullName().trim(), parent.userId());
         auditLogService.log(parent.userId(), "UPDATE_PARENT_PROFILE", "PARENT", parent.parentId(), null, http);
         return toResponse(actor.parentOfUser(parent.userId()));
     }
@@ -68,6 +71,6 @@ public class ParentProfileService {
                 parent.parentId());
         return new ParentProfileResponse(
                 parent.parentId(), parent.fullName(), parent.phone(), parent.purpose(), parent.province(),
-                parent.district(), parent.address(), parent.profileComplete(), children);
+                parent.ward(), parent.address(), parent.profileComplete(), children);
     }
 }

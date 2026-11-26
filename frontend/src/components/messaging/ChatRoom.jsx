@@ -285,6 +285,7 @@ export default function ChatRoom({ roomId, viewer, token, refreshTick = 0, onCha
           roomId={roomId}
           token={token}
           childrenOfParent={parentInfo?.children || []}
+          parentArea={[parentInfo?.ward, parentInfo?.province].filter(Boolean).join(", ")}
           onClose={() => setShowProposalForm(false)}
           onCreated={() => {
             setShowProposalForm(false);

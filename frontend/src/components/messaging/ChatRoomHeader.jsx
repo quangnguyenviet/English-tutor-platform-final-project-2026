@@ -74,7 +74,7 @@ export default function ChatRoomHeader({ detail, viewer, onCreateProposal, onSho
       {parent && (
         <div className={infoBoxClass}>
           <InfoItem icon={ShieldCheck}>Mục đích: {purposeLabel(parent.purpose)}</InfoItem>
-          <InfoItem icon={MapPin}>{parent.district}, {parent.province}</InfoItem>
+          <InfoItem icon={MapPin}>{[parent.ward, parent.province].filter(Boolean).join(", ")}</InfoItem>
           <InfoItem icon={Phone}>
             {parent.phoneUnlocked ? (
               <span><span className="font-mono">{parent.phone}</span> <span className="text-xs text-slate-500">· mở khóa ngày {new Date(parent.phoneUnlockedAt).toLocaleDateString("vi-VN")}</span></span>

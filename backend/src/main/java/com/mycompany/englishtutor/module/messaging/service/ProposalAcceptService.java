@@ -1,6 +1,8 @@
 package com.mycompany.englishtutor.module.messaging.service;
 
 import java.math.BigDecimal;
+import java.sql.Date;
+import java.sql.Time;
 import java.util.List;
 import java.util.Map;
 
@@ -92,6 +94,7 @@ public class ProposalAcceptService {
             classRequestId = ((Number) req.get(0).get("id")).longValue();
         }
 
+        planTrialSession(proposalId, p);
         if (tutorBusy(proposalId)) {
             jdbcTemplate.update("UPDATE proposal_messages SET status = 'EXPIRED', decided_at = NOW() WHERE id = ?", proposalId);
             outbox.enqueueSystemMessage(roomId, "PROPOSAL_EXPIRED",
@@ -133,12 +136,14 @@ public class ProposalAcceptService {
                 """
                 INSERT INTO classes (class_request_id, proposal_id, tutor_id, student_id, class_name, status, teaching_mode,
                                      price_per_session, sessions_per_week, trial_date, trial_start_time, trial_end_time,
-                                     class_type, fee_percentage)
-                VALUES (?, ?, ?, ?, ?, 'TRIAL', ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                                     class_type, fee_percentage, trial_teaching_mode)
+                VALUES (?, ?, ?, ?, ?, 'TRIAL', ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
                 """,
                 Long.class, classRequestId, proposalId, tutorId, studentId, "Tiếng Anh 1 kèm 1 - " + studentName,
                 p.get("class_mode"), price, p.get("sessions"), p.get("trial_date"), p.get("trial_time_from"),
-                p.get("trial_time_to"), p.get("class_type"), fee);
+                p.get("trial_time_to"), p.get("class_type"), fee,
+                // Ca thử ONLINE bắt buộc có link nên để trống hình thức đến khi gia sư cập nhật lịch.
+                "AT_HOME".equals(p.get("class_mode")) ? "AT_HOME" : null);
 
         paymentService.createDraftForClass(classId, fee, price);
 
@@ -165,6 +170,27 @@ public class ProposalAcceptService {
                 Map.of("classId", classId, "classRequestId", String.valueOf(classRequestId), "studentId", studentId), http);
         outbox.publishAfterCommit(access.room().participantUserIds(), "proposal", Map.of("roomId", roomId, "proposalId", proposalId));
         return new AcceptResult(proposalId, classId, classRequestId, studentId, username, initialPassword, created);
+    }
+
+    /**
+     * Buổi học thử là buổi đầu tiên trong lịch tính từ lúc phụ huynh đồng ý. Ghi vào đề xuất trước khi kiểm tra trùng
+     * lịch, đồng thời cập nhật {@code p} để tạo lớp đúng ngày; gia sư đổi giờ sau ở trang lớp học.
+     */
+    private void planTrialSession(Long proposalId, Map<String, Object> p) {
+        List<Integer> days = jdbcTemplate.queryForList(
+                "SELECT unnest(schedule_days) FROM proposal_messages WHERE id = ?", Integer.class, proposalId);
+        if (days.isEmpty()) {
+            return;
+        }
+        Time from = (Time) p.get("schedule_time_from");
+        Time to = (Time) p.get("schedule_time_to");
+        Date date = Date.valueOf(TrialSessionPlanner.firstSessionDate(days, from.toLocalTime()));
+        jdbcTemplate.update(
+                "UPDATE proposal_messages SET trial_date = ?, trial_time_from = ?, trial_time_to = ? WHERE id = ?",
+                date, from, to, proposalId);
+        p.put("trial_date", date);
+        p.put("trial_time_from", from);
+        p.put("trial_time_to", to);
     }
 
     /** Báo lỗi trùng lịch cho phụ huynh nhưng vẫn commit trạng thái {@code EXPIRED} của đề xuất. */

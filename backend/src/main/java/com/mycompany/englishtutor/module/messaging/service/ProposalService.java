@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Locale;
@@ -36,8 +35,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ProposalService {
 
-    private static final ZoneId VN_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
-
     private final JdbcTemplate jdbcTemplate;
     private final MessagingActor actor;
     private final ChatRoomService rooms;
@@ -54,8 +51,8 @@ public class ProposalService {
 
     @Transactional(readOnly = true)
     public List<ProposalItem> listByRoom(Long roomId) {
-        rooms.requireAccess(roomId, true);
-        return reader.findByRoom(roomId);
+        Access access = rooms.requireAccess(roomId, true);
+        return reader.findByRoom(roomId, access.viewer());
     }
 
     /** Phụ huynh xem tài khoản đăng nhập của con tạo từ đề xuất đã đồng ý. */
@@ -98,10 +95,7 @@ public class ProposalService {
         }
 
         Parsed parsed = validate(request, access.room().parentId());
-        String learningAddress = "AT_HOME".equals(request.classMode()) ? trim(request.learningAddress()) : null;
-        if ("AT_HOME".equals(request.classMode()) && (learningAddress == null || learningAddress.length() < 5)) {
-            throw new AppException(ErrorCode.PROPOSAL_INVALID_SCHEDULE, "Vui lòng nhập địa chỉ học tại nhà");
-        }
+        String learningAddress = "AT_HOME".equals(request.classMode()) ? homeAddress(access.room().parentId()) : null;
         scanForContactInfo(request);
         ProposalConflictChecker.Slot slot = new ProposalConflictChecker.Slot(parsed.days(), parsed.scheduleFrom(),
                 parsed.scheduleTo(), parsed.trialDate(), parsed.trialFrom(), parsed.trialTo());
@@ -153,7 +147,7 @@ public class ProposalService {
         outbox.notifyUser(access.room().parentUserId(), "Đề xuất lớp học mới",
                 "Gia sư vừa gửi đề xuất lớp học #" + version + ". Vui lòng xem và phản hồi.", "CHAT_ROOM", roomId);
         outbox.publishAfterCommit(access.room().participantUserIds(), "proposal", Map.of("roomId", roomId, "proposalId", proposalId));
-        return reader.findById(proposalId).orElseThrow();
+        return reader.findById(proposalId, access.viewer()).orElseThrow();
     }
 
     @Transactional
@@ -173,7 +167,7 @@ public class ProposalService {
                 "CHAT_ROOM", locked.roomId());
         auditLogService.log(access.userId(), "REJECT_PROPOSAL", "PROPOSAL", proposalId, null, http);
         outbox.publishAfterCommit(access.room().participantUserIds(), "proposal", Map.of("roomId", locked.roomId(), "proposalId", proposalId));
-        return reader.findById(proposalId).orElseThrow();
+        return reader.findById(proposalId, access.viewer()).orElseThrow();
     }
 
     @Transactional
@@ -194,7 +188,7 @@ public class ProposalService {
                 "Gia sư đã rút đề xuất #" + locked.version() + ": " + clean);
         auditLogService.log(access.userId(), "WITHDRAW_PROPOSAL", "PROPOSAL", proposalId, null, http);
         outbox.publishAfterCommit(access.room().participantUserIds(), "proposal", Map.of("roomId", locked.roomId(), "proposalId", proposalId));
-        return reader.findById(proposalId).orElseThrow();
+        return reader.findById(proposalId, access.viewer()).orElseThrow();
     }
 
     // ------------------------------------------------------------ nội bộ
@@ -242,24 +236,19 @@ public class ProposalService {
         try {
             LocalTime scheduleFrom = LocalTime.parse(r.scheduleTimeFrom());
             LocalTime scheduleTo = LocalTime.parse(r.scheduleTimeTo());
-            LocalTime trialFrom = LocalTime.parse(r.trialTimeFrom());
-            LocalTime trialTo = LocalTime.parse(r.trialTimeTo());
-            LocalDate trialDate = LocalDate.parse(r.trialDate());
-            if (!scheduleFrom.isBefore(scheduleTo) || !trialFrom.isBefore(trialTo)) {
+            if (!scheduleFrom.isBefore(scheduleTo)) {
                 throw new AppException(ErrorCode.PROPOSAL_INVALID_SCHEDULE, "Giờ kết thúc phải sau giờ bắt đầu");
             }
-            if (trialDate.isBefore(LocalDate.now(VN_ZONE))) {
-                throw new AppException(ErrorCode.PROPOSAL_INVALID_SCHEDULE, "Ngày dạy thử không được ở quá khứ");
-            }
-            return new Parsed(List.copyOf(days), scheduleFrom, scheduleTo, trialDate, trialFrom, trialTo);
+            LocalDate trialDate = TrialSessionPlanner.firstSessionDate(days, scheduleFrom);
+            return new Parsed(List.copyOf(days), scheduleFrom, scheduleTo, trialDate, scheduleFrom, scheduleTo);
         } catch (DateTimeParseException e) {
-            throw new AppException(ErrorCode.PROPOSAL_INVALID_SCHEDULE, "Định dạng ngày hoặc giờ không hợp lệ");
+            throw new AppException(ErrorCode.PROPOSAL_INVALID_SCHEDULE, "Định dạng giờ không hợp lệ");
         }
     }
 
     /** Các trường văn bản tự do của đề xuất cũng không được chứa thông tin liên hệ. */
     private void scanForContactInfo(ProposalRequest r) {
-        for (String field : new String[] {r.note(), r.studentName(), r.studentSchool(), r.studentLearningGoal(), r.learningAddress()}) {
+        for (String field : new String[] {r.note(), r.studentName(), r.studentSchool(), r.studentLearningGoal()}) {
             PiiDetector.Detection detection = piiDetector.detect(field);
             if (detection.blocked()) {
                 throw new PiiBlockedException(detection.violations().stream()
@@ -277,8 +266,18 @@ public class ProposalService {
         String days = p.days().stream().map(d -> d == 7 ? "CN" : "T" + (d + 1)).reduce((a, b) -> a + ", " + b).orElse("");
         String price = NumberFormat.getInstance(Locale.of("vi", "VN")).format(r.pricePerSession());
         return "Đề xuất lớp học #" + version + " cho học sinh " + student + " — " + type + ", " + price
-                + " đ/buổi, học " + days + " (" + p.scheduleFrom() + "–" + p.scheduleTo() + "), dạy thử "
-                + p.trialDate() + " (" + p.trialFrom() + "–" + p.trialTo() + ").";
+                + " đ/buổi, học " + days + " (" + p.scheduleFrom() + "–" + p.scheduleTo()
+                + "). Buổi đầu tiên trong lịch là buổi học thử.";
+    }
+
+    /** Địa chỉ học tại nhà luôn là địa chỉ mặc định trong hồ sơ phụ huynh, gia sư không nhập và không xem được. */
+    private String homeAddress(Long parentId) {
+        String address = jdbcTemplate.queryForObject("SELECT address FROM parents WHERE id = ?", String.class, parentId);
+        if (address == null || address.isBlank()) {
+            throw new AppException(ErrorCode.PROPOSAL_INVALID_SCHEDULE,
+                    "Phụ huynh chưa cập nhật địa chỉ nhà nên chưa thể đề xuất dạy tại nhà");
+        }
+        return address.strip();
     }
 
     private static String toPgArray(List<Integer> values) {

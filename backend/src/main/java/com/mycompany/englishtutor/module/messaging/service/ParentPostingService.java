@@ -27,7 +27,7 @@ import lombok.RequiredArgsConstructor;
 public class ParentPostingService {
 
     private static final String POSTING_SELECT = """
-            SELECT cr.id, cr.status, cr.purpose, cr.province, cr.district, cr.sessions_per_week, cr.price_per_session,
+            SELECT cr.id, cr.status, cr.purpose, cr.province, cr.ward, cr.sessions_per_week, cr.price_per_session,
                    cr.teaching_mode, cr.class_requirement, cr.address, cr.gender_requirement, cr.tutor_requirement,
                    cr.duration_type, cr.preferred_schedule, cr.cancel_reason, cr.created_at,
                    (SELECT COUNT(*) FROM class_applications ca
@@ -57,19 +57,21 @@ public class ParentPostingService {
         }
         String purpose = request.purpose() != null ? request.purpose() : parent.purpose();
         String province = request.province() != null ? request.province() : parent.province();
-        String district = request.district() != null ? request.district() : parent.district();
+        // Chỉ mượn phường/xã trong hồ sơ khi tin cùng tỉnh/thành, tránh ghép phường của nơi này với thành phố khác.
+        String ward = blankToNull(request.ward()) != null ? blankToNull(request.ward())
+                : province != null && province.equals(parent.province()) ? parent.ward() : null;
         // class_requirement bắt buộc khi tin được đăng (OPEN): dùng ghi chú hoặc mô tả theo mục đích.
         String requirement = note != null ? note : "Tìm gia sư tiếng Anh 1 kèm 1 - " + purposeLabel(purpose);
         Long id;
         try {
             id = jdbcTemplate.queryForObject(
                     """
-                    INSERT INTO class_requests (parent_id, status, source, purpose, province, district, class_requirement,
+                    INSERT INTO class_requests (parent_id, status, source, purpose, province, ward, class_requirement,
                                                 teaching_mode, price_per_session, sessions_per_week, created_by,
                                                 address, gender_requirement, tutor_requirement, duration_type, preferred_schedule)
                     VALUES (?, 'NEW', 'POSTING', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
                     """,
-                    Long.class, parent.parentId(), purpose, province, district, requirement, request.teachingMode(),
+                    Long.class, parent.parentId(), purpose, province, ward, requirement, request.teachingMode(),
                     request.referencePrice(), request.sessionsPerWeek(), parent.userId(),
                     blankToNull(request.address()), request.genderRequirement(), request.tutorRequirement(),
                     request.durationType(), blankToNull(request.availableTime()));
@@ -159,7 +161,7 @@ public class ParentPostingService {
 
     private static PostingItem map(java.sql.ResultSet rs) throws java.sql.SQLException {
         return new PostingItem(rs.getLong("id"), rs.getString("status"), rs.getString("purpose"), rs.getString("province"),
-                rs.getString("district"), rs.getObject("sessions_per_week") == null ? null : rs.getInt("sessions_per_week"),
+                rs.getString("ward"), rs.getObject("sessions_per_week") == null ? null : rs.getInt("sessions_per_week"),
                 rs.getBigDecimal("price_per_session"), rs.getString("teaching_mode"), rs.getString("class_requirement"),
                 rs.getString("address"), rs.getString("gender_requirement"), rs.getString("tutor_requirement"),
                 rs.getString("duration_type"), rs.getString("preferred_schedule"), rs.getString("cancel_reason"), rs.getInt("applicant_count"),

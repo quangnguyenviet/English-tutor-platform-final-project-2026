@@ -6,12 +6,14 @@ import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import PageHeader from "../../components/ui/PageHeader";
 import { useAuth } from "../../context/AuthContext";
+import { provincesAndDistricts } from "../../data/vietnamLocations";
 import {
   CLASS_MODE_LABEL,
   PURPOSE_OPTIONS,
   apiCancelPosting,
   apiCreatePosting,
   apiGetMyPostings,
+  apiGetParentProfile,
   apiGetPostingApplicants,
   apiOpenApplicationRoom,
   formatVnd,
@@ -56,9 +58,25 @@ function availableTimeText(days, shift) {
 
 function NewPostingModal({ token, onClose, onCreated }) {
   const [form, setForm] = useState({ purpose: "", sessionsPerWeek: "", referencePrice: "", teachingMode: "", note: "",
-    address: "", genderRequirement: "", tutorRequirement: "", durationType: "", days: [], shift: "" });
+    province: "", ward: "", address: "", genderRequirement: "", tutorRequirement: "", durationType: "", days: [], shift: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Điền sẵn mục đích và địa chỉ theo hồ sơ; ô nào phụ huynh đã gõ trước khi tải xong thì giữ nguyên.
+  useEffect(() => {
+    apiGetParentProfile(token)
+      .then((profile) => setForm((current) => ({
+        ...current,
+        purpose: current.purpose || profile.purpose || "",
+        province: current.province || profile.province || "",
+        ward: current.ward || profile.ward || "",
+        address: current.address || (profile.address || "").slice(0, 255),
+      })))
+      .catch((e) => setError(e.message));
+  }, [token]);
+
+  const provinces = provincesAndDistricts.map((p) => p.province);
+  if (form.province && !provinces.includes(form.province)) provinces.unshift(form.province);
 
   async function submit(e) {
     e.preventDefault();
@@ -71,6 +89,8 @@ function NewPostingModal({ token, onClose, onCreated }) {
         referencePrice: form.referencePrice ? Number(form.referencePrice) : null,
         teachingMode: form.teachingMode || null,
         note: form.note.trim() || null,
+        province: form.province || null,
+        ward: form.ward.trim() || null,
         address: form.address.trim() || null,
         genderRequirement: form.genderRequirement || null,
         tutorRequirement: form.tutorRequirement || null,
@@ -91,11 +111,11 @@ function NewPostingModal({ token, onClose, onCreated }) {
         <button type="button" onClick={onClose} aria-label="Đóng" className="absolute right-4 top-4 cursor-pointer rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><X size={18} /></button>
         <div>
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Đăng tin tìm gia sư</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Mục đích và khu vực lấy từ hồ sơ của bạn nếu để trống. Trung tâm duyệt tin trong 24 giờ.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Mục đích và địa chỉ được điền sẵn theo hồ sơ, bấm vào ô để sửa. Trung tâm duyệt tin trong 24 giờ.</p>
         </div>
         <label className="block space-y-1.5 text-sm font-medium text-slate-900 dark:text-white">Mục đích học
-          <select className={inputClass} value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })}>
-            <option value="">Theo hồ sơ của tôi</option>
+          <select className={inputClass} required value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })}>
+            <option value="">Chọn mục đích học</option>
             {PURPOSE_OPTIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
         </label>
@@ -117,9 +137,23 @@ function NewPostingModal({ token, onClose, onCreated }) {
               onChange={(e) => setForm({ ...form, referencePrice: e.target.value.replace(/\D/g, "") })} />
           </label>
         </div>
-        <label className="block space-y-1.5 text-sm font-medium text-slate-900 dark:text-white">Địa chỉ học
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1.5 text-sm font-medium text-slate-900 dark:text-white">Tỉnh / Thành phố
+            <select className={inputClass} required value={form.province}
+              onChange={(e) => setForm({ ...form, province: e.target.value, ward: "" })}>
+              <option value="">Chọn tỉnh / thành phố</option>
+              {provinces.map((province) => <option key={province} value={province}>{province}</option>)}
+            </select>
+          </label>
+          <label className="space-y-1.5 text-sm font-medium text-slate-900 dark:text-white">Phường / Xã
+            <input className={inputClass} required maxLength={100} value={form.ward} onChange={(e) => setForm({ ...form, ward: e.target.value })}
+              placeholder="VD: Phường Thanh Xuân" />
+          </label>
+        </div>
+        <label className="block space-y-1.5 text-sm font-medium text-slate-900 dark:text-white">Địa chỉ chi tiết
           <input className={inputClass} maxLength={255} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })}
-            placeholder="Số nhà, đường, quận/huyện (không ghi số điện thoại)" />
+            placeholder="Số nhà, đường (không ghi số điện thoại)" />
+          <span className="block text-xs font-normal text-slate-500 dark:text-slate-400">Gia sư chỉ thấy phường/xã và tỉnh/thành phố.</span>
         </label>
         <div className="grid gap-3 sm:grid-cols-3">
           <label className="space-y-1.5 text-sm font-medium text-slate-900 dark:text-white">Yêu cầu giới tính
@@ -309,7 +343,7 @@ export default function ParentPostings() {
                 <div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Tin #{p.id}</p>
                   <p className="text-base font-semibold text-slate-900 dark:text-white">{purposeLabel(p.purpose)}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{[p.district, p.province].filter(Boolean).join(", ")}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{[p.ward, p.province].filter(Boolean).join(", ")}</p>
                 </div>
                 <Badge tone={status.tone}>{status.label}</Badge>
               </div>

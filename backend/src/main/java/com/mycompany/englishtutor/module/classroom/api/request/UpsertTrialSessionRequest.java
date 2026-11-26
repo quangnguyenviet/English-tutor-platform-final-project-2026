@@ -43,6 +43,6 @@ public class UpsertTrialSessionRequest {
     String meetingUrl;
 
     @Size(max = 500, message = "Địa chỉ học tối đa 500 ký tự")
-    @Schema(description = "Địa chỉ nhà học sinh (bắt buộc khi AT_HOME)")
+    @Schema(description = "Địa chỉ học khác khi AT_HOME; để trống là dùng địa chỉ nhà phụ huynh")
     String location;
 }

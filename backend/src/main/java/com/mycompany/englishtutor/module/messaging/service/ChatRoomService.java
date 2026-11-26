@@ -280,7 +280,7 @@ public class ChatRoomService {
     /** Phone Gate: SĐT chỉ có trong payload khi phòng đã có đề xuất ACCEPTED. */
     private ParentInfo parentInfo(Room room) {
         Map<String, Object> p = jdbcTemplate.queryForMap(
-                "SELECT full_name, phone, purpose, province, district FROM parents WHERE id = ?", room.parentId());
+                "SELECT full_name, phone, purpose, province, ward FROM parents WHERE id = ?", room.parentId());
         List<java.sql.Timestamp> unlocked = jdbcTemplate.queryForList(
                 "SELECT MIN(decided_at) FROM proposal_messages WHERE room_id = ? AND status = 'ACCEPTED'",
                 java.sql.Timestamp.class, room.id());
@@ -291,7 +291,7 @@ public class ChatRoomService {
                 (rs, i) -> new ChildItem(rs.getLong("id"), rs.getString("full_name"), rs.getString("grade")),
                 room.parentId());
         return new ParentInfo((String) p.get("full_name"), (String) p.get("purpose"), (String) p.get("province"),
-                (String) p.get("district"), phoneUnlocked ? (String) p.get("phone") : null, phoneUnlocked,
+                (String) p.get("ward"), phoneUnlocked ? (String) p.get("phone") : null, phoneUnlocked,
                 phoneUnlocked ? unlockedAt.toInstant().toString() : null, children);
     }
 }

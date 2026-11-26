@@ -39,7 +39,7 @@ public final class StaffDtos {
 
     public record PostingStaffItem(
             Long id, String status, String parentName, String parentPhone, String purpose, String province,
-            String district, String note, int applicantCount, String createdAt) {}
+            String ward, String note, int applicantCount, String createdAt) {}
 
     public record TrialClassItem(
             Long classId, String className, String tutorName, String studentName, String parentName, String classType,

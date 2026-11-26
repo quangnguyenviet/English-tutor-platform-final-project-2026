@@ -69,6 +69,8 @@ class TutorClassRequestQueryRepositoryTest {
         when(rs.getString("school")).thenReturn("THPT Việt Đức");
         when(rs.getString("learning_goal")).thenReturn("Đạt IELTS 6.5");
         when(rs.getString("gender")).thenReturn("MALE");
+        when(rs.getString("area_ward")).thenReturn("Thanh Xuân");
+        when(rs.getString("area_province")).thenReturn("Hà Nội");
         when(rs.getString("address")).thenReturn("123 Nguyễn Trãi, Thanh Xuân, Hà Nội");
         when(rs.getString("my_message")).thenReturn("Em có kinh nghiệm luyện thi.");
         when(rs.getObject("created_at", OffsetDateTime.class)).thenReturn(CREATED_AT);
@@ -130,7 +132,7 @@ class TutorClassRequestQueryRepositoryTest {
         assertEquals(TUTOR_ID, params.get(0));
         assertEquals("ONLINE", params.get(1));
         assertTrue(params.contains("%ielts%"));
-        assertEquals(6, params.stream().filter("%ielts%"::equals).count());
+        assertEquals(7, params.stream().filter("%ielts%"::equals).count());
         assertEquals(10, params.get(params.size() - 2));
         assertEquals(10L, params.get(params.size() - 1));
     }

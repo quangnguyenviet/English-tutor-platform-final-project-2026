@@ -9,7 +9,7 @@ public record ParentProfileResponse(
         String phone,
         String purpose,
         String province,
-        String district,
+        String ward,
         String address,
         boolean profileComplete,
         List<ChildItem> children) {

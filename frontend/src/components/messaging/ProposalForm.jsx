@@ -8,10 +8,8 @@ const inputClass =
   "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none " +
   "focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white";
 
-const today = () => new Date().toISOString().slice(0, 10);
-
-/** Form tạo đề xuất của gia sư: học sinh (có sẵn hoặc mới), loại lớp, giá, lịch học và buổi dạy thử. */
-export default function ProposalForm({ roomId, childrenOfParent = [], token, onClose, onCreated }) {
+/** Form tạo đề xuất của gia sư: học sinh (có sẵn hoặc mới), loại lớp, giá và lịch học (buổi đầu tiên là buổi học thử). */
+export default function ProposalForm({ roomId, childrenOfParent = [], parentArea, token, onClose, onCreated }) {
   const [studentMode, setStudentMode] = useState(childrenOfParent.length > 0 ? "existing" : "new");
   const [form, setForm] = useState({
     studentId: childrenOfParent[0]?.studentId ?? "",
@@ -22,11 +20,7 @@ export default function ProposalForm({ roomId, childrenOfParent = [], token, onC
     scheduleDays: [],
     scheduleTimeFrom: "19:00",
     scheduleTimeTo: "20:30",
-    trialDate: today(),
-    trialTimeFrom: "19:00",
-    trialTimeTo: "20:00",
     classMode: "ONLINE",
-    learningAddress: "",
     note: "",
   });
   const [saving, setSaving] = useState(false);
@@ -34,8 +28,7 @@ export default function ProposalForm({ roomId, childrenOfParent = [], token, onC
 
   const studentValid = studentMode === "existing" ? Boolean(form.studentId) : form.studentName.trim().length >= 2;
   const valid = useMemo(
-    () => studentValid && Number(form.pricePerSession) >= 10000 && form.scheduleDays.length > 0 && form.trialDate
-      && (form.classMode !== "AT_HOME" || form.learningAddress.trim().length >= 5),
+    () => studentValid && Number(form.pricePerSession) >= 10000 && form.scheduleDays.length > 0,
     [studentValid, form]
   );
 
@@ -57,11 +50,7 @@ export default function ProposalForm({ roomId, childrenOfParent = [], token, onC
         scheduleDays: form.scheduleDays,
         scheduleTimeFrom: form.scheduleTimeFrom,
         scheduleTimeTo: form.scheduleTimeTo,
-        trialDate: form.trialDate,
-        trialTimeFrom: form.trialTimeFrom,
-        trialTimeTo: form.trialTimeTo,
         classMode: form.classMode,
-        learningAddress: form.classMode === "AT_HOME" ? form.learningAddress.trim() : null,
         note: form.note.trim() || null,
       };
       const created = await apiCreateProposal(roomId, payload, token);
@@ -143,21 +132,9 @@ export default function ProposalForm({ roomId, childrenOfParent = [], token, onC
               <input type="time" className={inputClass} value={form.scheduleTimeTo} onChange={(e) => setForm({ ...form, scheduleTimeTo: e.target.value })} />
             </label>
           </div>
-        </section>
-
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Buổi dạy thử</h3>
-          <div className="grid grid-cols-3 gap-3">
-            <label className="col-span-3 space-y-1 text-xs text-slate-500 dark:text-slate-400 sm:col-span-1">Ngày
-              <input type="date" min={today()} className={inputClass} value={form.trialDate} onChange={(e) => setForm({ ...form, trialDate: e.target.value })} />
-            </label>
-            <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">Từ
-              <input type="time" className={inputClass} value={form.trialTimeFrom} onChange={(e) => setForm({ ...form, trialTimeFrom: e.target.value })} />
-            </label>
-            <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">Đến
-              <input type="time" className={inputClass} value={form.trialTimeTo} onChange={(e) => setForm({ ...form, trialTimeTo: e.target.value })} />
-            </label>
-          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Buổi đầu tiên trong lịch học là buổi học thử. Bạn có thể đổi thời gian buổi này ở trang lớp học sau khi phụ huynh đồng ý.
+          </p>
         </section>
 
         <section className="grid gap-3 sm:grid-cols-2">
@@ -168,12 +145,9 @@ export default function ProposalForm({ roomId, childrenOfParent = [], token, onC
             </select>
           </label>
           {form.classMode === "AT_HOME" && (
-            <label className="space-y-1.5 text-sm font-medium text-slate-900 dark:text-white sm:col-span-2">
-              Địa chỉ học
-              <input className={inputClass} maxLength={500} value={form.learningAddress}
-                placeholder="Số nhà, đường, phường/xã, quận/huyện"
-                onChange={(e) => setForm({ ...form, learningAddress: e.target.value })} />
-            </label>
+            <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-800/50 dark:text-slate-300 sm:col-span-2">
+              Học tại địa chỉ nhà mặc định của phụ huynh{parentArea ? ` (${parentArea})` : ""}. Địa chỉ chi tiết không hiển thị cho gia sư.
+            </p>
           )}
           <label className="space-y-1.5 text-sm font-medium text-slate-900 dark:text-white sm:col-span-2">
             Ghi chú (không bắt buộc)

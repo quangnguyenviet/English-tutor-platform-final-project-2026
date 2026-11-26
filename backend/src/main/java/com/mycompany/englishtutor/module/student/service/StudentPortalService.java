@@ -163,13 +163,21 @@ public class StudentPortalService {
                         null, null, null, null);
             case "TRIAL":
                 return virtualItem(cls, occurrence.getDate(), occurrence.getStartTime(), occurrence.getEndTime(),
-                        occurrence.getTeachingMode(), occurrence.getMeetingUrl(), occurrence.getLocation(),
+                        occurrence.getTeachingMode(), occurrence.getMeetingUrl(), trialLocation(cls, occurrence),
                         "Buổi dạy thử");
             case "EXCEPTION":
                 return exceptionItem(cls, occurrence, weekStart, weekEnd);
             default:
                 return null;
         }
+    }
+
+    /** Ca thử tại nhà không ghi địa chỉ riêng thì học tại nhà của học sinh. */
+    private String trialLocation(ClassBrief cls, OccurrenceResponse occurrence) {
+        if (occurrence.getLocation() != null || !"AT_HOME".equals(occurrence.getTeachingMode())) {
+            return occurrence.getLocation();
+        }
+        return repository.findHomeAddress(cls.id()).orElse(null);
     }
 
     private StudentSessionItem exceptionItem(
