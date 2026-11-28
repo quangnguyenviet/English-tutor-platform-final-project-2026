@@ -48,6 +48,8 @@ public class TutorClassRequestQueryRepository {
                    COALESCE(s.school, cr.student_school) AS school,
                    COALESCE(s.learning_goal, cr.student_learning_goal) AS learning_goal,
                    u.gender,
+                   CASE WHEN cr.province IS NOT NULL THEN cr.ward ELSE p.ward END AS area_ward,
+                   COALESCE(cr.province, p.province) AS area_province,
                    p.address,
                    ca.id AS application_id,
                    ca.message AS my_message,
@@ -85,6 +87,8 @@ public class TutorClassRequestQueryRepository {
                    COALESCE(s.school, cr.student_school) AS school,
                    COALESCE(s.learning_goal, cr.student_learning_goal) AS learning_goal,
                    u.gender,
+                   CASE WHEN cr.province IS NOT NULL THEN cr.ward ELSE p.ward END AS area_ward,
+                   COALESCE(cr.province, p.province) AS area_province,
                    p.address
             FROM class_applications ca
             JOIN class_requests cr ON cr.id = ca.class_request_id
@@ -171,10 +175,11 @@ public class TutorClassRequestQueryRepository {
                     .append(" OR unaccent(lower(cr.tutor_requirement)) LIKE ? ESCAPE '\\'")
                     .append(" OR unaccent(lower(COALESCE(s.grade, cr.student_grade))) LIKE ? ESCAPE '\\'")
                     .append(" OR unaccent(lower(COALESCE(s.school, cr.student_school))) LIKE ? ESCAPE '\\'")
-                    .append(" OR unaccent(lower(p.address)) LIKE ? ESCAPE '\\'")
+                    .append(" OR unaccent(lower(CASE WHEN cr.province IS NOT NULL THEN cr.ward ELSE p.ward END)) LIKE ? ESCAPE '\\'")
+                    .append(" OR unaccent(lower(COALESCE(cr.province, p.province))) LIKE ? ESCAPE '\\'")
                     .append(" OR unaccent(lower('LOP-ENG-' || LPAD(cr.id::text, 4, '0'))) LIKE ? ESCAPE '\\'")
                     .append(")");
-            for (int i = 0; i < 6; i++) {
+            for (int i = 0; i < 7; i++) {
                 params.add(pattern);
             }
         }
@@ -183,6 +188,12 @@ public class TutorClassRequestQueryRepository {
     /** Lớp đang ghép lại hiển thị với gia sư như lớp đăng tuyển bình thường. */
     private static String publicStatus(String status) {
         return "REMATCH".equals(status) ? "OPEN" : status;
+    }
+
+    /** Gia sư chỉ thấy phường/xã và tỉnh/thành, không bao giờ thấy địa chỉ chi tiết. */
+    private static String generalLocation(ResultSet resultSet) throws SQLException {
+        return PublicSearchSupport.toGeneralLocation(resultSet.getString("area_ward"),
+                resultSet.getString("area_province"), resultSet.getString("address"));
     }
 
     private static String requestCode(long id) {
@@ -202,7 +213,7 @@ public class TutorClassRequestQueryRepository {
                     .gradeLevel(resultSet.getString("grade"))
                     .studentGender(resultSet.getString("gender"))
                     .teachingMode(resultSet.getString("teaching_mode"))
-                    .generalLocation(PublicSearchSupport.toGeneralLocation(resultSet.getString("address")))
+                    .generalLocation(generalLocation(resultSet))
                     .pricePerSession(resultSet.getBigDecimal("price_per_session"))
                     .preferredSchedule(resultSet.getString("preferred_schedule"))
                     .tutorRequirement(resultSet.getString("tutor_requirement"))
@@ -235,7 +246,7 @@ public class TutorClassRequestQueryRepository {
                             .gradeLevel(resultSet.getString("grade"))
                             .teachingMode(resultSet.getString("teaching_mode"))
                             .generalLocation(
-                                    PublicSearchSupport.toGeneralLocation(resultSet.getString("address")))
+                                    generalLocation(resultSet))
                             .pricePerSession(resultSet.getBigDecimal("price_per_session"))
                             .preferredSchedule(resultSet.getString("preferred_schedule"))
                             .createdAt(resultSet.getObject("request_created_at", OffsetDateTime.class))

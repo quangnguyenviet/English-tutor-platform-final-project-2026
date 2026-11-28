@@ -70,7 +70,9 @@ public class TrialReportTaskRepository {
                    c.active_from, c.end_date,
                    c.trial_date, c.trial_start_time AS trial_start, c.trial_end_time AS trial_end,
                    c.trial_teaching_mode AS trial_mode, c.trial_meeting_url AS trial_meeting_url,
-                   c.trial_location,
+                   COALESCE(c.trial_location, CASE WHEN c.trial_teaching_mode = 'AT_HOME' THEN
+                       (SELECT pa.address FROM students sa JOIN parents pa ON pa.id = sa.parent_id
+                         WHERE sa.id = c.student_id) END) AS trial_location,
                    c.student_id, us.full_name AS student_name,
                    c.tutor_id, ut.full_name AS tutor_name,
                    c.class_request_id, cr.status AS request_status

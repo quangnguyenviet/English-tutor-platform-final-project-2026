@@ -42,7 +42,8 @@ const themePreviews = {
 const TAB_DEFS = {
   admin:   [{ id: "appearance", label: "Giao diện" }, { id: "ai", label: "Cấu hình AI" }, { id: "telegram", label: "Telegram Bot" }, { id: "account", label: "Tài khoản" }],
   tutor:   [{ id: "appearance", label: "Giao diện" }, { id: "account", label: "Tài khoản" }],
-  student: [{ id: "appearance", label: "Giao diện" }, { id: "review", label: "Ôn tập" }, { id: "account", label: "Tài khoản" }],
+  // Học sinh sửa thông tin tài khoản ở Trang cá nhân.
+  student: [{ id: "appearance", label: "Giao diện" }, { id: "review", label: "Ôn tập" }],
 };
 
 const inputClass =

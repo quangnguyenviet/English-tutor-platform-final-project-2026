@@ -10,7 +10,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -53,9 +52,9 @@ class ProposalServiceTest {
         when(fees.currentPercentage("SHORT_TERM")).thenReturn(new BigDecimal("25"));
     }
 
-    private ProposalRequest request(String trialDate, String note) {
+    private ProposalRequest request(String note) {
         return new ProposalRequest(null, "Lê Hoàng Nam", "Lớp 8", null, null, "SHORT_TERM", new BigDecimal("300000"),
-                List.of(2, 4), "19:00", "20:30", trialDate, "19:00", "20:00", "ONLINE", null, note);
+                List.of(2, 4), "19:00", "20:30", "ONLINE", note);
     }
 
     @Test
@@ -63,7 +62,7 @@ class ProposalServiceTest {
         when(messages.hasTwoWayConversation(access)).thenReturn(false);
 
         AppException ex = assertThrows(AppException.class,
-                () -> service.create(5L, request(LocalDate.now().plusDays(2).toString(), null), null));
+                () -> service.create(5L, request(null), null));
 
         assertEquals(ErrorCode.PROPOSAL_NEEDS_CONVERSATION, ex.getErrorCode());
     }
@@ -73,7 +72,7 @@ class ProposalServiceTest {
         when(conflicts.tutorBusy(eq(4L), any())).thenReturn(true);
 
         AppException ex = assertThrows(AppException.class,
-                () -> service.create(5L, request(LocalDate.now().plusDays(2).toString(), null), null));
+                () -> service.create(5L, request(null), null));
 
         assertEquals(ErrorCode.PROPOSAL_TUTOR_BUSY, ex.getErrorCode());
         verify(jdbc, never()).queryForObject(eq("SELECT id FROM chat_rooms WHERE id = ? FOR UPDATE"), eq(Long.class), any(Object.class));
@@ -85,7 +84,7 @@ class ProposalServiceTest {
                 .thenReturn(1);
         when(conflicts.studentBusy(eq(9L), any())).thenReturn(true);
         ProposalRequest r = new ProposalRequest(9L, null, null, null, null, "SHORT_TERM", new BigDecimal("300000"),
-                List.of(2, 4), "19:00", "20:30", LocalDate.now().plusDays(2).toString(), "19:00", "20:00", "ONLINE", null, null);
+                List.of(2, 4), "19:00", "20:30", "ONLINE", null);
 
         AppException ex = assertThrows(AppException.class, () -> service.create(5L, r, null));
 
@@ -93,25 +92,15 @@ class ProposalServiceTest {
     }
 
     @Test
-    void create_trialDateInThePast_isRejectedBeforeAnyWrite() {
-        AppException ex = assertThrows(AppException.class,
-                () -> service.create(5L, request(LocalDate.now().minusDays(2).toString(), null), null));
-
-        assertEquals(ErrorCode.PROPOSAL_INVALID_SCHEDULE, ex.getErrorCode());
-        verify(jdbc, never()).queryForObject(eq("SELECT id FROM chat_rooms WHERE id = ? FOR UPDATE"), eq(Long.class), any(Object.class));
-    }
-
-    @Test
     void create_noteWithPhoneNumber_isBlockedAsContactInfo() {
         assertThrows(PiiBlockedException.class,
-                () -> service.create(5L, request(LocalDate.now().plusDays(2).toString(), "Liên hệ 0981234567"), null));
+                () -> service.create(5L, request("Liên hệ 0981234567"), null));
     }
 
     @Test
     void create_endTimeBeforeStart_isRejected() {
         ProposalRequest bad = new ProposalRequest(null, "Lê Hoàng Nam", null, null, null, "SHORT_TERM",
-                new BigDecimal("300000"), List.of(2), "20:30", "19:00", LocalDate.now().plusDays(2).toString(),
-                "19:00", "20:00", "ONLINE", null, null);
+                new BigDecimal("300000"), List.of(2), "20:30", "19:00", "ONLINE", null);
 
         AppException ex = assertThrows(AppException.class, () -> service.create(5L, bad, null));
 

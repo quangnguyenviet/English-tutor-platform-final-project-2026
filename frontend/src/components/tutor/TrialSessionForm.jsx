@@ -22,18 +22,15 @@ export default function TrialSessionForm({
   onCancel,
   onSubmit,
 }) {
-  const normalizedParentAddress = parentAddress.trim();
+  // Gia sư chỉ nhận khu vực (phường/xã, tỉnh/thành); địa chỉ chi tiết do hệ thống giữ.
+  const parentArea = (parentAddress || "").trim();
   const [sessionDate, setSessionDate] = useState(initial?.sessionDate || "");
   const [startTime, setStartTime] = useState(initial?.startTime || "");
   const [endTime, setEndTime] = useState(initial?.endTime || "");
   const [teachingMode, setTeachingMode] = useState(initial?.teachingMode || "ONLINE");
   const [meetingUrl, setMeetingUrl] = useState(initial?.meetingUrl || "");
   const [location, setLocation] = useState(initial?.location || "");
-  const [locationSource, setLocationSource] = useState(() =>
-    normalizedParentAddress && (!initial?.location || initial.location === normalizedParentAddress)
-      ? "PARENT"
-      : "CUSTOM",
-  );
+  const [locationSource, setLocationSource] = useState(initial?.location ? "CUSTOM" : "PARENT");
   const [localError, setLocalError] = useState("");
 
   const error = localError || serverError;
@@ -58,9 +55,10 @@ export default function TrialSessionForm({
       setLocalError("Vui lòng nhập liên kết phòng học cho buổi học online.");
       return;
     }
-    const selectedLocation = locationSource === "PARENT" ? normalizedParentAddress : location.trim();
-    if (teachingMode === "AT_HOME" && !selectedLocation) {
-      setLocalError("Vui lòng xác nhận địa chỉ cho buổi học tại nhà.");
+    // Để trống địa chỉ nghĩa là dùng địa chỉ nhà phụ huynh.
+    const selectedLocation = locationSource === "PARENT" ? null : location.trim();
+    if (teachingMode === "AT_HOME" && locationSource === "CUSTOM" && !selectedLocation) {
+      setLocalError("Vui lòng nhập địa chỉ cho buổi học thử.");
       return;
     }
 
@@ -171,27 +169,25 @@ export default function TrialSessionForm({
             Địa điểm học thử <span className="text-rose-500">*</span>
           </p>
 
-          {normalizedParentAddress && (
-            <button
-              type="button"
-              aria-pressed={locationSource === "PARENT"}
-              onClick={() => setLocationSource("PARENT")}
-              className={clsx(
-                "flex w-full cursor-pointer items-start gap-2.5 rounded-xl border p-3 text-left transition-all",
-                locationSource === "PARENT"
-                  ? "border-blue-600 bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300",
-              )}
-            >
-              <MapPin size={16} className="mt-0.5 shrink-0" />
-              <span>
-                <span className="block text-xs font-bold">Dùng địa chỉ của phụ huynh</span>
-                <span className="mt-0.5 block text-[11px] font-medium opacity-80">
-                  {normalizedParentAddress}
-                </span>
+          <button
+            type="button"
+            aria-pressed={locationSource === "PARENT"}
+            onClick={() => setLocationSource("PARENT")}
+            className={clsx(
+              "flex w-full cursor-pointer items-start gap-2.5 rounded-xl border p-3 text-left transition-all",
+              locationSource === "PARENT"
+                ? "border-blue-600 bg-blue-50 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200"
+                : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300",
+            )}
+          >
+            <MapPin size={16} className="mt-0.5 shrink-0" />
+            <span>
+              <span className="block text-xs font-bold">Dùng địa chỉ nhà phụ huynh</span>
+              <span className="mt-0.5 block text-[11px] font-medium opacity-80">
+                {parentArea ? `Khu vực: ${parentArea}. ` : ""}Địa chỉ chi tiết được ẩn với gia sư.
               </span>
-            </button>
-          )}
+            </span>
+          </button>
 
           <button
             type="button"

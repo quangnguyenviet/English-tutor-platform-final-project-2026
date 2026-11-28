@@ -140,6 +140,48 @@ class GoogleAuthenticationServiceTest {
     }
 
     @Test
+    void returningParentKeepsNameSavedInProfile() {
+        GoogleIdentity identity = new GoogleIdentity(
+                "google-sub-123", "parent@example.com", "Nguyễn Minh Anh", "https://example.com/new-avatar.png");
+        OAuthAccount account = OAuthAccount.builder()
+                .id(10L)
+                .userId(42L)
+                .provider("GOOGLE")
+                .providerUserId(identity.subject())
+                .build();
+        User user = User.builder()
+                .id(42L)
+                .username("parent_g_123")
+                .fullName("Tên cũ")
+                .email(identity.email())
+                .role(UserRole.PARENT.name())
+                .status("ACTIVE")
+                .build();
+        when(googleOAuthClient.exchangeCode(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(identity);
+        when(oAuthAccountRepository.findByProviderAndProviderUserId("GOOGLE", identity.subject()))
+                .thenReturn(Optional.of(account));
+        when(userRepository.findById(42L)).thenReturn(Optional.of(user));
+        when(userRepository.save(user)).thenReturn(user);
+        when(authenticationService.issueToken(user)).thenReturn("internal-jwt");
+        when(jdbcTemplate.queryForList(
+                        eq("SELECT full_name FROM parents WHERE user_id = ? AND phone IS NOT NULL"),
+                        eq(String.class),
+                        eq(42L)))
+                .thenReturn(java.util.List.of("Tên đã sửa"));
+
+        var response = service.authenticate(request);
+
+        assertThat(response.isNewUser()).isFalse();
+        assertThat(response.getFullName()).isEqualTo("Tên đã sửa");
+        verify(jdbcTemplate).update(
+                eq("UPDATE parents SET full_name = ?, email = ?, updated_at = NOW() WHERE user_id = ?"),
+                eq("Tên đã sửa"),
+                eq(identity.email()),
+                eq(42L));
+    }
+
+    @Test
     void firstGoogleLoginDoesNotClaimExistingUserByEmail() {
         GoogleIdentity identity = new GoogleIdentity(
                 "google-sub-123", "tutor@example.com", "Nguyễn Minh Anh", null);

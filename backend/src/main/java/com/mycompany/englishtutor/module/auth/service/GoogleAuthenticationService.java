@@ -57,7 +57,16 @@ public class GoogleAuthenticationService {
         }
 
         if (!newUser && requestedRole == UserRole.PARENT) {
-            user.setFullName(identity.fullName());
+            // Phụ huynh đã lưu hồ sơ thì giữ tên họ tự đặt, không ghi đè bằng tên Google.
+            String fullName = jdbcTemplate
+                    .queryForList(
+                            "SELECT full_name FROM parents WHERE user_id = ? AND phone IS NOT NULL",
+                            String.class,
+                            user.getId())
+                    .stream()
+                    .findFirst()
+                    .orElse(identity.fullName());
+            user.setFullName(fullName);
             user.setAvatarUrl(identity.avatarUrl());
             user = userRepository.save(user);
 
@@ -67,7 +76,7 @@ public class GoogleAuthenticationService {
             oAuthAccountRepository.save(account);
             jdbcTemplate.update(
                     "UPDATE parents SET full_name = ?, email = ?, updated_at = NOW() WHERE user_id = ?",
-                    identity.fullName(),
+                    fullName,
                     identity.email(),
                     user.getId());
         }

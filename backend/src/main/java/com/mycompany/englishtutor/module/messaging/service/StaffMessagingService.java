@@ -40,13 +40,13 @@ public class StaffMessagingService {
         Object[] args = status == null || status.isBlank() ? new Object[0] : new Object[] {status};
         return jdbcTemplate.query(
                 """
-                SELECT cr.id, cr.status, p.full_name, p.phone, cr.purpose, cr.province, cr.district, cr.class_requirement,
+                SELECT cr.id, cr.status, p.full_name, p.phone, cr.purpose, cr.province, cr.ward, cr.class_requirement,
                        cr.created_at,
                        (SELECT COUNT(*) FROM class_applications ca WHERE ca.class_request_id = cr.id AND ca.status IN ('APPLIED', 'SELECTED')) AS cnt
                 FROM class_requests cr JOIN parents p ON p.id = cr.parent_id
                 WHERE cr.source = 'POSTING' AND """ + " " + filter + " ORDER BY cr.id DESC LIMIT 200",
                 (rs, i) -> new PostingStaffItem(rs.getLong("id"), rs.getString("status"), rs.getString("full_name"),
-                        rs.getString("phone"), rs.getString("purpose"), rs.getString("province"), rs.getString("district"),
+                        rs.getString("phone"), rs.getString("purpose"), rs.getString("province"), rs.getString("ward"),
                         rs.getString("class_requirement"), rs.getInt("cnt"), rs.getTimestamp("created_at").toInstant().toString()),
                 args);
     }
@@ -118,7 +118,7 @@ public class StaffMessagingService {
                 .orElseThrow(() -> new AppException(ErrorCode.CHAT_ROOM_NOT_FOUND));
         MessagePage page = messages.history(roomId, before, limit);
         auditLogService.log(actor.currentUserId(), "VIEW_CHAT_TRANSCRIPT", "CHAT_ROOM", roomId, null, null);
-        return new Transcript(room, page, proposalReader.findByRoom(roomId), listPiiEvents(roomId, null));
+        return new Transcript(room, page, proposalReader.findByRoom(roomId, ChatRoomService.Viewer.STAFF), listPiiEvents(roomId, null));
     }
 
     // ------------------------------------------------------------ log kiểm duyệt

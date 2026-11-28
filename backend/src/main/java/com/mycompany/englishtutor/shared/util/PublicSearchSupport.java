@@ -1,10 +1,11 @@
 package com.mycompany.englishtutor.shared.util;
 
 import java.text.Normalizer;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** Tiện ích dùng chung cho các API tìm kiếm công khai (chuẩn hoá chuỗi, nhóm cấp lớp, giới hạn phân trang). */
 public final class PublicSearchSupport {
@@ -58,21 +59,21 @@ public final class PublicSearchSupport {
     }
 
     /**
-     * Rút gọn địa chỉ phụ huynh thành khu vực chung (2 phần cuối, ví dụ "Quận Cầu Giấy, Hà Nội")
-     * để không lộ địa chỉ nhà cụ thể khi hiển thị công khai / cho gia sư.
+     * Khu vực chung hiển thị công khai / cho gia sư: "Phường/Xã, Tỉnh/Thành phố". Hồ sơ cũ chỉ có địa chỉ tự do
+     * thì lấy duy nhất phần cuối sau dấu phẩy (tỉnh/thành) và chỉ khi phần đó không chứa số nhà.
      */
-    public static String toGeneralLocation(String address) {
-        if (address == null || address.isBlank()) {
+    public static String toGeneralLocation(String ward, String province, String legacyAddress) {
+        String area = Stream.of(ward, province)
+                .filter(part -> part != null && !part.isBlank())
+                .map(String::trim)
+                .collect(Collectors.joining(", "));
+        if (!area.isEmpty()) {
+            return area;
+        }
+        if (legacyAddress == null || !legacyAddress.contains(",")) {
             return null;
         }
-
-        String[] parts = Arrays.stream(address.split(","))
-                .map(String::trim)
-                .filter(part -> !part.isBlank())
-                .toArray(String[]::new);
-        if (parts.length <= 2) {
-            return String.join(", ", parts);
-        }
-        return String.join(", ", Arrays.copyOfRange(parts, parts.length - 2, parts.length));
+        String last = legacyAddress.substring(legacyAddress.lastIndexOf(',') + 1).trim();
+        return last.isEmpty() || last.chars().anyMatch(Character::isDigit) && !last.startsWith("TP") ? null : last;
     }
 }

@@ -38,6 +38,8 @@ public class PublicClassRequestService {
                    COALESCE(s.school, cr.student_school) AS school,
                    COALESCE(s.learning_goal, cr.student_learning_goal) AS learning_goal,
                    u.gender,
+                   CASE WHEN cr.province IS NOT NULL THEN cr.ward ELSE p.ward END AS area_ward,
+                   COALESCE(cr.province, p.province) AS area_province,
                    p.address
             FROM class_requests cr
             LEFT JOIN students s ON s.id = cr.student_id
@@ -125,7 +127,8 @@ public class PublicClassRequestService {
                     .gradeLevel(resultSet.getString("grade"))
                     .studentGender(resultSet.getString("gender"))
                     .teachingMode(resultSet.getString("teaching_mode"))
-                    .generalLocation(PublicSearchSupport.toGeneralLocation(resultSet.getString("address")))
+                    .generalLocation(PublicSearchSupport.toGeneralLocation(resultSet.getString("area_ward"),
+                            resultSet.getString("area_province"), resultSet.getString("address")))
                     .pricePerSession(resultSet.getBigDecimal("price_per_session"))
                     .preferredSchedule(resultSet.getString("preferred_schedule"))
                     .tutorRequirement(resultSet.getString("tutor_requirement"))

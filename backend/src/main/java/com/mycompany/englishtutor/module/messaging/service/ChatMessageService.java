@@ -100,7 +100,7 @@ public class ChatMessageService {
                 : accounts.withUserAuth(access.userId(), auth -> client.history(auth, rocketRoomId, size, before));
 
         Map<String, ProposalItem> proposals = proposalReader
-                .findByRocketMessageIds(raw.stream().map(RcMessage::id).toList())
+                .findByRocketMessageIds(raw.stream().map(RcMessage::id).toList(), access.viewer())
                 .stream()
                 .collect(Collectors.toMap(p -> proposalReader.rocketMessageId(p.id()).orElse(""), Function.identity(), (a, b) -> a));
 

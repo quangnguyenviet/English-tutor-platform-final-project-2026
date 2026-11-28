@@ -141,7 +141,8 @@ public class TutorClassService {
         if (MODE_ONLINE.equals(mode) && meetingUrl == null) {
             throw new AppException(ErrorCode.TRIAL_SESSION_MISSING_MEETING_URL);
         }
-        if (MODE_AT_HOME.equals(mode) && location == null) {
+        // Tại nhà mà không nhập địa chỉ khác nghĩa là dùng địa chỉ nhà phụ huynh (gia sư không được xem chi tiết).
+        if (MODE_AT_HOME.equals(mode) && location == null && !classroomRepository.hasHomeAddress(classId)) {
             throw new AppException(ErrorCode.TRIAL_SESSION_MISSING_LOCATION);
         }
 

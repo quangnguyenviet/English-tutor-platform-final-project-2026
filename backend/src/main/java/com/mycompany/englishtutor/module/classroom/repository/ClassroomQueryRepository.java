@@ -185,7 +185,7 @@ public class ClassroomQueryRepository {
                    p.full_name AS parent_name,
                    p.phone     AS parent_phone,
                    p.email     AS parent_email,
-                   p.address   AS parent_address,
+                   NULLIF(concat_ws(', ', NULLIF(p.ward, ''), NULLIF(p.province, '')), '') AS parent_address,
                    c.trial_date AS trial_date,
                    c.trial_start_time AS trial_start,
                    c.trial_end_time AS trial_end,
@@ -447,6 +447,18 @@ public class ClassroomQueryRepository {
     }
 
     // ------------------------------------------------- CA THỬ (classes.trial_*)
+
+    /** Phụ huynh của học sinh trong lớp đã có địa chỉ nhà mặc định hay chưa. */
+    public boolean hasHomeAddress(Long classId) {
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                """
+                SELECT EXISTS (SELECT 1 FROM classes c JOIN students s ON s.id = c.student_id
+                    JOIN parents p ON p.id = s.parent_id
+                    WHERE c.id = ? AND NULLIF(TRIM(p.address), '') IS NOT NULL)
+                """,
+                Boolean.class,
+                classId));
+    }
 
     /** Ghi / cập nhật 6 cột ca thử trên dòng lớp (chỉ khi status = TRIAL). */
     public void upsertTrialSlot(

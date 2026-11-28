@@ -112,7 +112,9 @@ public class StudentPortalRepository {
                    CASE WHEN c.trial_date = t.log_date AND c.trial_start_time = t.start_time
                         THEN c.trial_meeting_url END AS meeting_url,
                    CASE WHEN c.trial_date = t.log_date AND c.trial_start_time = t.start_time
-                        THEN c.trial_location END AS location,
+                        THEN COALESCE(c.trial_location, CASE WHEN c.trial_teaching_mode = 'AT_HOME' THEN
+                       (SELECT pa.address FROM students sa JOIN parents pa ON pa.id = sa.parent_id
+                         WHERE sa.id = c.student_id) END) END AS location,
                    TRUE AS has_log,
                    t.knowledge AS log_knowledge, t.homework AS log_homework,
                    ROW_NUMBER() OVER (PARTITION BY t.class_id
@@ -286,7 +288,10 @@ public class StudentPortalRepository {
                                    NULL, NULL, c.trial_start_time, c.trial_end_time,
                                    CASE WHEN c.trial_date IS NULL THEN NULL
                                         WHEN c.trial_date >= CURRENT_DATE THEN 'SCHEDULED' ELSE NULL END,
-                                   c.trial_teaching_mode, c.trial_meeting_url, c.trial_location,
+                                   c.trial_teaching_mode, c.trial_meeting_url,
+                                   COALESCE(c.trial_location, CASE WHEN c.trial_teaching_mode = 'AT_HOME' THEN
+                       (SELECT pa.address FROM students sa JOIN parents pa ON pa.id = sa.parent_id
+                         WHERE sa.id = c.student_id) END),
                                    c.trial_date, 1 AS kind
                             FROM classes c
                             JOIN users u ON u.id = c.tutor_id
@@ -402,6 +407,20 @@ public class StudentPortalRepository {
     }
 
     /** Chi tiết lớp dạng chỉ đọc; điều kiện student_id đồng thời là ownership guard. */
+    /** Địa chỉ nhà phụ huynh của học sinh trong lớp (nơi học thử tại nhà mặc định). */
+    public Optional<String> findHomeAddress(Long classId) {
+        return jdbc.queryForList(
+                        """
+                        SELECT p.address FROM classes c JOIN students s ON s.id = c.student_id
+                        JOIN parents p ON p.id = s.parent_id WHERE c.id = ?
+                        """,
+                        String.class,
+                        classId)
+                .stream()
+                .filter(java.util.Objects::nonNull)
+                .findFirst();
+    }
+
     public Optional<StudentClassDetail> findClassDetail(Long classId, Long studentId) {
         return jdbc.query(
                         """
@@ -409,7 +428,10 @@ public class StudentPortalRepository {
                                c.active_from, c.created_at, c.tutor_id, t.full_name AS tutor_name,
                                s.school, s.grade, s.learning_goal,
                                c.trial_date, c.trial_start_time, c.trial_end_time,
-                               c.trial_teaching_mode, c.trial_meeting_url, c.trial_location,
+                               c.trial_teaching_mode, c.trial_meeting_url,
+                               COALESCE(c.trial_location, CASE WHEN c.trial_teaching_mode = 'AT_HOME' THEN
+                       (SELECT pa.address FROM students sa JOIN parents pa ON pa.id = sa.parent_id
+                         WHERE sa.id = c.student_id) END) AS trial_location,
                                (SELECT COUNT(*) FROM teaching_logs tl WHERE tl.class_id = c.id) AS completed_sessions,
                                (SELECT COUNT(*) FROM lessons l
                                  WHERE l.class_id = c.id AND l.status = 'PUBLISHED') AS lesson_count,

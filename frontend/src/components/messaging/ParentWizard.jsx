@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Loader2, Pencil } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import Button from "../ui/Button";
@@ -16,7 +16,7 @@ const inputClass =
  * SĐT, mục đích học, khu vực + địa chỉ nhà (địa chỉ mặc định khi học tại nhà).
  * Không có bước chọn con: học sinh được gia sư khai trong đề xuất.
  */
-export default function ParentWizard({ initial, token, onDone, onCancel }) {
+export default function ParentWizard({ initial, token, onDone, onCancel, submitLabel = "Lưu và tiếp tục", cancelLabel = "Để sau" }) {
   const { session } = useAuth();
   const defaultName = initial?.fullName || session?.name || "";
   const [form, setForm] = useState({
@@ -24,17 +24,12 @@ export default function ParentWizard({ initial, token, onDone, onCancel }) {
     fullName: defaultName,
     purpose: initial?.purpose || "",
     province: initial?.province || "",
-    district: initial?.district || "",
+    ward: initial?.ward || "",
     address: initial?.address || "",
   });
   const [editingName, setEditingName] = useState(!defaultName);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  const districts = useMemo(
-    () => provincesAndDistricts.find((p) => p.province === form.province)?.districts || [],
-    [form.province]
-  );
 
   const phoneClean = form.phone.replace(/[\s.\-()]/g, "");
   const phoneValid = PHONE_PATTERN.test(phoneClean);
@@ -42,7 +37,8 @@ export default function ParentWizard({ initial, token, onDone, onCancel }) {
     phoneValid &&
     form.fullName.trim().length >= 2 &&
     Boolean(form.purpose) &&
-    Boolean(form.province && form.district) &&
+    Boolean(form.province) &&
+    form.ward.trim().length >= 2 &&
     form.address.trim().length >= 5;
 
   async function finish(event) {
@@ -52,7 +48,7 @@ export default function ParentWizard({ initial, token, onDone, onCancel }) {
     setError("");
     try {
       const profile = await apiSaveParentProfile(
-        { ...form, phone: phoneClean, fullName: form.fullName.trim(), address: form.address.trim() }, token);
+        { ...form, phone: phoneClean, fullName: form.fullName.trim(), ward: form.ward.trim(), address: form.address.trim() }, token);
       onDone(profile);
     } catch (e) {
       setError(e.message || "Không thể lưu thông tin");
@@ -79,7 +75,7 @@ export default function ParentWizard({ initial, token, onDone, onCancel }) {
             </button>
           </div>
         )}
-        {!editingName && <p className="text-xs text-slate-500 dark:text-slate-400">Lấy theo tài khoản Google của bạn.</p>}
+        {!editingName && <p className="text-xs text-slate-500 dark:text-slate-400">Mặc định theo tài khoản Google, bấm Sửa để đổi.</p>}
       </div>
 
       <div className="space-y-1.5">
@@ -102,37 +98,34 @@ export default function ParentWizard({ initial, token, onDone, onCancel }) {
         <div className="space-y-1.5">
           <label className={labelClass} htmlFor="wz-province">Tỉnh / Thành phố</label>
           <select id="wz-province" className={inputClass} value={form.province}
-            onChange={(e) => setForm({ ...form, province: e.target.value, district: "" })}>
+            onChange={(e) => setForm({ ...form, province: e.target.value })}>
             <option value="">Chọn tỉnh / thành phố</option>
             {provincesAndDistricts.map((p) => <option key={p.province} value={p.province}>{p.province}</option>)}
           </select>
         </div>
         <div className="space-y-1.5">
-          <label className={labelClass} htmlFor="wz-district">Quận / Huyện</label>
-          <select id="wz-district" className={inputClass} value={form.district} disabled={!form.province}
-            onChange={(e) => setForm({ ...form, district: e.target.value })}>
-            <option value="">Chọn quận / huyện</option>
-            {districts.map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
+          <label className={labelClass} htmlFor="wz-ward">Phường / Xã</label>
+          <input id="wz-ward" className={inputClass} maxLength={100} placeholder="VD: Phường Thanh Xuân" value={form.ward}
+            onChange={(e) => setForm({ ...form, ward: e.target.value })} />
         </div>
       </div>
 
       <div className="space-y-1.5">
-        <label className={labelClass} htmlFor="wz-address">Địa chỉ nhà (số nhà, đường, phường/xã)</label>
-        <input id="wz-address" className={inputClass} maxLength={500} placeholder="VD: 25 Nguyễn Trãi, phường Thanh Xuân Trung" value={form.address}
+        <label className={labelClass} htmlFor="wz-address">Địa chỉ chi tiết (số nhà, đường)</label>
+        <input id="wz-address" className={inputClass} maxLength={500} placeholder="VD: Số 25, ngõ 12 Nguyễn Trãi" value={form.address}
           onChange={(e) => setForm({ ...form, address: e.target.value })} />
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Dùng làm địa chỉ học mặc định khi gia sư đề xuất dạy tại nhà. Gia sư chỉ thấy địa chỉ trong đề xuất.
+          Dùng làm địa chỉ học mặc định khi học tại nhà. Gia sư chỉ thấy phường/xã và tỉnh/thành phố, không thấy địa chỉ chi tiết.
         </p>
       </div>
 
       {error && <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
 
       <div className="flex items-center justify-between gap-3">
-        <Button type="button" variant="ghost" onClick={onCancel} disabled={saving} className="cursor-pointer">Để sau</Button>
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={saving} className="cursor-pointer">{cancelLabel}</Button>
         <Button type="submit" disabled={!allValid || saving} className="cursor-pointer">
           {saving && <Loader2 size={16} className="animate-spin" />}
-          Lưu và tiếp tục
+          {submitLabel}
         </Button>
       </div>
     </form>

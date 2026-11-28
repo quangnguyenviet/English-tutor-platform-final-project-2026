@@ -54,7 +54,7 @@ export function SiteHeader() {
           {session ? (
             <>
               <Link
-                to={isParent ? "/parent/messages" : (ROLE_ROUTES[session.role] ?? "/")}
+                to={isParent ? "/parent/profile" : (ROLE_ROUTES[session.role] ?? "/")}
                 className="hidden sm:block max-w-[12rem] text-right leading-tight"
                 title="Vào khu vực của tôi"
               >

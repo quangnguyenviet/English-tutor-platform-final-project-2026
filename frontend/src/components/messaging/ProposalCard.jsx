@@ -87,10 +87,12 @@ export default function ProposalCard({ proposal, viewer, token, onAccept, onReje
           </dd>
         </div>
         <div className="col-span-2">
-          <dt className="text-xs text-slate-500 dark:text-slate-400">Buổi dạy thử</dt>
+          <dt className="text-xs text-slate-500 dark:text-slate-400">Buổi học thử</dt>
           <dd className="flex items-center gap-1.5 text-slate-900 dark:text-white">
             <CalendarDays size={14} className="text-slate-400" />
-            {formatDate(proposal.trialDate)}, {formatTime(proposal.trialTimeFrom)} – {formatTime(proposal.trialTimeTo)}
+            {proposal.status === "ACCEPTED"
+              ? `${formatDate(proposal.trialDate)}, ${formatTime(proposal.trialTimeFrom)} – ${formatTime(proposal.trialTimeTo)}`
+              : "Buổi đầu tiên trong lịch học"}
           </dd>
         </div>
         <div>
@@ -99,7 +101,7 @@ export default function ProposalCard({ proposal, viewer, token, onAccept, onReje
         </div>
         {proposal.classMode === "AT_HOME" && proposal.learningAddress && (
           <div className="col-span-2">
-            <dt className="text-xs text-slate-500 dark:text-slate-400">Địa chỉ học</dt>
+            <dt className="text-xs text-slate-500 dark:text-slate-400">{viewer === "TUTOR" ? "Khu vực học" : "Địa chỉ học"}</dt>
             <dd className="text-slate-900 dark:text-white">{proposal.learningAddress}</dd>
           </div>
         )}

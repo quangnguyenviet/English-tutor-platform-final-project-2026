@@ -96,7 +96,7 @@ function PostingsTab({ token }) {
                 {p.status === "OPEN" && <span className="text-xs text-slate-500">{p.applicantCount} ứng viên</span>}
               </div>
               <p className="text-sm font-semibold text-slate-900 dark:text-white">{p.parentName} · <span className="font-mono font-normal">{p.parentPhone}</span></p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">{purposeLabel(p.purpose)} · {[p.district, p.province].filter(Boolean).join(", ")} · {dateTime(p.createdAt)}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{purposeLabel(p.purpose)} · {[p.ward, p.province].filter(Boolean).join(", ")} · {dateTime(p.createdAt)}</p>
               <p className="text-sm text-slate-600 dark:text-slate-300">{p.note}</p>
             </div>
             <div className="flex shrink-0 gap-2">

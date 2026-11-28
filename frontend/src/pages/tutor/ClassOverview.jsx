@@ -60,7 +60,8 @@ export default function ClassOverview() {
     openReportForm,
   } = useOutletContext();
 
-  const canEditTrial = detail.status === "TRIAL" && detail.trialSession?.status === "SCHEDULED";
+  // Lớp còn học thử thì gia sư đổi được thời gian buổi thử bất cứ lúc nào.
+  const canEditTrial = detail.status === "TRIAL" && Boolean(detail.trialSession);
   const showFixedSchedule = detail.status === "ACTIVE";
   const hasParentInfo = Boolean(
     detail.parentName || detail.parentPhone || detail.parentEmail || detail.parentAddress,
@@ -154,7 +155,7 @@ export default function ClassOverview() {
                 )
               }
             />
-            <InfoItem icon={MapPin} label="Địa chỉ" value={detail.parentAddress} />
+            <InfoItem icon={MapPin} label="Khu vực" value={detail.parentAddress} />
           </div>
         </Card>
       )}
@@ -230,12 +231,12 @@ export default function ClassOverview() {
                 <Video size={14} /> Vào phòng học online <ExternalLink size={12} />
               </a>
             ) : (
-              detail.trialSession.teachingMode === "AT_HOME" &&
-              detail.trialSession.location && (
+              detail.trialSession.teachingMode === "AT_HOME" && (
                 <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-white p-3 text-xs dark:border-slate-800 dark:bg-slate-900">
                   <MapPin size={14} className="mt-0.5 shrink-0 text-rose-500" />
                   <span className="text-slate-700 dark:text-slate-300">
-                    Địa chỉ nhà học sinh: <strong>{detail.trialSession.location}</strong>
+                    {detail.trialSession.location ? "Địa chỉ học: " : "Học tại nhà phụ huynh: "}
+                    <strong>{detail.trialSession.location || detail.parentAddress || "chưa có thông tin khu vực"}</strong>
                   </span>
                 </div>
               )
