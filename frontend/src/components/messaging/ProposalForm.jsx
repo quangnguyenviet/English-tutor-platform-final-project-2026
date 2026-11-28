@@ -2,14 +2,16 @@ import { useMemo, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import clsx from "clsx";
 import Button from "../ui/Button";
-import { CLASS_MODE_LABEL, CLASS_TYPE_LABEL, DAY_LABEL, apiCreateProposal } from "../../lib/messagingApi";
+import { CLASS_MODE_LABEL, CLASS_TYPE_LABEL, apiCreateProposal } from "../../lib/messagingApi";
+import ScheduleFields from "./ScheduleFields";
+import { isSlotValid, startDateError } from "./proposalSchedule";
 
 const inputClass =
   "w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none " +
   "focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white";
 
-/** Form tạo đề xuất của gia sư: học sinh (có sẵn hoặc mới), loại lớp, giá và lịch học (buổi đầu tiên là buổi học thử). */
-export default function ProposalForm({ roomId, childrenOfParent = [], parentArea, token, onClose, onCreated }) {
+/** Form tạo đề xuất của gia sư: học sinh (có sẵn hoặc mới), loại lớp, giá và lịch học (buổi đầu tiên từ ngày bắt đầu là buổi học thử). */
+export default function ProposalForm({ roomId, childrenOfParent = [], token, onClose, onCreated }) {
   const [studentMode, setStudentMode] = useState(childrenOfParent.length > 0 ? "existing" : "new");
   const [form, setForm] = useState({
     studentId: childrenOfParent[0]?.studentId ?? "",
@@ -17,9 +19,8 @@ export default function ProposalForm({ roomId, childrenOfParent = [], parentArea
     studentGrade: "",
     classType: "REGULAR",
     pricePerSession: "",
-    scheduleDays: [],
-    scheduleTimeFrom: "19:00",
-    scheduleTimeTo: "20:30",
+    scheduleSlots: [],
+    startDate: "",
     classMode: "ONLINE",
     note: "",
   });
@@ -28,12 +29,15 @@ export default function ProposalForm({ roomId, childrenOfParent = [], parentArea
 
   const studentValid = studentMode === "existing" ? Boolean(form.studentId) : form.studentName.trim().length >= 2;
   const valid = useMemo(
-    () => studentValid && Number(form.pricePerSession) >= 10000 && form.scheduleDays.length > 0,
+    () =>
+      studentValid &&
+      Number(form.pricePerSession) >= 10000 &&
+      form.scheduleSlots.length > 0 &&
+      form.scheduleSlots.every(isSlotValid) &&
+      Boolean(form.startDate) &&
+      !startDateError(form.startDate),
     [studentValid, form]
   );
-
-  const toggleDay = (day) =>
-    setForm((f) => ({ ...f, scheduleDays: f.scheduleDays.includes(day) ? f.scheduleDays.filter((d) => d !== day) : [...f.scheduleDays, day].sort() }));
 
   async function submit(e) {
     e.preventDefault();
@@ -47,9 +51,8 @@ export default function ProposalForm({ roomId, childrenOfParent = [], parentArea
         studentGrade: studentMode === "new" ? form.studentGrade.trim() || null : null,
         classType: form.classType,
         pricePerSession: Number(form.pricePerSession),
-        scheduleDays: form.scheduleDays,
-        scheduleTimeFrom: form.scheduleTimeFrom,
-        scheduleTimeTo: form.scheduleTimeTo,
+        scheduleSlots: form.scheduleSlots,
+        startDate: form.startDate,
         classMode: form.classMode,
         note: form.note.trim() || null,
       };
@@ -109,33 +112,13 @@ export default function ProposalForm({ roomId, childrenOfParent = [], parentArea
           </label>
         </section>
 
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Lịch học hằng tuần</h3>
-          <div className="flex flex-wrap gap-1.5">
-            {Object.entries(DAY_LABEL).map(([day, label]) => {
-              const value = Number(day);
-              const active = form.scheduleDays.includes(value);
-              return (
-                <button key={day} type="button" onClick={() => toggleDay(value)} aria-pressed={active}
-                  className={clsx("h-9 min-w-[44px] cursor-pointer rounded-lg border text-sm font-medium transition-colors",
-                    active ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 text-slate-700 hover:border-blue-300 dark:border-slate-700 dark:text-slate-200")}>
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">Giờ bắt đầu
-              <input type="time" className={inputClass} value={form.scheduleTimeFrom} onChange={(e) => setForm({ ...form, scheduleTimeFrom: e.target.value })} />
-            </label>
-            <label className="space-y-1 text-xs text-slate-500 dark:text-slate-400">Giờ kết thúc
-              <input type="time" className={inputClass} value={form.scheduleTimeTo} onChange={(e) => setForm({ ...form, scheduleTimeTo: e.target.value })} />
-            </label>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Buổi đầu tiên trong lịch học là buổi học thử. Bạn có thể đổi thời gian buổi này ở trang lớp học sau khi phụ huynh đồng ý.
-          </p>
-        </section>
+        <ScheduleFields
+          slots={form.scheduleSlots}
+          startDate={form.startDate}
+          inputClass={inputClass}
+          onSlotsChange={(scheduleSlots) => setForm((f) => ({ ...f, scheduleSlots }))}
+          onStartDateChange={(startDate) => setForm((f) => ({ ...f, startDate }))}
+        />
 
         <section className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-1.5 text-sm font-medium text-slate-900 dark:text-white">
@@ -144,11 +127,6 @@ export default function ProposalForm({ roomId, childrenOfParent = [], parentArea
               {Object.entries(CLASS_MODE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
-          {form.classMode === "AT_HOME" && (
-            <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-800/50 dark:text-slate-300 sm:col-span-2">
-              Học tại địa chỉ nhà mặc định của phụ huynh{parentArea ? ` (${parentArea})` : ""}. Địa chỉ chi tiết không hiển thị cho gia sư.
-            </p>
-          )}
           <label className="space-y-1.5 text-sm font-medium text-slate-900 dark:text-white sm:col-span-2">
             Ghi chú (không bắt buộc)
             <textarea rows={2} maxLength={1000} className={inputClass} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />

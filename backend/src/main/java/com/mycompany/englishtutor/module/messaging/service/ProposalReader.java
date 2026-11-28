@@ -1,9 +1,8 @@
 package com.mycompany.englishtutor.module.messaging.service;
 
-import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -13,6 +12,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 
 import com.mycompany.englishtutor.module.messaging.api.ChatDtos.ProposalItem;
+import com.mycompany.englishtutor.module.messaging.api.ChatDtos.ScheduleSlot;
 import com.mycompany.englishtutor.module.messaging.api.ChatDtos.StudentInfo;
 import com.mycompany.englishtutor.module.messaging.service.ChatRoomService.Viewer;
 
@@ -29,8 +29,9 @@ public class ProposalReader {
                    COALESCE(s.grade, p.student_grade) AS student_grade,
                    COALESCE(s.school, p.student_school) AS student_school,
                    COALESCE(s.learning_goal, p.student_learning_goal) AS student_goal,
-                   p.class_type, p.fee_percentage, p.price_per_session, p.schedule_days,
-                   p.schedule_time_from, p.schedule_time_to,
+                   p.class_type, p.fee_percentage, p.price_per_session, p.start_date,
+                   ARRAY(SELECT day_of_week::text || ',' || to_char(start_time, 'HH24:MI') || ',' || to_char(end_time, 'HH24:MI')
+                         FROM proposal_schedule_slots WHERE proposal_id = p.id ORDER BY day_of_week) AS schedule_slots,
                    COALESCE(tc.trial_date, p.trial_date) AS trial_date,
                    COALESCE(tc.trial_start_time, p.trial_time_from) AS trial_time_from,
                    COALESCE(tc.trial_end_time, p.trial_time_to) AS trial_time_to,
@@ -40,9 +41,9 @@ public class ProposalReader {
                    tc.id AS class_id,
                    (p.status = 'PENDING' AND p.student_id IS NOT NULL AND EXISTS (
                         SELECT 1 FROM class_schedules cs JOIN classes c ON c.id = cs.class_id
+                        JOIN proposal_schedule_slots ps ON ps.proposal_id = p.id AND ps.day_of_week = cs.day_of_week
                         WHERE c.student_id = p.student_id AND c.status IN ('TRIAL', 'ACTIVE')
-                          AND cs.day_of_week = ANY (p.schedule_days)
-                          AND cs.start_time < p.schedule_time_to AND cs.end_time > p.schedule_time_from
+                          AND cs.start_time < ps.end_time AND cs.end_time > ps.start_time
                    )) AS student_conflict
             FROM proposal_messages p
             JOIN chat_rooms cr ON cr.id = p.room_id
@@ -86,13 +87,6 @@ public class ProposalReader {
 
     private ProposalItem map(ResultSet rs, Viewer viewer) throws SQLException {
         Long studentId = rs.getObject("student_id") == null ? null : rs.getLong("student_id");
-        Array daysArray = rs.getArray("schedule_days");
-        List<Integer> days = new ArrayList<>();
-        if (daysArray != null) {
-            for (Object o : (Object[]) daysArray.getArray()) {
-                days.add(((Number) o).intValue());
-            }
-        }
         return new ProposalItem(
                 rs.getLong("id"),
                 rs.getLong("room_id"),
@@ -103,9 +97,8 @@ public class ProposalReader {
                 rs.getString("class_type"),
                 rs.getBigDecimal("fee_percentage"),
                 rs.getBigDecimal("price_per_session"),
-                days,
-                rs.getString("schedule_time_from"),
-                rs.getString("schedule_time_to"),
+                rs.getString("start_date"),
+                scheduleSlots(rs),
                 rs.getString("trial_date"),
                 rs.getString("trial_time_from"),
                 rs.getString("trial_time_to"),
@@ -119,6 +112,15 @@ public class ProposalReader {
                 rs.getBoolean("student_conflict"),
                 visibleAddress(rs, viewer),
                 rs.getString("parent_phone"));
+    }
+
+    /** Mỗi phần tử mảng có dạng {@code thứ,HH:mm,HH:mm}. */
+    private static List<ScheduleSlot> scheduleSlots(ResultSet rs) throws SQLException {
+        String[] rows = (String[]) rs.getArray("schedule_slots").getArray();
+        return Arrays.stream(rows)
+                .map(row -> row.split(","))
+                .map(part -> new ScheduleSlot(Integer.valueOf(part[0]), part[1], part[2]))
+                .toList();
     }
 
     /** Gia sư chỉ thấy phường/xã, tỉnh/thành; địa chỉ chi tiết chỉ dành cho phụ huynh và nhân viên. */

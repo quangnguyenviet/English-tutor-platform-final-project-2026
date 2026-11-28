@@ -3,7 +3,9 @@ package com.mycompany.englishtutor.module.messaging.api;
 import java.math.BigDecimal;
 import java.util.List;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -48,6 +50,12 @@ public final class ChatDtos {
     /** Tài khoản học sinh tạo lần đầu; password chỉ có khi học sinh chưa đổi mật khẩu mặc định. */
     public record StudentAccountInfo(String studentName, String username, String initialPassword, boolean passwordChanged) {}
 
+    /** Khung giờ học của một thứ: {@code dayOfWeek} 1 = Thứ 2 … 7 = Chủ nhật, giờ dạng HH:mm. */
+    public record ScheduleSlot(
+            @NotNull(message = "Vui lòng chọn thứ trong tuần") Integer dayOfWeek,
+            @NotBlank(message = "Vui lòng nhập giờ bắt đầu") String startTime,
+            @NotBlank(message = "Vui lòng nhập giờ kết thúc") String endTime) {}
+
     /**
      * {@code learningAddress}: địa chỉ học tại nhà lấy theo hồ sơ phụ huynh; gia sư chỉ nhận phường/xã, tỉnh/thành.
      * {@code parentPhone}:
@@ -62,9 +70,8 @@ public final class ChatDtos {
             String classType,
             BigDecimal feePercentage,
             BigDecimal pricePerSession,
-            List<Integer> scheduleDays,
-            String scheduleTimeFrom,
-            String scheduleTimeTo,
+            String startDate,
+            List<ScheduleSlot> scheduleSlots,
             String trialDate,
             String trialTimeFrom,
             String trialTimeTo,
@@ -115,9 +122,8 @@ public final class ChatDtos {
             @Size(max = 1000) String studentLearningGoal,
             @NotBlank(message = "Vui lòng chọn loại lớp") String classType,
             @NotNull(message = "Vui lòng nhập học phí mỗi buổi") BigDecimal pricePerSession,
-            @NotNull(message = "Vui lòng chọn thứ trong tuần") List<Integer> scheduleDays,
-            @NotBlank(message = "Vui lòng nhập giờ bắt đầu") String scheduleTimeFrom,
-            @NotBlank(message = "Vui lòng nhập giờ kết thúc") String scheduleTimeTo,
+            @NotBlank(message = "Vui lòng chọn ngày bắt đầu học") String startDate,
+            @NotEmpty(message = "Vui lòng chọn thứ trong tuần") List<@NotNull @Valid ScheduleSlot> scheduleSlots,
             @NotBlank(message = "Vui lòng chọn hình thức dạy") String classMode,
             @Size(max = 1000) String note) {}
 

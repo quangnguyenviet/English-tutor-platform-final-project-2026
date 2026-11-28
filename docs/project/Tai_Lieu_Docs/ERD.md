@@ -757,9 +757,8 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `class_type` | `VARCHAR(20)` | NN | `SHORT_TERM`, `REGULAR` |
 | `fee_percentage` | `DECIMAL(5,2)` | NN | Tỷ lệ phí chụp từ `platform_fee_policies` lúc tạo |
 | `price_per_session` | `DECIMAL(12,0)` | NN, > 0 | Học phí mỗi buổi |
-| `schedule_days` | `INT[]` | NN | Thứ trong tuần (1 = T2 ... 7 = CN) |
-| `schedule_time_from/to` | `TIME` | NN | Giờ bắt đầu - kết thúc mỗi buổi |
-| `trial_date`, `trial_time_from/to` | `DATE`, `TIME` | NN | Buổi dạy thử do gia sư đặt |
+| `start_date` | `DATE` | NN (V34) | Ngày bắt đầu học (ngày bất kỳ, không ở quá khứ khi tạo) |
+| `trial_date`, `trial_time_from/to` | `DATE`, `TIME` | NN | Buổi dạy thử: buổi đầu tiên trong lịch tính từ `start_date` |
 | `class_mode` | `VARCHAR(20)` | NN | `AT_HOME`, `ONLINE` |
 | `learning_address` | `VARCHAR(500)` | NULL (V29) | Địa chỉ học offline: với đề xuất `class_mode = AT_HOME`, gia sư chốt địa chỉ học tại thời điểm tạo đề xuất — lấy từ `parents.address` (địa chỉ mặc định của phụ huynh, phải có trước khi nhắn tin); NULL với đề xuất `ONLINE` |
 | `note` | `TEXT` | | Ghi chú (quét PII như tin nhắn) |
@@ -769,6 +768,14 @@ MongoDB │ Chat AI                          │ ai_chat_messages (MongoDB colle
 | `created_at`, `expires_at` | `TIMESTAMPTZ` | NN | Hết hạn sau 7 ngày nếu `PENDING` |
 
 > Partial UNIQUE: mỗi học sinh tối đa một đề xuất `PENDING` trong một room (theo `student_id`, hoặc theo `LOWER(student_name)` với học sinh mới).
+
+#### Bảng `proposal_schedule_slots` (V34)
+
+| Thuộc tính | Kiểu dữ liệu | Ràng buộc | Giải thích |
+|---|---|---|---|
+| `proposal_id` | `BIGINT` | PK, FK → proposal_messages.id (ON DELETE CASCADE) | Đề xuất chứa khung giờ |
+| `day_of_week` | `SMALLINT` | PK, CHECK 1-7 | Thứ trong tuần (1 = T2 ... 7 = CN) |
+| `start_time`, `end_time` | `TIME` | NN, `start_time < end_time` | Giờ học riêng của thứ đó |
 
 #### Bảng `platform_fee_policies`
 
