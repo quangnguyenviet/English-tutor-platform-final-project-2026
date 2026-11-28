@@ -225,5 +225,13 @@ export const formatVnd = (value) =>
 
 export const formatTime = (value) => (value ? String(value).slice(0, 5) : "");
 
+/** "2026-12-01" → "T3, 01/12/2026". */
+export const formatSessionDate = (value) => {
+  if (!value) return "";
+  const date = new Date(`${value}T00:00:00`);
+  const dayLabel = DAY_LABEL[date.getDay() || 7];
+  return `${dayLabel}, ${date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })}`;
+};
+
 export const initialsOf = (name) =>
   (name || "?").trim().split(/\s+/).slice(-2).map((w) => w[0]).join("").toUpperCase();

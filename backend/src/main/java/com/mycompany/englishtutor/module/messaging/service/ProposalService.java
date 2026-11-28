@@ -4,11 +4,13 @@ import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.TreeSet;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -19,11 +21,14 @@ import com.mycompany.englishtutor.module.audit.service.AuditLogService;
 import com.mycompany.englishtutor.module.messaging.api.ChatDtos.PiiViolationItem;
 import com.mycompany.englishtutor.module.messaging.api.ChatDtos.ProposalItem;
 import com.mycompany.englishtutor.module.messaging.api.ChatDtos.ProposalRequest;
+import com.mycompany.englishtutor.module.messaging.api.ChatDtos.ScheduleSlot;
 import com.mycompany.englishtutor.module.messaging.config.MessagingProperties;
 import com.mycompany.englishtutor.module.messaging.pii.PiiDetector;
 import com.mycompany.englishtutor.module.messaging.rocketchat.RocketChatClient;
 import com.mycompany.englishtutor.module.messaging.service.ChatRoomService.Access;
 import com.mycompany.englishtutor.module.messaging.service.ChatRoomService.Viewer;
+import com.mycompany.englishtutor.module.messaging.service.TrialSessionPlanner.TrialSession;
+import com.mycompany.englishtutor.module.messaging.service.TrialSessionPlanner.WeeklySlot;
 import com.mycompany.englishtutor.shared.exception.AppException;
 import com.mycompany.englishtutor.shared.exception.ErrorCode;
 
@@ -97,8 +102,9 @@ public class ProposalService {
         Parsed parsed = validate(request, access.room().parentId());
         String learningAddress = "AT_HOME".equals(request.classMode()) ? homeAddress(access.room().parentId()) : null;
         scanForContactInfo(request);
-        ProposalConflictChecker.Slot slot = new ProposalConflictChecker.Slot(parsed.days(), parsed.scheduleFrom(),
-                parsed.scheduleTo(), parsed.trialDate(), parsed.trialFrom(), parsed.trialTo());
+        TrialSession trial = parsed.trial();
+        ProposalConflictChecker.Slot slot = new ProposalConflictChecker.Slot(parsed.slots(), trial.date(),
+                trial.start(), trial.end());
         if (conflicts.tutorBusy(tutorId, slot)) {
             throw new AppException(ErrorCode.PROPOSAL_TUTOR_BUSY,
                     "Khung giờ học hoặc dạy thử trùng lịch hiện có của bạn, vui lòng chọn khung giờ khác");
@@ -118,10 +124,9 @@ public class ProposalService {
                     """
                     INSERT INTO proposal_messages (
                         room_id, tutor_id, version, student_id, student_name, student_grade, student_school,
-                        student_learning_goal, class_type, fee_percentage, price_per_session, schedule_days,
-                        schedule_time_from, schedule_time_to, trial_date, trial_time_from, trial_time_to,
-                        class_mode, learning_address, note, expires_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::int[], ?, ?, ?, ?, ?, ?, ?, ?,
+                        student_learning_goal, class_type, fee_percentage, price_per_session, start_date,
+                        trial_date, trial_time_from, trial_time_to, class_mode, learning_address, note, expires_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                               NOW() + (? || ' days')::interval) RETURNING id
                     """,
                     Long.class, roomId, tutorId, version, request.studentId(),
@@ -129,11 +134,17 @@ public class ProposalService {
                     request.studentId() == null ? trim(request.studentGrade()) : null,
                     request.studentId() == null ? trim(request.studentSchool()) : null,
                     request.studentId() == null ? trim(request.studentLearningGoal()) : null,
-                    request.classType(), fee, request.pricePerSession(), toPgArray(parsed.days()),
-                    parsed.scheduleFrom(), parsed.scheduleTo(), parsed.trialDate(), parsed.trialFrom(), parsed.trialTo(),
+                    request.classType(), fee, request.pricePerSession(), parsed.startDate(),
+                    trial.date(), trial.start(), trial.end(),
                     request.classMode(), learningAddress, trim(request.note()), String.valueOf(properties.getProposalExpireDays()));
         } catch (DuplicateKeyException e) {
             throw new AppException(ErrorCode.PROPOSAL_DUPLICATE_PENDING);
+        }
+
+        for (WeeklySlot weekly : parsed.slots()) {
+            jdbcTemplate.update(
+                    "INSERT INTO proposal_schedule_slots (proposal_id, day_of_week, start_time, end_time) VALUES (?, ?, ?, ?)",
+                    proposalId, weekly.dayOfWeek(), weekly.start(), weekly.end());
         }
 
         String cardText = cardText(version, request, parsed);
@@ -209,8 +220,8 @@ public class ProposalService {
         return new Locked(((Number) row.get("room_id")).longValue(), ((Number) row.get("version")).intValue());
     }
 
-    record Parsed(List<Integer> days, LocalTime scheduleFrom, LocalTime scheduleTo, LocalDate trialDate,
-                  LocalTime trialFrom, LocalTime trialTo) {}
+    /** {@code slots} đã sắp theo thứ trong tuần. */
+    record Parsed(List<WeeklySlot> slots, LocalDate startDate, TrialSession trial) {}
 
     private Parsed validate(ProposalRequest r, Long parentId) {
         if (!List.of("SHORT_TERM", "REGULAR").contains(r.classType())
@@ -229,21 +240,59 @@ public class ProposalService {
         } else if (trim(r.studentName()) == null || trim(r.studentName()).length() < 2) {
             throw new AppException(ErrorCode.PROPOSAL_STUDENT_REQUIRED);
         }
-        TreeSet<Integer> days = new TreeSet<>(r.scheduleDays());
-        if (days.isEmpty() || days.first() < 1 || days.last() > 7) {
-            throw new AppException(ErrorCode.PROPOSAL_INVALID_SCHEDULE, "Thứ trong tuần không hợp lệ");
-        }
-        try {
-            LocalTime scheduleFrom = LocalTime.parse(r.scheduleTimeFrom());
-            LocalTime scheduleTo = LocalTime.parse(r.scheduleTimeTo());
-            if (!scheduleFrom.isBefore(scheduleTo)) {
-                throw new AppException(ErrorCode.PROPOSAL_INVALID_SCHEDULE, "Giờ kết thúc phải sau giờ bắt đầu");
+        List<WeeklySlot> slots = parseSlots(r.scheduleSlots());
+        LocalDate startDate = parseStartDate(r.startDate());
+        return new Parsed(slots, startDate, TrialSessionPlanner.firstSession(slots, startDate));
+    }
+
+    /** Mỗi thứ đúng một khung giờ; kết quả sắp theo thứ trong tuần. */
+    private static List<WeeklySlot> parseSlots(List<ScheduleSlot> requested) {
+        TreeMap<Integer, WeeklySlot> byDay = new TreeMap<>();
+        for (ScheduleSlot slot : requested) {
+            int day = slot.dayOfWeek();
+            if (day < 1 || day > 7) {
+                throw invalidSchedule("Thứ trong tuần không hợp lệ");
             }
-            LocalDate trialDate = TrialSessionPlanner.firstSessionDate(days, scheduleFrom);
-            return new Parsed(List.copyOf(days), scheduleFrom, scheduleTo, trialDate, scheduleFrom, scheduleTo);
-        } catch (DateTimeParseException e) {
-            throw new AppException(ErrorCode.PROPOSAL_INVALID_SCHEDULE, "Định dạng giờ không hợp lệ");
+            LocalTime from;
+            LocalTime to;
+            try {
+                from = LocalTime.parse(slot.startTime());
+                to = LocalTime.parse(slot.endTime());
+            } catch (DateTimeParseException e) {
+                throw invalidSchedule("Định dạng giờ không hợp lệ");
+            }
+            if (!from.isBefore(to)) {
+                throw invalidSchedule(dayLabel(day) + ": giờ kết thúc phải sau giờ bắt đầu");
+            }
+            if (byDay.put(day, new WeeklySlot(day, from, to)) != null) {
+                throw invalidSchedule(dayLabel(day) + " bị chọn nhiều lần");
+            }
         }
+        if (byDay.isEmpty()) {
+            throw invalidSchedule("Vui lòng chọn thứ trong tuần");
+        }
+        return List.copyOf(byDay.values());
+    }
+
+    private static LocalDate parseStartDate(String value) {
+        LocalDate startDate;
+        try {
+            startDate = LocalDate.parse(value);
+        } catch (DateTimeParseException e) {
+            throw invalidSchedule("Ngày bắt đầu học không hợp lệ");
+        }
+        if (startDate.isBefore(TrialSessionPlanner.today())) {
+            throw invalidSchedule("Ngày bắt đầu học không được ở trong quá khứ");
+        }
+        return startDate;
+    }
+
+    private static AppException invalidSchedule(String message) {
+        return new AppException(ErrorCode.PROPOSAL_INVALID_SCHEDULE, message);
+    }
+
+    private static String dayLabel(int day) {
+        return day == 7 ? "CN" : "T" + (day + 1);
     }
 
     /** Các trường văn bản tự do của đề xuất cũng không được chứa thông tin liên hệ. */
@@ -263,11 +312,14 @@ public class ProposalService {
                 ? trim(r.studentName())
                 : jdbcTemplate.queryForObject("SELECT full_name FROM users WHERE id = ?", String.class, r.studentId());
         String type = "SHORT_TERM".equals(r.classType()) ? "Lớp ngắn hạn (1 tháng)" : "Lớp thông thường";
-        String days = p.days().stream().map(d -> d == 7 ? "CN" : "T" + (d + 1)).reduce((a, b) -> a + ", " + b).orElse("");
+        String schedule = p.slots().stream()
+                .map(s -> dayLabel(s.dayOfWeek()) + " (" + s.start() + "–" + s.end() + ")")
+                .collect(Collectors.joining(", "));
+        DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("dd/MM/yyyy");
         String price = NumberFormat.getInstance(Locale.of("vi", "VN")).format(r.pricePerSession());
         return "Đề xuất lớp học #" + version + " cho học sinh " + student + " — " + type + ", " + price
-                + " đ/buổi, học " + days + " (" + p.scheduleFrom() + "–" + p.scheduleTo()
-                + "). Buổi đầu tiên trong lịch là buổi học thử.";
+                + " đ/buổi, học " + schedule + ", bắt đầu từ " + p.startDate().format(dateFormat)
+                + ". Buổi học thử dự kiến: " + p.trial().date().format(dateFormat) + ".";
     }
 
     /** Địa chỉ học tại nhà luôn là địa chỉ mặc định trong hồ sơ phụ huynh, gia sư không nhập và không xem được. */
@@ -278,10 +330,6 @@ public class ProposalService {
                     "Phụ huynh chưa cập nhật địa chỉ nhà nên chưa thể đề xuất dạy tại nhà");
         }
         return address.strip();
-    }
-
-    private static String toPgArray(List<Integer> values) {
-        return "{" + String.join(",", values.stream().map(String::valueOf).toList()) + "}";
     }
 
     private static String trim(String s) {

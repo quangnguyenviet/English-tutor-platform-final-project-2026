@@ -136,9 +136,9 @@ Quét mọi tin trước khi gửi: số điện thoại VN (kể cả biến th
 | Học sinh | ✔ | **Con có sẵn** (chọn trong `students` của phụ huynh → `student_id`) hoặc **học sinh mới** (họ tên bắt buộc, khối lớp/trường/mục tiêu tùy chọn → `student_name`, `student_grade`, `student_school`, `student_learning_goal`) |
 | `class_type` | ✔ | `SHORT_TERM` (1 tháng) hoặc `REGULAR` (không giới hạn) — quyết định tỷ lệ phí (mục 8.4) |
 | `price_per_session` | ✔ | VND/buổi; gợi ý từ `tutor_prices` |
-| `schedule_days` | ✔ | Các thứ trong tuần (1–7); số buổi/tuần = số thứ chọn |
-| `schedule_time_from/to` | ✔ | Giờ bắt đầu – kết thúc mỗi buổi |
-| `trial_date`, `trial_time_from/to` | ✔ | **Buổi dạy thử** do gia sư đặt trong đề xuất; buổi thử tách riêng khỏi lịch cố định |
+| Lịch học (`proposal_schedule_slots`) | ✔ | Các thứ trong tuần (1–7), **mỗi thứ một giờ bắt đầu – kết thúc riêng**; số buổi/tuần = số thứ chọn |
+| `start_date` (ngày bắt đầu học) | ✔ | Ngày bất kỳ, không ở quá khứ |
+| `trial_date`, `trial_time_from/to` | tự tính | **Buổi dạy thử** = buổi đầu tiên trong lịch tính từ `start_date` (nếu lúc phụ huynh đồng ý ngày đó đã qua thì tính từ thời điểm đồng ý) |
 | `class_mode` | ✔ | `AT_HOME` / `ONLINE` |
 | `learning_address` (địa chỉ học) | ✔ khi `AT_HOME` | Địa chỉ học tại nhà (≥ 5 ký tự, ≤ 500); không có với lớp `ONLINE`. Gia sư tự điền trong form đề xuất; phụ huynh đã khai địa chỉ nhà ở form hồ sơ (mục 4.2) |
 | `note` | — | Ghi chú |
@@ -237,7 +237,7 @@ Từ chối: đề xuất `REJECTED` kèm lý do, SĐT vẫn ẩn, chat tiếp t
 - **`oauth_accounts`** — đã triển khai ở MSG-02.
 - **`chat_outbox`**: hàng đợi tin hệ thống (đề xuất được đồng ý/từ chối/rút/hết hạn) gửi sang Rocket.Chat; Rocket.Chat tạm lỗi không làm hỏng nghiệp vụ.
 - **`chat_rooms`**: `id`, `room_type` (`DIRECT`/`APPLICATION`), `parent_id`, `tutor_id`, `class_application_id` (NULL với DIRECT), `rocket_room_id`, `status` (`ACTIVE`/`CLOSED`), timestamps. Ràng buộc: `UNIQUE(class_application_id)`; unique một phần `(parent_id, tutor_id)` khi `room_type = 'DIRECT'`. Khi application bị xóa, `class_application_id` bị `SET NULL` nên không có ràng buộc ép khớp chiều `room_type`.
-- **`proposal_messages`**: `id`, `room_id`, `tutor_id`, `version`, `student_id` / `student_name` / `student_grade` / `student_school` / `student_learning_goal`, `class_type`, `fee_percentage` (snapshot), `price_per_session`, `schedule_days`, `schedule_time_from/to`, `trial_date`, `trial_time_from/to`, `class_mode`, `learning_address` (địa chỉ học khi `class_mode = AT_HOME`, NULL khi `ONLINE`; thêm ở V29), `note`, `status`, `rejection_reason`, `decided_at`, `rocket_message_id`. `UNIQUE(room_id, version)`; CHECK `student_id` hoặc `student_name` có giá trị; unique một phần cho đề xuất `PENDING` theo học sinh.
+- **`proposal_messages`**: `id`, `room_id`, `tutor_id`, `version`, `student_id` / `student_name` / `student_grade` / `student_school` / `student_learning_goal`, `class_type`, `fee_percentage` (snapshot), `price_per_session`, `start_date` (V34), `trial_date`, `trial_time_from/to`, `class_mode`, `learning_address` (địa chỉ học khi `class_mode = AT_HOME`, NULL khi `ONLINE`; thêm ở V29), `note`, `status`, `rejection_reason`, `decided_at`, `rocket_message_id`. `UNIQUE(room_id, version)`; CHECK `student_id` hoặc `student_name` có giá trị; unique một phần cho đề xuất `PENDING` theo học sinh. Lịch tuần nằm ở **`proposal_schedule_slots`** (V34): `proposal_id`, `day_of_week`, `start_time`, `end_time`; PK (`proposal_id`, `day_of_week`).
 - **`platform_fee_policies`**: `id`, `class_type`, `fee_percentage`, `effective_from`, `active`, `created_by`, `created_at`. Seed `SHORT_TERM = 25`, `REGULAR = 35`.
 - **`chat_pii_events`**: `id`, `room_id`, `user_id` (người liên quan, NULL với sự kiện do hệ thống), `type` (`PII_BLOCKED`/`PHONE_UNLOCKED`/`REVIEW_REINSTATED`), `detail` (JSONB), `blocked_text` (nguyên văn tin vi phạm, chỉ `PII_BLOCKED`), `reviewed_by`/`reviewed_at`/`review_note` (đánh dấu xem xét nội bộ cho E-7), `created_at`. Tin thường **không** lưu PostgreSQL; `blocked_text` là ngoại lệ có chủ đích — chỉ để trung tâm kiểm duyệt, không gửi lại chat.
 - **`rocket_chat_accounts`**: ánh xạ `users` ↔ tài khoản Rocket.Chat.

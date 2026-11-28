@@ -8,11 +8,10 @@ import {
   DAY_LABEL,
   PROPOSAL_STATUS,
   apiGetStudentAccount,
+  formatSessionDate,
   formatTime,
   formatVnd,
 } from "../../lib/messagingApi";
-
-const formatDate = (value) => (value ? new Date(`${value}T00:00:00`).toLocaleDateString("vi-VN") : "");
 
 /**
  * Thẻ đề xuất lớp học trong khung chat. Dòng "Cho học sinh" nổi bật vì là điểm xác thực của phụ huynh
@@ -28,6 +27,12 @@ export default function ProposalCard({ proposal, viewer, token, onAccept, onReje
   const status = PROPOSAL_STATUS[proposal.status] || { label: proposal.status, tone: "neutral" };
   const student = proposal.student;
   const pending = proposal.status === "PENDING";
+  // Đề xuất đang chờ chỉ hiện buổi thử dự kiến khi buổi đó chưa diễn ra; quá giờ thì sẽ được tính lại lúc đồng ý.
+  const trialTime = `${formatSessionDate(proposal.trialDate)}, ${formatTime(proposal.trialTimeFrom)} – ${formatTime(proposal.trialTimeTo)}`;
+  const upcoming = new Date(`${proposal.trialDate}T${formatTime(proposal.trialTimeFrom)}:00+07:00`) > new Date();
+  let trialLabel = "Buổi đầu tiên trong lịch học";
+  if (proposal.status === "ACCEPTED") trialLabel = trialTime;
+  else if (pending && upcoming) trialLabel = `Dự kiến ${trialTime}`;
 
   async function toggleDetails() {
     const next = !open;
@@ -77,22 +82,26 @@ export default function ProposalCard({ proposal, viewer, token, onAccept, onReje
         </div>
         <div className="col-span-2">
           <dt className="text-xs text-slate-500 dark:text-slate-400">Lịch học cố định</dt>
-          <dd className="mt-1 flex flex-wrap items-center gap-1.5">
-            {proposal.scheduleDays.map((day) => (
-              <Badge key={day} tone="blue">{DAY_LABEL[day]}</Badge>
+          <dd className="mt-1 space-y-1">
+            {proposal.scheduleSlots.map((slot) => (
+              <div key={slot.dayOfWeek} className="flex items-center gap-2">
+                <Badge tone="blue">{DAY_LABEL[slot.dayOfWeek]}</Badge>
+                <span className="font-mono text-sm text-slate-700 dark:text-slate-200">
+                  {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
+                </span>
+              </div>
             ))}
-            <span className="font-mono text-sm text-slate-700 dark:text-slate-200">
-              {formatTime(proposal.scheduleTimeFrom)} – {formatTime(proposal.scheduleTimeTo)}
-            </span>
           </dd>
+        </div>
+        <div className="col-span-2">
+          <dt className="text-xs text-slate-500 dark:text-slate-400">Ngày bắt đầu học</dt>
+          <dd className="text-slate-900 dark:text-white">{formatSessionDate(proposal.startDate)}</dd>
         </div>
         <div className="col-span-2">
           <dt className="text-xs text-slate-500 dark:text-slate-400">Buổi học thử</dt>
           <dd className="flex items-center gap-1.5 text-slate-900 dark:text-white">
             <CalendarDays size={14} className="text-slate-400" />
-            {proposal.status === "ACCEPTED"
-              ? `${formatDate(proposal.trialDate)}, ${formatTime(proposal.trialTimeFrom)} – ${formatTime(proposal.trialTimeTo)}`
-              : "Buổi đầu tiên trong lịch học"}
+            {trialLabel}
           </dd>
         </div>
         <div>

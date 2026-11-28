@@ -15,6 +15,8 @@ import com.mycompany.englishtutor.module.matching.service.StudentAccountService;
 import com.mycompany.englishtutor.module.messaging.api.ChatDtos.AcceptResult;
 import com.mycompany.englishtutor.module.messaging.service.ChatRoomService.Access;
 import com.mycompany.englishtutor.module.messaging.service.ChatRoomService.Viewer;
+import com.mycompany.englishtutor.module.messaging.service.TrialSessionPlanner.TrialSession;
+import com.mycompany.englishtutor.module.messaging.service.TrialSessionPlanner.WeeklySlot;
 import com.mycompany.englishtutor.module.payment.service.PaymentService;
 import com.mycompany.englishtutor.shared.exception.AppException;
 import com.mycompany.englishtutor.shared.exception.ErrorCode;
@@ -49,7 +51,8 @@ public class ProposalAcceptService {
     private AcceptResult doAccept(Long proposalId, HttpServletRequest http) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 """
-                SELECT p.*, p.expires_at < NOW() AS expired, COALESCE(array_length(p.schedule_days, 1), 0) AS sessions
+                SELECT p.*, p.expires_at < NOW() AS expired,
+                       (SELECT COUNT(*) FROM proposal_schedule_slots s WHERE s.proposal_id = p.id) AS sessions
                 FROM proposal_messages p WHERE p.id = ? FOR UPDATE
                 """,
                 proposalId);
@@ -173,18 +176,23 @@ public class ProposalAcceptService {
     }
 
     /**
-     * Buổi học thử là buổi đầu tiên trong lịch tính từ lúc phụ huynh đồng ý. Ghi vào đề xuất trước khi kiểm tra trùng
-     * lịch, đồng thời cập nhật {@code p} để tạo lớp đúng ngày; gia sư đổi giờ sau ở trang lớp học.
+     * Buổi học thử là buổi đầu tiên trong lịch tính từ ngày bắt đầu học (nếu ngày đó đã qua thì tính từ lúc phụ huynh
+     * đồng ý). Ghi vào đề xuất trước khi kiểm tra trùng lịch, đồng thời cập nhật {@code p} để tạo lớp đúng ngày;
+     * gia sư đổi giờ sau ở trang lớp học.
      */
     private void planTrialSession(Long proposalId, Map<String, Object> p) {
-        List<Integer> days = jdbcTemplate.queryForList(
-                "SELECT unnest(schedule_days) FROM proposal_messages WHERE id = ?", Integer.class, proposalId);
-        if (days.isEmpty()) {
+        List<WeeklySlot> slots = jdbcTemplate.query(
+                "SELECT day_of_week, start_time, end_time FROM proposal_schedule_slots WHERE proposal_id = ?",
+                (rs, rowNum) -> new WeeklySlot(rs.getInt("day_of_week"),
+                        rs.getTime("start_time").toLocalTime(), rs.getTime("end_time").toLocalTime()),
+                proposalId);
+        if (slots.isEmpty()) {
             return;
         }
-        Time from = (Time) p.get("schedule_time_from");
-        Time to = (Time) p.get("schedule_time_to");
-        Date date = Date.valueOf(TrialSessionPlanner.firstSessionDate(days, from.toLocalTime()));
+        TrialSession trial = TrialSessionPlanner.firstSession(slots, ((Date) p.get("start_date")).toLocalDate());
+        Date date = Date.valueOf(trial.date());
+        Time from = Time.valueOf(trial.start());
+        Time to = Time.valueOf(trial.end());
         jdbcTemplate.update(
                 "UPDATE proposal_messages SET trial_date = ?, trial_time_from = ?, trial_time_to = ? WHERE id = ?",
                 date, from, to, proposalId);
@@ -237,11 +245,12 @@ public class ProposalAcceptService {
                 """
                 SELECT EXISTS (
                     SELECT 1 FROM proposal_messages p
+                    JOIN proposal_schedule_slots s ON s.proposal_id = p.id
                     JOIN classes c ON c.tutor_id = p.tutor_id AND c.status IN ('TRIAL', 'ACTIVE')
                     JOIN class_schedules cs ON cs.class_id = c.id
                     WHERE p.id = ? AND (cs.valid_to IS NULL OR cs.valid_to >= CURRENT_DATE)
-                      AND cs.day_of_week = ANY (p.schedule_days)
-                      AND cs.start_time < p.schedule_time_to AND cs.end_time > p.schedule_time_from
+                      AND cs.day_of_week = s.day_of_week
+                      AND cs.start_time < s.end_time AND cs.end_time > s.start_time
                 ) OR EXISTS (
                     SELECT 1 FROM proposal_messages p
                     JOIN classes c ON c.tutor_id = p.tutor_id AND c.status IN ('TRIAL', 'ACTIVE')

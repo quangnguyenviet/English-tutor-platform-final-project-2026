@@ -10,6 +10,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.mycompany.englishtutor.module.audit.service.AuditLogService;
 import com.mycompany.englishtutor.module.messaging.api.ChatDtos.ProposalRequest;
+import com.mycompany.englishtutor.module.messaging.api.ChatDtos.ScheduleSlot;
 import com.mycompany.englishtutor.module.messaging.config.MessagingProperties;
 import com.mycompany.englishtutor.module.messaging.pii.PiiDetector;
 import com.mycompany.englishtutor.module.messaging.rocketchat.RocketChatClient;
@@ -28,6 +31,11 @@ import com.mycompany.englishtutor.shared.exception.AppException;
 import com.mycompany.englishtutor.shared.exception.ErrorCode;
 
 class ProposalServiceTest {
+
+    private static final String NEXT_MONDAY =
+            TrialSessionPlanner.today().with(TemporalAdjusters.next(DayOfWeek.MONDAY)).toString();
+    private static final List<ScheduleSlot> WEEKLY =
+            List.of(new ScheduleSlot(2, "19:00", "20:30"), new ScheduleSlot(4, "18:00", "19:30"));
 
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
     private final MessagingActor actor = mock(MessagingActor.class);
@@ -54,7 +62,7 @@ class ProposalServiceTest {
 
     private ProposalRequest request(String note) {
         return new ProposalRequest(null, "Lê Hoàng Nam", "Lớp 8", null, null, "SHORT_TERM", new BigDecimal("300000"),
-                List.of(2, 4), "19:00", "20:30", "ONLINE", note);
+                NEXT_MONDAY, WEEKLY, "ONLINE", note);
     }
 
     @Test
@@ -84,7 +92,7 @@ class ProposalServiceTest {
                 .thenReturn(1);
         when(conflicts.studentBusy(eq(9L), any())).thenReturn(true);
         ProposalRequest r = new ProposalRequest(9L, null, null, null, null, "SHORT_TERM", new BigDecimal("300000"),
-                List.of(2, 4), "19:00", "20:30", "ONLINE", null);
+                NEXT_MONDAY, WEEKLY, "ONLINE", null);
 
         AppException ex = assertThrows(AppException.class, () -> service.create(5L, r, null));
 
@@ -100,7 +108,18 @@ class ProposalServiceTest {
     @Test
     void create_endTimeBeforeStart_isRejected() {
         ProposalRequest bad = new ProposalRequest(null, "Lê Hoàng Nam", null, null, null, "SHORT_TERM",
-                new BigDecimal("300000"), List.of(2), "20:30", "19:00", "ONLINE", null);
+                new BigDecimal("300000"), NEXT_MONDAY, List.of(new ScheduleSlot(2, "20:30", "19:00")), "ONLINE", null);
+
+        AppException ex = assertThrows(AppException.class, () -> service.create(5L, bad, null));
+
+        assertEquals(ErrorCode.PROPOSAL_INVALID_SCHEDULE, ex.getErrorCode());
+    }
+
+    @Test
+    void create_startDateInThePast_isRejected() {
+        String yesterday = TrialSessionPlanner.today().minusDays(1).toString();
+        ProposalRequest bad = new ProposalRequest(null, "Lê Hoàng Nam", null, null, null, "SHORT_TERM",
+                new BigDecimal("300000"), yesterday, WEEKLY, "ONLINE", null);
 
         AppException ex = assertThrows(AppException.class, () -> service.create(5L, bad, null));
 
